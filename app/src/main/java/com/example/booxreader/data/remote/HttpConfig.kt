@@ -2,24 +2,19 @@ package com.example.booxreader.data.remote
 
 object HttpConfig {
 
-    // TODO: 換成你自己的 server 位址
-    // 例如: http://192.168.0.10:8080/bookmarks
-    const val BOOKMARK_ENDPOINT: String =
-        "https://node-ajil.risc-v.tw/boox-update"
+    const val DEFAULT_BASE_URL = "https://node-ajil.risc-v.tw"
 
-    // ✅ 閱讀進度上報
-    const val PROGRESS_ENDPOINT: String =
-        "https://node-ajil.risc-v.tw/boox-progress"
+    // Endpoint Paths
+    const val PATH_BOOKMARK = "/boox-update"
+    const val PATH_PROGRESS = "/boox-progress"
+    const val PATH_TEXT_AI = "/boox-text-ai"
+    const val PATH_TEXT_AI_CONTINUE = "/boox-text-ai-continue"
+    const val PATH_AI_NOTES_EXPORT = "/boox-ai-notes-export"
 
-    // ✅ 選取文字發佈
-    const val TEXT_AI_ENDPOINT: String =
-        "https://node-ajil.risc-v.tw/boox-text-ai"
-
-    // ✅ 選取文字後續提問
-    const val TEXT_AI_CONTINUE_ENDPOINT: String =
-        "https://node-ajil.risc-v.tw/boox-text-ai-continue"
-
-    // ✅ 匯出 AI Notes
-    const val AI_NOTES_EXPORT_ENDPOINT: String =
-        "https://node-ajil.risc-v.tw/boox-ai-notes-export"
+    // Deprecated: Kept for compatibility if referenced elsewhere, but prefer building dynamically
+    val BOOKMARK_ENDPOINT = "$DEFAULT_BASE_URL$PATH_BOOKMARK"
+    val PROGRESS_ENDPOINT = "$DEFAULT_BASE_URL$PATH_PROGRESS"
+    val TEXT_AI_ENDPOINT = "$DEFAULT_BASE_URL$PATH_TEXT_AI"
+    val TEXT_AI_CONTINUE_ENDPOINT = "$DEFAULT_BASE_URL$PATH_TEXT_AI_CONTINUE"
+    val AI_NOTES_EXPORT_ENDPOINT = "$DEFAULT_BASE_URL$PATH_AI_NOTES_EXPORT"
 }

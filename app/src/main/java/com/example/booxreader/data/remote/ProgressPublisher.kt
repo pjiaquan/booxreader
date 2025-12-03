@@ -9,10 +9,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class ProgressPublisher(
-
+    private val baseUrlProvider: () -> String,
     private val client: OkHttpClient = OkHttpClient(),
     private val gson: Gson = Gson()
-
 ) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -30,8 +29,10 @@ class ProgressPublisher(
         val json = gson.toJson(payload)
         val body = json.toRequestBody(jsonMediaType)
 
+        val baseUrl = baseUrlProvider()
+        val url = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
         val request = Request.Builder()
-            .url(HttpConfig.PROGRESS_ENDPOINT)
+            .url(url + HttpConfig.PATH_PROGRESS)
             .post(body)
             .build()
 

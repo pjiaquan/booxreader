@@ -11,13 +11,20 @@ import org.readium.r2.shared.publication.Locator
 import com.example.booxreader.data.remote.BookmarkPublisher
 import android.util.Log
 
+import com.example.booxreader.data.remote.HttpConfig
+
 class BookmarkRepository(context: Context) {
 
     private val db = AppDatabase.get(context)
     private val dao = db.bookmarkDao()
 
+    private fun getBaseUrl(context: Context): String {
+        val prefs = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
+        return prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL) ?: HttpConfig.DEFAULT_BASE_URL
+    }
+
     // ✨ 新增：HTTP 發佈工具
-    private val publisher = BookmarkPublisher()
+    private val publisher = BookmarkPublisher(baseUrlProvider = { getBaseUrl(context) })
 
     suspend fun getBookmarks(bookId: String): List<BookmarkEntity> =
         withContext(Dispatchers.IO) {

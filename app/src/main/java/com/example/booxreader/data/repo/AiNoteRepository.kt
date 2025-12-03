@@ -14,8 +14,14 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class AiNoteRepository(context: Context) {
+class AiNoteRepository(private val context: Context) {
     private val dao = AppDatabase.get(context).aiNoteDao()
+
+    private fun getBaseUrl(): String {
+        val prefs = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
+        var url = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL) ?: HttpConfig.DEFAULT_BASE_URL
+        return if (url.endsWith("/")) url.dropLast(1) else url
+    }
 
     suspend fun add(bookId: String?, originalText: String, aiResponse: String, locatorJson: String? = null): Long {
         val note = AiNoteEntity(
@@ -56,8 +62,9 @@ class AiNoteRepository(context: Context) {
 
                 val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
 
+                val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI
                 val request = Request.Builder()
-                    .url(HttpConfig.TEXT_AI_ENDPOINT)
+                    .url(url)
                     .post(requestBody)
                     .build()
 
@@ -122,8 +129,9 @@ class AiNoteRepository(context: Context) {
         val requestBody =
             payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
+        val url = getBaseUrl() + HttpConfig.PATH_AI_NOTES_EXPORT
         val request = Request.Builder()
-            .url(HttpConfig.AI_NOTES_EXPORT_ENDPOINT)
+            .url(url)
             .post(requestBody)
             .build()
 
@@ -167,8 +175,9 @@ class AiNoteRepository(context: Context) {
                 val requestBody =
                     payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
+                val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE
                 val request = Request.Builder()
-                    .url(HttpConfig.TEXT_AI_CONTINUE_ENDPOINT)
+                    .url(url)
                     .post(requestBody)
                     .build()
 

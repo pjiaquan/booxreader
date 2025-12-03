@@ -11,7 +11,6 @@ import androidx.lifecycle.lifecycleScope
 import com.example.booxreader.data.db.BookmarkEntity
 import com.example.booxreader.data.repo.BookmarkRepository
 import com.example.booxreader.databinding.ActivityBookmarkListBinding
-import com.example.booxreader.reader.ReaderViewModel
 import kotlinx.coroutines.launch
 
 class BookmarkListActivity : AppCompatActivity() {

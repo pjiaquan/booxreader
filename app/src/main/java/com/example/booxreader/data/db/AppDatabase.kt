@@ -26,7 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "boox_reader.db"
                 )
-                .fallbackToDestructiveMigration() // Dev only: reset DB on schema change
+                // .fallbackToDestructiveMigration() // REMOVED: unsafe for production
                 .build().also { INSTANCE = it }
             }
         }

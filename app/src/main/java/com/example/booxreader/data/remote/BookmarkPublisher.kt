@@ -10,10 +10,9 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class BookmarkPublisher(
-
+    private val baseUrlProvider: () -> String,
     private val client: OkHttpClient = OkHttpClient(),
     private val gson: Gson = Gson()
-
 ) {
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -30,9 +29,11 @@ class BookmarkPublisher(
 
         val json = gson.toJson(payload)
         val body = json.toRequestBody(jsonMediaType)
-
+        
+        val baseUrl = baseUrlProvider()
+        val url = if (baseUrl.endsWith("/")) baseUrl.dropLast(1) else baseUrl
         val request = Request.Builder()
-            .url(HttpConfig.BOOKMARK_ENDPOINT)
+            .url(url + HttpConfig.PATH_BOOKMARK)
             .post(body)
             .build()
 
