@@ -81,6 +81,7 @@ dependencies {
     // --- UI / Material ---
     implementation(libs.google.material)
     implementation(libs.markwon.core)
+    implementation(libs.markwon.ext.tables)
     
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)
@@ -93,6 +94,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.recyclerview)
 
     // --- Testing ---
     testImplementation(libs.junit)
@@ -102,19 +104,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-}
-
-// NOTE: This strategy forces core-ktx to 1.12.0 to avoid potential conflicts with transitive dependencies
-// requesting newer versions that might require a higher AGP/compileSdk.
-// If you update AGP or compileSdk in the future, try removing this block.
-configurations.all {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "androidx.core" && requested.name == "core-ktx") {
-            useVersion("1.12.0")
-            because("core-ktx 1.17.0 requires AGP 8.9 / compileSdk 36, locking to 1.12.0 for now")
-        }
-        if (requested.group == "androidx.core" && requested.name == "core") {
-            useVersion("1.12.0")
-        }
-    }
 }

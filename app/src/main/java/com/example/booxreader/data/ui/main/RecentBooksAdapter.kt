@@ -1,0 +1,47 @@
+package com.example.booxreader.data.ui.main
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.example.booxreader.R
+import com.example.booxreader.data.db.BookEntity
+
+class RecentBooksAdapter(
+    private var items: List<BookEntity>,
+    private val onClick: (BookEntity) -> Unit
+) : RecyclerView.Adapter<RecentBooksAdapter.RecentViewHolder>() {
+
+    fun submit(list: List<BookEntity>) {
+        items = list
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecentViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_recent_book, parent, false)
+        return RecentViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: RecentViewHolder, position: Int) {
+        val item = items[position]
+        holder.bind(item, onClick)
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    class RecentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val tvTitle: TextView = itemView.findViewById(R.id.tvTitle)
+        private val tvPath: TextView = itemView.findViewById(R.id.tvPath)
+        private val tvTime: TextView = itemView.findViewById(R.id.tvTime)
+
+        fun bind(item: BookEntity, onClick: (BookEntity) -> Unit) {
+            tvTitle.text = item.title?.takeIf { it.isNotBlank() } ?: "未命名書籍"
+            tvPath.text = item.fileUri
+            tvTime.text = android.text.format.DateFormat.format("yyyy/MM/dd HH:mm", item.lastOpenedAt)
+
+            itemView.setOnClickListener { onClick(item) }
+        }
+    }
+}

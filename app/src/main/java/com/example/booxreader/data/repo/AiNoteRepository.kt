@@ -10,6 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -87,4 +88,171 @@ class AiNoteRepository(context: Context) {
             }
         }
     }
+
+    suspend fun exportAllNotes(): ExportResult = withContext(Dispatchers.IO) {
+        val notes = dao.getAll()
+        if (notes.isEmpty()) {
+            return@withContext ExportResult(
+                success = false,
+                exportedCount = 0,
+                isEmpty = true,
+                message = "No AI notes to export"
+            )
+        }
+
+        val notesArray = JSONArray().apply {
+            notes.forEach { note ->
+                put(
+                    JSONObject().apply {
+                        put("id", note.id)
+                        put("bookId", note.bookId ?: JSONObject.NULL)
+                        put("originalText", note.originalText)
+                        put("aiResponse", note.aiResponse)
+                        put("locatorJson", note.locatorJson ?: JSONObject.NULL)
+                        put("createdAt", note.createdAt)
+                    }
+                )
+            }
+        }
+
+        val payload = JSONObject().apply {
+            put("notes", notesArray)
+        }
+
+        val requestBody =
+            payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+
+        val request = Request.Builder()
+            .url(HttpConfig.AI_NOTES_EXPORT_ENDPOINT)
+            .post(requestBody)
+            .build()
+
+        return@withContext try {
+            OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build()
+                .newCall(request)
+                .execute()
+                .use { response ->
+                    if (response.isSuccessful) {
+                        ExportResult(success = true, exportedCount = notes.size)
+                    } else {
+                        ExportResult(
+                            success = false,
+                            exportedCount = notes.size,
+                            message = "Server error: ${response.code}"
+                        )
+                    }
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ExportResult(
+                success = false,
+                exportedCount = notes.size,
+                message = e.message ?: "Unknown error"
+            )
+        }
+    }
+
+    suspend fun continueConversation(note: AiNoteEntity, followUpText: String): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = JSONObject().apply {
+                    put("history", buildHistoryArray(note))
+                    put("text", followUpText)
+                }
+
+                val requestBody =
+                    payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+
+                val request = Request.Builder()
+                    .url(HttpConfig.TEXT_AI_CONTINUE_ENDPOINT)
+                    .post(requestBody)
+                    .build()
+
+                OkHttpClient.Builder()
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .writeTimeout(30, TimeUnit.SECONDS)
+                    .build()
+                    .newCall(request)
+                    .execute()
+                    .use { response ->
+                        if (!response.isSuccessful) return@withContext null
+                        response.body?.string()?.let { body ->
+                            JSONObject(body).optString("content", "")
+                                .takeIf { it.isNotEmpty() }
+                        }
+                    }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
+    private fun buildHistoryArray(note: AiNoteEntity): JSONArray {
+        val history = JSONArray()
+
+        // Base user message
+        history.put(
+            JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().put(JSONObject().put("text", note.originalText)))
+            }
+        )
+
+        if (note.aiResponse.isBlank()) {
+            return history
+        }
+
+        // Split existing responses by separator to reconstruct turns
+        val segments = note.aiResponse.split("\n---\n").filter { it.isNotBlank() }
+        if (segments.isNotEmpty()) {
+            // First segment: original AI answer
+            val baseAnswer = segments.first().trim()
+            if (baseAnswer.isNotEmpty()) {
+                history.put(
+                    JSONObject().apply {
+                        put("role", "model")
+                        put("parts", JSONArray().put(JSONObject().put("text", baseAnswer)))
+                    }
+                )
+            }
+
+            // Subsequent segments: follow-up Q/A pairs formatted as "Q: <question>\n\n<answer>"
+            segments.drop(1).forEach { seg ->
+                val lines = seg.trim().lines()
+                val qLine = lines.firstOrNull()?.removePrefix("Q:")?.trim().orEmpty()
+                val answer = lines.drop(1).joinToString("\n").trim()
+
+                if (qLine.isNotEmpty()) {
+                    history.put(
+                        JSONObject().apply {
+                            put("role", "user")
+                            put("parts", JSONArray().put(JSONObject().put("text", qLine)))
+                        }
+                    )
+                }
+                if (answer.isNotEmpty()) {
+                    history.put(
+                        JSONObject().apply {
+                            put("role", "model")
+                            put("parts", JSONArray().put(JSONObject().put("text", answer)))
+                        }
+                    )
+                }
+            }
+        }
+
+        return history
+    }
 }
+
+data class ExportResult(
+    val success: Boolean,
+    val exportedCount: Int,
+    val isEmpty: Boolean = false,
+    val message: String? = null
+)

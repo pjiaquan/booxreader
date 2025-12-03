@@ -20,4 +20,10 @@ interface BookDao {
 
     @Query("UPDATE books SET lastLocatorJson = :locatorJson, lastOpenedAt = :time WHERE bookId = :bookId")
     suspend fun updateProgress(bookId: String, locatorJson: String, time: Long)
+
+    @Query("UPDATE books SET lastOpenedAt = :time WHERE bookId = :bookId")
+    suspend fun updateLastOpened(bookId: String, time: Long)
+
+    @Query("SELECT * FROM books ORDER BY lastOpenedAt DESC LIMIT :limit")
+    suspend fun getRecent(limit: Int): List<BookEntity>
 }

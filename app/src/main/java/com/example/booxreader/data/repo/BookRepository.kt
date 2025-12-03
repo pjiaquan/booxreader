@@ -37,4 +37,13 @@ class BookRepository(context: Context) {
         val now = System.currentTimeMillis()
         bookDao.updateProgress(bookId, locatorJson, now)
     }
+
+    suspend fun touchOpened(bookId: String) {
+        val now = System.currentTimeMillis()
+        bookDao.updateLastOpened(bookId, now)
+    }
+
+    suspend fun getRecent(limit: Int = 5): List<BookEntity> {
+        return bookDao.getRecent(limit)
+    }
 }

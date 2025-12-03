@@ -5,8 +5,12 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.ActionMode
+import android.view.GestureDetector
 import android.view.Menu
 import android.view.MenuItem
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -41,6 +45,8 @@ import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.AbsoluteUrl
+import org.readium.r2.shared.util.Url
+import org.readium.r2.shared.util.mediatype.MediaType
 import org.readium.r2.shared.util.asset.AssetRetriever
 import org.readium.r2.shared.util.getOrElse
 import org.readium.r2.shared.util.http.DefaultHttpClient
@@ -59,6 +65,15 @@ import kotlin.OptIn
 class ReaderActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityReaderBinding
+    private var currentPublication: Publication? = null
+    private val bookRepository by lazy { BookRepository(applicationContext) }
+    private var currentBookId: String? = null
+    private var pageTapEnabled: Boolean = true
+    private var potentialPageTap: Boolean = false
+    private var tapDownTime: Long = 0L
+    private var tapDownX: Float = 0f
+    private var tapDownY: Float = 0f
+    private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
     
     // Default font size: 150%
     private var currentFontSize: Int = 150
@@ -108,6 +123,7 @@ class ReaderActivity : AppCompatActivity() {
         // 1. 設置 ViewBinding (解決 Layout 不正確的問題)
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.tapOverlay.bringToFront()
 
         // 2. 獲取傳入的書籍 URI
         val bookUri = intent.data
@@ -146,23 +162,23 @@ class ReaderActivity : AppCompatActivity() {
             AiNoteListActivity.open(this@ReaderActivity, key)
         }
 
-        // 目前 Bookmark button 先留著，之後再接 Room 的書籤系統
-        binding.btnAddBookmark.setOnClickListener {
-            addBookmarkFromCurrentPosition()
-        }
+        binding.btnAddBookmark.visibility = android.view.View.GONE
 
         binding.btnShowBookmarks.setOnClickListener {
-            openBookmarkList()
+            publishCurrentSelection()
         }
 
         binding.btnSettings.setOnClickListener {
             showSettingsDialog()
         }
 
+        initTapNavigation()
+
         // Load saved font size
         // If user has 100 (old default), force upgrade to 150 (new default)
         val savedSize = prefs.getInt("font_size", 150)
         currentFontSize = if (savedSize == 100) 150 else savedSize
+        pageTapEnabled = prefs.getBoolean("page_tap_enabled", true)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -210,10 +226,18 @@ class ReaderActivity : AppCompatActivity() {
                 val publication = withContext(Dispatchers.IO) {
                     openPublication(uri)
                 }
+                currentPublication = publication
+                currentBookId = uri.toString()
 
                 // 2. 決定這本書的「穩定 key」：
                 //    優先用 metadata.identifier，其次用 uri 字串
                 bookKey = publication.metadata.identifier ?: uri.toString()
+
+                // 2.5 記錄或更新最近閱讀紀錄
+                withContext(Dispatchers.IO) {
+                    bookRepository.getOrCreateByUri(uri.toString(), publication.metadata.title)
+                    currentBookId?.let { bookRepository.touchOpened(it) }
+                }
 
                 // 3. 嘗試從 SharedPreferences 還原上次位置
                 val initialLocator = loadSavedProgress()
@@ -241,10 +265,28 @@ class ReaderActivity : AppCompatActivity() {
         outState.putString("book_key", bookKey)
     }
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                navigatorFragment?.goBackward()
+                true
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                navigatorFragment?.goForward()
+                true
+            }
+            else -> super.onKeyDown(keyCode, event)
+        }
+    }
+
     private fun setupDecorationListener() {
         navigatorFragment?.addDecorationListener("ai_notes", object : DecorableNavigator.Listener {
             override fun onDecorationActivated(event: DecorableNavigator.OnActivatedEvent): Boolean {
-                val noteId = event.decoration.id.toLongOrNull()
+                val id = event.decoration.id
+                val noteId = when {
+                    id.startsWith("note_") -> id.removePrefix("note_").substringBefore("_").toLongOrNull()
+                    else -> id.toLongOrNull()
+                }
                 return if (noteId != null) {
                     com.example.booxreader.data.ui.notes.AiNoteDetailActivity.open(this@ReaderActivity, noteId)
                     true
@@ -301,6 +343,9 @@ class ReaderActivity : AppCompatActivity() {
                 .commitNow()
         }
 
+        // Ensure tap overlay stays above the fragment view
+        binding.tapOverlay.bringToFront()
+
         navigatorFragment =
             supportFragmentManager.findFragmentById(R.id.readerContainer) as? EpubNavigatorFragment
 
@@ -342,6 +387,15 @@ class ReaderActivity : AppCompatActivity() {
         prefs.edit()
             .putString("progress_$key", json)
             .apply()
+
+        currentBookId?.let { bookId ->
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    bookRepository.updateProgress(bookId, json)
+                } catch (_: Exception) {
+                }
+            }
+        }
 
         // 2) 背景 thread 上報到 HTTP server（最佳努力，不影響 UI）
         lifecycleScope.launch(Dispatchers.IO) {
@@ -424,11 +478,53 @@ class ReaderActivity : AppCompatActivity() {
         BookmarkListActivity.openForResult(this, key, REQ_BOOKMARK)
     }
 
+    private fun publishCurrentSelection() {
+        lifecycleScope.launch {
+            val selection = navigatorFragment?.currentSelection()
+            val text = selection?.locator?.text?.highlight
+            val locatorJson = LocatorJsonHelper.toJson(selection?.locator)
+
+            if (text.isNullOrBlank()) {
+                Toast.makeText(this@ReaderActivity, "No selection", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            // Clear selection / hide handles for smoother UX
+            selection?.let {
+                try {
+                    navigatorFragment?.clearSelection()
+                } catch (_: Exception) {
+                }
+            }
+
+            val sanitized = withContext(Dispatchers.Default) {
+                text
+                    .replace(Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$"), "")
+                    .replace(Regex("\\s+"), " ")
+                    .take(MAX_SELECTION_CHARS)
+            }
+
+            if (sanitized.isBlank()) {
+                Toast.makeText(this@ReaderActivity, "No selection", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            Toast.makeText(this@ReaderActivity, "Publishing...", Toast.LENGTH_SHORT).show()
+            postTextToServer(sanitized, locatorJson)
+        }
+    }
+
     // 自定義選取文字後的 Action Mode (新增 "發佈")
-    private val selectionActionModeCallback = object : ActionMode.Callback {
+    private val selectionActionModeCallback = object : ActionMode.Callback2() {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-            // 新增 "發佈" 選項，order = 0 讓他排在前面
-            menu?.add(Menu.NONE, 999, 0, "發佈")
+            // 延後一點再塞入，避免系統重建時閃爍
+            binding.root.postDelayed({
+                if (mode != null && menu?.findItem(999) == null) {
+                    menu?.add(Menu.NONE, 999, 0, "發佈")
+                        ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                    mode.invalidate()
+                }
+            }, 120)
             return true
         }
 
@@ -460,6 +556,15 @@ class ReaderActivity : AppCompatActivity() {
         }
 
         override fun onDestroyActionMode(mode: ActionMode?) {}
+
+        override fun onGetContentRect(
+            mode: ActionMode?,
+            view: android.view.View?,
+            outRect: android.graphics.Rect?
+        ) {
+            // Let the framework fall back to default behavior to avoid flicker on some devices
+            super.onGetContentRect(mode, view, outRect)
+        }
     }
 
     private suspend fun postTextToServer(text: String, locatorJson: String? = null) {
@@ -522,8 +627,12 @@ class ReaderActivity : AppCompatActivity() {
         val tvFontSize = dialogView.findViewById<TextView>(R.id.tvFontSize)
         val btnDecrease = dialogView.findViewById<Button>(R.id.btnDecreaseFont)
         val btnIncrease = dialogView.findViewById<Button>(R.id.btnIncreaseFont)
+        val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
+        val btnSettingsShowBookmarks = dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
+        val switchPageTap = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
 
         tvFontSize.text = "$currentFontSize%"
+        switchPageTap.isChecked = pageTapEnabled
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -546,7 +655,71 @@ class ReaderActivity : AppCompatActivity() {
             }
         }
 
+        btnSettingsAddBookmark.setOnClickListener {
+            addBookmarkFromCurrentPosition()
+        }
+
+        btnSettingsShowBookmarks.setOnClickListener {
+            openBookmarkList()
+        }
+
+        switchPageTap.setOnCheckedChangeListener { _, isChecked ->
+            pageTapEnabled = isChecked
+            prefs.edit().putBoolean("page_tap_enabled", isChecked).apply()
+        }
+
         dialog.show()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (pageTapEnabled && ev.pointerCount == 1) {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    potentialPageTap = true
+                    tapDownTime = ev.downTime
+                    tapDownX = ev.x
+                    tapDownY = ev.y
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (potentialPageTap) {
+                        val dx = kotlin.math.abs(ev.x - tapDownX)
+                        val dy = kotlin.math.abs(ev.y - tapDownY)
+                        if (dx > touchSlop || dy > touchSlop) {
+                            potentialPageTap = false
+                        }
+                    }
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    potentialPageTap = false
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (potentialPageTap) {
+                        val duration = ev.eventTime - tapDownTime
+                        if (duration <= ViewConfiguration.getTapTimeout()) {
+                            val width = binding.root.width
+                            if (width > 0) {
+                                // Cancel child handling to avoid triggering selection
+                                val cancelEvent = MotionEvent.obtain(ev)
+                                cancelEvent.action = MotionEvent.ACTION_CANCEL
+                                super.dispatchTouchEvent(cancelEvent)
+                                cancelEvent.recycle()
+
+                                val isRight = ev.x > width / 2f
+                                if (isRight) {
+                                    navigatorFragment?.goForward()
+                                } else {
+                                    navigatorFragment?.goBackward()
+                                }
+                                potentialPageTap = false
+                                return true
+                            }
+                        }
+                    }
+                    potentialPageTap = false
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     @OptIn(ExperimentalReadiumApi::class)
@@ -581,19 +754,124 @@ class ReaderActivity : AppCompatActivity() {
         val key = bookKey ?: return
         lifecycleScope.launch {
             val notes = aiNoteRepo.getByBook(key)
-            val decorations = notes.mapNotNull { note ->
+            val keywordPairs = buildKeywordPairs(notes)
+            val baseDecorations = notes.mapNotNull { note ->
                 val locator = LocatorJsonHelper.fromJson(note.locatorJson) ?: return@mapNotNull null
                 Decoration(
                     id = note.id.toString(),
                     locator = locator,
-                    style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#FFFF00")) // Yellow highlight
+                    style = Decoration.Style.Underline(
+                        tint = android.graphics.Color.parseColor("#FF8C00") // dark orange underline
+                    )
                 )
             }
-            navigatorFragment?.applyDecorations(decorations, "ai_notes")
+
+            val keywordDecorations = withContext(Dispatchers.IO) {
+                buildKeywordDecorations(notes, keywordPairs)
+            }
+
+            navigatorFragment?.applyDecorations(baseDecorations + keywordDecorations, "ai_notes")
         }
     }
 
+    private fun initTapNavigation() {
+        binding.tapOverlay.visibility = android.view.View.GONE
+    }
+
+    private fun buildKeywordPairs(notes: List<com.example.booxreader.data.db.AiNoteEntity>): List<Pair<String, Long>> {
+        val pairs = LinkedHashSet<Pair<String, Long>>()
+        val splitRegex = Regex("[\\s\\p{Punct}、，。！？；：.!?;:（）()【】「」『』《》<>]+")
+
+        notes.forEach { note ->
+            val base = note.originalText.trim()
+            if (base.isNotEmpty()) {
+                pairs.add(base to note.id)
+
+                // Split into tokens to catch shorter keywords (helps CJK and longer sentences)
+                splitRegex.split(base)
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .forEach { token ->
+                        pairs.add(token to note.id)
+                    }
+            }
+        }
+
+        return pairs.toList()
+    }
+
+    private suspend fun buildKeywordDecorations(
+        notes: List<com.example.booxreader.data.db.AiNoteEntity>,
+        keywordPairs: List<Pair<String, Long>>
+    ): List<Decoration> =
+        withContext(Dispatchers.IO) {
+            val publication = currentPublication ?: return@withContext emptyList()
+            if (keywordPairs.isEmpty()) return@withContext emptyList()
+
+            val decorations = mutableListOf<Decoration>()
+
+            publication.readingOrder.forEach { link ->
+                val resource = publication.get(link) ?: return@forEach
+                val contentBytes = resource.read().getOrNull() ?: return@forEach
+                val rawContent = contentBytes.toString(Charsets.UTF_8)
+                if (rawContent.isEmpty()) return@forEach
+                val rawLength = rawContent.length.coerceAtLeast(1)
+
+                // Build plain text and mapping from plain index -> raw index to better align progression
+                val plainBuilder = StringBuilder()
+                val plainToRaw = mutableListOf<Int>()
+                var inTag = false
+                rawContent.forEachIndexed { idx, ch ->
+                    when {
+                        ch == '<' -> inTag = true
+                        ch == '>' && inTag -> {
+                            inTag = false
+                        }
+                        !inTag -> {
+                            plainBuilder.append(ch)
+                            plainToRaw.add(idx)
+                        }
+                    }
+                }
+
+                val plainText = plainBuilder.toString()
+                val plainLength = plainText.length.coerceAtLeast(1)
+
+                keywordPairs.forEach { (keyword, noteId) ->
+                    if (keyword.isEmpty()) return@forEach
+                    val pattern = Regex(Regex.escape(keyword), setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+                    pattern.findAll(plainText).forEach { match ->
+                        val plainIndex = match.range.first
+                        val rawIndex = plainToRaw.getOrNull(plainIndex) ?: plainIndex
+                        val progression = rawIndex.toDouble() / rawLength
+                        val hrefUrl = Url(link.href.toString()) ?: return@forEach
+                        val locator = Locator(
+                            href = hrefUrl,
+                            mediaType = link.mediaType ?: MediaType.BINARY,
+                            title = link.title,
+                            locations = Locator.Locations(progression = progression),
+                            text = Locator.Text(highlight = match.value)
+                        )
+                        val decorationId = "note_${noteId}_kw_${link.href}_${plainIndex}"
+                        decorations.add(
+                            Decoration(
+                                id = decorationId,
+                                locator = locator,
+                                style = Decoration.Style.Underline(
+                                    tint = android.graphics.Color.parseColor("#FF8C00")
+                                )
+                            )
+                        )
+                    }
+                }
+            }
+
+            return@withContext decorations
+        }
+
     companion object {
+        private const val MAX_SELECTION_CHARS = 4000
+
         fun open(context: Context, bookUri: Uri) {
             val intent = Intent(context, ReaderActivity::class.java).apply {
                 data = bookUri

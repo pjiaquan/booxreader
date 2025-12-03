@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scrollView"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp">
@@ -53,6 +54,31 @@
             android:text="Publish / Retry"
             android:layout_marginTop="16dp"
             android:visibility="gone"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="24dp">
+
+            <EditText
+                android:id="@+id/etFollowUp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="輸入後續提問"
+                android:inputType="textMultiLine"
+                android:minLines="1"
+                android:maxLines="4" />
+
+            <Button
+                android:id="@+id/btnFollowUp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="發佈"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
 
     </LinearLayout>
 </ScrollView>

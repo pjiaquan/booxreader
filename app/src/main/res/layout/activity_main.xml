@@ -1,16 +1,101 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootMain"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp"
-    >
+    android:background="@drawable/bg_main_gradient">
 
-    <Button
-        android:id="@+id/btnOpenEpub"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Open EPUB" />
-</LinearLayout>
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Boox Reader"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/tvSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="快速開啟最近閱讀的書籍或新增新的 EPUB"
+            android:textColor="#E0FFFFFF"
+            android:textSize="16sp"
+            android:layout_marginTop="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnOpenEpub"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="選擇 EPUB"
+            android:layout_marginTop="16dp"
+            app:cornerRadius="12dp"
+            app:icon="@android:drawable/ic_menu_add"
+            app:iconPadding="8dp"
+            app:iconTint="@android:color/white"
+            android:textColor="@android:color/white"
+            app:strokeColor="@android:color/white"
+            app:strokeWidth="2dp" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="12dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="#FFFFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/tvRecentTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="最近閱讀"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#222222" />
+
+                <TextView
+                    android:id="@+id/tvRecentSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="點擊即可繼續閱讀"
+                    android:textSize="14sp"
+                    android:textColor="#7A7A7A"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerRecent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false" />
+
+                <TextView
+                    android:id="@+id/tvEmptyState"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="尚未有閱讀紀錄，先選擇一本 EPUB 開始吧！"
+                    android:textColor="#7A7A7A"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+</ScrollView>

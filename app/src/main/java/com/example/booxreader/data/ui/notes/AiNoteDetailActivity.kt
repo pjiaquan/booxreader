@@ -11,6 +11,7 @@ import com.example.booxreader.data.db.AiNoteEntity
 import com.example.booxreader.data.repo.AiNoteRepository
 import com.example.booxreader.databinding.ActivityAiNoteDetailBinding
 import io.noties.markwon.Markwon
+import io.noties.markwon.ext.tables.TablePlugin
 import kotlinx.coroutines.launch
 
 class AiNoteDetailActivity : AppCompatActivity() {
@@ -51,6 +52,16 @@ class AiNoteDetailActivity : AppCompatActivity() {
         binding.btnPublish.setOnClickListener {
             val note = currentNote ?: return@setOnClickListener
             publishNote(note)
+        }
+
+        binding.btnFollowUp.setOnClickListener {
+            val note = currentNote ?: return@setOnClickListener
+            val question = binding.etFollowUp.text.toString().trim()
+            if (question.isEmpty()) {
+                Toast.makeText(this, "請輸入問題", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            sendFollowUp(note, question)
         }
     }
 
@@ -145,8 +156,10 @@ class AiNoteDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateUI(note: AiNoteEntity) {
-        val markwon = Markwon.create(this)
+    private fun updateUI(note: AiNoteEntity, scrollToQuestionHeader: Boolean = false) {
+        val markwon = Markwon.builder(this)
+            .usePlugin(TablePlugin.create(this))
+            .build()
         markwon.setMarkdown(binding.tvOriginalText, note.originalText)
 
         if (note.aiResponse.isBlank()) {
@@ -157,6 +170,20 @@ class AiNoteDetailActivity : AppCompatActivity() {
         } else {
             markwon.setMarkdown(binding.tvAiResponse, note.aiResponse)
             binding.btnPublish.visibility = View.GONE
+        }
+
+        if (scrollToQuestionHeader) {
+            binding.scrollView.post {
+                val layout = binding.tvAiResponse.layout ?: return@post
+                val content = binding.tvAiResponse.text.toString()
+                var idx = content.lastIndexOf("Q:")
+                if (idx < 0) {
+                    idx = content.length
+                }
+                val line = layout.getLineForOffset(idx.coerceAtMost(content.length))
+                val y = binding.tvAiResponse.top + layout.getLineTop(line)
+                binding.scrollView.smoothScrollTo(0, y)
+            }
         }
     }
 
@@ -181,6 +208,31 @@ class AiNoteDetailActivity : AppCompatActivity() {
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = "Publish / Retry"
             }
+        }
+    }
+
+    private fun sendFollowUp(note: AiNoteEntity, question: String) {
+        binding.btnFollowUp.isEnabled = false
+        binding.btnFollowUp.text = "發佈中..."
+
+        lifecycleScope.launch {
+            val result = repository.continueConversation(note, question)
+            if (result != null) {
+                val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
+                val newContent = note.aiResponse +
+                    separator +
+                    "---\nQ: " + question + "\n\n" + result
+                val updated = note.copy(aiResponse = newContent)
+                repository.update(updated)
+                currentNote = updated
+                updateUI(updated, scrollToQuestionHeader = true)
+                binding.etFollowUp.setText("")
+                Toast.makeText(this@AiNoteDetailActivity, "已發佈", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@AiNoteDetailActivity, "發佈失敗", Toast.LENGTH_SHORT).show()
+            }
+            binding.btnFollowUp.isEnabled = true
+            binding.btnFollowUp.text = "發佈"
         }
     }
 }

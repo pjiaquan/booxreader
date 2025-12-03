@@ -4,9 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.format.DateFormat
-import android.widget.ArrayAdapter
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.booxreader.R
 import com.example.booxreader.data.repo.AiNoteRepository
 import com.example.booxreader.databinding.ActivityAiNoteListBinding
 import kotlinx.coroutines.launch
@@ -35,11 +38,27 @@ class AiNoteListActivity : AppCompatActivity() {
 
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.topAppBar)
 
         repo = AiNoteRepository(applicationContext)
         bookId = intent.getStringExtra(EXTRA_BOOK_ID)
 
         loadNotes()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_ai_note_list, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_export_ai_notes -> {
+                exportAllNotes()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private fun loadNotes() {
@@ -83,6 +102,20 @@ class AiNoteListActivity : AppCompatActivity() {
                 val note = notes[position]
                 AiNoteDetailActivity.open(this@AiNoteListActivity, note.id)
             }
+        }
+    }
+
+    private fun exportAllNotes() {
+        lifecycleScope.launch {
+            val result = repo.exportAllNotes()
+
+            val message = when {
+                result.isEmpty -> "No AI notes to export"
+                result.success -> "Exported ${result.exportedCount} AI notes"
+                else -> result.message ?: "Failed to export AI notes"
+            }
+
+            Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_SHORT).show()
         }
     }
 }

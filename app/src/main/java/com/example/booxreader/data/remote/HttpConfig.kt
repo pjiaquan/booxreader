@@ -14,4 +14,12 @@ object HttpConfig {
     // ✅ 選取文字發佈
     const val TEXT_AI_ENDPOINT: String =
         "https://node-ajil.risc-v.tw/boox-text-ai"
+
+    // ✅ 選取文字後續提問
+    const val TEXT_AI_CONTINUE_ENDPOINT: String =
+        "https://node-ajil.risc-v.tw/boox-text-ai-continue"
+
+    // ✅ 匯出 AI Notes
+    const val AI_NOTES_EXPORT_ENDPOINT: String =
+        "https://node-ajil.risc-v.tw/boox-ai-notes-export"
 }

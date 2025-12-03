@@ -10,7 +10,37 @@
         android:id="@+id/readerContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:id="@+id/tapOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:clickable="true"
+            android:focusable="false">
+
+            <View
+                android:id="@+id/tapPrev"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="false"
+                android:importantForAccessibility="no" />
+
+            <View
+                android:id="@+id/tapNext"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="false"
+                android:importantForAccessibility="no" />
+        </LinearLayout>
+    </FrameLayout>
 
     <!-- 底部工具列：返回 / 加書籤 / 書籤列表 -->
     <LinearLayout
@@ -33,14 +63,15 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="☆ Bookmark" />
+            android:text="☆ Bookmark"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnShowBookmarks"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Bookmarks" />
+            android:text="Publish" />
 
         <Button
             android:id="@+id/btnSettings"
