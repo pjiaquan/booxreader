@@ -4,13 +4,6 @@ import android.os.Build
 import android.view.View
 
 object EInkHelper {
-    /**
-     * 現階段先用最保險的方式：
-     * - 呼叫 view.invalidate()
-     * - 讓 Boox 自己決定用什麼 waveform 刷新
-     *
-     * 之後如果你加了 Onyx SDK，可以在這裡用反射 / 官方 API 嚴格指定 A2 / Regal。
-     */
 
     fun isBoox(): Boolean {
         return Build.MANUFACTURER.equals("ONYX", ignoreCase = true)
@@ -18,30 +11,57 @@ object EInkHelper {
 
     fun refresh(view: View, full: Boolean = false) {
         if (!isBoox()) return
-
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val method = cls.getMethod(
-                "invalidate",
-                View::class.java,
-                Boolean::class.java
-            )
+            val method = cls.getMethod("invalidate", View::class.java, Boolean::class.java)
             method.invoke(null, view, full)
         } catch (e: Exception) {
-            e.printStackTrace()
+            // ignore
         }
     }
 
-    fun setA2Mode(view: View) {
+    /**
+     * Switches to A2 (Fast) mode. Good for scrolling, dragging, or selection.
+     */
+    fun enableFastMode(view: View) {
         if (!isBoox()) return
+        setEpdsMode(view, "EPD_A2")
+    }
 
+    /**
+     * Switches back to Regal (Quality) mode. Good for static text reading.
+     */
+    fun restoreQualityMode(view: View) {
+        if (!isBoox()) return
+        // "EPD_REGAL" is standard for text, or "EPD_TEXT" depending on SDK version.
+        // Fallback to default if unsure, but setting explicit helps.
+        setEpdsMode(view, "EPD_REGAL") 
+    }
+
+    private fun setEpdsMode(view: View, modeName: String) {
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val mode = cls.getField("EPD_A2").get(null)
-            val method = cls.getMethod("setMode", View::class.java, mode.javaClass)
-            method.invoke(null, view, mode)
+            // Attempt to find the static field for the mode
+            val modeField = try {
+                cls.getField(modeName)
+            } catch (e: NoSuchFieldException) {
+                // Fallback for some devices/SDKs
+                if (modeName == "EPD_REGAL") cls.getField("EPD_TEXT") else null
+            }
+
+            if (modeField != null) {
+                val modeValue = modeField.get(null)
+                // Method signature: setMode(View view, int mode) or setMode(View view, Mode mode)
+                // Most Onyx SDKs use an Enum or Int. Let's try to find the method dynamically.
+                val methods = cls.methods
+                val setModeMethod = methods.find { 
+                    it.name == "setMode" && it.parameterTypes.size == 2 && it.parameterTypes[0] == View::class.java 
+                }
+                
+                setModeMethod?.invoke(null, view, modeValue)
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            // ignore
         }
     }
 }

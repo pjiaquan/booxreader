@@ -11,6 +11,8 @@ import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -202,12 +204,29 @@ class ReaderActivity : AppCompatActivity() {
         binding.tapOverlay.bringToFront()
         navigatorFragment = supportFragmentManager.findFragmentById(R.id.readerContainer) as? EpubNavigatorFragment
 
+        // Optimize WebView: Disable overscroll to stabilize selection boundaries
+        navigatorFragment?.view?.post {
+            disableWebViewOverscroll(navigatorFragment?.view)
+        }
+
         applyFontSize(currentFontSize)
         observeLocatorUpdates()
         setupDecorationListener()
         
         // Refresh E-Ink
         binding.root.post { EInkHelper.refresh(binding.root) }
+    }
+
+    private fun disableWebViewOverscroll(view: View?) {
+        if (view is android.webkit.WebView) {
+            view.overScrollMode = View.OVER_SCROLL_NEVER
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                disableWebViewOverscroll(view.getChildAt(i))
+            }
+        }
     }
     
     @OptIn(FlowPreview::class)
@@ -264,11 +283,7 @@ class ReaderActivity : AppCompatActivity() {
     private fun setupDecorationListener() {
         navigatorFragment?.addDecorationListener("ai_notes", object : DecorableNavigator.Listener {
             override fun onDecorationActivated(event: DecorableNavigator.OnActivatedEvent): Boolean {
-                val id = event.decoration.id
-                val noteId = when {
-                    id.startsWith("note_") -> id.removePrefix("note_").substringBefore("_").toLongOrNull()
-                    else -> id.toLongOrNull()
-                }
+                val noteId = com.example.booxreader.data.reader.DecorationHandler.extractNoteIdFromDecorationId(event.decoration.id)
                 return if (noteId != null) {
                     AiNoteDetailActivity.open(this@ReaderActivity, noteId)
                     true
@@ -422,8 +437,8 @@ class ReaderActivity : AppCompatActivity() {
                 val inputStream = contentResolver.openInputStream(uri)
                 
                 if (inputStream != null) {
-                    ZipInputStream(inputStream).use { zip ->
-                        var entry = zip.nextEntry
+                    ZipInputStream(inputStream).use {
+                        var entry = it.nextEntry
                         while (entry != null) {
                             val name = entry.name.lowercase()
                             
@@ -437,7 +452,7 @@ class ReaderActivity : AppCompatActivity() {
                                 // Read first 4KB or enough to find tags. 
                                 // Note: Deep scanning entire files is slow. We'll scan reasonable chunks.
                                 val buffer = ByteArray(8192)
-                                val len = zip.read(buffer)
+                                val len = it.read(buffer)
                                 if (len > 0) {
                                     val content = String(buffer, 0, len)
                                     if (content.contains("<script", ignoreCase = true) || content.contains("javascript:", ignoreCase = true)) {
@@ -446,8 +461,8 @@ class ReaderActivity : AppCompatActivity() {
                                 }
                             }
                             
-                            zip.closeEntry()
-                            entry = zip.nextEntry
+                            it.closeEntry()
+                            entry = it.nextEntry
                         }
                     }
                 }
@@ -525,7 +540,8 @@ class ReaderActivity : AppCompatActivity() {
                 val newPreferences = org.readium.r2.navigator.epub.EpubPreferences(
                     fontSize = sizePercent / 100.0,
                     publisherStyles = false,
-                    lineHeight = 1.4
+                    lineHeight = 1.4,
+                    pageMargins = 1.5
                 )
                 navigator.submitPreferences(newPreferences)
             } catch (e: Exception) {
@@ -538,16 +554,21 @@ class ReaderActivity : AppCompatActivity() {
     private val selectionActionModeCallback = object : ActionMode.Callback2() {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             currentActionMode = mode
+            // Haptic feedback to confirm selection initiation
+            binding.root.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            
             // Use lifecycleScope to safely delay, preventing memory leaks if activity dies
             lifecycleScope.launch {
                 kotlinx.coroutines.delay(120)
                 if (mode != null) {
                     if (menu?.findItem(998) == null) {
-                        menu?.add(Menu.NONE, 998, 0, "複製")
-                            ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                        // Order 1: Copy (First)
+                        menu?.add(Menu.NONE, 998, 1, "複製")
+                            ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                     }
                     if (menu?.findItem(999) == null) {
-                        menu?.add(Menu.NONE, 999, 0, "發佈")
+                        // Order 2: Publish (Second)
+                        menu?.add(Menu.NONE, 999, 2, "發佈")
                             ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                     }
                     mode.invalidate()
@@ -635,12 +656,18 @@ class ReaderActivity : AppCompatActivity() {
         if (ev.pointerCount == 1) {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    // Enable Fast Mode for potential drag/scroll/selection
+                    EInkHelper.enableFastMode(binding.root)
+                    
                     tapDownTime = ev.downTime
                     tapDownX = ev.x
                     tapDownY = ev.y
                     potentialPageTap = true 
                 }
                 MotionEvent.ACTION_UP -> {
+                    // Restore Quality Mode when interaction ends
+                    EInkHelper.restoreQualityMode(binding.root)
+
                     // 1. Priority: Click-outside-to-deselect (Global)
                     if (currentActionMode != null) {
                         val dx = kotlin.math.abs(ev.x - tapDownX)
@@ -663,6 +690,9 @@ class ReaderActivity : AppCompatActivity() {
                         }
                     }
                 }
+                MotionEvent.ACTION_CANCEL -> {
+                    EInkHelper.restoreQualityMode(binding.root)
+                }
             }
         }
 
@@ -683,23 +713,34 @@ class ReaderActivity : AppCompatActivity() {
                         // (Selection dismissal already handled above if active)
                         if (currentActionMode != null) {
                              potentialPageTap = false
-                             // If we reached here, it might not have been a strict tap or we let it fall through? 
-                             // Actually, if the above block returned true, we wouldn't be here.
-                             // If we are here, it means it wasn't a dismiss tap (maybe dragged?), so let it fall through.
                         } else {
                             val duration = ev.eventTime - tapDownTime
-                            if (duration <= ViewConfiguration.getTapTimeout()) {
+                            // Relaxed tap timeout (500ms) to accommodate slower e-ink taps
+                            if (duration <= 500) {
                                 val width = binding.root.width
                                 if (width > 0) {
-                                    val cancelEvent = MotionEvent.obtain(ev)
-                                    cancelEvent.action = MotionEvent.ACTION_CANCEL
-                                    super.dispatchTouchEvent(cancelEvent)
-                                    cancelEvent.recycle()
-
-                                    if (ev.x > width / 2f) navigatorFragment?.goForward() 
-                                    else navigatorFragment?.goBackward()
-                                    potentialPageTap = false
-                                    return true
+                                    val x = ev.x
+                                    // 30-40-30 Rule for Page Turning (Wider zones)
+                                    if (x < width * 0.3f) {
+                                        // Left 30% -> Previous Page
+                                        val cancelEvent = MotionEvent.obtain(ev)
+                                        cancelEvent.action = MotionEvent.ACTION_CANCEL
+                                        super.dispatchTouchEvent(cancelEvent)
+                                        cancelEvent.recycle()
+                                        navigatorFragment?.goBackward()
+                                        potentialPageTap = false
+                                        return true
+                                    } else if (x > width * 0.7f) {
+                                        // Right 30% -> Next Page
+                                        val cancelEvent = MotionEvent.obtain(ev)
+                                        cancelEvent.action = MotionEvent.ACTION_CANCEL
+                                        super.dispatchTouchEvent(cancelEvent)
+                                        cancelEvent.recycle()
+                                        navigatorFragment?.goForward()
+                                        potentialPageTap = false
+                                        return true
+                                    }
+                                    // Center 40% -> Pass through (do nothing here, let super handle it)
                                 }
                             }
                         }

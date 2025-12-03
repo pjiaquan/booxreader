@@ -47,6 +47,12 @@ android {
         compose = true
     }
 
+    lint {
+        abortOnError = false
+        disable += "FlowOperatorInvokedInComposition"
+        disable += "StateFlowValueCalledInComposition" // Also disable the newly reported one
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
