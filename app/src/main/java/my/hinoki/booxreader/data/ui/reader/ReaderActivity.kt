@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.SeekBar
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -36,8 +37,10 @@ import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import my.hinoki.booxreader.data.remote.HttpConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.readium.r2.navigator.DecorableNavigator
@@ -83,6 +86,11 @@ class ReaderActivity : AppCompatActivity() {
     private var tapDownY: Float = 0f
     private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
     private var currentFontSize: Int = 150
+    private var currentFontWeight: Int = 400
+    private var booxBatchRefreshEnabled: Boolean = true
+    private var booxFastModeEnabled: Boolean = true
+    private var refreshJob: Job? = null
+    private val booxRefreshDelayMs = 450L
     
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
@@ -120,7 +128,10 @@ class ReaderActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val savedSize = prefs.getInt("font_size", 150)
         currentFontSize = if (savedSize == 100) 150 else savedSize
+        currentFontWeight = prefs.getInt("font_weight", 400).coerceIn(300, 900)
         pageTapEnabled = prefs.getBoolean("page_tap_enabled", true)
+        booxBatchRefreshEnabled = prefs.getBoolean("boox_batch_refresh", true)
+        booxFastModeEnabled = prefs.getBoolean("boox_fast_mode", true)
 
         binding.btnAinote.setOnClickListener {
             val key = viewModel.currentBookKey.value
@@ -204,17 +215,19 @@ class ReaderActivity : AppCompatActivity() {
         binding.tapOverlay.bringToFront()
         navigatorFragment = supportFragmentManager.findFragmentById(R.id.readerContainer) as? EpubNavigatorFragment
 
-        // Optimize WebView: Disable overscroll to stabilize selection boundaries
+        // Optimize WebView: Disable overscroll and apply e-ink tuning
         navigatorFragment?.view?.post {
             disableWebViewOverscroll(navigatorFragment?.view)
+            applyBooxWebViewSettings(navigatorFragment?.view)
         }
 
         applyFontSize(currentFontSize)
+        applyFontWeight(currentFontWeight)
         observeLocatorUpdates()
         setupDecorationListener()
         
         // Refresh E-Ink
-        binding.root.post { EInkHelper.refresh(binding.root) }
+        binding.root.post { requestEinkRefresh() }
     }
 
     private fun disableWebViewOverscroll(view: View?) {
@@ -228,6 +241,80 @@ class ReaderActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun applyBooxWebViewSettings(view: View?) {
+        if (!EInkHelper.isBoox()) return
+        if (view is android.webkit.WebView) {
+            view.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+            view.isVerticalScrollBarEnabled = false
+            view.isHorizontalScrollBarEnabled = false
+            view.scrollBarStyle = android.view.View.SCROLLBARS_OUTSIDE_OVERLAY
+            view.overScrollMode = android.view.View.OVER_SCROLL_NEVER
+            view.isHapticFeedbackEnabled = false
+            view.settings.apply {
+                displayZoomControls = false
+                builtInZoomControls = false
+                setSupportZoom(false)
+                mediaPlaybackRequiresUserGesture = true
+            }
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applyBooxWebViewSettings(view.getChildAt(i))
+            }
+        }
+    }
+
+    private fun applyFontWeightViaWebView(view: View?, weight: Int) {
+        if (view is android.webkit.WebView) {
+            val safeWeight = weight.coerceIn(300, 900)
+            val js = """
+                (function() {
+                  const w = ${safeWeight};
+                  let style = document.getElementById('boox-font-weight-style');
+                  if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'boox-font-weight-style';
+                    document.head.appendChild(style);
+                  }
+                  style.textContent = 'body, p, span, div { font-weight: ' + w + ' !important; }';
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applyFontWeightViaWebView(view.getChildAt(i), weight)
+            }
+        }
+    }
+
+    private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
+        if (!EInkHelper.isBoox()) return
+        refreshJob?.cancel()
+        if (immediate || !booxBatchRefreshEnabled) {
+            EInkHelper.refresh(binding.root, full)
+            return
+        }
+        refreshJob = lifecycleScope.launch {
+            delay(booxRefreshDelayMs)
+            EInkHelper.refresh(binding.root, full)
+        }
+    }
+
+    private fun applyFontZoomLikeNeoReader(view: View?, sizePercent: Int) {
+        if (view is android.webkit.WebView) {
+            view.settings.textZoom = sizePercent
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applyFontZoomLikeNeoReader(view.getChildAt(i), sizePercent)
+            }
+        }
+    }
     
     @OptIn(FlowPreview::class)
     private fun observeLocatorUpdates() {
@@ -237,6 +324,9 @@ class ReaderActivity : AppCompatActivity() {
             navigator.currentLocator
                 .sample(1500)
                 .collectLatest {
+                    // Re-apply font weight after page/layout changes so the style persists across navigations and restarts
+                    applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
+
                     val json = LocatorJsonHelper.toJson(it) ?: return@collectLatest
                     val key = viewModel.currentBookKey.value ?: return@collectLatest
 
@@ -253,7 +343,7 @@ class ReaderActivity : AppCompatActivity() {
                          viewModel.saveProgressToDb(bookId, json)
                      }
 
-                    EInkHelper.refresh(binding.root)
+                    requestEinkRefresh()
                 }
         }
     }
@@ -301,7 +391,7 @@ class ReaderActivity : AppCompatActivity() {
             val locator = LocatorJsonHelper.fromJson(json)
             if (locator != null) {
                 navigatorFragment?.go(locator)
-                EInkHelper.refresh(binding.root)
+                requestEinkRefresh()
             }
         }
     }
@@ -354,6 +444,8 @@ class ReaderActivity : AppCompatActivity() {
         val btnSettingsShowBookmarks = dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
         val switchPageTap = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
+        val tvFontWeight = dialogView.findViewById<TextView>(R.id.tvFontWeight)
+        val seekFontWeight = dialogView.findViewById<SeekBar>(R.id.seekFontWeight)
 
         // Add Security Buttons
         val layout = dialogView as? android.widget.LinearLayout
@@ -370,12 +462,62 @@ class ReaderActivity : AppCompatActivity() {
                 setOnClickListener { runSafetyScan() }
             }
             
+            val booxTitle = TextView(this).apply {
+                text = "Boox / E-Ink"
+                textSize = 18f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setPadding(0, 16, 0, 8)
+            }
+
+            val switchBatch = androidx.appcompat.widget.SwitchCompat(this).apply {
+                text = "Batch refresh (reduce flashing)"
+                isChecked = booxBatchRefreshEnabled
+                setOnCheckedChangeListener { _, checked ->
+                    booxBatchRefreshEnabled = checked
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                        .putBoolean("boox_batch_refresh", checked)
+                        .apply()
+                }
+            }
+
+            val switchFast = androidx.appcompat.widget.SwitchCompat(this).apply {
+                text = "Auto A2 during interaction"
+                isChecked = booxFastModeEnabled
+                setOnCheckedChangeListener { _, checked ->
+                    booxFastModeEnabled = checked
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                        .putBoolean("boox_fast_mode", checked)
+                        .apply()
+                }
+            }
+
+            val btnFullRefresh = Button(this).apply {
+                text = "Full refresh now"
+                setOnClickListener { requestEinkRefresh(full = true, immediate = true) }
+            }
+
             layout.addView(btnVerify, layout.childCount - 2)
             layout.addView(btnScan, layout.childCount - 2)
+            layout.addView(booxTitle, layout.childCount - 2)
+            layout.addView(switchBatch, layout.childCount - 2)
+            layout.addView(switchFast, layout.childCount - 2)
+            layout.addView(btnFullRefresh, layout.childCount - 2)
         }
 
         tvFontSize.text = "$currentFontSize%"
         switchPageTap.isChecked = pageTapEnabled
+        tvFontWeight.text = currentFontWeight.toString()
+        seekFontWeight.max = 600 // represents 300-900
+        seekFontWeight.progress = currentFontWeight - 300
+        seekFontWeight.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val weight = 300 + progress
+                tvFontWeight.text = weight.toString()
+                applyFontWeight(weight)
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
 
         // Load current URL
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -544,9 +686,23 @@ class ReaderActivity : AppCompatActivity() {
                     pageMargins = 1.5
                 )
                 navigator.submitPreferences(newPreferences)
+                // Neo Reader-style zoom fallback via WebView textZoom (helps EPUBs that ignore CSS scale)
+                navigatorFragment?.view?.post {
+                    applyFontZoomLikeNeoReader(navigatorFragment?.view, sizePercent)
+                    applyFontWeight(currentFontWeight)
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    private fun applyFontWeight(weight: Int) {
+        currentFontWeight = weight.coerceIn(300, 900)
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putInt("font_weight", currentFontWeight).apply()
+
+        navigatorFragment?.view?.post {
+            applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
         }
     }
 
@@ -657,7 +813,9 @@ class ReaderActivity : AppCompatActivity() {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     // Enable Fast Mode for potential drag/scroll/selection
-                    EInkHelper.enableFastMode(binding.root)
+                    if (booxFastModeEnabled) {
+                        EInkHelper.enableFastMode(binding.root)
+                    }
                     
                     tapDownTime = ev.downTime
                     tapDownX = ev.x
@@ -666,7 +824,9 @@ class ReaderActivity : AppCompatActivity() {
                 }
                 MotionEvent.ACTION_UP -> {
                     // Restore Quality Mode when interaction ends
-                    EInkHelper.restoreQualityMode(binding.root)
+                    if (booxFastModeEnabled) {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
 
                     // 1. Priority: Click-outside-to-deselect (Global)
                     if (currentActionMode != null) {
@@ -761,4 +921,3 @@ class ReaderActivity : AppCompatActivity() {
         }
     }
 }
-

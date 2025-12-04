@@ -39,6 +39,9 @@ class AiNoteListActivity : AppCompatActivity() {
         repo = AiNoteRepository(app, app.okHttpClient)
         bookId = intent.getStringExtra(EXTRA_BOOK_ID)
 
+        binding = ActivityAiNoteListBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
         loadNotes()
     }
 
@@ -59,6 +62,7 @@ class AiNoteListActivity : AppCompatActivity() {
 
     private fun loadNotes() {
         lifecycleScope.launch {
+            if (isFinishing || isDestroyed) return@launch
             val notes = if (bookId != null) {
                 repo.getByBook(bookId!!)
             } else {
@@ -115,4 +119,3 @@ class AiNoteListActivity : AppCompatActivity() {
         }
     }
 }
-

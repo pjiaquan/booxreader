@@ -20,9 +20,11 @@ Builds:
     commit: v1.0.0
     subdir: app
     gradle:
+      - lint
+      - testDebugUnitTest
       - assembleRelease
 
-AutoUpdateMode: None
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: '1.0.0'
 CurrentVersionCode: 1
