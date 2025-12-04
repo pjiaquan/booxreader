@@ -8,13 +8,13 @@ platform :android do
     sh "powershell -ExecutionPolicy Bypass -File tools/capture_screenshots.ps1"
   end
 
-  desc "Build the FOSS Debug APK"
-  lane :build_foss_debug do
-    gradle(task: "installFossDebug")
+  desc "Build the Debug APK"
+  lane :build_debug do
+    gradle(task: "installDebug")
   end
   
-  desc "Build the FOSS Release APK (Unsigned)"
-  lane :build_foss_release do
-    gradle(task: "assembleFossRelease")
+  desc "Build the Release APK (Unsigned)"
+  lane :build_release do
+    gradle(task: "assembleRelease")
   end
 end

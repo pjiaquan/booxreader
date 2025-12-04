@@ -26,11 +26,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build FOSS Release APK
-      run: ./gradlew assembleFossRelease --stacktrace
+    - name: Build Release APK
+      run: ./gradlew assembleRelease --stacktrace
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-foss-release-unsigned
-        path: app/build/outputs/apk/foss/release/*.apk
+        name: app-release-unsigned
+        path: app/build/outputs/apk/release/*.apk
