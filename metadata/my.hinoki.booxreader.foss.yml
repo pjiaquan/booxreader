@@ -1,0 +1,28 @@
+Categories:
+  - Reading
+License: Apache-2.0
+SourceCode: https://github.com/pjiaquan/booxreader
+IssueTracker: https://github.com/pjiaquan/booxreader/issues
+Changelog: https://github.com/pjiaquan/booxreader/releases
+
+AutoName: BooxReader
+Summary: Lightweight, FOSS ebook reader optimized for e-ink devices
+Description: |
+  BooxReader is an open-source e-book reader designed specifically for Android e-ink devices.
+  It features high-contrast modes, simplified navigation, and direct support for EPUB formats without proprietary dependencies.
+
+RepoType: git
+Repo: https://github.com/pjiaquan/booxreader.git
+
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    commit: v1.0.0
+    subdir: app
+    gradle:
+      - fossRelease
+
+AutoUpdateMode: None
+UpdateCheckMode: Tags
+CurrentVersion: '1.0.0'
+CurrentVersionCode: 1
