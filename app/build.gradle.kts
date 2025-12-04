@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.booxreader"
+    namespace = "my.hinoki.booxreader"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.booxreader"
+        applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
