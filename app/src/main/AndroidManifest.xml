@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:name=".BooxReaderApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -48,6 +49,21 @@
             android:exported="false"
             android:theme="@style/Theme.Material3.DayNight.NoActionBar"
             android:label="AI Note Details" />
+
+        <activity
+            android:name=".data.auth.LoginActivity"
+            android:exported="false"
+            android:label="Login" />
+
+        <activity
+            android:name=".data.auth.RegisterActivity"
+            android:exported="false"
+            android:label="Register" />
+
+        <activity
+            android:name=".data.auth.UserProfileActivity"
+            android:exported="false"
+            android:label="Profile" />
     </application>
 
 </manifest>

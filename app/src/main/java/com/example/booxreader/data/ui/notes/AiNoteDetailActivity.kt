@@ -28,7 +28,10 @@ class AiNoteDetailActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityAiNoteDetailBinding
-    private val repository by lazy { AiNoteRepository(applicationContext) }
+    private val repository by lazy { 
+        val app = applicationContext as com.example.booxreader.BooxReaderApp
+        AiNoteRepository(app, app.okHttpClient) 
+    }
     private var currentNote: AiNoteEntity? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {

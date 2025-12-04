@@ -37,6 +37,10 @@ class MainActivity : ComponentActivity() {
             pickEpub.launch(arrayOf("application/epub+zip"))
         }
 
+        binding.btnProfile.setOnClickListener {
+            startActivity(Intent(this, com.example.booxreader.data.auth.UserProfileActivity::class.java))
+        }
+
         binding.recyclerRecent.layoutManager = LinearLayoutManager(this)
         binding.recyclerRecent.adapter = recentAdapter
 

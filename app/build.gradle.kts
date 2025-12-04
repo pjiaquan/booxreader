@@ -47,6 +47,18 @@ android {
         compose = true
     }
 
+    flavorDimensions += "version"
+    productFlavors {
+        create("foss") {
+            dimension = "version"
+            applicationIdSuffix = ".foss"
+            versionNameSuffix = "-foss"
+        }
+        create("google") {
+            dimension = "version"
+        }
+    }
+
     lint {
         abortOnError = false
         disable += "FlowOperatorInvokedInComposition"
@@ -88,6 +100,10 @@ dependencies {
     implementation(libs.google.material)
     implementation(libs.markwon.core)
     implementation(libs.markwon.ext.tables)
+
+    // --- Auth & Security ---
+    "googleImplementation"(libs.play.services.auth)
+    implementation(libs.androidx.security.crypto)
     
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)

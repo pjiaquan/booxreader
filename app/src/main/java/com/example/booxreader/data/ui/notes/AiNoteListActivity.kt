@@ -35,12 +35,8 @@ class AiNoteListActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        binding = ActivityAiNoteListBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        setSupportActionBar(binding.topAppBar)
-
-        repo = AiNoteRepository(applicationContext)
+        val app = applicationContext as com.example.booxreader.BooxReaderApp
+        repo = AiNoteRepository(app, app.okHttpClient)
         bookId = intent.getStringExtra(EXTRA_BOOK_ID)
 
         loadNotes()

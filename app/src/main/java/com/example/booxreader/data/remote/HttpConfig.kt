@@ -2,7 +2,7 @@ package com.example.booxreader.data.remote
 
 object HttpConfig {
 
-    const val DEFAULT_BASE_URL = "https://node-ajil.risc-v.tw"
+    const val DEFAULT_BASE_URL = "https://your-server-url.com"
 
     // Endpoint Paths
     const val PATH_BOOKMARK = "/boox-update"

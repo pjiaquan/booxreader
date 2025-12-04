@@ -60,13 +60,13 @@ class ReaderActivity : AppCompatActivity() {
     private val viewModel: ReaderViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val app = application
+                val app = application as com.example.booxreader.BooxReaderApp
                 @Suppress("UNCHECKED_CAST")
                 return ReaderViewModel(
                     app,
                     BookRepository(app),
-                    BookmarkRepository(app),
-                    AiNoteRepository(app)
+                    BookmarkRepository(app, app.okHttpClient),
+                    AiNoteRepository(app, app.okHttpClient)
                 ) as T
             }
         }

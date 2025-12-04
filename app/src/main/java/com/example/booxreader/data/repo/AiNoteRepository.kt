@@ -14,7 +14,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class AiNoteRepository(private val context: Context) {
+class AiNoteRepository(
+    private val context: Context,
+    private val client: OkHttpClient
+) {
     private val dao = AppDatabase.get(context).aiNoteDao()
 
     private fun getBaseUrl(): String {
@@ -68,7 +71,7 @@ class AiNoteRepository(private val context: Context) {
                     .post(requestBody)
                     .build()
 
-                OkHttpClient.Builder()
+                client.newBuilder()
                     .connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(15, TimeUnit.SECONDS)
                     .writeTimeout(15, TimeUnit.SECONDS)
@@ -136,7 +139,7 @@ class AiNoteRepository(private val context: Context) {
             .build()
 
         return@withContext try {
-            OkHttpClient.Builder()
+            client.newBuilder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
@@ -181,7 +184,7 @@ class AiNoteRepository(private val context: Context) {
                     .post(requestBody)
                     .build()
 
-                OkHttpClient.Builder()
+                client.newBuilder()
                     .connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(30, TimeUnit.SECONDS)
                     .writeTimeout(30, TimeUnit.SECONDS)

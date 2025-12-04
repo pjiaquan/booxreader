@@ -41,7 +41,8 @@ class BookmarkListActivity : AppCompatActivity() {
         binding = ActivityBookmarkListBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        repo = BookmarkRepository(applicationContext)
+        val app = applicationContext as com.example.booxreader.BooxReaderApp
+        repo = BookmarkRepository(app, app.okHttpClient)
 
         bookId = intent.getStringExtra(EXTRA_BOOK_ID) ?: run {
             finish()

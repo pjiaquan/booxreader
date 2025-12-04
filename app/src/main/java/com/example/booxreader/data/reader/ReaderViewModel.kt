@@ -40,6 +40,8 @@ import java.util.concurrent.CancellationException
 
 import android.content.Context
 import com.example.booxreader.data.remote.HttpConfig
+import com.example.booxreader.BooxReaderApp
+import okhttp3.OkHttpClient
 
 /**
  * ViewModel for the Reader screen.
@@ -62,7 +64,10 @@ class ReaderViewModel(
 
     // --- Repositories ---
     // Injected via constructor
-    private val progressPublisher = ProgressPublisher(baseUrlProvider = { getBaseUrl(app) })
+    private val progressPublisher = ProgressPublisher(
+        baseUrlProvider = { getBaseUrl(app) },
+        client = (app as? BooxReaderApp)?.okHttpClient ?: OkHttpClient()
+    )
 
     // --- State ---
     private val _publication = MutableStateFlow<Publication?>(null)

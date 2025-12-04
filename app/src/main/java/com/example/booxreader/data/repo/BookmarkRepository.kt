@@ -13,7 +13,12 @@ import android.util.Log
 
 import com.example.booxreader.data.remote.HttpConfig
 
-class BookmarkRepository(context: Context) {
+import okhttp3.OkHttpClient
+
+class BookmarkRepository(
+    private val context: Context,
+    private val client: OkHttpClient
+) {
 
     private val db = AppDatabase.get(context)
     private val dao = db.bookmarkDao()
@@ -24,7 +29,7 @@ class BookmarkRepository(context: Context) {
     }
 
     // ✨ 新增：HTTP 發佈工具
-    private val publisher = BookmarkPublisher(baseUrlProvider = { getBaseUrl(context) })
+    private val publisher = BookmarkPublisher(baseUrlProvider = { getBaseUrl(context) }, client = client)
 
     suspend fun getBookmarks(bookId: String): List<BookmarkEntity> =
         withContext(Dispatchers.IO) {
