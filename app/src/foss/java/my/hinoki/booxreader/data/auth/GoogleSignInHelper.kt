@@ -14,5 +14,7 @@ class GoogleSignInHelper(private val activity: Activity) {
         // No-op
         onResult(null, null, null)
     }
+
+    fun isSupported(): Boolean = false
 }
 

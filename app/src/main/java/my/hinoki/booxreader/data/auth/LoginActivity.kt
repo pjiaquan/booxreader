@@ -29,6 +29,10 @@ class LoginActivity : AppCompatActivity() {
         val btnGoogle = findViewById<Button>(R.id.btnGoogleSignIn)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
 
+        if (!googleHelper.isSupported()) {
+            btnGoogle.visibility = android.view.View.GONE
+        }
+
         btnLogin.setOnClickListener {
             val email = etEmail.text.toString()
             val pass = etPassword.text.toString()
