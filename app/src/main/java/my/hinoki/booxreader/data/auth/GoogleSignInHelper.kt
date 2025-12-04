@@ -17,4 +17,3 @@ class GoogleSignInHelper(private val activity: Activity) {
 
     fun isSupported(): Boolean = false
 }
-
