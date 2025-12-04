@@ -16,3 +16,7 @@ local.properties
 
 .gemini/
 gha-creds-*.json
+
+# Ignore log and repo outputs generated during CI or local runs
+logs/
+repo/
