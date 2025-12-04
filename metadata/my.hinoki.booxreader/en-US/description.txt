@@ -1,0 +1,1 @@
+BooxReader is an open-source e-book reader designed specifically for Android e-ink devices. It features high-contrast modes, simplified navigation, and direct support for EPUB formats without proprietary dependencies. Features include: E-ink optimization, Folder-based library management, and Privacy-focused design.
