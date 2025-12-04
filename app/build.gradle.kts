@@ -10,7 +10,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "my.hinoki.booxreader"
+        applicationId = "my.hinoki.booxreader.foss"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -45,18 +45,6 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
-    }
-
-    flavorDimensions += "version"
-    productFlavors {
-        create("foss") {
-            dimension = "version"
-            applicationIdSuffix = ".foss"
-            versionNameSuffix = "-foss"
-        }
-        create("google") {
-            dimension = "version"
-        }
     }
 
     lint {
@@ -102,7 +90,6 @@ dependencies {
     implementation(libs.markwon.ext.tables)
 
     // --- Auth & Security ---
-    "googleImplementation"(libs.play.services.auth)
     implementation(libs.androidx.security.crypto)
     
     // --- JDK Desugaring ---
