@@ -1,0 +1,22 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background: Circle for icon usage -->
+  <circle cx="256" cy="256" r="256" fill="#FFFFFF"/>
+  
+  <!-- Stylized Book: Left side (Light Mode) -->
+  <path d="M256 120V392C256 392 190 392 150 370C110 348 100 320 100 320V120C100 120 130 148 160 158C190 168 256 120 256 120Z" fill="#000000" fill-opacity="0.1"/>
+  <path d="M256 120V392C256 392 190 392 150 370C110 348 100 320 100 320V120C100 120 130 148 160 158C190 168 256 120 256 120Z" stroke="#000000" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Stylized Book: Right side (Dark/E-ink Mode) -->
+  <path d="M256 120V392C256 392 322 392 362 370C402 348 412 320 412 320V120C412 120 382 148 352 158C322 168 256 120 256 120Z" fill="#000000"/>
+  
+  <!-- Bookmark / Page Element on Right -->
+  <path d="M320 160V240L340 220L360 240V160" fill="#FFFFFF"/>
+  
+  <!-- Lines on Left Page -->
+  <path d="M140 200H220" stroke="#000000" stroke-width="16" stroke-linecap="round"/>
+  <path d="M140 250H220" stroke="#000000" stroke-width="16" stroke-linecap="round"/>
+  <path d="M140 300H190" stroke="#000000" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Central Spine -->
+  <path d="M256 120V392" stroke="#000000" stroke-width="12" stroke-linecap="round"/>
+</svg>
