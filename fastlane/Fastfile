@@ -1,0 +1,20 @@
+default_platform(:android)
+
+platform :android do
+  desc "Capture screenshots using the ADB script"
+  lane :screenshots do
+    # In a real Fastlane setup with Ruby installed, you might use 'screengrab'
+    # But here we use our custom PowerShell script for simplicity on Windows/FOSS.
+    sh "powershell -ExecutionPolicy Bypass -File tools/capture_screenshots.ps1"
+  end
+
+  desc "Build the FOSS Debug APK"
+  lane :build_foss_debug do
+    gradle(task: "installFossDebug")
+  end
+  
+  desc "Build the FOSS Release APK (Unsigned)"
+  lane :build_foss_release do
+    gradle(task: "assembleFossRelease")
+  end
+end
