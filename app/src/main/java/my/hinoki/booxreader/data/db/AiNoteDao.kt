@@ -13,6 +13,12 @@ interface AiNoteDao {
 
     @Query("SELECT * FROM ai_notes WHERE bookId = :bookId ORDER BY createdAt DESC")
     suspend fun getByBookId(bookId: String): List<AiNoteEntity>
+    
+    @Query("SELECT * FROM ai_notes WHERE remoteId = :remoteId LIMIT 1")
+    suspend fun getByRemoteId(remoteId: String): AiNoteEntity?
+    
+    @Query("SELECT * FROM ai_notes WHERE remoteId IS NULL")
+    suspend fun getLocalOnly(): List<AiNoteEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(note: AiNoteEntity): Long
@@ -26,4 +32,3 @@ interface AiNoteDao {
     @Query("SELECT * FROM ai_notes WHERE originalText = :text ORDER BY createdAt DESC LIMIT 1")
     suspend fun findLatestByOriginalText(text: String): AiNoteEntity?
 }
-

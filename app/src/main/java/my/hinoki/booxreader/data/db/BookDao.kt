@@ -26,5 +26,7 @@ interface BookDao {
 
     @Query("SELECT * FROM books ORDER BY lastOpenedAt DESC LIMIT :limit")
     suspend fun getRecent(limit: Int): List<BookEntity>
-}
 
+    @Query("SELECT * FROM books WHERE bookId IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<BookEntity>
+}

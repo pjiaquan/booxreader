@@ -11,6 +11,7 @@ import my.hinoki.booxreader.data.remote.ProgressPublisher
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -54,7 +55,8 @@ class ReaderViewModel(
     app: Application,
     private val bookRepo: BookRepository,
     private val bookmarkRepo: BookmarkRepository,
-    private val aiNoteRepo: AiNoteRepository
+    private val aiNoteRepo: AiNoteRepository,
+    private val syncRepo: UserSyncRepository
 ) : AndroidViewModel(app) {
 
     private fun getBaseUrl(context: Context): String {
@@ -79,8 +81,10 @@ class ReaderViewModel(
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
     
-    private val _navigateToNote = MutableSharedFlow<Long>()
-    val navigateToNote: SharedFlow<Long> = _navigateToNote.asSharedFlow()
+    data class NavigateToNote(val noteId: Long, val autoStreamText: String? = null)
+
+    private val _navigateToNote = MutableSharedFlow<NavigateToNote>()
+    val navigateToNote: SharedFlow<NavigateToNote> = _navigateToNote.asSharedFlow()
 
     private val _decorations = MutableStateFlow<List<Decoration>>(emptyList())
     val decorations: StateFlow<List<Decoration>> = _decorations.asStateFlow()
@@ -129,6 +133,11 @@ class ReaderViewModel(
 
                 // Identify book first to ensure UI can load progress immediately upon publication emission
                 val key = pub.metadata.identifier ?: uri.toString()
+
+                // Fetch cloud progress before emitting publication so UI can pick it up
+                withContext(Dispatchers.IO) {
+                    runCatching { syncRepo.pullProgress(key) }
+                }
                 _currentBookKey.value = key
 
                 _publication.value = pub
@@ -165,6 +174,12 @@ class ReaderViewModel(
                 progressPublisher.publishProgress(key, json)
             } catch (e: Exception) {
                 // Ignore
+            }
+
+            // 2. Push to Firestore for cross-device sync (best effort)
+            runCatching {
+                val title = _publication.value?.metadata?.title
+                syncRepo.pushProgress(key, json, bookTitle = title)
             }
         }
     }
@@ -231,14 +246,22 @@ class ReaderViewModel(
                 val existingNote = withContext(Dispatchers.IO) { aiNoteRepo.findNoteByText(text) }
                 if (existingNote != null) {
                     _toastMessage.emit("Note found!")
-                    _navigateToNote.emit(existingNote.id)
+                    _navigateToNote.emit(NavigateToNote(existingNote.id))
                     return@launch
                 }
 
                 // 1. Save Draft
-                val noteId = withContext(Dispatchers.IO) { aiNoteRepo.add(key, text, "", locatorJson) }
+                val bookTitle = _publication.value?.metadata?.title
+                val noteId = withContext(Dispatchers.IO) { aiNoteRepo.add(key, text, "", locatorJson, bookTitle) }
 
-                // 2. Fetch
+                // 2. If streaming is enabled, navigate to detail to stream there.
+                if (aiNoteRepo.isStreamingEnabled()) {
+                    _toastMessage.emit("Streaming...")
+                    _navigateToNote.emit(NavigateToNote(noteId, autoStreamText = text))
+                    return@launch
+                }
+
+                // Non-streaming path: fetch immediately
                 val result = withContext(Dispatchers.IO) { aiNoteRepo.fetchAiExplanation(text) }
 
                 if (result != null) {
@@ -250,11 +273,11 @@ class ReaderViewModel(
                     }
                     _toastMessage.emit("Finished")
                     loadHighlights() // Refresh
-                    _navigateToNote.emit(noteId)
+                    _navigateToNote.emit(NavigateToNote(noteId))
                 } else {
                     _toastMessage.emit("Saved as draft (Network Error)")
                     loadHighlights()
-                    _navigateToNote.emit(noteId)
+                    _navigateToNote.emit(NavigateToNote(noteId))
                 }
             } catch (e: Exception) {
                 _toastMessage.emit("Error: ${e.message}")
@@ -356,4 +379,3 @@ class ReaderViewModel(
         return pairs.toList()
     }
 }
-

@@ -4,6 +4,7 @@ import android.content.Context
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.remote.HttpConfig
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,9 +17,18 @@ import java.util.concurrent.TimeUnit
 
 class AiNoteRepository(
     private val context: Context,
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val syncRepo: UserSyncRepository? = null
 ) {
+    private val TAG = "AiNoteRepository"
     private val dao = AppDatabase.get(context).aiNoteDao()
+    private val bookDao = AppDatabase.get(context).bookDao()
+
+    private fun prefs() = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
+
+    fun isStreamingEnabled(): Boolean {
+        return prefs().getBoolean("use_streaming", false)
+    }
 
     private fun getBaseUrl(): String {
         val prefs = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
@@ -26,18 +36,35 @@ class AiNoteRepository(
         return if (url.endsWith("/")) url.dropLast(1) else url
     }
 
-    suspend fun add(bookId: String?, originalText: String, aiResponse: String, locatorJson: String? = null): Long {
+    suspend fun add(
+        bookId: String?,
+        originalText: String,
+        aiResponse: String,
+        locatorJson: String? = null,
+        bookTitle: String? = null
+    ): Long {
+        val resolvedTitle = bookTitle ?: bookId?.let { id ->
+            bookDao.getByIds(listOf(id)).firstOrNull()?.title
+        }
+
         val note = AiNoteEntity(
             bookId = bookId,
+            bookTitle = resolvedTitle,
             originalText = originalText,
             aiResponse = aiResponse,
-            locatorJson = locatorJson
+            locatorJson = locatorJson,
+            updatedAt = System.currentTimeMillis()
         )
-        return dao.insert(note)
+        val newId = dao.insert(note)
+        val saved = note.copy(id = newId)
+        syncRepo?.pushNote(saved)
+        return newId
     }
 
     suspend fun update(note: AiNoteEntity) {
-        dao.update(note)
+        val updated = note.copy(updatedAt = System.currentTimeMillis())
+        dao.update(updated)
+        syncRepo?.pushNote(updated)
     }
 
     suspend fun getById(id: Long): AiNoteEntity? {
@@ -63,18 +90,19 @@ class AiNoteRepository(
                     put("text", text)
                 }.toString()
 
-                val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
+        val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
 
-                val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI
-                val request = Request.Builder()
-                    .url(url)
-                    .post(requestBody)
-                    .build()
+        val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI
+        android.util.Log.d(TAG, "fetchAiExplanation url=$url")
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
 
                 client.newBuilder()
-                    .connectTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(15, TimeUnit.SECONDS)
-                    .writeTimeout(15, TimeUnit.SECONDS)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(60, TimeUnit.SECONDS)
+                    .writeTimeout(60, TimeUnit.SECONDS)
                     .build()
                     .newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
@@ -99,6 +127,16 @@ class AiNoteRepository(
         }
     }
 
+    suspend fun fetchAiExplanationStreaming(
+        text: String,
+        onPartial: suspend (String) -> Unit
+    ): Pair<String, String>? {
+        val payload = JSONObject().apply { put("text", text) }
+        val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_STREAM
+        android.util.Log.d(TAG, "fetchAiExplanationStreaming url=$url")
+        return streamJsonPayloadSse(url, payload, text, onPartial)
+    }
+
     suspend fun exportAllNotes(): ExportResult = withContext(Dispatchers.IO) {
         val notes = dao.getAll()
         if (notes.isEmpty()) {
@@ -110,12 +148,21 @@ class AiNoteRepository(
             )
         }
 
+        val bookTitlesById: Map<String, String?> = notes
+            .mapNotNull { it.bookId }
+            .distinct()
+            .let { ids ->
+                if (ids.isEmpty()) emptyMap()
+                else bookDao.getByIds(ids).associateBy({ it.bookId }, { it.title })
+            }
+
         val notesArray = JSONArray().apply {
             notes.forEach { note ->
                 put(
                     JSONObject().apply {
                         put("id", note.id)
                         put("bookId", note.bookId ?: JSONObject.NULL)
+                        put("bookTitle", note.bookTitle ?: bookTitlesById[note.bookId] ?: JSONObject.NULL)
                         put("originalText", note.originalText)
                         put("aiResponse", note.aiResponse)
                         put("locatorJson", note.locatorJson ?: JSONObject.NULL)
@@ -185,9 +232,9 @@ class AiNoteRepository(
                     .build()
 
                 client.newBuilder()
-                    .connectTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(30, TimeUnit.SECONDS)
-                    .writeTimeout(30, TimeUnit.SECONDS)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(60, TimeUnit.SECONDS)
+                    .writeTimeout(60, TimeUnit.SECONDS)
                     .build()
                     .newCall(request)
                     .execute()
@@ -203,6 +250,114 @@ class AiNoteRepository(
                 null
             }
         }
+
+    suspend fun continueConversationStreaming(
+        note: AiNoteEntity,
+        followUpText: String,
+        onPartial: suspend (String) -> Unit
+    ): String? {
+        val payload = JSONObject().apply {
+            put("history", buildHistoryArray(note))
+            put("text", followUpText)
+        }
+        val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE_STREAM
+        android.util.Log.d(TAG, "continueConversationStreaming url=$url")
+        return streamJsonPayloadSse(url, payload, followUpText, onPartial)?.second
+    }
+
+    private suspend fun streamJsonPayloadSse(
+        url: String,
+        payload: JSONObject,
+        fallbackText: String,
+        onPartial: suspend (String) -> Unit
+    ): Pair<String, String>? = withContext(Dispatchers.IO) {
+        try {
+            val requestBody =
+                payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .header("Accept", "text/event-stream")
+                .build()
+
+            client.newBuilder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS) // keep stream open
+                .writeTimeout(15, TimeUnit.SECONDS)
+                .build()
+                .newCall(request)
+                .execute()
+                .use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    val source = response.body?.source() ?: return@withContext null
+                    val contentBuilder = StringBuilder()
+                    var serverText: String? = null
+
+                    while (true) {
+                        if (source.exhausted()) break
+                        val line = source.readUtf8Line() ?: break
+                        val trimmed = line.trim()
+                        if (trimmed.isEmpty()) continue
+                        if (trimmed.startsWith(":")) continue // SSE comment (e.g., OpenRouter status)
+                        if (!trimmed.startsWith("data:")) continue
+
+                        val payloadLine = trimmed.removePrefix("data:").trim()
+                        if (payloadLine == "[DONE]") break
+
+                        val chunk = parseStreamingChunk(payloadLine)
+                        if (chunk.serverText != null) serverText = chunk.serverText
+                        if (chunk.delta.isNotEmpty()) {
+                            contentBuilder.append(chunk.delta)
+                            // push partial immediately
+                            withContext(Dispatchers.Main) {
+                                onPartial(contentBuilder.toString())
+                            }
+                        }
+                    }
+
+                    val content = contentBuilder.toString()
+                    if (content.isBlank()) return@withContext null
+                    Pair(serverText ?: fallbackText, content)
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun parseStreamingChunk(raw: String): StreamingChunk {
+        return try {
+            val json = JSONObject(raw)
+            val serverText = json.optString("text", "").takeIf { it.isNotBlank() }
+            val doneFromFlag = json.optBoolean("done", false)
+
+            // OpenAI-style SSE: choices[0].delta.content, finish_reason == "stop"
+            val choices = json.optJSONArray("choices")
+            val firstChoice = choices?.optJSONObject(0)
+            val deltaObj = firstChoice?.optJSONObject("delta")
+            val contentFromDelta = deltaObj?.optString("content", "") ?: ""
+            val finish = firstChoice?.optString("finish_reason", "")
+
+            val delta = when {
+                contentFromDelta.isNotEmpty() -> contentFromDelta
+                json.has("delta") -> json.optString("delta", "")
+                json.has("content") -> json.optString("content", "")
+                else -> json.optString("text", "")
+            }
+
+            val done = doneFromFlag || (finish != null && finish != "null" && finish != "unknown")
+            StreamingChunk(serverText, delta, done)
+        } catch (e: Exception) {
+            StreamingChunk(null, raw, false)
+        }
+    }
+
+    private data class StreamingChunk(
+        val serverText: String?,
+        val delta: String,
+        val done: Boolean
+    )
 
     private fun buildHistoryArray(note: AiNoteEntity): JSONArray {
         val history = JSONArray()
@@ -235,23 +390,42 @@ class AiNoteRepository(
 
             // Subsequent segments: follow-up Q/A pairs formatted as "Q: <question>\n\n<answer>"
             segments.drop(1).forEach { seg ->
-                val lines = seg.trim().lines()
-                val qLine = lines.firstOrNull()?.removePrefix("Q:")?.trim().orEmpty()
-                val answer = lines.drop(1).joinToString("\n").trim()
+                val trimmed = seg.trim()
+                if (trimmed.isEmpty()) return@forEach
+                val lines = trimmed.lines()
+                val first = lines.firstOrNull()?.trim().orEmpty()
 
-                if (qLine.isNotEmpty()) {
-                    history.put(
-                        JSONObject().apply {
-                            put("role", "user")
-                            put("parts", JSONArray().put(JSONObject().put("text", qLine)))
-                        }
-                    )
-                }
-                if (answer.isNotEmpty()) {
+                val qPrefix =
+                    first.startsWith("Q:", true) ||
+                        first.startsWith("Question:", true) ||
+                        first.startsWith("User:", true)
+
+                if (qPrefix) {
+                    val question = first.substringAfter(":").trim()
+                    val answer = lines.drop(1).joinToString("\n").trim()
+
+                    if (question.isNotEmpty()) {
+                        history.put(
+                            JSONObject().apply {
+                                put("role", "user")
+                                put("parts", JSONArray().put(JSONObject().put("text", question)))
+                            }
+                        )
+                    }
+                    if (answer.isNotEmpty()) {
+                        history.put(
+                            JSONObject().apply {
+                                put("role", "model")
+                                put("parts", JSONArray().put(JSONObject().put("text", answer)))
+                            }
+                        )
+                    }
+                } else {
+                    // No recognizable user prefix: treat whole segment as model to avoid mislabeling
                     history.put(
                         JSONObject().apply {
                             put("role", "model")
-                            put("parts", JSONArray().put(JSONObject().put("text", answer)))
+                            put("parts", JSONArray().put(JSONObject().put("text", trimmed)))
                         }
                     )
                 }
@@ -268,4 +442,3 @@ data class ExportResult(
     val isEmpty: Boolean = false,
     val message: String? = null
 )
-
