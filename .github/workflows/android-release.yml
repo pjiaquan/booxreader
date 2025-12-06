@@ -43,6 +43,7 @@ jobs:
           fi
 
       - name: Sign release artifacts (optional)
+        continue-on-error: true
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
