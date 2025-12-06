@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [BookEntity::class, BookmarkEntity::class, AiNoteEntity::class, UserEntity::class],
-    version = 4,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +32,28 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
+        
+        private val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `ai_notes` ADD COLUMN `bookTitle` TEXT")
+            }
+        }
+        
+        private val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `ai_notes` ADD COLUMN `remoteId` TEXT")
+                database.execSQL("ALTER TABLE `ai_notes` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("UPDATE `ai_notes` SET `updatedAt` = `createdAt` WHERE `updatedAt` = 0")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `bookmarks` ADD COLUMN `remoteId` TEXT")
+                database.execSQL("ALTER TABLE `bookmarks` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("UPDATE `bookmarks` SET `updatedAt` = `createdAt` WHERE `updatedAt` = 0")
+            }
+        }
 
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -40,11 +62,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "boox_reader.db"
                 )
-                .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 // .fallbackToDestructiveMigration() // REMOVED: unsafe for production
                 .build().also { INSTANCE = it }
             }
         }
     }
 }
-

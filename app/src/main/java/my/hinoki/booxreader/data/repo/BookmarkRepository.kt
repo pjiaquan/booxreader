@@ -14,10 +14,12 @@ import android.util.Log
 import my.hinoki.booxreader.data.remote.HttpConfig
 
 import okhttp3.OkHttpClient
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 
 class BookmarkRepository(
     private val context: Context,
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val syncRepo: UserSyncRepository? = null
 ) {
 
     private val db = AppDatabase.get(context)
@@ -33,6 +35,7 @@ class BookmarkRepository(
 
     suspend fun getBookmarks(bookId: String): List<BookmarkEntity> =
         withContext(Dispatchers.IO) {
+            runCatching { syncRepo?.pullBookmarks(bookId) }
             dao.getAll(bookId)
         }
 
@@ -58,11 +61,18 @@ class BookmarkRepository(
                 publisher.publishBookmark(entity)
 
                 // 3. If successful, update the local DB to set isSynced = true
-                // We use the insertedId to update the correct row.
                 val syncedEntity = entity.copy(id = insertedId, isSynced = true)
-                dao.insert(syncedEntity)
+                dao.update(syncedEntity)
             } catch (e: Exception) {
                 Log.e("BookmarkRepository", "publishBookmark failed", e)
+            }
+
+            // 4. Firestore sync (best effort)
+            runCatching {
+                val result = syncRepo?.pushBookmark(entity.copy(id = insertedId))
+                if (result != null) {
+                    dao.update(result)
+                }
             }
         }
 
@@ -71,4 +81,3 @@ class BookmarkRepository(
             dao.delete(entity)
         }
 }
-

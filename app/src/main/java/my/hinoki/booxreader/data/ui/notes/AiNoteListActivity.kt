@@ -6,11 +6,13 @@ import android.os.Bundle
 import android.text.format.DateFormat
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
 import kotlinx.coroutines.launch
 
@@ -30,23 +32,32 @@ class AiNoteListActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityAiNoteListBinding
+    private lateinit var syncRepo: UserSyncRepository
     private lateinit var repo: AiNoteRepository
     private var bookId: String? = null
+    private var exportMenuItem: MenuItem? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
-        repo = AiNoteRepository(app, app.okHttpClient)
+        syncRepo = UserSyncRepository(app)
+        repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
         bookId = intent.getStringExtra(EXTRA_BOOK_ID)
 
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.topAppBar)
+
+        binding.topAppBar.setNavigationOnClickListener {
+            onBackPressedDispatcher.onBackPressed()
+        }
 
         loadNotes()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_ai_note_list, menu)
+        exportMenuItem = menu.findItem(R.id.action_export_ai_notes)
         return true
     }
 
@@ -60,8 +71,18 @@ class AiNoteListActivity : AppCompatActivity() {
         }
     }
 
+    private fun setExportInProgress(inProgress: Boolean) {
+        binding.progressBar.visibility = if (inProgress) View.VISIBLE else View.GONE
+        binding.listAiNotes.isEnabled = !inProgress
+        exportMenuItem?.isEnabled = !inProgress
+        binding.topAppBar.subtitle = if (inProgress) "Exporting..." else ""
+    }
+
     private fun loadNotes() {
         lifecycleScope.launch {
+            // Pull cloud notes first (best effort)
+            runCatching { syncRepo.pullNotes() }
+
             if (isFinishing || isDestroyed) return@launch
             val notes = if (bookId != null) {
                 repo.getByBook(bookId!!)
@@ -107,6 +128,7 @@ class AiNoteListActivity : AppCompatActivity() {
 
     private fun exportAllNotes() {
         lifecycleScope.launch {
+            setExportInProgress(true)
             val result = repo.exportAllNotes()
 
             val message = when {
@@ -116,6 +138,7 @@ class AiNoteListActivity : AppCompatActivity() {
             }
 
             Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_SHORT).show()
+            setExportInProgress(false)
         }
     }
 }

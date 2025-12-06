@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -10,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "my.hinoki.booxreader.foss"
+        applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -91,6 +92,10 @@ dependencies {
 
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.play.services.auth)
     
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)

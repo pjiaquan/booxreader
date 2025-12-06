@@ -11,7 +11,15 @@ interface BookmarkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: BookmarkEntity): Long
 
+    @androidx.room.Update
+    suspend fun update(entity: BookmarkEntity)
+
     @Delete
     suspend fun delete(entity: BookmarkEntity)
-}
 
+    @Query("SELECT * FROM bookmarks WHERE remoteId = :remoteId LIMIT 1")
+    suspend fun getByRemoteId(remoteId: String): BookmarkEntity?
+
+    @Query("SELECT * FROM bookmarks WHERE remoteId IS NULL")
+    suspend fun getLocalOnly(): List<BookmarkEntity>
+}

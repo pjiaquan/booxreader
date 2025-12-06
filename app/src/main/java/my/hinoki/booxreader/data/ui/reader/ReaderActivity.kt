@@ -35,6 +35,8 @@ import my.hinoki.booxreader.data.ui.notes.AiNoteDetailActivity
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import my.hinoki.booxreader.data.remote.HttpConfig
+import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ReaderSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -60,6 +62,7 @@ import java.util.zip.ZipInputStream
 class ReaderActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityReaderBinding
+    private val syncRepo by lazy { UserSyncRepository(applicationContext) }
     private val viewModel: ReaderViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -68,8 +71,9 @@ class ReaderActivity : AppCompatActivity() {
                 return ReaderViewModel(
                     app,
                     BookRepository(app),
-                    BookmarkRepository(app, app.okHttpClient),
-                    AiNoteRepository(app, app.okHttpClient)
+                    BookmarkRepository(app, app.okHttpClient, syncRepo),
+                    AiNoteRepository(app, app.okHttpClient, syncRepo),
+                    syncRepo
                 ) as T
             }
         }
@@ -91,6 +95,7 @@ class ReaderActivity : AppCompatActivity() {
     private var booxFastModeEnabled: Boolean = true
     private var refreshJob: Job? = null
     private val booxRefreshDelayMs = 450L
+    private var isSelecting: Boolean = false
     
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
@@ -133,6 +138,14 @@ class ReaderActivity : AppCompatActivity() {
         booxBatchRefreshEnabled = prefs.getBoolean("boox_batch_refresh", true)
         booxFastModeEnabled = prefs.getBoolean("boox_fast_mode", true)
 
+        // Fetch cloud settings (best effort) and apply if newer
+        lifecycleScope.launch {
+            val remote = syncRepo.pullSettingsIfNewer()
+            if (remote != null) {
+                applyReaderSettings(remote)
+            }
+        }
+
         binding.btnAinote.setOnClickListener {
             val key = viewModel.currentBookKey.value
             if (key != null) {
@@ -159,10 +172,7 @@ class ReaderActivity : AppCompatActivity() {
                 if (it != null) {
                     // Load saved locator
                     val key = viewModel.currentBookKey.value
-                    val savedJson = if (key != null) {
-                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                            .getString("progress_$key", null)
-                    } else null
+                    val savedJson = key?.let { syncRepo.getCachedProgress(it) }
                     
                     val initialLocator = LocatorJsonHelper.fromJson(savedJson)
                     initNavigator(it, initialLocator)
@@ -184,8 +194,12 @@ class ReaderActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.navigateToNote.collect { noteId ->
-                    AiNoteDetailActivity.open(this@ReaderActivity, noteId)
+                viewModel.navigateToNote.collect { target ->
+                    AiNoteDetailActivity.open(
+                        this@ReaderActivity,
+                        target.noteId,
+                        autoStreamText = target.autoStreamText
+                    )
                 }
             }
         }
@@ -290,9 +304,83 @@ class ReaderActivity : AppCompatActivity() {
             }
         }
     }
+    
+    private fun applyReaderCss(view: View?) {
+        if (view is android.webkit.WebView) {
+            val css = """
+                :root, body, p { font-size: 1em !important; }
+                aside[epub\\:type~="footnote"],
+                section[epub\\:type~="footnote"],
+                nav[epub\\:type~="footnotes"],
+                .footnote, .note {
+                  font-size: 1em !important;
+                  line-height: 1.5 !important;
+                }
+                a[epub\\:type~="noteref"], sup, sub {
+                  font-size: 0.9em !important;
+                  line-height: 1.2 !important;
+                }
+                blockquote {
+                  font-size: 1em !important;
+                  line-height: 1.5 !important;
+                }
+            """.trimIndent()
+            val js = """
+                (function() {
+                  let style = document.getElementById('boox-reader-style');
+                  if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'boox-reader-style';
+                    document.head.appendChild(style);
+                  }
+                  style.textContent = `${css}`;
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applyReaderCss(view.getChildAt(i))
+            }
+        }
+    }
 
+    private fun applySelectionFriendlyCss(view: View?) {
+        if (view is android.webkit.WebView) {
+            val css = """
+                * {
+                  -webkit-user-select: text !important;
+                  user-select: text !important;
+                  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+                }
+                body {
+                  touch-action: manipulation;
+                }
+            """.trimIndent()
+            val js = """
+                (function() {
+                  let style = document.getElementById('boox-selection-style');
+                  if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'boox-selection-style';
+                    document.head.appendChild(style);
+                  }
+                  style.textContent = `${css}`;
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applySelectionFriendlyCss(view.getChildAt(i))
+            }
+        }
+    }
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
         if (!EInkHelper.isBoox()) return
+        if (isSelecting) return
         refreshJob?.cancel()
         if (immediate || !booxBatchRefreshEnabled) {
             EInkHelper.refresh(binding.root, full)
@@ -307,6 +395,14 @@ class ReaderActivity : AppCompatActivity() {
     private fun applyFontZoomLikeNeoReader(view: View?, sizePercent: Int) {
         if (view is android.webkit.WebView) {
             view.settings.textZoom = sizePercent
+            // Also reset any zoom styles that might have been injected
+            val js = """
+                (function() {
+                  document.documentElement.style.zoom = '';
+                  document.body.style.zoom = '';
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
             return
         }
         if (view is ViewGroup) {
@@ -324,16 +420,18 @@ class ReaderActivity : AppCompatActivity() {
             navigator.currentLocator
                 .sample(1500)
                 .collectLatest {
+                    if (isSelecting) return@collectLatest // avoid reflows/progress writes during selection
                     // Re-apply font weight after page/layout changes so the style persists across navigations and restarts
                     applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
+                    applyFontZoomLikeNeoReader(navigatorFragment?.view, currentFontSize)
+                    applyReaderCss(navigatorFragment?.view)
+                    applySelectionFriendlyCss(navigatorFragment?.view)
 
                     val json = LocatorJsonHelper.toJson(it) ?: return@collectLatest
                     val key = viewModel.currentBookKey.value ?: return@collectLatest
 
                     // Local Prefs
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-                        .putString("progress_$key", json)
-                        .apply()
+                    syncRepo.cacheProgress(key, json)
                     
                     // ViewModel (Server/DB)
                     viewModel.saveProgress(json)
@@ -359,9 +457,7 @@ class ReaderActivity : AppCompatActivity() {
         val locator = navigator.currentLocator.value
         val json = LocatorJsonHelper.toJson(locator) ?: return
 
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-            .putString("progress_$key", json)
-            .apply()
+        syncRepo.cacheProgress(key, json)
             
         viewModel.saveProgress(json)
         val bookId = intent.data?.toString()
@@ -446,6 +542,7 @@ class ReaderActivity : AppCompatActivity() {
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
         val tvFontWeight = dialogView.findViewById<TextView>(R.id.tvFontWeight)
         val seekFontWeight = dialogView.findViewById<SeekBar>(R.id.seekFontWeight)
+        val switchUseStreaming = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchUseStreaming)
 
         // Add Security Buttons
         val layout = dialogView as? android.widget.LinearLayout
@@ -523,6 +620,8 @@ class ReaderActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val currentUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
         etServerUrl.setText(currentUrl)
+        val streamingEnabled = prefs.getBoolean("use_streaming", false)
+        switchUseStreaming.isChecked = streamingEnabled
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -534,12 +633,15 @@ class ReaderActivity : AppCompatActivity() {
                     prefs.edit().putString("server_base_url", newUrl).apply()
                     Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
                 }
+                pushSettingsToCloud()
             }
             .create()
 
+        val fontStep = 10
+
         btnDecrease.setOnClickListener {
             if (currentFontSize > 50) {
-                currentFontSize -= 25
+                currentFontSize = (currentFontSize - fontStep).coerceAtLeast(50)
                 tvFontSize.text = "$currentFontSize%"
                 applyFontSize(currentFontSize)
             }
@@ -547,7 +649,7 @@ class ReaderActivity : AppCompatActivity() {
 
         btnIncrease.setOnClickListener {
             if (currentFontSize < 500) {
-                currentFontSize += 25
+                currentFontSize = (currentFontSize + fontStep).coerceAtMost(500)
                 tvFontSize.text = "$currentFontSize%"
                 applyFontSize(currentFontSize)
             }
@@ -559,6 +661,12 @@ class ReaderActivity : AppCompatActivity() {
         switchPageTap.setOnCheckedChangeListener { _, isChecked ->
             pageTapEnabled = isChecked
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("page_tap_enabled", isChecked).apply()
+        }
+
+        switchUseStreaming.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("use_streaming", isChecked).apply()
+            val msg = if (isChecked) "Streaming enabled (/ws)" else "Streaming disabled"
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
 
         dialog.show()
@@ -685,15 +793,34 @@ class ReaderActivity : AppCompatActivity() {
                     lineHeight = 1.4,
                     pageMargins = 1.5
                 )
-                navigator.submitPreferences(newPreferences)
-                // Neo Reader-style zoom fallback via WebView textZoom (helps EPUBs that ignore CSS scale)
-                navigatorFragment?.view?.post {
+            navigator.submitPreferences(newPreferences)
+            // Neo Reader-style zoom fallback via WebView textZoom (helps EPUBs that ignore CSS scale)
+            navigatorFragment?.view?.post {
                     applyFontZoomLikeNeoReader(navigatorFragment?.view, sizePercent)
                     applyFontWeight(currentFontWeight)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        }
+    }
+
+    private fun applyReaderSettings(settings: ReaderSettings) {
+        currentFontSize = settings.fontSize
+        currentFontWeight = settings.fontWeight
+        pageTapEnabled = settings.pageTapEnabled
+        booxBatchRefreshEnabled = settings.booxBatchRefresh
+        booxFastModeEnabled = settings.booxFastMode
+        applyFontSize(currentFontSize)
+        applyFontWeight(currentFontWeight)
+        applyReaderCss(navigatorFragment?.view)
+        applySelectionFriendlyCss(navigatorFragment?.view)
+    }
+    
+    private fun pushSettingsToCloud() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        lifecycleScope.launch {
+            syncRepo.pushSettings(ReaderSettings.fromPrefs(prefs))
         }
     }
 
@@ -710,6 +837,7 @@ class ReaderActivity : AppCompatActivity() {
     private val selectionActionModeCallback = object : ActionMode.Callback2() {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             currentActionMode = mode
+            isSelecting = true
             // Haptic feedback to confirm selection initiation
             binding.root.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             
@@ -782,6 +910,7 @@ class ReaderActivity : AppCompatActivity() {
         }
         override fun onDestroyActionMode(mode: ActionMode?) {
             currentActionMode = null
+            isSelecting = false
         }
     }
 
@@ -801,6 +930,11 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // When selection/action mode is active, bypass custom page-tap logic to avoid interfering with text selection.
+        if (currentActionMode != null || isSelecting) {
+            return super.dispatchTouchEvent(ev)
+        }
+
         // Ignore touches on the bottom bar to allow button clicks
         val bottomBarRect = android.graphics.Rect()
         binding.bottomBar.getGlobalVisibleRect(bottomBarRect)

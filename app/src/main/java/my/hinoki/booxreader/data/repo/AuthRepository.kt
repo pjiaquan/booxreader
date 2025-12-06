@@ -1,77 +1,87 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
+import com.google.android.gms.tasks.Task
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.UserEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class AuthRepository(
     private val context: Context,
     private val tokenManager: TokenManager
 ) {
     private val userDao = AppDatabase.get(context).userDao()
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
-    // Mock Login
     suspend fun login(email: String, password: String): Result<UserEntity> = withContext(Dispatchers.IO) {
-        delay(1000) // Simulate network
-        if (password == "password") { // Mock check
-            val user = UserEntity(
-                userId = "user_123",
-                email = email,
-                displayName = "Test User",
-                avatarUrl = null
-            )
-            userDao.clearAllUsers()
-            userDao.insertUser(user)
-            tokenManager.saveAccessToken("mock_access_token")
-            tokenManager.saveRefreshToken("mock_refresh_token")
-            Result.success(user)
-        } else {
-            Result.failure(Exception("Invalid credentials"))
+        runCatching {
+            val authResult = auth.signInWithEmailAndPassword(email, password).await()
+            val firebaseUser = authResult.user ?: error("User not found")
+            cacheUser(firebaseUser)
         }
     }
 
-    // Mock Register
     suspend fun register(email: String, password: String): Result<UserEntity> = withContext(Dispatchers.IO) {
-        delay(1000)
-        val user = UserEntity(
-            userId = "user_${System.currentTimeMillis()}",
-            email = email,
-            displayName = email.substringBefore("@"),
-            avatarUrl = null
-        )
-        userDao.clearAllUsers()
-        userDao.insertUser(user)
-        tokenManager.saveAccessToken("mock_access_token")
-        tokenManager.saveRefreshToken("mock_refresh_token")
-        Result.success(user)
+        runCatching {
+            val authResult = auth.createUserWithEmailAndPassword(email, password).await()
+            val firebaseUser = authResult.user ?: error("User not found")
+            cacheUser(firebaseUser)
+        }
     }
 
-    // Mock Google Login (Simulate backend verification)
     suspend fun googleLogin(idToken: String, email: String?, name: String?): Result<UserEntity> = withContext(Dispatchers.IO) {
-        delay(1000)
-        // Verify idToken with backend...
-        val user = UserEntity(
-            userId = "google_user_${System.currentTimeMillis()}",
-            email = email ?: "google@example.com", 
-            displayName = name ?: "Google User",
-            avatarUrl = null
-        )
-        userDao.clearAllUsers()
-        userDao.insertUser(user)
-        tokenManager.saveAccessToken("mock_google_access_token")
-        tokenManager.saveRefreshToken("mock_refresh_token")
-        Result.success(user)
+        runCatching {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = auth.signInWithCredential(credential).await()
+            val firebaseUser = authResult.user ?: error("User not found")
+            cacheUser(firebaseUser, fallbackEmail = email, fallbackName = name)
+        }
     }
 
     suspend fun logout() = withContext(Dispatchers.IO) {
+        auth.signOut()
         userDao.clearAllUsers()
         tokenManager.clearTokens()
     }
 
     fun getCurrentUser() = userDao.getUser()
+
+    private suspend fun cacheUser(
+        user: FirebaseUser,
+        fallbackEmail: String? = null,
+        fallbackName: String? = null
+    ): UserEntity {
+        val email = user.email ?: fallbackEmail ?: error("Email not available")
+        val displayName = user.displayName ?: fallbackName ?: email.substringBefore("@")
+        val idToken = user.getIdToken(true).await().token ?: error("Unable to fetch ID token")
+
+        val entity = UserEntity(
+            userId = user.uid,
+            email = email,
+            displayName = displayName,
+            avatarUrl = user.photoUrl?.toString()
+        )
+
+        userDao.clearAllUsers()
+        userDao.insertUser(entity)
+
+        tokenManager.clearTokens()
+        tokenManager.saveAccessToken(idToken)
+
+        return entity
+    }
 }
 
+private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->
+    addOnSuccessListener { cont.resume(it) }
+    addOnFailureListener { cont.resumeWithException(it) }
+    addOnCanceledListener { cont.cancel() }
+}

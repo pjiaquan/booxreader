@@ -1,5 +1,7 @@
 package my.hinoki.booxreader.data.remote
 
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.auth.FirebaseAuth
 import my.hinoki.booxreader.data.prefs.TokenManager
 import okhttp3.Authenticator
 import okhttp3.Request
@@ -7,36 +9,35 @@ import okhttp3.Response
 import okhttp3.Route
 
 class TokenAuthenticator(private val tokenManager: TokenManager) : Authenticator {
-    override fun authenticate(route: Route?, response: Response): Request? {
-        val refreshToken = tokenManager.getRefreshToken() ?: return null
 
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+
+    override fun authenticate(route: Route?, response: Response): Request? {
         synchronized(this) {
             val currentAccessToken = tokenManager.getAccessToken()
-            
             val requestToken = response.request.header("Authorization")?.removePrefix("Bearer ")
-            
-            // If token changed while we waited, retry with new token
+
             if (currentAccessToken != null && currentAccessToken != requestToken) {
-                 return response.request.newBuilder()
+                return response.request.newBuilder()
                     .header("Authorization", "Bearer $currentAccessToken")
                     .build()
             }
 
-            // TODO: Implement actual network call to /refresh endpoint
-            // val refreshedToken = api.refreshToken(refreshToken).execute().body()?.token
-            val refreshedToken: String? = null 
+            val firebaseUser = auth.currentUser ?: return null
+            val refreshedToken = try {
+                Tasks.await(firebaseUser.getIdToken(true))?.token
+            } catch (_: Exception) {
+                null
+            }
 
-            if (refreshedToken != null) {
+            return if (!refreshedToken.isNullOrBlank()) {
                 tokenManager.saveAccessToken(refreshedToken)
-                return response.request.newBuilder()
+                response.request.newBuilder()
                     .header("Authorization", "Bearer $refreshedToken")
                     .build()
             } else {
-                // Refresh failed (e.g. refresh token expired), logout needed
-                // tokenManager.clearTokens() // Optional: clear explicitly or let UI handle 401
-                return null
+                null
             }
         }
     }
 }
-
