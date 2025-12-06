@@ -29,7 +29,10 @@ jobs:
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Prepare artifacts folder
-        run: mkdir -p dist && cp app/build/outputs/apk/release/*.apk dist/ && cp app/build/outputs/bundle/release/*.aab dist/
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release-unsigned.apk dist/
+          cp app/build/outputs/bundle/release/app-release.aab dist/
 
       - name: Decode signing keystore (optional)
         env:
@@ -50,27 +53,27 @@ jobs:
           KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
+          APK_UNSIGNED=dist/app-release-unsigned.apk
+          APK_SIGNED=dist/app-release.apk
+          AAB_PATH=dist/app-release.aab
+
           if [ -f dist/release.keystore ] && \
              [ -n "${KEYSTORE_PASSWORD:-}" ] && \
              [ -n "${KEY_ALIAS:-}" ] && \
              [ -n "${KEY_ALIAS_PASSWORD:-}" ]; then
             BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
-            APK_IN=dist/app-release.apk
-            APK_OUT=dist/app-release-signed.apk
-            AAB_IN=dist/app-release.aab
-            AAB_OUT=dist/app-release-signed.aab
             "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" sign \
               --ks dist/release.keystore \
               --ks-pass pass:$KEYSTORE_PASSWORD \
               --ks-key-alias "$KEY_ALIAS" \
               --key-pass pass:$KEY_ALIAS_PASSWORD \
-              --out "$APK_OUT" \
-              "$APK_IN"
-            jarsigner -keystore dist/release.keystore -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_ALIAS_PASSWORD" "$AAB_IN" "$KEY_ALIAS"
-            mv "$AAB_IN" "$AAB_OUT"
-            echo "Signing completed."
+              --out "$APK_SIGNED" \
+              "$APK_UNSIGNED"
+            jarsigner -keystore dist/release.keystore -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_ALIAS_PASSWORD" "$AAB_PATH" "$KEY_ALIAS"
+            rm -f "$APK_UNSIGNED"
+            echo "Signing completed; outputs: $APK_SIGNED and $AAB_PATH"
           else
-            echo "Signing skipped (keystore or credentials missing)."
+            echo "Signing skipped (keystore or credentials missing); unsigned artifacts kept."
           fi
 
       - name: Upload release artifacts
