@@ -32,34 +32,45 @@ jobs:
         run: mkdir -p dist && cp app/build/outputs/apk/release/*.apk dist/ && cp app/build/outputs/bundle/release/*.aab dist/
 
       - name: Decode signing keystore (optional)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > dist/release.keystore
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > dist/release.keystore
+            echo "Keystore decoded."
+          else
+            echo "No ANDROID_KEYSTORE_BASE64 provided; skipping keystore decode."
+          fi
 
       - name: Sign release artifacts (optional)
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_ALIAS_PASSWORD != '' }}
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
-          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
-          APK_IN=dist/app-release.apk
-          APK_OUT=dist/app-release-signed.apk
-          AAB_IN=dist/app-release.aab
-          AAB_OUT=dist/app-release-signed.aab
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" sign \
-            --ks dist/release.keystore \
-            --ks-pass pass:$KEYSTORE_PASSWORD \
-            --ks-key-alias "$KEY_ALIAS" \
-            --key-pass pass:$KEY_ALIAS_PASSWORD \
-            --out "$APK_OUT" \
-            "$APK_IN"
-          jarsigner -keystore dist/release.keystore -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_ALIAS_PASSWORD" "$AAB_IN" "$KEY_ALIAS"
-          mv "$AAB_IN" "$AAB_OUT"
+          if [ -f dist/release.keystore ] && \
+             [ -n "${KEYSTORE_PASSWORD:-}" ] && \
+             [ -n "${KEY_ALIAS:-}" ] && \
+             [ -n "${KEY_ALIAS_PASSWORD:-}" ]; then
+            BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)
+            APK_IN=dist/app-release.apk
+            APK_OUT=dist/app-release-signed.apk
+            AAB_IN=dist/app-release.aab
+            AAB_OUT=dist/app-release-signed.aab
+            "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" sign \
+              --ks dist/release.keystore \
+              --ks-pass pass:$KEYSTORE_PASSWORD \
+              --ks-key-alias "$KEY_ALIAS" \
+              --key-pass pass:$KEY_ALIAS_PASSWORD \
+              --out "$APK_OUT" \
+              "$APK_IN"
+            jarsigner -keystore dist/release.keystore -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_ALIAS_PASSWORD" "$AAB_IN" "$KEY_ALIAS"
+            mv "$AAB_IN" "$AAB_OUT"
+            echo "Signing completed."
+          else
+            echo "Signing skipped (keystore or credentials missing)."
+          fi
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
