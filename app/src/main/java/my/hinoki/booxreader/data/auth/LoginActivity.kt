@@ -2,6 +2,7 @@ package my.hinoki.booxreader.data.auth
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -27,6 +28,7 @@ class LoginActivity : AppCompatActivity() {
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogle = findViewById<Button>(R.id.btnGoogleSignIn)
+        val btnResend = findViewById<Button>(R.id.btnResendVerification)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
 
         if (!googleHelper.isSupported()) {
@@ -44,6 +46,16 @@ class LoginActivity : AppCompatActivity() {
         btnGoogle.setOnClickListener {
             googleHelper.signIn(RC_SIGN_IN)
         }
+
+        btnResend.setOnClickListener {
+            val email = etEmail.text.toString()
+            val pass = etPassword.text.toString()
+            if (email.isNotBlank() && pass.isNotBlank()) {
+                viewModel.resendVerification(email, pass)
+            } else {
+                Toast.makeText(this, "請輸入帳號密碼以重寄驗證信", Toast.LENGTH_SHORT).show()
+            }
+        }
         
         tvRegister.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
@@ -54,18 +66,27 @@ class LoginActivity : AppCompatActivity() {
                 when (state) {
                     is AuthState.Loading -> {
                         btnLogin.isEnabled = false
+                        btnResend.visibility = View.GONE
                     }
                     is AuthState.Success -> {
                         Toast.makeText(this@LoginActivity, "Login Successful", Toast.LENGTH_SHORT).show()
+                        btnResend.visibility = View.GONE
                         finish()
                     }
                     is AuthState.Error -> {
                         btnLogin.isEnabled = true
                         Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_SHORT).show()
+                        if (state.message.contains("not verified", ignoreCase = true) ||
+                            state.message.contains("驗證", ignoreCase = true)) {
+                            btnResend.visibility = View.VISIBLE
+                        } else {
+                            btnResend.visibility = View.GONE
+                        }
                         viewModel.resetState()
                     }
                     else -> {
                         btnLogin.isEnabled = true
+                        btnResend.visibility = View.GONE
                     }
                 }
             }

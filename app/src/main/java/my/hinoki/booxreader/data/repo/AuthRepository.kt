@@ -25,6 +25,13 @@ class AuthRepository(
         runCatching {
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = authResult.user ?: error("User not found")
+            if (!firebaseUser.isEmailVerified) {
+                firebaseUser.sendEmailVerification().await()
+                auth.signOut()
+                userDao.clearAllUsers()
+                tokenManager.clearTokens()
+                error("Email not verified. Verification email sent.")
+            }
             cacheUser(firebaseUser)
         }
     }
@@ -33,7 +40,17 @@ class AuthRepository(
         runCatching {
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = authResult.user ?: error("User not found")
-            cacheUser(firebaseUser)
+            firebaseUser.sendEmailVerification().await()
+            auth.signOut()
+            userDao.clearAllUsers()
+            tokenManager.clearTokens()
+            // Return lightweight entity for UI messaging; not cached until verification + login.
+            UserEntity(
+                userId = firebaseUser.uid,
+                email = firebaseUser.email ?: email,
+                displayName = firebaseUser.displayName ?: email.substringBefore("@"),
+                avatarUrl = firebaseUser.photoUrl?.toString()
+            )
         }
     }
 
@@ -50,6 +67,17 @@ class AuthRepository(
         auth.signOut()
         userDao.clearAllUsers()
         tokenManager.clearTokens()
+    }
+
+    suspend fun resendVerification(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val authResult = auth.signInWithEmailAndPassword(email, password).await()
+            val firebaseUser = authResult.user ?: error("User not found")
+            firebaseUser.sendEmailVerification().await()
+            auth.signOut()
+            userDao.clearAllUsers()
+            tokenManager.clearTokens()
+        }
     }
 
     fun getCurrentUser() = userDao.getUser()

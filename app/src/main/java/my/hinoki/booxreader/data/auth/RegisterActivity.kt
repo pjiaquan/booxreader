@@ -36,14 +36,14 @@ class RegisterActivity : AppCompatActivity() {
                     is AuthState.Loading -> {
                         btnRegister.isEnabled = false
                     }
-                    is AuthState.Success -> {
-                        Toast.makeText(this@RegisterActivity, "Registration Successful", Toast.LENGTH_SHORT).show()
-                        finish()
-                    }
                     is AuthState.Error -> {
                         btnRegister.isEnabled = true
                         Toast.makeText(this@RegisterActivity, state.message, Toast.LENGTH_SHORT).show()
-                        viewModel.resetState()
+                        if (state.message.contains("驗證", ignoreCase = true)) {
+                            finish()
+                        } else {
+                            viewModel.resetState()
+                        }
                     }
                     else -> {
                         btnRegister.isEnabled = true
@@ -53,4 +53,3 @@ class RegisterActivity : AppCompatActivity() {
         }
     }
 }
-

@@ -52,6 +52,14 @@
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_marginTop="16dp"/>
 
+    <Button
+        android:id="@+id/btnResendVerification"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="重寄驗證信"
+        android:layout_marginTop="12dp"
+        android:visibility="gone"/>
+
     <TextView
         android:id="@+id/tvRegister"
         android:layout_width="wrap_content"

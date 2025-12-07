@@ -29,6 +29,17 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     
+    fun resendVerification(email: String, pass: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepo.resendVerification(email, pass)
+            result.fold(
+                onSuccess = { _authState.value = AuthState.Error("驗證信已重新寄出，請檢查信箱") },
+                onFailure = { _authState.value = AuthState.Error(it.message ?: "重寄驗證信失敗") }
+            )
+        }
+    }
+
     fun googleLogin(idToken: String, email: String?, name: String?) {
         viewModelScope.launch {
              _authState.value = AuthState.Loading
@@ -45,7 +56,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _authState.value = AuthState.Loading
             val result = authRepo.register(email, pass)
             result.fold(
-                onSuccess = { _authState.value = AuthState.Success },
+                onSuccess = { _authState.value = AuthState.Error("已寄出驗證信，請驗證後再登入") },
                 onFailure = { _authState.value = AuthState.Error(it.message ?: "Registration failed") }
             )
         }
@@ -69,4 +80,3 @@ sealed class AuthState {
     object Success : AuthState()
     data class Error(val message: String) : AuthState()
 }
-
