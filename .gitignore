@@ -1,3 +1,8 @@
+app/google-services.json
+google-services.json
+*.jks
+*.keystore
+
 *.iml
 .gradle
 /local.properties
@@ -23,3 +28,10 @@ repo/
 *.log
 release.keystore
 !app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
+
+# Firebase
+google-services.json
+
+# Keystore
+*.jks
+*.keystore
