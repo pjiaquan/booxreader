@@ -392,6 +392,32 @@ class UserSyncRepository(
         updatedCount
     }
 
+    /**
+     * Fetch all progress documents for the signed-in user and merge newer ones into local cache/DB.
+     */
+    suspend fun pullAllProgress(): Int = withContext(io) {
+        val ref = userDoc() ?: return@withContext 0
+        val snapshot = runCatching {
+            ref.collection(COL_PROGRESS).get().await()
+        }.getOrElse { return@withContext 0 }
+
+        var updated = 0
+        snapshot.documents.forEach { doc ->
+            val remote = doc.toObject(RemoteProgress::class.java) ?: return@forEach
+            if (remote.bookId.isBlank() || remote.locatorJson.isBlank()) return@forEach
+
+            val localTs = prefs.getLong(progressTimestampKey(remote.bookId), 0)
+            if (remote.updatedAt > localTs) {
+                cacheProgress(remote.bookId, remote.locatorJson, remote.updatedAt)
+                runCatching {
+                    db.bookDao().updateProgress(remote.bookId, remote.locatorJson, remote.updatedAt)
+                }
+                updated++
+            }
+        }
+        updated
+    }
+
     // --- Helpers ---
 
     private fun userDoc() =

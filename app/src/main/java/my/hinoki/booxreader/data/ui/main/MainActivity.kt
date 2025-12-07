@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private fun loadRecentBooks() {
         lifecycleScope.launch {
             runCatching { syncRepo.pullBooks() }
+            runCatching { syncRepo.pullAllProgress() }
             val recent = bookRepository.getRecent(10)
             if (recent.isEmpty()) {
                 binding.tvEmptyState.visibility = android.view.View.VISIBLE
