@@ -53,7 +53,18 @@
             android:layout_height="wrap_content"
             android:text="Publish / Retry"
             android:layout_marginTop="16dp"
-            android:visibility="gone"/>
+            android:visibility="gone"
+            android:backgroundTint="#1565C0"
+            android:textColor="#FFFFFF"/>
+
+        <Button
+            android:id="@+id/btnRepublishSelection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="重新發佈選取內容"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="#D84315"
+            android:textColor="#FFFFFF"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -77,7 +88,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="發佈"
-                android:layout_marginStart="8dp" />
+                android:layout_marginStart="8dp"
+                android:backgroundTint="#2E7D32"
+                android:textColor="#FFFFFF" />
         </LinearLayout>
 
     </LinearLayout>

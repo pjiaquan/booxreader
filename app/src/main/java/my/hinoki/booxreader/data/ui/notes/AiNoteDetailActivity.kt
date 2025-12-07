@@ -72,6 +72,11 @@ class AiNoteDetailActivity : AppCompatActivity() {
             publishNote(note)
         }
 
+        binding.btnRepublishSelection.setOnClickListener {
+            val note = currentNote ?: return@setOnClickListener
+            rePublishSelection(note)
+        }
+
         binding.btnFollowUp.setOnClickListener {
             val note = currentNote ?: return@setOnClickListener
             val question = binding.etFollowUp.text.toString().trim()
@@ -233,9 +238,11 @@ class AiNoteDetailActivity : AppCompatActivity() {
             binding.btnPublish.visibility = View.VISIBLE
             binding.btnPublish.isEnabled = true
             binding.btnPublish.text = "Publish / Retry"
+            binding.btnRepublishSelection.isEnabled = false
         } else {
             markwon.setMarkdown(binding.tvAiResponse, note.aiResponse)
             binding.btnPublish.visibility = View.GONE
+            binding.btnRepublishSelection.isEnabled = true
         }
 
         if (scrollToQuestionHeader) {
@@ -260,11 +267,13 @@ class AiNoteDetailActivity : AppCompatActivity() {
     private fun publishNote(note: AiNoteEntity) {
         binding.btnPublish.isEnabled = false
         binding.btnPublish.text = "Publishing..."
+        binding.btnRepublishSelection.isEnabled = false
 
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
                 startStreaming(note, note.originalText)
+                binding.btnPublish.text = "Streaming..."
                 return@launch
             }
 
@@ -284,6 +293,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = "Publish / Retry"
             }
+            binding.btnRepublishSelection.isEnabled = true
         }
     }
 
@@ -324,6 +334,36 @@ class AiNoteDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun rePublishSelection(note: AiNoteEntity) {
+        binding.btnRepublishSelection.isEnabled = false
+        binding.btnRepublishSelection.text = "重新發佈中..."
+        lifecycleScope.launch {
+            val useStreaming = repository.isStreamingEnabled()
+            if (useStreaming) {
+                startStreaming(note, note.originalText)
+                binding.btnRepublishSelection.text = "重新發佈選取內容"
+                return@launch
+            }
+
+            val result = repository.fetchAiExplanation(note.originalText)
+            if (result != null) {
+                val (serverText, content) = result
+                val updatedNote = note.copy(
+                    originalText = serverText,
+                    aiResponse = content
+                )
+                repository.update(updatedNote)
+                currentNote = updatedNote
+                updateUI(updatedNote)
+                Toast.makeText(this@AiNoteDetailActivity, "已重新發佈", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@AiNoteDetailActivity, "重新發佈失敗", Toast.LENGTH_SHORT).show()
+            }
+            binding.btnRepublishSelection.isEnabled = true
+            binding.btnRepublishSelection.text = "重新發佈選取內容"
+        }
+    }
+
     private fun promptFollowUpPublish(selectedText: String) {
         val note = currentNote
         if (note == null) {
@@ -359,6 +399,8 @@ class AiNoteDetailActivity : AppCompatActivity() {
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = "Publish / Retry"
             }
+            binding.btnRepublishSelection.isEnabled = true
+            binding.btnRepublishSelection.text = "重新發佈選取內容"
         }
     }
 }
