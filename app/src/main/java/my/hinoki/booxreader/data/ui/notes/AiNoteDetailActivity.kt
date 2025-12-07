@@ -2,6 +2,7 @@ package my.hinoki.booxreader.data.ui.notes
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -47,6 +48,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
     }
     private var autoStreamText: String? = null
     private val selectionSanitizeRegex = Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$")
+    private var isLoading = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,6 +94,8 @@ class AiNoteDetailActivity : AppCompatActivity() {
         override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean {
             menu?.add(android.view.Menu.NONE, 999, 0, "發佈")
             menu?.add(android.view.Menu.NONE, 1000, 1, "發佈並追問")
+            menu?.add(android.view.Menu.NONE, 1001, 2, "地圖搜尋")
+            menu?.add(android.view.Menu.NONE, 1002, 3, "Google 搜尋")
             return true
         }
 
@@ -109,6 +113,18 @@ class AiNoteDetailActivity : AppCompatActivity() {
             if (item?.itemId == 1000) {
                 handleSelectionAction { selectedText ->
                     promptFollowUpPublish(selectedText)
+                }
+                return true
+            }
+            if (item?.itemId == 1001) {
+                handleSelectionAction { selectedText ->
+                    openMapSearch(selectedText)
+                }
+                return true
+            }
+            if (item?.itemId == 1002) {
+                handleSelectionAction { selectedText ->
+                    openWebSearch(selectedText)
                 }
                 return true
             }
@@ -209,6 +225,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
                     autoStreamText?.let { text ->
                         binding.btnPublish.isEnabled = false
                         binding.btnPublish.text = "Streaming..."
+                        setLoading(true)
                         startStreaming(note, text)
                     }
                 }
@@ -239,6 +256,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
             binding.btnPublish.isEnabled = true
             binding.btnPublish.text = "Publish / Retry"
             binding.btnRepublishSelection.isEnabled = false
+            setLoading(false)
         } else {
             markwon.setMarkdown(binding.tvAiResponse, note.aiResponse)
             binding.btnPublish.visibility = View.GONE
@@ -268,6 +286,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
         binding.btnPublish.isEnabled = false
         binding.btnPublish.text = "Publishing..."
         binding.btnRepublishSelection.isEnabled = false
+        setLoading(true)
 
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
@@ -294,12 +313,14 @@ class AiNoteDetailActivity : AppCompatActivity() {
                 binding.btnPublish.text = "Publish / Retry"
             }
             binding.btnRepublishSelection.isEnabled = true
+            setLoading(false)
         }
     }
 
     private fun sendFollowUp(note: AiNoteEntity, question: String) {
         binding.btnFollowUp.isEnabled = false
         binding.btnFollowUp.text = "發佈中..."
+        setLoading(true)
 
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
@@ -331,12 +352,14 @@ class AiNoteDetailActivity : AppCompatActivity() {
             }
             binding.btnFollowUp.isEnabled = true
             binding.btnFollowUp.text = "發佈"
+            setLoading(false)
         }
     }
 
     private fun rePublishSelection(note: AiNoteEntity) {
         binding.btnRepublishSelection.isEnabled = false
         binding.btnRepublishSelection.text = "重新發佈中..."
+        setLoading(true)
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
@@ -361,6 +384,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
             }
             binding.btnRepublishSelection.isEnabled = true
             binding.btnRepublishSelection.text = "重新發佈選取內容"
+            setLoading(false)
         }
     }
 
@@ -381,6 +405,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
     }
 
     private fun startStreaming(note: AiNoteEntity, text: String) {
+        setLoading(true)
         lifecycleScope.launch {
             val result = repository.fetchAiExplanationStreaming(text) { partial ->
                 markwon.setMarkdown(binding.tvAiResponse, partial)
@@ -401,6 +426,38 @@ class AiNoteDetailActivity : AppCompatActivity() {
             }
             binding.btnRepublishSelection.isEnabled = true
             binding.btnRepublishSelection.text = "重新發佈選取內容"
+            setLoading(false)
         }
+    }
+
+    private fun openMapSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            Toast.makeText(this, "選取內容為空", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val encoded = Uri.encode(trimmed)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=$encoded"))
+        intent.addCategory(Intent.CATEGORY_BROWSABLE)
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "無法開啟地圖搜尋", Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun openWebSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            Toast.makeText(this, "選取內容為空", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val encoded = Uri.encode(trimmed)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=$encoded"))
+        intent.addCategory(Intent.CATEGORY_BROWSABLE)
+        runCatching { startActivity(intent) }
+            .onFailure { Toast.makeText(this, "無法開啟搜尋", Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun setLoading(active: Boolean) {
+        isLoading = active
+        binding.pbLoading.visibility = if (active) View.VISIBLE else View.GONE
     }
 }
