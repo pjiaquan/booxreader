@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
@@ -95,10 +96,46 @@ class ReaderActivity : AppCompatActivity() {
     private var booxFastModeEnabled: Boolean = true
     private var refreshJob: Job? = null
     private val booxRefreshDelayMs = 450L
+    private val selectionGuardDelayMs = 180L
     private var isSelecting: Boolean = false
+    private var selectionGuardActive: Boolean = false
+    private var selectionGuardJob: Job? = null
+    private var pendingDecorations: List<Decoration>? = null
     
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
+
+    private fun isSelectionFlowActive(): Boolean {
+        return selectionGuardActive || isSelecting || currentActionMode != null
+    }
+
+    private fun primeSelectionGuard() {
+        selectionGuardJob?.cancel()
+        selectionGuardJob = lifecycleScope.launch {
+            delay(selectionGuardDelayMs)
+            selectionGuardActive = true
+            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
+        }
+    }
+
+    private fun releaseSelectionGuardIfIdle() {
+        selectionGuardJob?.cancel()
+        selectionGuardJob = null
+        if (currentActionMode == null && !isSelecting) {
+            selectionGuardActive = false
+            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
+            flushPendingDecorations()
+        }
+    }
+
+    private fun flushPendingDecorations() {
+        pendingDecorations?.let { pending ->
+            lifecycleScope.launch {
+                navigatorFragment?.applyDecorations(pending, "ai_notes")
+            }
+        }
+        pendingDecorations = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -182,6 +219,11 @@ class ReaderActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             viewModel.decorations.collectLatest {
+                if (isSelectionFlowActive()) {
+                    pendingDecorations = it
+                    return@collectLatest
+                }
+                pendingDecorations = null
                 navigatorFragment?.applyDecorations(it, "ai_notes")
             }
         }
@@ -380,7 +422,7 @@ class ReaderActivity : AppCompatActivity() {
     }
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
         if (!EInkHelper.isBoox()) return
-        if (isSelecting) return
+        if (isSelectionFlowActive()) return
         refreshJob?.cancel()
         if (immediate || !booxBatchRefreshEnabled) {
             EInkHelper.refresh(binding.root, full)
@@ -420,7 +462,7 @@ class ReaderActivity : AppCompatActivity() {
             navigator.currentLocator
                 .sample(1500)
                 .collectLatest {
-                    if (isSelecting) return@collectLatest // avoid reflows/progress writes during selection
+                    if (isSelectionFlowActive()) return@collectLatest // avoid reflows/progress writes during selection
                     // Re-apply font weight after page/layout changes so the style persists across navigations and restarts
                     applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
                     applyFontZoomLikeNeoReader(navigatorFragment?.view, currentFontSize)
@@ -838,6 +880,8 @@ class ReaderActivity : AppCompatActivity() {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             currentActionMode = mode
             isSelecting = true
+            selectionGuardActive = true
+            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
             // Haptic feedback to confirm selection initiation
             binding.root.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             
@@ -911,6 +955,9 @@ class ReaderActivity : AppCompatActivity() {
         override fun onDestroyActionMode(mode: ActionMode?) {
             currentActionMode = null
             isSelecting = false
+            selectionGuardActive = false
+            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
+            flushPendingDecorations()
         }
     }
 
@@ -930,8 +977,10 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // When selection/action mode is active, bypass custom page-tap logic to avoid interfering with text selection.
-        if (currentActionMode != null || isSelecting) {
+        if (isSelectionFlowActive()) {
+            if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
+                releaseSelectionGuardIfIdle()
+            }
             return super.dispatchTouchEvent(ev)
         }
 
@@ -946,6 +995,7 @@ class ReaderActivity : AppCompatActivity() {
         if (ev.pointerCount == 1) {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    primeSelectionGuard()
                     // Enable Fast Mode for potential drag/scroll/selection
                     if (booxFastModeEnabled) {
                         EInkHelper.enableFastMode(binding.root)
@@ -957,6 +1007,7 @@ class ReaderActivity : AppCompatActivity() {
                     potentialPageTap = true 
                 }
                 MotionEvent.ACTION_UP -> {
+                    releaseSelectionGuardIfIdle()
                     // Restore Quality Mode when interaction ends
                     if (booxFastModeEnabled) {
                         EInkHelper.restoreQualityMode(binding.root)
@@ -985,6 +1036,7 @@ class ReaderActivity : AppCompatActivity() {
                     }
                 }
                 MotionEvent.ACTION_CANCEL -> {
+                    releaseSelectionGuardIfIdle()
                     EInkHelper.restoreQualityMode(binding.root)
                 }
             }

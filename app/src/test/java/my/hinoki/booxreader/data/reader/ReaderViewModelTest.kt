@@ -4,6 +4,7 @@ import android.app.Application
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -27,6 +28,7 @@ class ReaderViewModelTest {
     @Mock private lateinit var bookRepo: BookRepository
     @Mock private lateinit var bookmarkRepo: BookmarkRepository
     @Mock private lateinit var aiNoteRepo: AiNoteRepository
+    @Mock private lateinit var syncRepo: UserSyncRepository
     
     private val testDispatcher = StandardTestDispatcher()
 
@@ -35,7 +37,7 @@ class ReaderViewModelTest {
         MockitoAnnotations.openMocks(this)
         Dispatchers.setMain(testDispatcher)
         
-        viewModel = ReaderViewModel(app, bookRepo, bookmarkRepo, aiNoteRepo)
+        viewModel = ReaderViewModel(app, bookRepo, bookmarkRepo, aiNoteRepo, syncRepo)
     }
 
     @After
@@ -55,4 +57,3 @@ class ReaderViewModelTest {
         verify(bookRepo, timeout(1000)).updateProgress(bookId, json)
     }
 }
-

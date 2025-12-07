@@ -34,9 +34,16 @@ jobs:
     - name: Run Lint (debug)
       run: ./gradlew lintDebug
 
+    - name: Rename Debug APK with app name and version
+      run: |
+        APP_NAME=$(sed -n 's/.*name="app_name">\([^<]*\)<\/string>.*/\1/p' app/src/main/res/values/strings.xml | head -n 1)
+        VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+        mkdir -p dist
+        cp app/build/outputs/apk/debug/app-debug.apk "dist/${APP_NAME}-${VERSION_NAME}-debug.apk"
+
     - name: Upload Debug APK
       if: success()
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: dist/*.apk

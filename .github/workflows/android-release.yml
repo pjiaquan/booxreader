@@ -25,14 +25,25 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Compute artifact names
+        id: names
+        run: |
+          APP_NAME=$(sed -n 's/.*name="app_name">\([^<]*\)<\/string>.*/\1/p' app/src/main/res/values/strings.xml | head -n 1)
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "apk_unsigned=dist/${APP_NAME}-${VERSION_NAME}-release-unsigned.apk" >> $GITHUB_OUTPUT
+          echo "apk_signed=dist/${APP_NAME}-${VERSION_NAME}-release.apk" >> $GITHUB_OUTPUT
+          echo "aab_path=dist/${APP_NAME}-${VERSION_NAME}-release.aab" >> $GITHUB_OUTPUT
+
       - name: Build release APK & AAB
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Prepare artifacts folder
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release-unsigned.apk dist/
-          cp app/build/outputs/bundle/release/app-release.aab dist/
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "${{ steps.names.outputs.apk_unsigned }}"
+          cp app/build/outputs/bundle/release/app-release.aab "${{ steps.names.outputs.aab_path }}"
 
       - name: Decode signing keystore (optional)
         env:
@@ -52,11 +63,10 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
+          APK_UNSIGNED: ${{ steps.names.outputs.apk_unsigned }}
+          APK_SIGNED: ${{ steps.names.outputs.apk_signed }}
+          AAB_PATH: ${{ steps.names.outputs.aab_path }}
         run: |
-          APK_UNSIGNED=dist/app-release-unsigned.apk
-          APK_SIGNED=dist/app-release.apk
-          AAB_PATH=dist/app-release.aab
-
           if [ -f dist/release.keystore ] && \
              [ -n "${KEYSTORE_PASSWORD:-}" ] && \
              [ -n "${KEY_ALIAS:-}" ] && \
