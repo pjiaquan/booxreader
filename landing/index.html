@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boox Reader — Private, Cloud-Synced EPUB Reader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero__bg"></div>
+      <div class="hero__content">
+        <div class="badge">Android • EPUB • Firebase Sync</div>
+        <h1>Boox Reader keeps every book, bookmark, and AI note in sync across your devices.</h1>
+        <p class="lede">
+          Fast EPUB reading tuned for e-ink. Secure cloud backup via Firestore and Firebase Storage.
+          AI-assisted notes stay linked to the exact passage you highlighted.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="https://play.google.com/store/apps/details?id=my.hinoki.booxreader">Get on Google Play</a>
+          <a class="btn ghost" href="https://github.com/">Get latest APK on GitHub</a>
+        </div>
+        <div class="meta">
+          <span>Private sync (per-user Firestore)</span>
+          <span>Full EPUB backup to Firebase Storage</span>
+          <span>Optimized for Boox & Android</span>
+        </div>
+      </div>
+      <div class="hero__art">
+        <div class="device">
+          <img src="../design/logo.svg" alt="Boox Reader logo">
+          <div class="card">
+            <p class="card__title">Cloud Sync</p>
+            <p class="card__body">Progress, bookmarks, AI notes, and book files are backed up to your account.</p>
+            <div class="pill">Firebase Storage</div>
+            <div class="pill">Firestore</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section grid">
+        <div class="section__header">
+          <p class="eyebrow">Why readers switch</p>
+          <h2>Fast, focused reading with resilient sync.</h2>
+          <p class="muted">Everything you mark—notes, bookmarks, and progress—stays with the book, wherever you read.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Full book backup</h3>
+            <p>EPUB files upload to Firebase Storage with checksum validation, so your library is safe even if a device is lost.</p>
+          </article>
+          <article class="feature">
+            <h3>Progress & bookmarks</h3>
+            <p>Per-page progress and bookmarks sync through Firestore. Open a book on any device and continue exactly where you stopped.</p>
+          </article>
+          <article class="feature">
+            <h3>AI-linked notes</h3>
+            <p>Generate AI explanations tied to the precise passage. Notes sync and stay searchable by book and keyword.</p>
+          </article>
+          <article class="feature">
+            <h3>E-ink tuned</h3>
+            <p>Reduced motion, adjustable font weight/size, and Boox-specific refresh controls to keep pages crisp on e-ink.</p>
+          </article>
+          <article class="feature">
+            <h3>Secure by default</h3>
+            <p>Per-user Firestore rules, upload-size guards, and SHA-256 checks. Local data stays private to your account.</p>
+          </article>
+          <article class="feature">
+            <h3>Open & portable</h3>
+            <p>Runs on standard EPUB; no vendor lock-in. Export notes, and configure your own backend URLs if needed.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section layout">
+        <div>
+          <p class="eyebrow">How it works</p>
+          <h2>Resilient sync pipeline</h2>
+          <ul class="list">
+            <li><strong>Book files:</strong> On first open, the EPUB uploads to Firebase Storage with checksum metadata; repeated opens reuse the stored copy if unchanged.</li>
+            <li><strong>Progress:</strong> Locator JSON cached locally and mirrored to Firestore for instant resume on any device.</li>
+            <li><strong>Bookmarks & notes:</strong> Stored locally for offline, then pushed to Firestore; pulls on demand to keep devices aligned.</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Privacy stance</h3>
+          <p>Your library and notes are scoped to your Firebase user. No sharing or public listings—just your data on your devices.</p>
+          <div class="chips">
+            <span>Per-user rules</span>
+            <span>Checksum uploads</span>
+            <span>Offline-first</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section steps">
+        <p class="eyebrow">Get started</p>
+        <h2>Install and sync in minutes</h2>
+        <ol>
+          <li>Install from Google Play (or sideload the latest APK).</li>
+          <li>Sign in with your account to enable Firestore and Storage sync.</li>
+          <li>Open an EPUB and start reading—your progress and files back up automatically.</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>
+        <strong>Boox Reader</strong>
+        <p>Focused reading with private cloud sync for books, progress, bookmarks, and AI notes.</p>
+      </div>
+      <div class="footer__links">
+        <a href="https://github.com/">Source</a>
+        <a href="https://play.google.com/store/apps/details?id=my.hinoki.booxreader">Google Play</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
