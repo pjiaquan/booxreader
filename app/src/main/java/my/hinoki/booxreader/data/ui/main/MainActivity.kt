@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import my.hinoki.booxreader.data.repo.BookRepository
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.reader.ReaderActivity
 import my.hinoki.booxreader.databinding.ActivityMainBinding
 import kotlinx.coroutines.launch
@@ -16,7 +17,8 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val bookRepository by lazy { BookRepository(applicationContext) }
+    private val syncRepo by lazy { UserSyncRepository(applicationContext) }
+    private val bookRepository by lazy { BookRepository(applicationContext, syncRepo) }
     private val recentAdapter by lazy { RecentBooksAdapter(emptyList()) { openBook(Uri.parse(it.fileUri)) } }
 
     private val pickEpub =
@@ -54,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     private fun loadRecentBooks() {
         lifecycleScope.launch {
+            runCatching { syncRepo.pullBooks() }
             val recent = bookRepository.getRecent(10)
             if (recent.isEmpty()) {
                 binding.tvEmptyState.visibility = android.view.View.VISIBLE
@@ -84,4 +87,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

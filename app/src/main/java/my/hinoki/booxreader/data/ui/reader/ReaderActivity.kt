@@ -70,7 +70,7 @@ class ReaderActivity : AppCompatActivity() {
                 @Suppress("UNCHECKED_CAST")
                 return ReaderViewModel(
                     app,
-                    BookRepository(app),
+                    BookRepository(app, syncRepo),
                     BookmarkRepository(app, app.okHttpClient, syncRepo),
                     AiNoteRepository(app, app.okHttpClient, syncRepo),
                     syncRepo
