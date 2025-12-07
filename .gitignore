@@ -21,4 +21,5 @@ gha-creds-*.json
 logs/
 repo/
 *.log
+release.keystore
 !app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
