@@ -24,10 +24,10 @@ gha-creds-*.json
 
 # Ignore log and repo outputs generated during CI or local runs
 logs/
-repo/
+/repo/
 *.log
 release.keystore
-!app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
+# !app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
 
 # Firebase
 google-services.json
@@ -35,3 +35,4 @@ google-services.json
 # Keystore
 *.jks
 *.keystore
+keystore.properties

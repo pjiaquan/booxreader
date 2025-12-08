@@ -6,9 +6,27 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+import java.io.FileInputStream
+import java.util.Properties
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "my.hinoki.booxreader"
     compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = if (keystoreProperties["storeFile"] != null) file(keystoreProperties["storeFile"] as String) else null
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
 
     defaultConfig {
         applicationId = "my.hinoki.booxreader"
@@ -25,7 +43,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

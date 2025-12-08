@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.data.repo.AuthRepository
+import my.hinoki.booxreader.data.repo.UserSyncRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.launch
 
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
     private val authRepo = AuthRepository(app, (app as BooxReaderApp).tokenManager)
+    private val syncRepo = UserSyncRepository(app)
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -23,7 +25,10 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _authState.value = AuthState.Loading
             val result = authRepo.login(email, pass)
             result.fold(
-                onSuccess = { _authState.value = AuthState.Success },
+                onSuccess = {
+                    syncUserData()
+                    _authState.value = AuthState.Success
+                },
                 onFailure = { _authState.value = AuthState.Error(it.message ?: "Login failed") }
             )
         }
@@ -45,9 +50,22 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
              _authState.value = AuthState.Loading
             val result = authRepo.googleLogin(idToken, email, name)
             result.fold(
-                onSuccess = { _authState.value = AuthState.Success },
+                onSuccess = {
+                    syncUserData()
+                    _authState.value = AuthState.Success
+                },
                 onFailure = { _authState.value = AuthState.Error(it.message ?: "Login failed") }
             )
+        }
+    }
+
+    private suspend fun syncUserData() {
+        runCatching {
+            syncRepo.pullSettingsIfNewer()
+            syncRepo.pullBooks()
+            syncRepo.pullNotes()
+        }.onFailure {
+            it.printStackTrace()
         }
     }
 

@@ -56,7 +56,9 @@ class MainActivity : ComponentActivity() {
 
     private fun loadRecentBooks() {
         lifecycleScope.launch {
+            runCatching { syncRepo.pullSettingsIfNewer() }
             runCatching { syncRepo.pullBooks() }
+            runCatching { syncRepo.pullNotes() }
             runCatching { syncRepo.pullAllProgress() }
             val recent = bookRepository.getRecent(10)
             if (recent.isEmpty()) {

@@ -351,7 +351,9 @@ class ReaderActivity : AppCompatActivity() {
     private fun applyReaderCss(view: View?) {
         if (view is android.webkit.WebView) {
             val css = """
-
+                p, div, li, h1, h2, h3, h4, h5, h6, blockquote {
+                    font-size: 1rem !important;
+                }
                 aside[epub\\:type~="footnote"],
                 section[epub\\:type~="footnote"],
                 nav[epub\\:type~="footnotes"],
@@ -387,38 +389,8 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun applySelectionFriendlyCss(view: View?) {
-        if (view is android.webkit.WebView) {
-            val css = """
-                p, h1, h2, h3, h4, h5, h6, li, blockquote, td, span {
-                  -webkit-user-select: text !important;
-                  user-select: text !important;
-                  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
-                }
-                body {
-                  touch-action: manipulation;
-                  overflow: hidden;
-                  height: 100vh;
-                }
-            """.trimIndent()
-            val js = """
-                (function() {
-                  let style = document.getElementById('boox-selection-style');
-                  if (!style) {
-                    style = document.createElement('style');
-                    style.id = 'boox-selection-style';
-                    document.head.appendChild(style);
-                  }
-                  style.textContent = `${css}`;
-                })();
-            """.trimIndent()
-            view.evaluateJavascript(js, null)
-            return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applySelectionFriendlyCss(view.getChildAt(i))
-            }
-        }
+        // Temporarily disabled to test conflict with textZoom.
+        return
     }
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
         if (!EInkHelper.isBoox()) return
@@ -464,6 +436,7 @@ class ReaderActivity : AppCompatActivity() {
                 .collectLatest {
                     if (isSelectionFlowActive()) return@collectLatest // avoid reflows/progress writes during selection
                     // Re-apply styles after page/layout changes so the style persists across navigations and restarts
+                    applyFontSize(currentFontSize)
                     applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
                     applyReaderCss(navigatorFragment?.view)
                     applySelectionFriendlyCss(navigatorFragment?.view)
