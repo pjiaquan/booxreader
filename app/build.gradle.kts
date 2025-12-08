@@ -30,7 +30,7 @@ android {
             storeFile = if (storeFileName != null) {
                 file(storeFileName)
             } else if (storeFileEnv != null) {
-                file(storeFileEnv)
+                rootProject.file(storeFileEnv)
             } else {
                 null
             }
