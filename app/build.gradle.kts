@@ -70,7 +70,8 @@ android {
     lint {
         abortOnError = false
         disable += "FlowOperatorInvokedInComposition"
-        disable += "StateFlowValueCalledInComposition" // Also disable the newly reported one
+        disable += "StateFlowValueCalledInComposition"
+        disable += "CoroutineCreationDuringComposition" // Workaround for lint crash with Kotlin 2.1.0 metadata
     }
 
     packaging {
