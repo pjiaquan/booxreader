@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- External files directory for downloaded books -->
+    <external-files-path
+        name="books"
+        path="books/" />
+
+    <!-- Cache directory for temporary book files -->
+    <cache-path
+        name="cache"
+        path="." />
+
+    <!-- Internal files directory -->
+    <files-path
+        name="internal"
+        path="." />
+
+    <!-- External storage root (for older devices) -->
+    <external-path
+        name="external"
+        path="." />
+</paths>

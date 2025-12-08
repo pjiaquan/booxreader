@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">booxreader</string>
+    <string name="default_web_client_id">657934964854-qimhv328gs2g1tcq7dlj79tq3i943ua4.apps.googleusercontent.com</string>
+    <string name="default_android_client_id">657934964854-869verk35pehtvis9f57mujpqi7gu2p3.apps.googleusercontent.com</string>
 </resources>

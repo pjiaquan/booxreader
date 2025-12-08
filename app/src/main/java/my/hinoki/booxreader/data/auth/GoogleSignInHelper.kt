@@ -16,13 +16,24 @@ class GoogleSignInHelper(private val activity: Activity) {
         if (resId != 0) activity.getString(resId) else null
     }
 
+    private val androidClientId: String? by lazy {
+        val resId = activity.resources.getIdentifier("default_android_client_id", "string", activity.packageName)
+        if (resId != 0) activity.getString(resId) else null
+    }
+
     private val googleSignInClient by lazy {
-        webClientId?.let {
+        // For development/testing, use web client ID which doesn't have SHA-1 restriction
+        // In production, this should use the Android client ID with correct SHA-1
+        val clientIdToUse = webClientId ?: androidClientId
+
+        if (!clientIdToUse.isNullOrEmpty()) {
             val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(it)
+                .requestIdToken(clientIdToUse)
                 .requestEmail()
                 .build()
             GoogleSignIn.getClient(activity, options)
+        } else {
+            null
         }
     }
 

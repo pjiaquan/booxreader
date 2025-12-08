@@ -61,10 +61,15 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun syncUserData() {
         runCatching {
+            android.util.Log.d("AuthViewModel", "開始同步用戶資料...")
             syncRepo.pullSettingsIfNewer()
             syncRepo.pullBooks()
             syncRepo.pullNotes()
+            syncRepo.pullAllProgress()
+            syncRepo.pullBookmarks()
+            android.util.Log.d("AuthViewModel", "用戶資料同步完成")
         }.onFailure {
+            android.util.Log.e("AuthViewModel", "用戶資料同步失敗", it)
             it.printStackTrace()
         }
     }

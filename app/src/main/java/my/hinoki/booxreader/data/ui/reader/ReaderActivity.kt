@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
@@ -98,7 +99,9 @@ class ReaderActivity : AppCompatActivity() {
     private var selectionGuardActive: Boolean = false
     private var selectionGuardJob: Job? = null
     private var pendingDecorations: List<Decoration>? = null
-    
+    private var selectionStartX = 0f
+    private var selectionStartY = 0f
+
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
 
@@ -122,7 +125,12 @@ class ReaderActivity : AppCompatActivity() {
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                // 1. Priority: Dismiss selection if active
+                // 1. 如果正在選擇，不處理頁面切換
+                if (isSelectionFlowActive()) {
+                    return true
+                }
+
+                // 2. 如果有活動的ActionMode，關閉它
                 if (currentActionMode != null) {
                     currentActionMode?.finish()
                     lifecycleScope.launch {
@@ -131,12 +139,12 @@ class ReaderActivity : AppCompatActivity() {
                     return true
                 }
 
-                // 2. Page Navigation
+                // 3. 頁面導航
                 if (pageTapEnabled) {
                     val width = binding.root.width
                     val x = e.x
                     if (width > 0) {
-                        // 30-40-30 Rule
+                        // 30-40-30 規則
                         if (x < width * 0.3f) {
                             navigatorFragment?.goBackward()
                             return true
@@ -157,16 +165,25 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun primeSelectionGuard() {
         selectionGuardJob?.cancel()
+        selectionGuardActive = true  // 立即設置為true
+        navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
+
+        // 仍然使用延遲來取消，如果沒有開始選擇
         selectionGuardJob = lifecycleScope.launch {
             delay(selectionGuardDelayMs)
-            selectionGuardActive = true
-            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
+            // 如果180ms後還沒有開始選擇，則釋放guard
+            if (currentActionMode == null && !isSelecting) {
+                selectionGuardActive = false
+                navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
+            }
         }
     }
 
     private fun releaseSelectionGuardIfIdle() {
         selectionGuardJob?.cancel()
         selectionGuardJob = null
+
+        // 更嚴格的檢查
         if (currentActionMode == null && !isSelecting) {
             selectionGuardActive = false
             navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
@@ -321,13 +338,14 @@ class ReaderActivity : AppCompatActivity() {
         navigatorFragment?.view?.post {
             disableWebViewOverscroll(navigatorFragment?.view)
             applyBooxWebViewSettings(navigatorFragment?.view)
+            setupWebViewSelectionListener(navigatorFragment?.view)
         }
 
         applyFontSize(currentFontSize)
         applyFontWeight(currentFontWeight)
         observeLocatorUpdates()
         setupDecorationListener()
-        
+
         // Refresh E-Ink
         binding.root.post { requestEinkRefresh() }
     }
@@ -364,6 +382,45 @@ class ReaderActivity : AppCompatActivity() {
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
                 applyBooxWebViewSettings(view.getChildAt(i))
+            }
+        }
+    }
+
+    private fun setupWebViewSelectionListener(view: View?) {
+        if (view is android.webkit.WebView) {
+            // 移除會干擾文字選取的監聽器
+            // 讓 WebView 處理自己的長按和選擇事件
+            view.setOnLongClickListener(null)
+            view.setOnTouchListener(null)
+
+            // 只監聽選擇開始事件來激活 selection guard
+            view.setOnTouchListener { v, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        // 記錄觸摸開始位置
+                        selectionStartX = event.x
+                        selectionStartY = event.y
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        // 檢查是否在進行選擇操作
+                        val dx = abs(event.x - selectionStartX)
+                        val dy = abs(event.y - selectionStartY)
+                        if (dx > touchSlop || dy > touchSlop) {
+                            // 用戶在拖動選擇，確保guard激活
+                            if (!selectionGuardActive) {
+                                selectionGuardActive = true
+                                navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                        }
+                    }
+                }
+                false  // 不消費事件，讓 WebView 繼續處理
+            }
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                setupWebViewSelectionListener(view.getChildAt(i))
             }
         }
     }
@@ -891,37 +948,32 @@ class ReaderActivity : AppCompatActivity() {
             isSelecting = true
             selectionGuardActive = true
             navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
-            // Haptic feedback to confirm selection initiation
+
+            // 觸覺反饋
             binding.root.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-            
-            // Use lifecycleScope to safely delay, ensuring our items are added after any WebView default processing
-            lifecycleScope.launch {
-                kotlinx.coroutines.delay(100)
-                mode?.invalidate()
-            }
+
+            // 取消selection guard的延遲任務
+            selectionGuardJob?.cancel()
+            selectionGuardJob = null
+
             return true
         }
 
         override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             if (mode == null || menu == null) return false
-            
-            var modified = false
-            if (menu.findItem(998) == null) {
-                menu.add(Menu.NONE, 998, 1, "複製")
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                modified = true
-            }
-            if (menu.findItem(999) == null) {
-                menu.add(Menu.NONE, 999, 2, "發佈")
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                modified = true
-            }
-            if (menu.findItem(1000) == null) {
-                menu.add(Menu.NONE, 1000, 3, "Google Maps")
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                modified = true
-            }
-            return modified
+
+            // 清除現有菜單項（避免重複）
+            menu.clear()
+
+            // 添加自定義菜單項
+            menu.add(Menu.NONE, 998, 1, "複製")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+            menu.add(Menu.NONE, 999, 2, "發佈")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+            menu.add(Menu.NONE, 1000, 3, "Google Maps")
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+
+            return true
         }
         
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
@@ -1028,42 +1080,65 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // 優先處理選擇流程
         if (isSelectionFlowActive()) {
-            if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
-                releaseSelectionGuardIfIdle()
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    releaseSelectionGuardIfIdle()
+                }
             }
             return super.dispatchTouchEvent(ev)
         }
 
-        // Ignore touches on the bottom bar to allow button clicks
+        // 忽略底部欄的觸摸
         val bottomBarRect = android.graphics.Rect()
         binding.bottomBar.getGlobalVisibleRect(bottomBarRect)
         if (bottomBarRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
             return super.dispatchTouchEvent(ev)
         }
 
-        // Pass to detector for Page Taps / Selection Dismissal
-        gestureDetector.onTouchEvent(ev)
+        // 處理觸摸事件
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                // 取消刷新任務
+                refreshJob?.cancel()
 
-        // Always track down/up for E-Ink enhancements
-        if (ev.pointerCount == 1) {
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    // Cancel any pending page-turn refresh to avoid flashing/lagging mid-touch
-                    refreshJob?.cancel()
-                    
-                    primeSelectionGuard()
-                    // Fast mode is now triggered on scroll to avoid blocking long-press
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    releaseSelectionGuardIfIdle()
-                    if (booxFastModeEnabled) {
-                        EInkHelper.restoreQualityMode(binding.root)
+                // 記錄觸摸開始位置
+                selectionStartX = ev.x
+                selectionStartY = ev.y
+
+                // 不立即啟動selection guard，讓WebView有機會處理長按
+                // 只在檢測到拖動時才啟動guard
+            }
+            MotionEvent.ACTION_MOVE -> {
+                // 檢查是否在拖動（可能是在選擇文字）
+                val dx = abs(ev.x - selectionStartX)
+                val dy = abs(ev.y - selectionStartY)
+                if (dx > touchSlop || dy > touchSlop) {
+                    // 用戶在拖動，啟動selection guard
+                    if (!selectionGuardActive) {
+                        selectionGuardActive = true
+                        navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
                     }
                 }
             }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                releaseSelectionGuardIfIdle()
+                if (booxFastModeEnabled) {
+                    EInkHelper.restoreQualityMode(binding.root)
+                }
+
+                // 只有在不是長按選擇的情況下才處理頁面切換
+                if (!isSelectionFlowActive() && pageTapEnabled) {
+                    gestureDetector.onTouchEvent(ev)
+                }
+            }
+            else -> {
+                // 其他事件傳遞給手勢檢測器
+                gestureDetector.onTouchEvent(ev)
+            }
         }
-        
+
         return super.dispatchTouchEvent(ev)
     }
 

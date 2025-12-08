@@ -3,6 +3,7 @@ package my.hinoki.booxreader.data.repo
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Build
 import android.util.Base64
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
@@ -19,6 +20,7 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.db.BookmarkEntity
+import java.io.File
 import java.security.MessageDigest
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -158,6 +160,7 @@ class UserSyncRepository(
         }.getOrElse { return@withContext 0 }
 
         var updatedCount = 0
+        var downloadedCount = 0
 
         snapshot.documents.forEach { doc ->
             val remote = doc.toObject(RemoteBook::class.java) ?: return@forEach
@@ -167,10 +170,27 @@ class UserSyncRepository(
             val remoteLastOpened = if (remote.lastOpenedAt > 0) remote.lastOpenedAt else remote.updatedAt
             val remoteUpdatedAt = maxOf(remote.updatedAt, remoteLastOpened)
 
+            // Try to download EPUB file if available in storage
+            var fileUri = remote.fileUri
+            var fileDownloaded = false
+
+            if (remote.storagePath != null || remote.checksumSha256 != null) {
+                android.util.Log.d("UserSyncRepository", "嘗試下載書籍: ${remote.title} (${remote.bookId})")
+                val localUri = ensureBookFileAvailable(remote.bookId, remote.storagePath)
+                if (localUri != null) {
+                    fileUri = localUri.toString()
+                    fileDownloaded = true
+                    downloadedCount++
+                    android.util.Log.d("UserSyncRepository", "書籍下載成功: ${remote.title}")
+                } else {
+                    android.util.Log.w("UserSyncRepository", "書籍下載失敗: ${remote.title}")
+                }
+            }
+
             val entity = BookEntity(
                 bookId = remote.bookId,
                 title = remote.title,
-                fileUri = if (remote.fileUri.isNotBlank()) remote.fileUri else remote.bookId,
+                fileUri = if (fileUri.isNotBlank()) fileUri else remote.bookId,
                 lastLocatorJson = remote.lastLocatorJson,
                 lastOpenedAt = remoteLastOpened
             )
@@ -178,12 +198,15 @@ class UserSyncRepository(
             if (existing == null) {
                 dao.insert(entity)
                 updatedCount++
+                android.util.Log.d("UserSyncRepository", "新增書籍到資料庫: ${remote.title}")
             } else if (remoteUpdatedAt > existing.lastOpenedAt) {
                 dao.update(entity.copy(bookId = existing.bookId))
                 updatedCount++
+                android.util.Log.d("UserSyncRepository", "更新書籍資料: ${remote.title}")
             }
         }
 
+        android.util.Log.d("UserSyncRepository", "同步書籍完成: 更新${updatedCount}筆, 下載${downloadedCount}個檔案")
         updatedCount
     }
 
@@ -235,6 +258,149 @@ class UserSyncRepository(
         } ?: return null
         val checksum = digest.digest().joinToString("") { "%02x".format(it) }
         return LocalFileMeta(size = size, checksum = checksum)
+    }
+
+    /**
+     * Download EPUB file from Firebase Storage to local storage
+     */
+    suspend fun downloadBookFile(bookId: String, storagePath: String? = null): Uri? = withContext(io) {
+        val user = auth.currentUser ?: return@withContext null
+        val storageRef = if (!storagePath.isNullOrBlank()) {
+            storage.reference.child(storagePath)
+        } else {
+            bookStorageRef(bookId)
+        } ?: return@withContext null
+
+        android.util.Log.d("UserSyncRepository", "開始下載書籍檔案: bookId=$bookId, storagePath=$storagePath")
+
+        try {
+            // Use app-specific files directory for permanent storage
+            val filesDir = appContext.getExternalFilesDir("books") ?: appContext.filesDir
+            val booksDir = File(filesDir, "downloaded")
+            if (!booksDir.exists()) {
+                booksDir.mkdirs()
+            }
+
+            val fileName = "book_${bookId}_${System.currentTimeMillis()}.epub"
+            val localFile = File(booksDir, fileName)
+
+            android.util.Log.d("UserSyncRepository", "下載路徑: ${localFile.absolutePath}")
+
+            // Download file
+            storageRef.getFile(localFile).await()
+
+            // Verify download
+            if (localFile.exists() && localFile.length() > 0) {
+                val fileSize = localFile.length()
+                android.util.Log.d("UserSyncRepository", "書籍下載成功: ${localFile.name}, 大小: $fileSize bytes")
+
+                // Create content URI using FileProvider for security
+                val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    // Use FileProvider for Android 7+
+                    androidx.core.content.FileProvider.getUriForFile(
+                        appContext,
+                        "${appContext.packageName}.fileprovider",
+                        localFile
+                    )
+                } else {
+                    Uri.fromFile(localFile)
+                }
+
+                // Also store in cache for quick access
+                val cacheDir = appContext.cacheDir
+                val cacheFile = File(cacheDir, "book_${bookId}.epub")
+                localFile.copyTo(cacheFile, overwrite = true)
+
+                android.util.Log.d("UserSyncRepository", "書籍已儲存到快取: ${cacheFile.absolutePath}")
+                return@withContext uri
+            } else {
+                android.util.Log.w("UserSyncRepository", "下載的檔案不存在或為空")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "下載書籍失敗", e)
+            e.printStackTrace()
+        }
+
+        return@withContext null
+    }
+
+    /**
+     * Check if book file exists locally, download if missing
+     */
+    suspend fun ensureBookFileAvailable(bookId: String, storagePath: String? = null, originalUri: String? = null): Uri? = withContext(io) {
+        android.util.Log.d("UserSyncRepository", "確保書籍檔案可用: bookId=$bookId, storagePath=$storagePath, originalUri=$originalUri")
+
+        // First, check if the original URI is still accessible
+        if (!originalUri.isNullOrBlank()) {
+            try {
+                val uri = Uri.parse(originalUri)
+                val resolver = appContext.contentResolver
+                resolver.openInputStream(uri)?.use { input ->
+                    android.util.Log.d("UserSyncRepository", "原始URI仍然可訪問: $originalUri")
+                    return@withContext uri
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("UserSyncRepository", "原始URI無法訪問: ${e.message}")
+            }
+        }
+
+        // Check multiple possible locations for the book file
+        val possibleLocations = mutableListOf<File>()
+
+        // 1. Check cache directory (quick access)
+        val cacheDir = appContext.cacheDir
+        val cacheFile = File(cacheDir, "book_${bookId}.epub")
+        possibleLocations.add(cacheFile)
+
+        // 2. Check downloaded books directory (permanent storage)
+        val filesDir = appContext.getExternalFilesDir("books") ?: appContext.filesDir
+        val booksDir = File(filesDir, "downloaded")
+        if (booksDir.exists()) {
+            booksDir.listFiles()?.forEach { file ->
+                if (file.name.contains(bookId) && file.name.endsWith(".epub")) {
+                    possibleLocations.add(file)
+                }
+            }
+        }
+
+        // 3. Check for any file with bookId in name
+        val externalFilesDir = appContext.getExternalFilesDir(null)
+        if (externalFilesDir != null) {
+            externalFilesDir.walk().maxDepth(3).forEach { file ->
+                if (file.isFile && file.name.contains(bookId) && file.name.endsWith(".epub")) {
+                    possibleLocations.add(file)
+                }
+            }
+        }
+
+        // Check all possible locations
+        for (file in possibleLocations) {
+            if (file.exists() && file.length() > 0) {
+                android.util.Log.d("UserSyncRepository", "找到書籍檔案: ${file.absolutePath}, 大小: ${file.length()} bytes")
+
+                // Create URI using FileProvider for security
+                return@withContext if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    androidx.core.content.FileProvider.getUriForFile(
+                        appContext,
+                        "${appContext.packageName}.fileprovider",
+                        file
+                    )
+                } else {
+                    Uri.fromFile(file)
+                }
+            }
+        }
+
+        android.util.Log.d("UserSyncRepository", "書籍檔案不存在於本地，開始從雲端下載...")
+
+        // Download from storage
+        val result = downloadBookFile(bookId, storagePath)
+        if (result != null) {
+            android.util.Log.d("UserSyncRepository", "書籍下載成功: $result")
+        } else {
+            android.util.Log.w("UserSyncRepository", "書籍下載失敗")
+        }
+        return@withContext result
     }
 
     suspend fun pushNote(note: AiNoteEntity): AiNoteEntity? = withContext(io) {

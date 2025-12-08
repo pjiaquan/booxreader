@@ -4,6 +4,26 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Storage permissions for EPUB file download and access -->
+
+    <!-- For Android 10 and below -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" /> <!-- Only needed for Android 9 and below -->
+
+    <!-- For Android 13+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- For Android 14+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+        android:minSdkVersion="34" />
+
+    <!-- For app-specific storage (no permission needed for Android 10+) -->
+    <!-- App can write to its own directories without permission -->
+
     <application
         android:name="my.hinoki.booxreader.BooxReaderApp"
         android:allowBackup="true"
@@ -64,6 +84,17 @@
             android:name="my.hinoki.booxreader.data.auth.UserProfileActivity"
             android:exported="false"
             android:label="Profile" />
+
+        <!-- FileProvider for secure file sharing -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>
