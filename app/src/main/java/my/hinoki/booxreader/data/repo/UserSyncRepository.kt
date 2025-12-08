@@ -127,8 +127,24 @@ class UserSyncRepository(
     }
 
     suspend fun pushBook(book: BookEntity, uploadFile: Boolean = false) = withContext(io) {
-        val ref = userDoc() ?: return@withContext
-        val uploadInfo = if (uploadFile) uploadBookFileIfNeeded(book) else null
+        android.util.Log.d("UserSyncRepository", "開始上傳書籍到Firestore: ${book.title} (${book.bookId})")
+
+        val ref = userDoc()
+        if (ref == null) {
+            android.util.Log.w("UserSyncRepository", "userDoc() 返回 null，無法上傳書籍")
+            return@withContext
+        }
+
+        android.util.Log.d("UserSyncRepository", "用戶文檔: ${ref.path}")
+
+        val uploadInfo = if (uploadFile) {
+            android.util.Log.d("UserSyncRepository", "嘗試上傳EPUB文件到Storage")
+            uploadBookFileIfNeeded(book)
+        } else {
+            android.util.Log.d("UserSyncRepository", "跳過文件上傳，只上傳元數據")
+            null
+        }
+
         val storagePath = uploadInfo?.storagePath ?: bookStorageRef(book.bookId)?.path
         val updatedAt = if (book.lastOpenedAt > 0) book.lastOpenedAt else System.currentTimeMillis()
         val payload = RemoteBook(
@@ -143,21 +159,38 @@ class UserSyncRepository(
             checksumSha256 = uploadInfo?.checksum
         )
 
+        android.util.Log.d("UserSyncRepository", "上傳書籍數據: $payload")
+
         runCatching {
             ref.collection(COL_BOOKS)
                 .document(book.bookId)
                 .set(payload, SetOptions.merge())
                 .await()
+        }.onSuccess {
+            android.util.Log.d("UserSyncRepository", "書籍上傳成功: ${book.title}")
+        }.onFailure {
+            android.util.Log.e("UserSyncRepository", "書籍上傳失敗: ${book.title}", it)
         }
     }
 
     suspend fun pullBooks(): Int = withContext(io) {
-        val ref = userDoc() ?: return@withContext 0
+        val ref = userDoc()
+        if (ref == null) {
+            android.util.Log.w("UserSyncRepository", "userDoc() 返回 null，用戶可能未登入")
+            return@withContext 0
+        }
+
+        android.util.Log.d("UserSyncRepository", "開始從Firebase拉取書籍數據，用戶文檔: ${ref.path}")
         val dao = db.bookDao()
 
         val snapshot = runCatching {
             ref.collection(COL_BOOKS).get().await()
-        }.getOrElse { return@withContext 0 }
+        }.getOrElse {
+            android.util.Log.e("UserSyncRepository", "獲取書籍數據失敗", it)
+            return@withContext 0
+        }
+
+        android.util.Log.d("UserSyncRepository", "從Firebase獲取到 ${snapshot.documents.size} 本書籍")
 
         var updatedCount = 0
         var downloadedCount = 0
@@ -165,6 +198,9 @@ class UserSyncRepository(
         snapshot.documents.forEach { doc ->
             val remote = doc.toObject(RemoteBook::class.java) ?: return@forEach
             if (remote.bookId.isBlank()) return@forEach
+
+            android.util.Log.d("UserSyncRepository", "處理書籍: ${remote.title} (ID: ${remote.bookId})")
+            android.util.Log.d("UserSyncRepository", "書籍數據: storagePath=${remote.storagePath}, checksum=${remote.checksumSha256}, fileUri=${remote.fileUri}")
 
             val existing = dao.getByIds(listOf(remote.bookId)).firstOrNull()
             val remoteLastOpened = if (remote.lastOpenedAt > 0) remote.lastOpenedAt else remote.updatedAt
@@ -174,16 +210,20 @@ class UserSyncRepository(
             var fileUri = remote.fileUri
             var fileDownloaded = false
 
-            if (remote.storagePath != null || remote.checksumSha256 != null) {
-                android.util.Log.d("UserSyncRepository", "嘗試下載書籍: ${remote.title} (${remote.bookId})")
-                val localUri = ensureBookFileAvailable(remote.bookId, remote.storagePath)
-                if (localUri != null) {
-                    fileUri = localUri.toString()
-                    fileDownloaded = true
-                    downloadedCount++
-                    android.util.Log.d("UserSyncRepository", "書籍下載成功: ${remote.title}")
-                } else {
-                    android.util.Log.w("UserSyncRepository", "書籍下載失敗: ${remote.title}")
+            // 總是嘗試下載書籍，即使沒有storagePath或checksum
+            // 使用bookId來構建默認的storage路徑
+            android.util.Log.d("UserSyncRepository", "嘗試下載書籍: ${remote.title} (${remote.bookId})")
+            val localUri = ensureBookFileAvailable(remote.bookId, remote.storagePath)
+            if (localUri != null) {
+                fileUri = localUri.toString()
+                fileDownloaded = true
+                downloadedCount++
+                android.util.Log.d("UserSyncRepository", "書籍下載成功: ${remote.title}")
+            } else {
+                android.util.Log.w("UserSyncRepository", "書籍下載失敗: ${remote.title}")
+                // 如果下載失敗，但remote.fileUri是有效的，仍然使用它
+                if (remote.fileUri.isNotBlank() && remote.fileUri.startsWith("content://")) {
+                    android.util.Log.d("UserSyncRepository", "使用原始fileUri: ${remote.fileUri}")
                 }
             }
 

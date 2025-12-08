@@ -5,6 +5,8 @@ import kotlinx.coroutines.flow.Flow
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import java.security.MessageDigest
+import kotlin.text.Charsets
 
 class BookRepository(
     context: Context,
@@ -24,7 +26,7 @@ class BookRepository(
         }
 
         val now = System.currentTimeMillis()
-        val bookId = fileUri  // 簡單作法：直接用 uri 當主鍵
+        val bookId = generateBookId(fileUri)  // 使用安全的ID，而不是完整的URI
 
         val book = BookEntity(
             bookId = bookId,
@@ -60,5 +62,14 @@ class BookRepository(
     private suspend fun pushSnapshot(bookId: String) {
         val entity = bookDao.getByIds(listOf(bookId)).firstOrNull() ?: return
         try { syncRepo?.pushBook(entity) } catch (_: Exception) { }
+    }
+
+    /**
+     * 生成安全的bookId，使用MD5哈希避免Firestore文檔ID中的非法字符
+     */
+    private fun generateBookId(fileUri: String): String {
+        val digest = MessageDigest.getInstance("MD5")
+        val hashBytes = digest.digest(fileUri.toByteArray(Charsets.UTF_8))
+        return hashBytes.joinToString("") { "%02x".format(it) }
     }
 }
