@@ -86,10 +86,6 @@ class ReaderActivity : AppCompatActivity() {
     
     // Activity local state for UI interaction
     private var pageTapEnabled: Boolean = true
-    private var potentialPageTap: Boolean = false
-    private var tapDownTime: Long = 0L
-    private var tapDownX: Float = 0f
-    private var tapDownY: Float = 0f
     private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
     private var currentFontSize: Int = 150
     private var currentFontWeight: Int = 400
@@ -105,6 +101,55 @@ class ReaderActivity : AppCompatActivity() {
     
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
+
+    private val gestureDetector by lazy {
+        androidx.core.view.GestureDetectorCompat(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                return true
+            }
+
+            override fun onScroll(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                distanceX: Float,
+                distanceY: Float
+            ): Boolean {
+                // Enable fast mode on scroll to ensure smooth movement
+                if (booxFastModeEnabled && !isSelectionFlowActive()) {
+                    EInkHelper.enableFastMode(binding.root)
+                }
+                return false
+            }
+
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                // 1. Priority: Dismiss selection if active
+                if (currentActionMode != null) {
+                    currentActionMode?.finish()
+                    lifecycleScope.launch {
+                        try { navigatorFragment?.clearSelection() } catch (_: Exception) {}
+                    }
+                    return true
+                }
+
+                // 2. Page Navigation
+                if (pageTapEnabled) {
+                    val width = binding.root.width
+                    val x = e.x
+                    if (width > 0) {
+                        // 30-40-30 Rule
+                        if (x < width * 0.3f) {
+                            navigatorFragment?.goBackward()
+                            return true
+                        } else if (x > width * 0.7f) {
+                            navigatorFragment?.goForward()
+                            return true
+                        }
+                    }
+                }
+                return false
+            }
+        })
+    }
 
     private fun isSelectionFlowActive(): Boolean {
         return selectionGuardActive || isSelecting || currentActionMode != null
@@ -849,31 +894,35 @@ class ReaderActivity : AppCompatActivity() {
             // Haptic feedback to confirm selection initiation
             binding.root.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             
-            // Use lifecycleScope to safely delay, preventing memory leaks if activity dies
+            // Use lifecycleScope to safely delay, ensuring our items are added after any WebView default processing
             lifecycleScope.launch {
-                kotlinx.coroutines.delay(120)
-                if (mode != null) {
-                    if (menu?.findItem(998) == null) {
-                        // Order 1: Copy (First)
-                        menu?.add(Menu.NONE, 998, 1, "複製")
-                            ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                    }
-                    if (menu?.findItem(999) == null) {
-                        // Order 2: Publish (Second)
-                        menu?.add(Menu.NONE, 999, 2, "發佈")
-                            ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                    }
-                    if (menu?.findItem(1000) == null) {
-                        // Order 3: Google Maps
-                        menu?.add(Menu.NONE, 1000, 3, "Google Maps")
-                            ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-                    }
-                    mode.invalidate()
-                }
+                kotlinx.coroutines.delay(100)
+                mode?.invalidate()
             }
             return true
         }
-        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean = false
+
+        override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
+            if (mode == null || menu == null) return false
+            
+            var modified = false
+            if (menu.findItem(998) == null) {
+                menu.add(Menu.NONE, 998, 1, "複製")
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                modified = true
+            }
+            if (menu.findItem(999) == null) {
+                menu.add(Menu.NONE, 999, 2, "發佈")
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                modified = true
+            }
+            if (menu.findItem(1000) == null) {
+                menu.add(Menu.NONE, 1000, 3, "Google Maps")
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                modified = true
+            }
+            return modified
+        }
         
         override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
             if (item?.itemId == 998) {
@@ -993,110 +1042,28 @@ class ReaderActivity : AppCompatActivity() {
             return super.dispatchTouchEvent(ev)
         }
 
-        // Always track tap coordinates for selection dismissal
+        // Pass to detector for Page Taps / Selection Dismissal
+        gestureDetector.onTouchEvent(ev)
+
+        // Always track down/up for E-Ink enhancements
         if (ev.pointerCount == 1) {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    primeSelectionGuard()
-                    // Enable Fast Mode for potential drag/scroll/selection
-                    if (booxFastModeEnabled) {
-                        EInkHelper.enableFastMode(binding.root)
-                    }
+                    // Cancel any pending page-turn refresh to avoid flashing/lagging mid-touch
+                    refreshJob?.cancel()
                     
-                    tapDownTime = ev.downTime
-                    tapDownX = ev.x
-                    tapDownY = ev.y
-                    potentialPageTap = true 
+                    primeSelectionGuard()
+                    // Fast mode is now triggered on scroll to avoid blocking long-press
                 }
-                MotionEvent.ACTION_UP -> {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     releaseSelectionGuardIfIdle()
-                    // Restore Quality Mode when interaction ends
                     if (booxFastModeEnabled) {
                         EInkHelper.restoreQualityMode(binding.root)
                     }
-
-                    // 1. Priority: Click-outside-to-deselect (Global)
-                    if (currentActionMode != null) {
-                        val dx = kotlin.math.abs(ev.x - tapDownX)
-                        val dy = kotlin.math.abs(ev.y - tapDownY)
-                        // Removed duration check to allow slow taps/e-ink latency to still dismiss
-                        
-                        if (dx <= touchSlop && dy <= touchSlop) {
-                            currentActionMode?.finish()
-                            lifecycleScope.launch {
-                                try { navigatorFragment?.clearSelection() } catch (_: Exception) {}
-                            }
-                            
-                            // Send CANCEL to child views to ensure they reset state (e.g. cancel pending selections)
-                            val cancelEvent = MotionEvent.obtain(ev)
-                            cancelEvent.action = MotionEvent.ACTION_CANCEL
-                            super.dispatchTouchEvent(cancelEvent)
-                            cancelEvent.recycle()
-                            
-                            return true // Consume event to prevent new selection
-                        }
-                    }
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    releaseSelectionGuardIfIdle()
-                    EInkHelper.restoreQualityMode(binding.root)
                 }
             }
         }
-
-        if (pageTapEnabled && ev.pointerCount == 1) {
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_MOVE -> {
-                    if (potentialPageTap) {
-                        val dx = kotlin.math.abs(ev.x - tapDownX)
-                        val dy = kotlin.math.abs(ev.y - tapDownY)
-                        if (dx > touchSlop || dy > touchSlop) {
-                            potentialPageTap = false
-                        }
-                    }
-                }
-                MotionEvent.ACTION_CANCEL -> potentialPageTap = false
-                MotionEvent.ACTION_UP -> {
-                    if (potentialPageTap) {
-                        // (Selection dismissal already handled above if active)
-                        if (currentActionMode != null) {
-                             potentialPageTap = false
-                        } else {
-                            val duration = ev.eventTime - tapDownTime
-                            // Relaxed tap timeout (500ms) to accommodate slower e-ink taps
-                            if (duration <= 500) {
-                                val width = binding.root.width
-                                if (width > 0) {
-                                    val x = ev.x
-                                    // 30-40-30 Rule for Page Turning (Wider zones)
-                                    if (x < width * 0.3f) {
-                                        // Left 30% -> Previous Page
-                                        val cancelEvent = MotionEvent.obtain(ev)
-                                        cancelEvent.action = MotionEvent.ACTION_CANCEL
-                                        super.dispatchTouchEvent(cancelEvent)
-                                        cancelEvent.recycle()
-                                        navigatorFragment?.goBackward()
-                                        potentialPageTap = false
-                                        return true
-                                    } else if (x > width * 0.7f) {
-                                        // Right 30% -> Next Page
-                                        val cancelEvent = MotionEvent.obtain(ev)
-                                        cancelEvent.action = MotionEvent.ACTION_CANCEL
-                                        super.dispatchTouchEvent(cancelEvent)
-                                        cancelEvent.recycle()
-                                        navigatorFragment?.goForward()
-                                        potentialPageTap = false
-                                        return true
-                                    }
-                                    // Center 40% -> Pass through (do nothing here, let super handle it)
-                                }
-                            }
-                        }
-                    }
-                    potentialPageTap = false
-                }
-            }
-        }
+        
         return super.dispatchTouchEvent(ev)
     }
 
