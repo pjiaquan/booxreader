@@ -863,6 +863,11 @@ class ReaderActivity : AppCompatActivity() {
                         menu?.add(Menu.NONE, 999, 2, "發佈")
                             ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
                     }
+                    if (menu?.findItem(1000) == null) {
+                        // Order 3: Google Maps
+                        menu?.add(Menu.NONE, 1000, 3, "Google Maps")
+                            ?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                    }
                     mode.invalidate()
                 }
             }
@@ -910,6 +915,39 @@ class ReaderActivity : AppCompatActivity() {
                         }
                     } catch (e: Exception) {
                          android.util.Log.e("ReaderActivity", "Error publishing selection", e)
+                    }
+                }
+                return true
+            }
+
+            if (item?.itemId == 1000) {
+                lifecycleScope.launch {
+                    val selection = navigatorFragment?.currentSelection()
+                    val text = selection?.locator?.text?.highlight
+                    
+                    if (!text.isNullOrBlank()) {
+                        val trimmed = text.replace(Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$"), "")
+                        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(trimmed)}")
+                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                        mapIntent.setPackage("com.google.android.apps.maps")
+                        
+                        try {
+                            startActivity(mapIntent)
+                        } catch (e: Exception) {
+                            // Fallback to browser or other map apps if Google Maps is not installed
+                             val fallbackUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(trimmed)}")
+                             val fallbackIntent = Intent(Intent.ACTION_VIEW, fallbackUri)
+                             try {
+                                 startActivity(fallbackIntent)
+                             } catch (e2: Exception) {
+                                 Toast.makeText(this@ReaderActivity, "無法開啟地圖: ${e2.message}", Toast.LENGTH_SHORT).show()
+                             }
+                        }
+                        
+                        navigatorFragment?.clearSelection()
+                        mode?.finish()
+                    } else {
+                        Toast.makeText(this@ReaderActivity, "No text selected", Toast.LENGTH_SHORT).show()
                     }
                 }
                 return true
