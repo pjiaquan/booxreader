@@ -60,6 +60,10 @@ jobs:
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Prepare artifacts folder
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "${{ steps.names.outputs.apk_unsigned }}"
+          cp app/build/outputs/bundle/release/app-release.aab "${{ steps.names.outputs.aab_path }}"
 
       - name: Sign release artifacts (optional)
         continue-on-error: true
