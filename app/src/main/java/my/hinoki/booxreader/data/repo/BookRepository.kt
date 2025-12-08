@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
+import kotlinx.coroutines.flow.Flow
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -52,7 +53,7 @@ class BookRepository(
         pushSnapshot(bookId)
     }
 
-    suspend fun getRecent(limit: Int = 5): List<BookEntity> {
+    fun getRecent(limit: Int = 5): Flow<List<BookEntity>> {
         return bookDao.getRecent(limit)
     }
 

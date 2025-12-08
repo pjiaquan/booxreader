@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import androidx.room.OnConflictStrategy
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
@@ -25,7 +26,7 @@ interface BookDao {
     suspend fun updateLastOpened(bookId: String, time: Long)
 
     @Query("SELECT * FROM books ORDER BY lastOpenedAt DESC LIMIT :limit")
-    suspend fun getRecent(limit: Int): List<BookEntity>
+    fun getRecent(limit: Int): Flow<List<BookEntity>>
 
     @Query("SELECT * FROM books WHERE bookId IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<BookEntity>

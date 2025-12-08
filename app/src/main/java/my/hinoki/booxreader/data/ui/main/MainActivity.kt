@@ -14,13 +14,14 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import my.hinoki.booxreader.data.auth.LoginActivity
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.reader.ReaderActivity
 import my.hinoki.booxreader.databinding.ActivityMainBinding
-import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -82,6 +83,9 @@ class MainActivity : ComponentActivity() {
         binding.recyclerRecent.layoutManager = LinearLayoutManager(this)
         binding.recyclerRecent.adapter = recentAdapter
 
+        // Start observing books flow
+        observeRecentBooks()
+
         // Check and request file permissions
         checkAndRequestFilePermissions()
     }
@@ -96,10 +100,8 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Check permissions again when resuming
-        if (hasFilePermissions()) {
-            loadRecentBooks()
-        }
+        // Note: Books are now automatically observed via Flow
+        // No need to manually call loadRecentBooks() here
     }
 
     private fun performFullSync() {
@@ -190,7 +192,8 @@ class MainActivity : ComponentActivity() {
             // Already have permissions, perform sync
             android.util.Log.d("MainActivity", "已有檔案權限，開始同步")
             performFullSync()
-            loadRecentBooks()
+            // Note: Books are now automatically observed via Flow
+            // No need to manually call loadRecentBooks() here
         } else {
             // Request permissions
             android.util.Log.d("MainActivity", "缺少檔案權限，請求權限")
@@ -267,19 +270,26 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    private fun loadRecentBooks() {
+    private fun observeRecentBooks() {
         lifecycleScope.launch {
-            // Only load recent books, sync is done in performFullSync()
-            val recent = bookRepository.getRecent(10)
-            if (recent.isEmpty()) {
-                binding.tvEmptyState.visibility = android.view.View.VISIBLE
-                binding.recyclerRecent.visibility = android.view.View.GONE
-            } else {
-                binding.tvEmptyState.visibility = android.view.View.GONE
-                binding.recyclerRecent.visibility = android.view.View.VISIBLE
-                recentAdapter.submit(recent)
+            bookRepository.getRecent(10).collectLatest { recent ->
+                if (recent.isEmpty()) {
+                    binding.tvEmptyState.visibility = android.view.View.VISIBLE
+                    binding.recyclerRecent.visibility = android.view.View.GONE
+                } else {
+                    binding.tvEmptyState.visibility = android.view.View.GONE
+                    binding.recyclerRecent.visibility = android.view.View.VISIBLE
+                    recentAdapter.submit(recent)
+                }
             }
         }
+    }
+
+    private fun loadRecentBooks() {
+        // This method is kept for backward compatibility
+        // The actual loading is now done through observeRecentBooks()
+        // This can be called to trigger an immediate refresh if needed
+        observeRecentBooks()
     }
 
     private fun takePersistable(uri: Uri) {

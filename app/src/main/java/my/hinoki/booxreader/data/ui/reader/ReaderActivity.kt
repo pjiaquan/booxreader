@@ -125,8 +125,9 @@ class ReaderActivity : AppCompatActivity() {
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                // 1. 如果正在選擇，不處理頁面切換
-                if (isSelectionFlowActive()) {
+                // 1. 如果正在選擇（有活動的ActionMode），不處理頁面切換
+                // 注意：selectionGuardActive不應該阻止頁面切換，因為它會在ACTION_UP時被重置
+                if (currentActionMode != null || isSelecting) {
                     return true
                 }
 
@@ -183,12 +184,15 @@ class ReaderActivity : AppCompatActivity() {
         selectionGuardJob?.cancel()
         selectionGuardJob = null
 
-        // 更嚴格的檢查
+        // 重置selectionGuardActive，除非正在進行文字選擇
+        // selectionGuardActive只應該在真正的選擇操作期間保持為true
         if (currentActionMode == null && !isSelecting) {
             selectionGuardActive = false
             navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
             flushPendingDecorations()
         }
+        // 注意：即使currentActionMode != null或isSelecting == true，
+        // selectionGuardActive也應該保持為true，因為這表示正在進行文字選擇
     }
 
     private fun flushPendingDecorations() {
@@ -1109,6 +1113,9 @@ class ReaderActivity : AppCompatActivity() {
 
                 // 不立即啟動selection guard，讓WebView有機會處理長按
                 // 只在檢測到拖動時才啟動guard
+
+                // 傳遞DOWN事件給gestureDetector
+                gestureDetector.onTouchEvent(ev)
             }
             MotionEvent.ACTION_MOVE -> {
                 // 檢查是否在拖動（可能是在選擇文字）
@@ -1121,6 +1128,9 @@ class ReaderActivity : AppCompatActivity() {
                         navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
                     }
                 }
+
+                // 傳遞MOVE事件給gestureDetector
+                gestureDetector.onTouchEvent(ev)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 releaseSelectionGuardIfIdle()
@@ -1128,10 +1138,8 @@ class ReaderActivity : AppCompatActivity() {
                     EInkHelper.restoreQualityMode(binding.root)
                 }
 
-                // 只有在不是長按選擇的情況下才處理頁面切換
-                if (!isSelectionFlowActive() && pageTapEnabled) {
-                    gestureDetector.onTouchEvent(ev)
-                }
+                // 傳遞事件給gestureDetector
+                gestureDetector.onTouchEvent(ev)
             }
             else -> {
                 // 其他事件傳遞給手勢檢測器
