@@ -40,6 +40,11 @@ jobs:
           echo "aab_path=dist/${APP_NAME}-${VERSION_NAME}-release.aab" >> $GITHUB_OUTPUT
 
       - name: Build release APK & AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
+          STORE_FILE: dist/release.keystore
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Prepare artifacts folder
