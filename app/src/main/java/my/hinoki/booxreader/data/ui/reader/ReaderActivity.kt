@@ -52,6 +52,7 @@ import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
+
 import kotlin.OptIn
 
 import my.hinoki.booxreader.data.repo.BookRepository
@@ -350,22 +351,19 @@ class ReaderActivity : AppCompatActivity() {
     private fun applyReaderCss(view: View?) {
         if (view is android.webkit.WebView) {
             val css = """
-                :root, body, p { font-size: 1em !important; }
+
                 aside[epub\\:type~="footnote"],
                 section[epub\\:type~="footnote"],
                 nav[epub\\:type~="footnotes"],
                 .footnote, .note {
-                  font-size: 1em !important;
+                  font-size: 0.8em !important;
                   line-height: 1.5 !important;
                 }
                 a[epub\\:type~="noteref"], sup, sub {
                   font-size: 0.9em !important;
                   line-height: 1.2 !important;
                 }
-                blockquote {
-                  font-size: 1em !important;
-                  line-height: 1.5 !important;
-                }
+
             """.trimIndent()
             val js = """
                 (function() {
@@ -391,13 +389,15 @@ class ReaderActivity : AppCompatActivity() {
     private fun applySelectionFriendlyCss(view: View?) {
         if (view is android.webkit.WebView) {
             val css = """
-                * {
+                p, h1, h2, h3, h4, h5, h6, li, blockquote, td, span {
                   -webkit-user-select: text !important;
                   user-select: text !important;
                   -webkit-tap-highlight-color: rgba(0,0,0,0.1);
                 }
                 body {
                   touch-action: manipulation;
+                  overflow: hidden;
+                  height: 100vh;
                 }
             """.trimIndent()
             val js = """
@@ -463,9 +463,8 @@ class ReaderActivity : AppCompatActivity() {
                 .sample(1500)
                 .collectLatest {
                     if (isSelectionFlowActive()) return@collectLatest // avoid reflows/progress writes during selection
-                    // Re-apply font weight after page/layout changes so the style persists across navigations and restarts
+                    // Re-apply styles after page/layout changes so the style persists across navigations and restarts
                     applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
-                    applyFontZoomLikeNeoReader(navigatorFragment?.view, currentFontSize)
                     applyReaderCss(navigatorFragment?.view)
                     applySelectionFriendlyCss(navigatorFragment?.view)
 
@@ -827,23 +826,15 @@ class ReaderActivity : AppCompatActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putInt("font_size", sizePercent).apply()
         
         val navigator = navigatorFragment ?: return
-        lifecycleScope.launch {
-             try {
-                val newPreferences = org.readium.r2.navigator.epub.EpubPreferences(
-                    fontSize = sizePercent / 100.0,
-                    publisherStyles = false,
-                    lineHeight = 1.4,
-                    pageMargins = 1.5
-                )
-            navigator.submitPreferences(newPreferences)
-            // Neo Reader-style zoom fallback via WebView textZoom (helps EPUBs that ignore CSS scale)
-            navigatorFragment?.view?.post {
-                    applyFontZoomLikeNeoReader(navigatorFragment?.view, sizePercent)
-                    applyFontWeight(currentFontWeight)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        
+        // Use textZoom for more reliable font scaling, especially with CJK fonts.
+        applyFontZoomLikeNeoReader(navigator.view, sizePercent)
+
+        // Still apply other styles
+        navigatorFragment?.view?.post {
+            applyFontWeight(currentFontWeight)
+            applyReaderCss(navigatorFragment?.view)
+            applySelectionFriendlyCss(navigatorFragment?.view)
         }
     }
 

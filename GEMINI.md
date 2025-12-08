@@ -1,5 +1,15 @@
 # GEMINI.md - Project Audit & Improvement Plan
 
+## Development Workflow
+To streamline the development process, a script is available to compile, install, and run the application in one step.
+
+Execute the following command from the project root:
+```bash
+./run.sh
+```
+
+---
+
 ## Overview
 This document outlines the improvement plan for the `booxreader` project, focusing on Refactoring, Testing, Documentation, Optimization, and Security.
 
