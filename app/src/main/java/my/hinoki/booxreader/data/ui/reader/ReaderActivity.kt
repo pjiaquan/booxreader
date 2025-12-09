@@ -84,7 +84,7 @@ class ReaderActivity : AppCompatActivity() {
     
     private var navigatorFragment: EpubNavigatorFragment? = null
     private var currentActionMode: ActionMode? = null
-    
+
     // Activity local state for UI interaction
     private var pageTapEnabled: Boolean = true
     private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
@@ -93,10 +93,18 @@ class ReaderActivity : AppCompatActivity() {
     private var booxBatchRefreshEnabled: Boolean = true
     private var booxFastModeEnabled: Boolean = true
     private var refreshJob: Job? = null
-    private val booxRefreshDelayMs = 450L
-    private val selectionGuardDelayMs = 180L
-    private var isSelecting: Boolean = false
-    private var selectionGuardActive: Boolean = false
+    private val booxRefreshDelayMs = 200L
+    private val selectionGuardDelayMs = 100L
+
+    // 簡化的選擇狀態管理
+    private enum class SelectionState {
+        IDLE,      // 閒置
+        GUARDING,  // 防誤觸保護中
+        SELECTING, // 正在選擇
+        MENU_OPEN  // 菜單已打開
+    }
+
+    private var selectionState = SelectionState.IDLE
     private var selectionGuardJob: Job? = null
     private var pendingDecorations: List<Decoration>? = null
     private var selectionStartX = 0f
@@ -125,13 +133,8 @@ class ReaderActivity : AppCompatActivity() {
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                // 1. 如果正在選擇（有活動的ActionMode），不處理頁面切換
-                // 注意：selectionGuardActive不應該阻止頁面切換，因為它會在ACTION_UP時被重置
-                if (currentActionMode != null || isSelecting) {
-                    return true
-                }
-
-                // 2. 如果有活動的ActionMode，關閉它
+                // 1. 優先處理選擇相關的點擊
+                // 如果有活動的ActionMode（選擇菜單已打開），優先關閉它
                 if (currentActionMode != null) {
                     currentActionMode?.finish()
                     lifecycleScope.launch {
@@ -140,7 +143,12 @@ class ReaderActivity : AppCompatActivity() {
                     return true
                 }
 
-                // 3. 頁面導航
+                // 2. 如果正在選擇過程中（包括防誤觸保護、正在拖動選擇、菜單已打開），不處理頁面切換
+                if (isSelectionFlowActive()) {
+                    return true
+                }
+
+                // 3. 頁面導航（僅在沒有選擇活動時）
                 if (pageTapEnabled) {
                     val width = binding.root.width
                     val x = e.x
@@ -161,39 +169,38 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun isSelectionFlowActive(): Boolean {
-        return selectionGuardActive || isSelecting || currentActionMode != null
+        return selectionState != SelectionState.IDLE
     }
 
-    private fun primeSelectionGuard() {
+    private fun startSelectionGuard() {
         selectionGuardJob?.cancel()
-        selectionGuardActive = true  // 立即設置為true
+        selectionState = SelectionState.GUARDING
         navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
 
-        // 仍然使用延遲來取消，如果沒有開始選擇
+        // 180ms 後如果沒有開始選擇，則釋放
         selectionGuardJob = lifecycleScope.launch {
             delay(selectionGuardDelayMs)
-            // 如果180ms後還沒有開始選擇，則釋放guard
-            if (currentActionMode == null && !isSelecting) {
-                selectionGuardActive = false
+            if (selectionState == SelectionState.GUARDING) {
+                selectionState = SelectionState.IDLE
                 navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
             }
         }
     }
 
-    private fun releaseSelectionGuardIfIdle() {
+    private fun onSelectionStarted() {
         selectionGuardJob?.cancel()
-        selectionGuardJob = null
-
-        // 重置selectionGuardActive，除非正在進行文字選擇
-        // selectionGuardActive只應該在真正的選擇操作期間保持為true
-        if (currentActionMode == null && !isSelecting) {
-            selectionGuardActive = false
-            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
-            flushPendingDecorations()
-        }
-        // 注意：即使currentActionMode != null或isSelecting == true，
-        // selectionGuardActive也應該保持為true，因為這表示正在進行文字選擇
+        selectionState = SelectionState.SELECTING
     }
+
+    private fun onActionModeCreated() {
+        selectionState = SelectionState.MENU_OPEN
+    }
+
+    private fun onSelectionFinished() {
+        selectionState = SelectionState.IDLE
+        navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
+    }
+
 
     private fun flushPendingDecorations() {
         pendingDecorations?.let { pending ->
@@ -392,33 +399,44 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun setupWebViewSelectionListener(view: View?) {
         if (view is android.webkit.WebView) {
-            // 移除會干擾文字選取的監聽器
-            // 讓 WebView 處理自己的長按和選擇事件
-            view.setOnLongClickListener(null)
-            view.setOnTouchListener(null)
+            // 恢復 WebView 的默認長按行為
+            view.setOnLongClickListener { v ->
+                // 觸覺反饋
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                // 標記選擇已開始
+                onSelectionStarted()
+                false // 返回 false 讓 WebView 繼續處理
+            }
 
-            // 只監聽選擇開始事件來激活 selection guard
+            // 監聽觸摸事件來管理選擇狀態
             view.setOnTouchListener { v, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         // 記錄觸摸開始位置
                         selectionStartX = event.x
                         selectionStartY = event.y
+                        // 啟動選擇保護，防止誤觸
+                        if (selectionState == SelectionState.IDLE) {
+                            startSelectionGuard()
+                        }
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        // 檢查是否在進行選擇操作
+                        // 檢查是否在拖動（可能是在選擇文字）
                         val dx = abs(event.x - selectionStartX)
                         val dy = abs(event.y - selectionStartY)
-                        if (dx > touchSlop || dy > touchSlop) {
-                            // 用戶在拖動選擇，確保guard激活
-                            if (!selectionGuardActive) {
-                                selectionGuardActive = true
-                                navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
-                            }
+                        if ((dx > touchSlop || dy > touchSlop) && selectionState == SelectionState.GUARDING) {
+                            // 用戶在拖動選擇文字，標記為選擇中
+                            onSelectionStarted()
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        // 觸摸結束時，如果還在 guarding 狀態且沒有開始選擇，則恢復空閒狀態
+                        if (selectionState == SelectionState.GUARDING) {
+                            onSelectionFinished()
                         }
                     }
                 }
-                false  // 不消費事件，讓 WebView 繼續處理
+                false // 返回 false 讓 WebView 繼續處理
             }
             return
         }
@@ -495,12 +513,53 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun applySelectionFriendlyCss(view: View?) {
-        // Temporarily disabled to test conflict with textZoom.
-        return
+        if (view is android.webkit.WebView) {
+            val css = """
+                * {
+                    -webkit-user-select: text !important;
+                    user-select: text !important;
+                }
+                img, .no-select {
+                    -webkit-user-select: none !important;
+                    user-select: none !important;
+                }
+                ::selection {
+                    background-color: rgba(0, 0, 0, 0.3) !important;
+                }
+                ::-moz-selection {
+                    background-color: rgba(0, 0, 0, 0.3) !important;
+                }
+                /* 限制選擇範圍 - 通過限制高亮區域 */
+                * {
+                    -webkit-touch-callout: default !important;
+                }
+            """.trimIndent()
+
+            val js = """
+                var style = document.createElement('style');
+                style.textContent = `$css`;
+                document.head.appendChild(style);
+            """.trimIndent()
+
+            view.evaluateJavascript(js, null)
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applySelectionFriendlyCss(view.getChildAt(i))
+            }
+        }
     }
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
         if (!EInkHelper.isBoox()) return
-        if (isSelectionFlowActive()) return
+        if (isSelectionFlowActive()) {
+            // 在選擇過程中，延遲刷新或使用更輕量的刷新
+            if (immediate) {
+                // 如果是立即刷新，使用部分刷新減少閃爍
+                EInkHelper.refresh(binding.root, full = false)
+            }
+            return
+        }
         refreshJob?.cancel()
         if (immediate || !booxBatchRefreshEnabled) {
             EInkHelper.refresh(binding.root, full)
@@ -949,16 +1008,18 @@ class ReaderActivity : AppCompatActivity() {
     private val selectionActionModeCallback = object : ActionMode.Callback2() {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             currentActionMode = mode
-            isSelecting = true
-            selectionGuardActive = true
-            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
+            onSelectionStarted()
+
+            // 確保在 UI 線程更新狀態
+            binding.root.post {
+                onActionModeCreated()
+            }
 
             // 觸覺反饋
             binding.root.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
 
-            // 取消selection guard的延遲任務
-            selectionGuardJob?.cancel()
-            selectionGuardJob = null
+            // 添加調試日誌
+            android.util.Log.d("ReaderActivity", "ActionMode created - selectionState: $selectionState")
 
             return true
         }
@@ -966,16 +1027,40 @@ class ReaderActivity : AppCompatActivity() {
         override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             if (mode == null || menu == null) return false
 
-            // 清除現有菜單項（避免重複）
+            // 清除並重新添加菜單項
             menu.clear()
 
-            // 添加自定義菜單項
+            // 添加菜單項，確保有圖標和正確的顯示方式
             menu.add(Menu.NONE, 998, 1, "複製")
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                .setIcon(android.R.drawable.ic_menu_edit)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
             menu.add(Menu.NONE, 999, 2, "發佈")
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                .setIcon(android.R.drawable.ic_menu_share)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
             menu.add(Menu.NONE, 1000, 3, "Google Maps")
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+                .setIcon(android.R.drawable.ic_menu_mapmode)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
+            // 添加調試日誌
+            android.util.Log.d("ReaderActivity", "onPrepareActionMode called")
+
+            // 延遲檢查選擇，避免在選擇還未準備好時就關閉菜單
+            lifecycleScope.launch {
+                delay(50) // 給選擇一點時間準備（從100ms減少到50ms）
+
+                val selection = navigatorFragment?.currentSelection()
+                val hasSelection = !selection?.locator?.text?.highlight.isNullOrBlank()
+                android.util.Log.d("ReaderActivity", "Selection check - hasSelection: $hasSelection")
+
+                if (!hasSelection && currentActionMode != null) {
+                    android.util.Log.d("ReaderActivity", "No selection found, finishing ActionMode")
+                    currentActionMode?.finish()
+                } else if (hasSelection) {
+                    android.util.Log.d("ReaderActivity", "Selection found: ${selection?.locator?.text?.highlight?.take(50)}...")
+                }
+            }
 
             return true
         }
@@ -1060,10 +1145,9 @@ class ReaderActivity : AppCompatActivity() {
             return false
         }
         override fun onDestroyActionMode(mode: ActionMode?) {
+            android.util.Log.d("ReaderActivity", "onDestroyActionMode called - selectionState: $selectionState")
             currentActionMode = null
-            isSelecting = false
-            selectionGuardActive = false
-            navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
+            onSelectionFinished()
             flushPendingDecorations()
         }
     }
@@ -1084,16 +1168,6 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // 優先處理選擇流程
-        if (isSelectionFlowActive()) {
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    releaseSelectionGuardIfIdle()
-                }
-            }
-            return super.dispatchTouchEvent(ev)
-        }
-
         // 忽略底部欄的觸摸
         val bottomBarRect = android.graphics.Rect()
         binding.bottomBar.getGlobalVisibleRect(bottomBarRect)
@@ -1101,48 +1175,40 @@ class ReaderActivity : AppCompatActivity() {
             return super.dispatchTouchEvent(ev)
         }
 
-        // 處理觸摸事件
+        // 如果正在選擇過程中，優先讓 WebView 處理觸摸事件
+        if (isSelectionFlowActive()) {
+            // 但仍然需要處理一些全局觸摸事件
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // 觸摸結束時恢復正常模式
+                    if (booxFastModeEnabled) {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
+                }
+            }
+            return super.dispatchTouchEvent(ev)
+        }
+
+        // 非選擇狀態下的觸摸事件處理
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                // 取消刷新任務
                 refreshJob?.cancel()
-
-                // 記錄觸摸開始位置
-                selectionStartX = ev.x
-                selectionStartY = ev.y
-
-                // 不立即啟動selection guard，讓WebView有機會處理長按
-                // 只在檢測到拖動時才啟動guard
-
-                // 傳遞DOWN事件給gestureDetector
+                // 如果当前是空闲状态，启动选择保护
+                if (selectionState == SelectionState.IDLE) {
+                    startSelectionGuard()
+                }
                 gestureDetector.onTouchEvent(ev)
             }
             MotionEvent.ACTION_MOVE -> {
-                // 檢查是否在拖動（可能是在選擇文字）
-                val dx = abs(ev.x - selectionStartX)
-                val dy = abs(ev.y - selectionStartY)
-                if (dx > touchSlop || dy > touchSlop) {
-                    // 用戶在拖動，啟動selection guard
-                    if (!selectionGuardActive) {
-                        selectionGuardActive = true
-                        navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
-                    }
-                }
-
-                // 傳遞MOVE事件給gestureDetector
                 gestureDetector.onTouchEvent(ev)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                releaseSelectionGuardIfIdle()
                 if (booxFastModeEnabled) {
                     EInkHelper.restoreQualityMode(binding.root)
                 }
-
-                // 傳遞事件給gestureDetector
                 gestureDetector.onTouchEvent(ev)
             }
             else -> {
-                // 其他事件傳遞給手勢檢測器
                 gestureDetector.onTouchEvent(ev)
             }
         }
