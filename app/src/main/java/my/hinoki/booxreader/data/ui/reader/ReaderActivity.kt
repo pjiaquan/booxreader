@@ -169,7 +169,7 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun isSelectionFlowActive(): Boolean {
-        return selectionState != SelectionState.IDLE
+        return selectionState == SelectionState.SELECTING || selectionState == SelectionState.MENU_OPEN
     }
 
     private fun startSelectionGuard() {
