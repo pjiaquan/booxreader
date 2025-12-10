@@ -396,28 +396,28 @@ class MainActivity : ComponentActivity() {
             try {
                 android.util.Log.d("MainActivity", "開始手動同步...")
 
-                val totalSteps = 6  // 增加一個步驟：上傳本地書籍
+                val totalSteps = 7  // 下載 + 上傳 + 其他五步
                 var currentStep = 0
 
-                // 步驟1: 上傳本地書籍到雲端
+                // 步驟1: 先下載雲端書籍（包含Storage檔案）
+                currentStep++
+                updateSyncProgress(currentStep, totalSteps, "下載雲端書籍...")
+                val pullBooksResult = runCatching { syncRepo.pullBooks() }
+                val booksDownloaded = pullBooksResult.getOrNull() ?: 0
+                android.util.Log.d("MainActivity", "下載書籍: ${pullBooksResult.isSuccess}, 下載數量: $booksDownloaded")
+
+                // 步驟2: 上傳本地書籍到雲端
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "上傳本地書籍...")
                 val uploadResult = runCatching { uploadLocalBooks() }
                 val booksUploaded = uploadResult.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "上傳書籍: ${uploadResult.isSuccess}, 上傳數量: $booksUploaded")
 
-                // 步驟2: 同步設定
+                // 步驟3: 同步設定
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "同步設定...")
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
                 android.util.Log.d("MainActivity", "同步設定: ${settingsResult.isSuccess}")
-
-                // 步驟3: 同步書籍（包含EPUB下載）
-                currentStep++
-                updateSyncProgress(currentStep, totalSteps, "同步書籍...")
-                val booksResult = runCatching { syncRepo.pullBooks() }
-                val booksUpdated = booksResult.getOrNull() ?: 0
-                android.util.Log.d("MainActivity", "同步書籍: ${booksResult.isSuccess}, 更新數量: $booksUpdated")
 
                 // 步驟4: 同步AI筆記
                 currentStep++
@@ -447,11 +447,11 @@ class MainActivity : ComponentActivity() {
                 val summary = buildString {
                     append("同步完成！\n")
                     if (booksUploaded > 0) append("• 上傳書籍: $booksUploaded 本\n")
-                    if (booksUpdated > 0) append("• 下載書籍: $booksUpdated 本\n")
+                    if (booksDownloaded > 0) append("• 下載書籍: $booksDownloaded 本\n")
                     if (notesUpdated > 0) append("• 更新AI筆記: $notesUpdated 筆\n")
                     if (progressUpdated > 0) append("• 更新閱讀進度: $progressUpdated 筆\n")
                     if (bookmarksUpdated > 0) append("• 更新書籤: $bookmarksUpdated 個\n")
-                    if (booksUploaded == 0 && booksUpdated == 0 && notesUpdated == 0 && progressUpdated == 0 && bookmarksUpdated == 0) {
+                    if (booksUploaded == 0 && booksDownloaded == 0 && notesUpdated == 0 && progressUpdated == 0 && bookmarksUpdated == 0) {
                         append("• 沒有需要更新的資料")
                     }
                 }
