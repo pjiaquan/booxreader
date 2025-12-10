@@ -136,16 +136,29 @@ class UserSyncRepository(
         }
 
         android.util.Log.d("UserSyncRepository", "用戶文檔: ${ref.path}")
+        val storageRef = bookStorageRef(book.bookId)
+        val remoteMeta = runCatching { storageRef?.metadata?.await() }.getOrNull()
+        val shouldUploadFile = uploadFile || remoteMeta == null || remoteMeta.sizeBytes <= 0
 
-        val uploadInfo = if (uploadFile) {
-            android.util.Log.d("UserSyncRepository", "嘗試上傳EPUB文件到Storage")
-            uploadBookFileIfNeeded(book)
+        val uploadInfo = if (shouldUploadFile) {
+            android.util.Log.d("UserSyncRepository", "嘗試上傳EPUB文件到Storage (shouldUpload=$shouldUploadFile)")
+            uploadBookFileIfNeeded(book, remoteMeta)
         } else {
-            android.util.Log.d("UserSyncRepository", "跳過文件上傳，只上傳元數據")
-            null
+            android.util.Log.d("UserSyncRepository", "Storage 已有檔案，僅更新元數據: ${book.title}")
+            remoteMeta?.let {
+                UploadedBookInfo(
+                    storageRef?.path ?: "",
+                    it.sizeBytes,
+                    it.getCustomMetadata("checksum")
+                )
+            }
         }
 
-        val storagePath = uploadInfo?.storagePath ?: bookStorageRef(book.bookId)?.path
+        val storagePath = uploadInfo?.storagePath
+            ?: remoteMeta?.let { storageRef?.path }
+            ?: storageRef?.path.takeIf { uploadFile }
+        val storedSize = uploadInfo?.size ?: remoteMeta?.sizeBytes ?: 0L
+        val storedChecksum = uploadInfo?.checksum ?: remoteMeta?.getCustomMetadata("checksum")
         val updatedAt = if (book.lastOpenedAt > 0) book.lastOpenedAt else System.currentTimeMillis()
         val payload = RemoteBook(
             bookId = book.bookId,
@@ -155,8 +168,8 @@ class UserSyncRepository(
             lastOpenedAt = book.lastOpenedAt,
             updatedAt = updatedAt,
             storagePath = storagePath,
-            fileSize = uploadInfo?.size ?: 0L,
-            checksumSha256 = uploadInfo?.checksum
+            fileSize = storedSize,
+            checksumSha256 = storedChecksum
         )
 
         android.util.Log.d("UserSyncRepository", "上傳書籍數據: $payload")
@@ -316,12 +329,18 @@ class UserSyncRepository(
         downloaded
     }
 
-    private suspend fun uploadBookFileIfNeeded(book: BookEntity): UploadedBookInfo? = withContext(io) {
+    private suspend fun uploadBookFileIfNeeded(
+        book: BookEntity,
+        existingMeta: StorageMetadata? = null
+    ): UploadedBookInfo? = withContext(io) {
         val storageRef = bookStorageRef(book.bookId) ?: return@withContext null
         val uri = Uri.parse(book.fileUri)
-        val localMeta = readLocalFileMeta(uri) ?: return@withContext null
+        val localMeta = readLocalFileMeta(uri) ?: run {
+            android.util.Log.w("UserSyncRepository", "讀取本地書籍檔案失敗，無法上傳: ${book.fileUri}")
+            return@withContext null
+        }
 
-        val remoteMeta = runCatching { storageRef.metadata.await() }.getOrNull()
+        val remoteMeta = existingMeta ?: runCatching { storageRef.metadata.await() }.getOrNull()
         val remoteChecksum = remoteMeta?.getCustomMetadata("checksum")
         if (remoteMeta != null) {
             // 雲端已有檔案就不再重複上傳，透過checksum或大小判斷

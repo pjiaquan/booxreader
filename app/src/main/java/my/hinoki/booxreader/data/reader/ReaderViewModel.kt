@@ -140,6 +140,11 @@ class ReaderViewModel(
 
                 _currentBookKey.value = key
 
+                // 確保新開啟的書籍檔案立即嘗試同步到雲端 Storage
+                viewModelScope.launch(Dispatchers.IO) {
+                    runCatching { syncRepo.pushBook(book, uploadFile = true) }
+                }
+
                 // Fetch cloud progress before emitting publication so UI can pick it up
                 withContext(Dispatchers.IO) {
                     runCatching { syncRepo.pullProgress(key) }
