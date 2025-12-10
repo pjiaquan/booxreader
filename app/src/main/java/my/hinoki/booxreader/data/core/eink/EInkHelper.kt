@@ -51,6 +51,12 @@ object EInkHelper {
     // 基本刷新功能
     fun refresh(view: View, full: Boolean = false) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            // 保持文石系統引擎，不呼叫 Onyx SDK
+            view.invalidate()
+            view.postInvalidateOnAnimation()
+            return
+        }
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
             val method = cls.getMethod("invalidate", View::class.java, Boolean::class.java)
@@ -63,6 +69,7 @@ object EInkHelper {
 
     // 新型號刷新功能備用方案
     private fun tryAlternativeRefresh(view: View, full: Boolean = false) {
+        if (preserveSystemEngine) return
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
             val method = cls.getMethod("requestRefresh", View::class.java, Int::class.java)
@@ -207,6 +214,10 @@ object EInkHelper {
     // 為特定區域設置刷新（優化性能）
     fun refreshRegion(view: View, left: Int, top: Int, right: Int, bottom: Int) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            view.invalidate(left, top, right, bottom)
+            return
+        }
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
             val method = cls.getMethod(
@@ -242,6 +253,7 @@ object EInkHelper {
     // 等待刷新完成
     fun waitForRefresh(view: View) {
         if (!isBoox()) return
+        if (preserveSystemEngine) return
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
             val method = cls.getMethod("waitForUpdateComplete", View::class.java)
