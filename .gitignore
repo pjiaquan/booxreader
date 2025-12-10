@@ -29,6 +29,16 @@ logs/
 release.keystore
 # !app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
 
+# Local tooling caches
+.gradle-local/
+.grok/
+app/.grok/
+
+# Local Android SDK / tooling archives
+android-sdk/
+cmdline-tools/
+commandlinetools-*.zip
+
 # Firebase
 google-services.json
 

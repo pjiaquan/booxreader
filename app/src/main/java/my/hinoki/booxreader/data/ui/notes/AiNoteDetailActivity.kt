@@ -15,6 +15,9 @@ import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
 import kotlinx.coroutines.launch
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import my.hinoki.booxreader.core.eink.EInkHelper
+import my.hinoki.booxreader.R
 
 class AiNoteDetailActivity : AppCompatActivity() {
 
@@ -49,6 +52,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
     private var autoStreamText: String? = null
     private val selectionSanitizeRegex = Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$")
     private var isLoading = false
+    private var scrollToBottomButton: FloatingActionButton? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,6 +92,15 @@ class AiNoteDetailActivity : AppCompatActivity() {
             }
             sendFollowUp(note, question)
         }
+
+        // 初始化快速滾動到底按鈕
+        scrollToBottomButton = findViewById(R.id.btnScrollToBottom)
+        scrollToBottomButton?.setOnClickListener {
+            scrollToBottom()
+        }
+
+        // 設置滾動監聽來控制按鈕顯示/隱藏
+        setupScrollListener()
     }
 
     private val selectionActionModeCallback = object : android.view.ActionMode.Callback {
@@ -274,10 +287,19 @@ class AiNoteDetailActivity : AppCompatActivity() {
                 val line = layout.getLineForOffset(idx.coerceAtMost(content.length))
                 val y = binding.tvAiResponse.top + layout.getLineTop(line)
                 binding.scrollView.smoothScrollTo(0, y)
+                // 滾動完成後檢查按鈕狀態
+                checkScrollPosition()
             }
         } else if (previousScrollY != null) {
             binding.scrollView.post {
                 binding.scrollView.scrollTo(0, previousScrollY)
+                // 滾動完成後檢查按鈕狀態
+                checkScrollPosition()
+            }
+        } else {
+            // UI更新完成後檢查按鈕狀態
+            binding.scrollView.post {
+                checkScrollPosition()
             }
         }
     }
@@ -454,6 +476,119 @@ class AiNoteDetailActivity : AppCompatActivity() {
         intent.addCategory(Intent.CATEGORY_BROWSABLE)
         runCatching { startActivity(intent) }
             .onFailure { Toast.makeText(this, "無法開啟搜尋", Toast.LENGTH_SHORT).show() }
+    }
+
+    // 設置滾動監聽
+    private fun setupScrollListener() {
+        binding.scrollView.viewTreeObserver.addOnScrollChangedListener {
+            // 檢查滾動位置並控制按鈕顯示/隱藏
+            checkScrollPosition()
+        }
+    }
+
+    // 滾動到底功能
+    private fun scrollToBottom() {
+        android.util.Log.d("AiNoteDetailActivity", "執行滾動到底功能")
+
+        // 使用多種方法確保滾動到底部
+        binding.scrollView.post {
+            val scrollView = binding.scrollView
+            val childView = scrollView.getChildAt(0)
+
+            if (childView != null) {
+                // 方法1: 直接設置滾動位置
+                val maxScroll = childView.height - scrollView.height + scrollView.paddingBottom
+                android.util.Log.d("AiNoteDetailActivity", "最大滾動位置: $maxScroll, 當前位置: ${scrollView.scrollY}")
+
+                // 先嘗試直接滾動
+                scrollView.scrollTo(0, maxScroll)
+
+                // 延遲後再次確保滾動到底部
+                scrollView.postDelayed({
+                    // 方法2: 使用 fullScroll 作為備用
+                    scrollView.fullScroll(View.FOCUS_DOWN)
+
+                    // 方法3: 再次直接設置滾動位置（最終保險）
+                    val finalMaxScroll = childView.height - scrollView.height + scrollView.paddingBottom
+                    scrollView.scrollTo(0, finalMaxScroll)
+
+                    android.util.Log.d("AiNoteDetailActivity", "最終滾動位置: ${scrollView.scrollY}, 目標位置: $finalMaxScroll")
+
+                    // 滾動完成後隱藏按鈕
+                    hideScrollButton()
+
+                    // 觸發文石刷新以確保顯示更新
+                    if (EInkHelper.isBooxDevice()) {
+                        EInkHelper.refreshFull(scrollView)
+                    }
+                }, 100)
+            }
+        }
+    }
+
+    // 檢查滾動位置並控制按鈕顯示/隱藏
+    private fun checkScrollPosition() {
+        binding.scrollView.post {
+            val scrollView = binding.scrollView
+            val childView = scrollView.getChildAt(0)
+
+            if (childView != null) {
+                // 檢查頁面內容是否超過螢幕高度（需要滾動）
+                val contentHeight = childView.height
+                val visibleHeight = scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+                val needsScroll = contentHeight > visibleHeight
+
+                android.util.Log.d("AiNoteDetailActivity", "內容高度: $contentHeight, 可見高度: $visibleHeight, 需要滾動: $needsScroll")
+
+                if (!needsScroll) {
+                    // 頁面內容不夠長，不需要滾動按鈕
+                    hideScrollButton()
+                    return@post
+                }
+
+                // 檢查是否已經滾動到底部
+                val isAtBottom = scrollView.scrollY + visibleHeight >= contentHeight - scrollView.paddingBottom
+
+                if (isAtBottom) {
+                    // 在底部時隱藏按鈕
+                    hideScrollButton()
+                } else {
+                    // 不在底部時顯示按鈕
+                    showScrollButton()
+                }
+            }
+        }
+    }
+
+    // 顯示滾動按鈕
+    private fun showScrollButton() {
+        scrollToBottomButton?.let { button ->
+            if (button.visibility != View.VISIBLE) {
+                button.visibility = View.VISIBLE
+                button.alpha = 0f
+                button.animate()
+                    .alpha(1f)
+                    .setDuration(300)
+                    .start()
+                android.util.Log.d("AiNoteDetailActivity", "顯示滾動到底按鈕")
+            }
+        }
+    }
+
+    // 隱藏滾動按鈕
+    private fun hideScrollButton() {
+        scrollToBottomButton?.let { button ->
+            if (button.visibility == View.VISIBLE) {
+                button.animate()
+                    .alpha(0f)
+                    .setDuration(300)
+                    .withEndAction {
+                        button.visibility = View.GONE
+                    }
+                    .start()
+                android.util.Log.d("AiNoteDetailActivity", "隱藏滾動到底按鈕")
+            }
+        }
     }
 
     private fun setLoading(active: Boolean) {

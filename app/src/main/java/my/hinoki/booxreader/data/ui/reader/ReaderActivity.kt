@@ -28,6 +28,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.core.eink.EInkHelper
+import my.hinoki.booxreader.core.eink.EInkHelper.ContrastMode
 import my.hinoki.booxreader.databinding.ActivityReaderBinding
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.ui.notes.AiNoteListActivity
@@ -84,17 +85,22 @@ class ReaderActivity : AppCompatActivity() {
     
     private var navigatorFragment: EpubNavigatorFragment? = null
     private var currentActionMode: ActionMode? = null
-
+  
     // Activity local state for UI interaction
     private var pageTapEnabled: Boolean = true
     private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
-    private var currentFontSize: Int = 150
+    private var currentFontSize: Int = 150 // 從文石系統讀取
     private var currentFontWeight: Int = 400
     private var booxBatchRefreshEnabled: Boolean = true
     private var booxFastModeEnabled: Boolean = true
+    private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
     private var refreshJob: Job? = null
-    private val booxRefreshDelayMs = 200L
-    private val selectionGuardDelayMs = 100L
+    private val booxRefreshDelayMs = if (EInkHelper.isModernBoox()) 150L else 250L
+    private val selectionGuardDelayMs = if (EInkHelper.isModernBoox()) 120L else 150L
+    private val textSelectionSensitivity = 4f // 更低的觸摸敏感度，提高選取精度
+    private val scrollDetectionThreshold = 25f // 更高的滑動檢測閾值，減少干擾
+    private var isSelectingText = false // 追蹤是否真的在選取文字
+    private val pageNavigationRefreshDelayMs = 300L // 頁面導航專用延遲
 
     // 簡化的選擇狀態管理
     private enum class SelectionState {
@@ -109,6 +115,8 @@ class ReaderActivity : AppCompatActivity() {
     private var pendingDecorations: List<Decoration>? = null
     private var selectionStartX = 0f
     private var selectionStartY = 0f
+    private var lastStyledHref: String? = null
+    private var stylesDirty: Boolean = true
 
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
@@ -129,7 +137,20 @@ class ReaderActivity : AppCompatActivity() {
                 if (booxFastModeEnabled && !isSelectionFlowActive()) {
                     EInkHelper.enableFastMode(binding.root)
                 }
-                return false
+
+                // 只有在檢測到非常明顯的滑動，且目前是 GUARDING 狀態時，才認為是頁面導航
+                val isSignificantScroll = abs(distanceX) > scrollDetectionThreshold || abs(distanceY) > scrollDetectionThreshold
+                if (isSignificantScroll && selectionState == SelectionState.GUARDING && !isSelectingText) {
+                    // 標記為非文字選取的滑動
+                    onSelectionFinished()
+                }
+
+                // 如果正在進行文字選取，不干擾
+                if (isSelectingText) {
+                    return false
+                }
+
+                return false // 讓 WebView 處理文字選取
             }
 
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
@@ -148,17 +169,29 @@ class ReaderActivity : AppCompatActivity() {
                     return true
                 }
 
-                // 3. 頁面導航（僅在沒有選擇活動時）
+                // 3. 頁面導航（僅在沒有選擇活動時）- 這裡只處理真正的單擊
                 if (pageTapEnabled) {
                     val width = binding.root.width
                     val x = e.x
                     if (width > 0) {
-                        // 30-40-30 規則
+                        // 30-40-30 規則 - 只有真正的單擊（無拖動）才觸發頁面導航
                         if (x < width * 0.3f) {
                             navigatorFragment?.goBackward()
+                            // 延遲刷新以確保頁面切換完成
+                            if (EInkHelper.isBooxDevice()) {
+                                binding.root.postDelayed({
+                                    EInkHelper.refreshPartial(binding.root)
+                                }, pageNavigationRefreshDelayMs)
+                            }
                             return true
                         } else if (x > width * 0.7f) {
                             navigatorFragment?.goForward()
+                            // 延遲刷新以確保頁面切換完成
+                            if (EInkHelper.isBooxDevice()) {
+                                binding.root.postDelayed({
+                                    EInkHelper.refreshPartial(binding.root)
+                                }, pageNavigationRefreshDelayMs)
+                            }
                             return true
                         }
                     }
@@ -213,10 +246,32 @@ class ReaderActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.tapOverlay.bringToFront()
+
+        // 關鍵：在程式啟動時立即強制讀取文石系統字體設定
+        if (EInkHelper.isBooxDevice()) {
+            android.util.Log.d("ReaderActivity", "onCreate - 立即強制讀取文石系統字體設定")
+
+            // 測試多個可能的字體值
+            val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
+            val detectedSize = getBooxSystemFontSize()
+
+            android.util.Log.d("ReaderActivity", "文石設備檢測到的字體大小: $detectedSize%")
+
+            // 如果檢測到的值不合理，使用文石常見的標準值
+            currentFontSize = if (detectedSize >= 100 && detectedSize <= 200) {
+                detectedSize
+            } else {
+                android.util.Log.w("ReaderActivity", "檢測到的字體大小不合理($detectedSize%)，使用文石標準140%")
+                140 // 文石設備常見的標準大小
+            }
+
+            currentFontWeight = 400 // 固定預設值
+            android.util.Log.d("ReaderActivity", "onCreate最終設定字體: 大小=${currentFontSize}%, 粗細=${currentFontWeight}")
+        }
 
         val bookUri = intent.data
         if (bookUri == null) {
@@ -240,20 +295,29 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        // Load prefs
+        // Load prefs (不包含字體大小和字體粗細)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val savedSize = prefs.getInt("font_size", 150)
-        currentFontSize = if (savedSize == 100) 150 else savedSize
-        currentFontWeight = prefs.getInt("font_weight", 400).coerceIn(300, 900)
+        currentFontWeight = 400 // 使用預設字體粗細，不從SharedPreferences讀取
         pageTapEnabled = prefs.getBoolean("page_tap_enabled", true)
         booxBatchRefreshEnabled = prefs.getBoolean("boox_batch_refresh", true)
         booxFastModeEnabled = prefs.getBoolean("boox_fast_mode", true)
+
+        // 載入本地設置（包括對比模式）
+        val contrastModeOrdinal = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal)
+        currentContrastMode = ContrastMode.values()[contrastModeOrdinal]
 
         // Fetch cloud settings (best effort) and apply if newer
         lifecycleScope.launch {
             val remote = syncRepo.pullSettingsIfNewer()
             if (remote != null) {
                 applyReaderSettings(remote)
+            } else {
+                // 如果沒有雲端設置，應用本地設置
+                applyFontSize(currentFontSize)
+                applyFontWeight(currentFontWeight)
+                if (EInkHelper.supportsHighContrast()) {
+                    applyContrastMode(currentContrastMode)
+                }
             }
         }
 
@@ -275,6 +339,8 @@ class ReaderActivity : AppCompatActivity() {
         }
 
         binding.tapOverlay.visibility = android.view.View.GONE
+        // 移除 tapOverlay，讓 WebView 完全接管觸摸事件以支持全域文字選取
+        // 頁面導航將通過 GestureDetector 在 dispatchTouchEvent 中處理
     }
 
     private fun setupObservers() {
@@ -324,6 +390,8 @@ class ReaderActivity : AppCompatActivity() {
     private fun initNavigator(publication: Publication, initialLocator: Locator?) {
         // Avoid re-creating if already set up
         if (navigatorFragment != null) return
+        lastStyledHref = null
+        stylesDirty = true
 
         val factory = EpubNavigatorFactory(publication)
         val config = EpubNavigatorFragment.Configuration {
@@ -341,8 +409,9 @@ class ReaderActivity : AppCompatActivity() {
                 .replace(R.id.readerContainer, EpubNavigatorFragment::class.java, null)
                 .commitNow()
         }
-        
-        binding.tapOverlay.bringToFront()
+  
+              // 確保 tapOverlay 保持隱藏，讓 WebView 完全處理觸摸
+        binding.tapOverlay.visibility = android.view.View.GONE
         navigatorFragment = supportFragmentManager.findFragmentById(R.id.readerContainer) as? EpubNavigatorFragment
 
         // Optimize WebView: Disable overscroll and apply e-ink tuning
@@ -350,15 +419,81 @@ class ReaderActivity : AppCompatActivity() {
             disableWebViewOverscroll(navigatorFragment?.view)
             applyBooxWebViewSettings(navigatorFragment?.view)
             setupWebViewSelectionListener(navigatorFragment?.view)
-        }
 
-        applyFontSize(currentFontSize)
-        applyFontWeight(currentFontWeight)
+            // 立即強制應用字體設定（不等待延遲）
+            android.util.Log.d("ReaderActivity", "initNavigator完成，立即強制應用字體設定")
+            val immediateSize = getBooxSystemFontSize()
+            currentFontSize = immediateSize
+            android.util.Log.d("ReaderActivity", "立即應用字體大小: $immediateSize%")
+
+            // 直接設置WebView字體
+            navigatorFragment?.view?.let { view ->
+                findAndSetWebViewTextZoom(view, immediateSize)
+            }
+            findAndSetWebViewTextZoom(binding.root, immediateSize)
+
+            // 然後使用完整的重試機制
+            applyAllSettingsWithRetry()
+        }
         observeLocatorUpdates()
         setupDecorationListener()
 
-        // Refresh E-Ink
-        binding.root.post { requestEinkRefresh() }
+        // 文石設備特定初始化
+        if (EInkHelper.isBooxDevice()) {
+            // 設置最佳刷新模式
+            if (EInkHelper.isModernBoox()) {
+                EInkHelper.enableAutoMode(binding.root)
+            } else {
+                EInkHelper.restoreQualityMode(binding.root)
+            }
+
+            // 優化整個視圖層級
+            EInkHelper.optimizeForEInk(binding.root)
+
+            // 關鍵：立即強制重新應用字體設定
+            binding.root.postDelayed({
+                android.util.Log.d("ReaderActivity", "立即強制重新應用字體設定")
+                // 每次都重新讀取文石系統字體設定
+                currentFontSize = getBooxSystemFontSize()
+                currentFontWeight = 400 // 固定預設值
+
+                android.util.Log.d("ReaderActivity", "強制應用文石系統字體設定: 大小=${currentFontSize}%")
+
+                applyFontSize(currentFontSize)
+                applyFontWeight(currentFontWeight)
+                applyContrastMode(currentContrastMode)
+
+                // 最終觸發文石系統深度刷新確保所有設定生效
+                EInkHelper.enableFastMode(binding.root)
+                binding.root.postDelayed({
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
+                }, 50)
+            }, 100) // 縮短延遲到0.1秒
+
+        // 額外的強制確保：在短暫延遲後再次檢查並應用
+        binding.root.postDelayed({
+            android.util.Log.d("ReaderActivity", "額外強制檢查字體設定")
+            val savedFontSize = currentFontSize
+            currentFontSize = getBooxSystemFontSize()
+
+            if (currentFontSize != savedFontSize) {
+                android.util.Log.d("ReaderActivity", "檢測到字體變更，重新應用: $savedFontSize% -> $currentFontSize%")
+            }
+
+            applyFontSize(currentFontSize)
+            applyFontWeight(currentFontWeight)
+
+            // 強制完整重繪
+            forceBooxFullRefresh()
+        }, 200)
+        } else {
+            // 非 E-Ink 設備的標準刷新
+            binding.root.post { requestEinkRefresh() }
+        }
     }
 
     private fun disableWebViewOverscroll(view: View?) {
@@ -374,20 +509,56 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun applyBooxWebViewSettings(view: View?) {
-        if (!EInkHelper.isBoox()) return
+        if (!EInkHelper.isBooxDevice()) return
         if (view is android.webkit.WebView) {
+            // 基本屬性設置
             view.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
             view.isVerticalScrollBarEnabled = false
             view.isHorizontalScrollBarEnabled = false
             view.scrollBarStyle = android.view.View.SCROLLBARS_OUTSIDE_OVERLAY
             view.overScrollMode = android.view.View.OVER_SCROLL_NEVER
             view.isHapticFeedbackEnabled = false
+            view.isLongClickable = true // 保持長按功能用於文字選取
+
+            // WebView 設置優化
             view.settings.apply {
+                // 縮放控制
                 displayZoomControls = false
                 builtInZoomControls = false
                 setSupportZoom(false)
+
+                // 性能優化
+                cacheMode = android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK
+                domStorageEnabled = true
+                databaseEnabled = true
+                allowFileAccess = true
+                allowContentAccess = true
+
+                // 安全和媒體設置
                 mediaPlaybackRequiresUserGesture = true
+                mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+
+                // 文字選取優化
+                allowFileAccessFromFileURLs = false
+                allowUniversalAccessFromFileURLs = false
+
+                // 文石設備特定優化
+                if (EInkHelper.isModernBoox()) {
+                    // 新型號支援更好的渲染
+                    layoutAlgorithm = android.webkit.WebSettings.LayoutAlgorithm.TEXT_AUTOSIZING
+                } else {
+                    // 舊型號保守設置
+                    layoutAlgorithm = android.webkit.WebSettings.LayoutAlgorithm.SINGLE_COLUMN
+                }
+
+                // 字體和渲染優化
+                defaultTextEncodingName = "UTF-8"
+                standardFontFamily = "serif"
+                fixedFontFamily = "monospace"
             }
+
+            // 應用電子墨水屏優化
+            EInkHelper.optimizeForEInk(view)
             return
         }
         if (view is ViewGroup) {
@@ -399,44 +570,96 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun setupWebViewSelectionListener(view: View?) {
         if (view is android.webkit.WebView) {
-            // 恢復 WebView 的默認長按行為
-            view.setOnLongClickListener { v ->
-                // 觸覺反饋
-                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                // 標記選擇已開始
-                onSelectionStarted()
-                false // 返回 false 讓 WebView 繼續處理
-            }
+            // 移除可能干擾的長按監聽器，讓 WebView 自己處理
+            view.setOnLongClickListener(null)
 
-            // 監聽觸摸事件來管理選擇狀態
+            // 優化的觸摸監聽器，專注於穩定的文字選取
             view.setOnTouchListener { v, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
+                        // 重置文字選取標記
+                        isSelectingText = false
+
                         // 記錄觸摸開始位置
                         selectionStartX = event.x
                         selectionStartY = event.y
-                        // 啟動選擇保護，防止誤觸
+
+                        // 延遲啟動選擇保護，給時間讓 WebView 開始處理
                         if (selectionState == SelectionState.IDLE) {
-                            startSelectionGuard()
+                            lifecycleScope.launch {
+                                delay(50) // 短暫延遲，讓 WebView 先處理
+                                if (selectionState == SelectionState.IDLE) {
+                                    startSelectionGuard()
+                                }
+                            }
+                        }
+
+                        // 立即啟用快速模式以支持流暢的文字選取
+                        if (EInkHelper.isBooxDevice() && booxFastModeEnabled) {
+                            EInkHelper.enableFastMode(v)
                         }
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        // 檢查是否在拖動（可能是在選擇文字）
+                        // 更精確的文字選取檢測
                         val dx = abs(event.x - selectionStartX)
                         val dy = abs(event.y - selectionStartY)
-                        if ((dx > touchSlop || dy > touchSlop) && selectionState == SelectionState.GUARDING) {
-                            // 用戶在拖動選擇文字，標記為選擇中
-                            onSelectionStarted()
+
+                        // 檢查是否為文字選取（小範圍移動）
+                        if (dx < scrollDetectionThreshold && dy < scrollDetectionThreshold) {
+                            if (dx > textSelectionSensitivity || dy > textSelectionSensitivity) {
+                                if (selectionState == SelectionState.GUARDING) {
+                                    onSelectionStarted()
+                                    isSelectingText = true
+                                }
+                            }
+                        } else {
+                            // 大範圍移動，可能不是文字選取
+                            if (selectionState == SelectionState.SELECTING && !isSelectingText) {
+                                // 如果沒有標記為文字選取，可能是在滑動
+                                // 但不要立即重置，讓 WebView 先處理
+                            }
                         }
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        // 觸摸結束時，如果還在 guarding 狀態且沒有開始選擇，則恢復空閒狀態
+                    MotionEvent.ACTION_UP -> {
+                        // 觸摸結束時的處理
+                        if (selectionState == SelectionState.GUARDING) {
+                            // 如果沒有開始選取，恢復品質模式
+                            v.postDelayed({
+                                if (selectionState != SelectionState.SELECTING &&
+                                    selectionState != SelectionState.MENU_OPEN) {
+                                    onSelectionFinished()
+                                    if (EInkHelper.isBooxDevice() && booxFastModeEnabled) {
+                                        EInkHelper.restoreQualityMode(v)
+                                    }
+                                }
+                            }, 150)
+                        } else if (selectionState == SelectionState.SELECTING) {
+                            // 選取中，給更多時間讓選取菜單出現
+                            v.postDelayed({
+                                if (selectionState != SelectionState.MENU_OPEN) {
+                                    // 如果菜單沒有出現，恢復品質模式
+                                    if (EInkHelper.isBooxDevice() && booxFastModeEnabled) {
+                                        EInkHelper.restoreQualityMode(v)
+                                    }
+                                }
+                            }, 300)
+                        }
+
+                        // 重置文字選取標記
+                        isSelectingText = false
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        // 取消時立即清理狀態
                         if (selectionState == SelectionState.GUARDING) {
                             onSelectionFinished()
                         }
+                        isSelectingText = false
+                        if (EInkHelper.isBooxDevice() && booxFastModeEnabled) {
+                            EInkHelper.restoreQualityMode(v)
+                        }
                     }
                 }
-                false // 返回 false 讓 WebView 繼續處理
+                false // 關鍵：返回 false 讓 WebView 完全處理觸摸事件
             }
             return
         }
@@ -471,23 +694,98 @@ class ReaderActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun applyReaderStyles(force: Boolean = false) {
+        val navigatorView = navigatorFragment?.view ?: return
+        if (!force && !stylesDirty) return
+        applyFontZoomLikeNeoReader(navigatorView, currentFontSize)
+        applyFontWeightViaWebView(navigatorView, currentFontWeight)
+        applyReaderCss(navigatorView)
+        applySelectionFriendlyCss(navigatorView)
+        stylesDirty = false
+    }
     
     private fun applyReaderCss(view: View?) {
         if (view is android.webkit.WebView) {
             val css = """
-                p, div, li, h1, h2, h3, h4, h5, h6, blockquote {
-                    font-size: 1rem !important;
+                /* Boox 專用：統一字體大小基準 - 使用更細緻的控制 */
+                :root {
+                    --boox-base-font-size: 16px;
+                    --boox-line-height: 1.6;
                 }
+
+                html, body {
+                    font-size: var(--boox-base-font-size) !important;
+                    line-height: var(--boox-line-height) !important;
+                    max-width: 100% !important;
+                    width: 100% !important;
+                    margin: 0 auto !important;
+                    padding: 0 !important;
+                }
+
+                p, div, li, span:not([class*="font"]):not([class*="size"]), td, th,
+                blockquote, q, cite, em, strong, b, i, u, mark, dfn, abbr, samp, kbd, var,
+                time, small, big, address, summary, details {
+                    font-size: inherit !important;
+                    line-height: inherit !important;
+                    font-family: inherit !important;
+                }
+
+                h1 {
+                    font-size: 2em !important;
+                    margin: 0.67em 0 !important;
+                }
+
+                h2 {
+                    font-size: 1.5em !important;
+                    margin: 0.75em 0 !important;
+                }
+
+                h3 {
+                    font-size: 1.17em !important;
+                    margin: 0.83em 0 !important;
+                }
+
+                h4 {
+                    font-size: 1em !important;
+                    margin: 1em 0 !important;
+                }
+
+                h5 {
+                    font-size: 0.83em !important;
+                    margin: 1.17em 0 !important;
+                }
+
+                h6 {
+                    font-size: 0.67em !important;
+                    margin: 1.5em 0 !important;
+                }
+
+                pre, code, tt {
+                    font-size: 0.9em !important;
+                    font-family: monospace !important;
+                }
+
                 aside[epub\\:type~="footnote"],
                 section[epub\\:type~="footnote"],
                 nav[epub\\:type~="footnotes"],
                 .footnote, .note {
-                  font-size: 0.8em !important;
-                  line-height: 1.5 !important;
+                    font-size: 0.875em !important;
+                    line-height: 1.5 !important;
                 }
+
                 a[epub\\:type~="noteref"], sup, sub {
-                  font-size: 0.9em !important;
-                  line-height: 1.2 !important;
+                    font-size: 0.75em !important;
+                    line-height: 1.2 !important;
+                }
+
+                /* 防止 epub 內部 CSS 干擾 */
+                [style*="font-size"] {
+                    font-size: inherit !important;
+                }
+
+                [style*="line-height"] {
+                    line-height: inherit !important;
                 }
 
             """.trimIndent()
@@ -500,6 +798,9 @@ class ReaderActivity : AppCompatActivity() {
                     document.head.appendChild(style);
                   }
                   style.textContent = `${css}`;
+
+                  // 強制重流以確保樣式應用
+                  document.body.offsetHeight;
                 })();
             """.trimIndent()
             view.evaluateJavascript(js, null)
@@ -515,30 +816,81 @@ class ReaderActivity : AppCompatActivity() {
     private fun applySelectionFriendlyCss(view: View?) {
         if (view is android.webkit.WebView) {
             val css = """
-                * {
+                /* Enhanced text selection for e-ink readers */
+                html, body, p, span, div, li, h1, h2, h3, h4, h5, h6,
+                blockquote, em, strong, b, i, u, mark, small, big,
+                cite, dfn, abbr, q, time, td, th, figcaption, pre, code,
+                article, section, aside, header, footer, nav {
                     -webkit-user-select: text !important;
+                    -moz-user-select: text !important;
+                    -ms-user-select: text !important;
                     user-select: text !important;
+                    -webkit-touch-callout: default !important;
+                    cursor: text !important;
+                    -webkit-tap-highlight-color: rgba(128, 128, 128, 0.1) !important;
                 }
-                img, .no-select {
-                    -webkit-user-select: none !important;
-                    user-select: none !important;
-                }
+
+                /* Improve selection contrast for e-ink */
                 ::selection {
                     background-color: rgba(0, 0, 0, 0.3) !important;
+                    color: inherit !important;
                 }
+
                 ::-moz-selection {
                     background-color: rgba(0, 0, 0, 0.3) !important;
+                    color: inherit !important;
                 }
-                /* 限制選擇範圍 - 通過限制高亮區域 */
+
+                /* Remove tap highlights that interfere with selection */
                 * {
-                    -webkit-touch-callout: default !important;
+                    -webkit-tap-highlight-color: transparent !important;
+                    -webkit-touch-callout: none !important;
+                }
+
+                /* Allow text selection on all elements */
+                *, *::before, *::after {
+                    -webkit-user-select: text !important;
+                    -moz-user-select: text !important;
+                    -ms-user-select: text !important;
+                    user-select: text !important;
+                }
+
+                /* Ensure proper text wrapping for selection */
+                html, body {
+                    word-wrap: break-word !important;
+                    overflow-wrap: break-word !important;
+                    -webkit-overflow-scrolling: touch !important;
+                }
+
+                /* Improve touch target size for selection */
+                p, li, span, div {
+                    min-height: 1em !important;
+                    line-height: inherit !important;
                 }
             """.trimIndent()
 
             val js = """
-                var style = document.createElement('style');
-                style.textContent = `$css`;
-                document.head.appendChild(style);
+                (function() {
+                    try {
+                        var style = document.getElementById('boox-selection-style');
+                        if (!style) {
+                            style = document.createElement('style');
+                            style.id = 'boox-selection-style';
+                            document.head.appendChild(style);
+                        }
+                        style.textContent = `${css}`;
+
+                        // Enable text selection across the document
+                        document.designMode = 'off';
+                        document.addEventListener('selectionchange', function() {
+                            // Optional: Handle selection changes if needed
+                        });
+
+                        console.log('Enhanced text selection CSS applied');
+                    } catch (e) {
+                        console.log('Error applying selection CSS:', e);
+                    }
+                })();
             """.trimIndent()
 
             view.evaluateJavascript(js, null)
@@ -550,37 +902,218 @@ class ReaderActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
-        if (!EInkHelper.isBoox()) return
+        if (!EInkHelper.isBooxDevice()) return
+
         if (isSelectionFlowActive()) {
             // 在選擇過程中，延遲刷新或使用更輕量的刷新
             if (immediate) {
-                // 如果是立即刷新，使用部分刷新減少閃爍
-                EInkHelper.refresh(binding.root, full = false)
+                // 使用快速模式進行輕量刷新
+                EInkHelper.enableFastMode(binding.root)
+                EInkHelper.refreshPartial(binding.root)
+                // 刷新後恢復品質模式
+                binding.root.postDelayed({
+                    EInkHelper.restoreQualityMode(binding.root)
+                }, 100)
             }
             return
         }
+
         refreshJob?.cancel()
+
         if (immediate || !booxBatchRefreshEnabled) {
-            EInkHelper.refresh(binding.root, full)
+            // 立即刷新
+            if (full) {
+                EInkHelper.refreshFull(binding.root)
+            } else {
+                EInkHelper.refreshPartial(binding.root)
+            }
             return
         }
+
+        // 批量刷新 - 智能延遲
         refreshJob = lifecycleScope.launch {
             delay(booxRefreshDelayMs)
-            EInkHelper.refresh(binding.root, full)
+
+            // 根據設備型號選擇刷新策略
+            if (EInkHelper.isModernBoox()) {
+                // 新型號使用智能刷新
+                EInkHelper.smartRefresh(binding.root, hasTextChanges = full, hasImageChanges = false)
+            } else {
+                // 舊型號使用傳統刷新
+                if (full) {
+                    EInkHelper.refreshFull(binding.root)
+                } else {
+                    EInkHelper.refreshPartial(binding.root)
+                }
+            }
         }
+    }
+
+    private fun applyAllSettingsWithRetry() {
+        // 關鍵：每次應用時都重新讀取文石系統字體設定
+        currentFontSize = getBooxSystemFontSize()
+        currentFontWeight = 400 // 固定使用預設字體粗細，不使用用戶設定
+        android.util.Log.d("ReaderActivity", "WebView準備完成，讀取文石系統字體設定: 大小=${currentFontSize}%, 使用預設粗細=400")
+
+        // 立即應用一次
+        applyFontSize(currentFontSize)
+        applyFontWeight(currentFontWeight)
+        applyContrastMode(currentContrastMode)
+
+        stylesDirty = true
+        applyReaderStyles(force = true)
+
+        // 關鍵：在字體應用後觸發文石系統深度刷新
+        if (EInkHelper.isBooxDevice()) {
+            android.util.Log.d("ReaderActivity", "觸發文石系統深度刷新以確保字體設定生效")
+            navigatorFragment?.view?.postDelayed({
+                // 觸發文石系統的刷新模式變更
+                EInkHelper.enableFastMode(binding.root)
+                binding.root.postDelayed({
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
+                }, 50)
+            }, 100)
+        }
+
+        // 延遲再次應用以確保文檔載入完成
+        navigatorFragment?.view?.postDelayed({
+            android.util.Log.d("ReaderActivity", "延遲重新應用字體設定")
+            // 重新讀取文石系統字體設定
+            currentFontSize = getBooxSystemFontSize()
+            currentFontWeight = 400 // 固定預設值
+
+            applyFontSize(currentFontSize)
+            applyFontWeight(currentFontWeight)
+            applyContrastMode(currentContrastMode)
+
+            stylesDirty = true
+            applyReaderStyles(force = true)
+
+            // 再次觸發文石系統深度刷新
+            if (EInkHelper.isBooxDevice()) {
+                EInkHelper.enableFastMode(binding.root)
+                binding.root.postDelayed({
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
+                }, 50)
+            }
+
+            // 再次延遲以確保穩定
+            navigatorFragment?.view?.postDelayed({
+                android.util.Log.d("ReaderActivity", "最終確認字體設定")
+                // 最終確認時也重新讀取文石系統設定
+                currentFontSize = getBooxSystemFontSize()
+                currentFontWeight = 400 // 固定預設值
+
+                applyFontSize(currentFontSize)
+                applyFontWeight(currentFontWeight)
+                applyContrastMode(currentContrastMode)
+
+                stylesDirty = true
+                applyReaderStyles(force = true)
+
+                // 最終觸發文石系統深度刷新確保設定生效
+                if (EInkHelper.isBooxDevice()) {
+                    EInkHelper.enableFastMode(binding.root)
+                    binding.root.postDelayed({
+                        if (EInkHelper.isModernBoox()) {
+                            EInkHelper.enableAutoMode(binding.root)
+                        } else {
+                            EInkHelper.restoreQualityMode(binding.root)
+                        }
+                    }, 50)
+                }
+            }, 1000) // 1秒後最終確認
+
+            // 額外的強制刷新確保字體設定立即生效
+            binding.root.postDelayed({
+                forceBooxFullRefresh()
+            }, 1200)
+
+            // 最終強制回退：確保即使前面的所有方法都失敗，也會強制應用
+            binding.root.postDelayed({
+                android.util.Log.d("ReaderActivity", "最終強制回退 - 確保文石字體設定生效")
+
+                // 最後一次讀取文石系統字體設定
+                val finalFontSize = getBooxSystemFontSize()
+                currentFontSize = finalFontSize
+                currentFontWeight = 400
+
+                android.util.Log.w("ReaderActivity", "最終強制應用字體: 大小=${finalFontSize}%")
+
+                applyFontSize(finalFontSize)
+                applyFontWeight(400)
+
+                // 最終的強制完整重繪
+                lifecycleScope.launch {
+                    EInkHelper.enableFastMode(binding.root)
+                    delay(10)
+                    EInkHelper.enableDUMode(binding.root)
+                    delay(10)
+                    EInkHelper.enableGL16Mode(binding.root)
+                    delay(10)
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
+                }
+            }, 1500)
+        }, 500) // 0.5秒後重新應用
     }
 
     private fun applyFontZoomLikeNeoReader(view: View?, sizePercent: Int) {
         if (view is android.webkit.WebView) {
+            android.util.Log.d("ReaderActivity", "應用字體縮放到 WebView: ${sizePercent}%")
+
+            // 使用 WebView 內建的 textZoom，這是最可靠的方式
             view.settings.textZoom = sizePercent
-            // Also reset any zoom styles that might have been injected
+
+            // 同時使用 CSS 變量來確保一致性
+            val css = """
+                :root {
+                    --boox-font-scale: ${sizePercent / 100.0};
+                }
+
+                html {
+                    font-size: calc(var(--boox-base-font-size, 16px) * var(--boox-font-scale)) !important;
+                }
+            """.trimIndent()
+
             val js = """
                 (function() {
-                  document.documentElement.style.zoom = '';
-                  document.body.style.zoom = '';
+                    console.log('開始應用字體縮放: ${sizePercent}%');
+
+                    // 移除任何可能干擾的縮放樣式
+                    document.documentElement.style.zoom = '';
+                    document.body.style.zoom = '';
+                    document.body.style.webkitTextSizeAdjust = '100%';
+
+                    // 應用 CSS 變量
+                    let zoomStyle = document.getElementById('boox-zoom-style');
+                    if (!zoomStyle) {
+                        zoomStyle = document.createElement('style');
+                        zoomStyle.id = 'boox-zoom-style';
+                        document.head.appendChild(zoomStyle);
+                    }
+                    zoomStyle.textContent = `${css}`;
+
+                    // 強制重流
+                    document.body.offsetHeight;
+
+                    console.log('Boox 字體縮放已應用: ${sizePercent}%');
                 })();
             """.trimIndent()
+
             view.evaluateJavascript(js, null)
             return
         }
@@ -594,34 +1127,121 @@ class ReaderActivity : AppCompatActivity() {
     @OptIn(FlowPreview::class)
     private fun observeLocatorUpdates() {
         val navigator = navigatorFragment ?: return
-        
+
         lifecycleScope.launch {
             navigator.currentLocator
                 .sample(1500)
                 .collectLatest {
                     if (isSelectionFlowActive()) return@collectLatest // avoid reflows/progress writes during selection
-                    // Re-apply styles after page/layout changes so the style persists across navigations and restarts
-                    applyFontSize(currentFontSize)
-                    applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
-                    applyReaderCss(navigatorFragment?.view)
-                    applySelectionFriendlyCss(navigatorFragment?.view)
+                    val hrefKey = it.href?.toString()
 
-                    val json = LocatorJsonHelper.toJson(it) ?: return@collectLatest
+                    // 當切換到新的章節時，重新確保字體設定正確
+                    if (hrefKey != null && hrefKey != lastStyledHref) {
+                        lastStyledHref = hrefKey
+                        stylesDirty = true
+
+                        // 關鍵：章節切換時重新讀取並應用字體設定
+                        android.util.Log.d("ReaderActivity", "章節切換，重新應用字體設定")
+                        val savedFontSize = currentFontSize
+                        currentFontSize = getBooxSystemFontSize()
+
+                        if (currentFontSize != savedFontSize) {
+                            android.util.Log.d("ReaderActivity", "字體大小變更: $savedFontSize% -> $currentFontSize%")
+                            applyFontSize(currentFontSize)
+                            applyFontWeight(currentFontWeight)
+                            applyContrastMode(currentContrastMode)
+                        }
+                    }
+
+                    applyReaderStyles()
+
+                    // 確保進度信息正確
+                    val enhancedLocator = enhanceLocatorWithProgress(it)
+                    val json = LocatorJsonHelper.toJson(enhancedLocator) ?: return@collectLatest
                     val key = viewModel.currentBookKey.value ?: return@collectLatest
+
+                    // Debug: 記錄進度信息
+                    android.util.Log.d("ReaderActivity", "保存進度 - totalProgression: ${enhancedLocator.locations?.totalProgression}")
+                    android.util.Log.d("ReaderActivity", "保存進度 - progression: ${enhancedLocator.locations?.progression}")
+                    android.util.Log.d("ReaderActivity", "保存進度 - href: ${enhancedLocator.href}")
 
                     // Local Prefs
                     syncRepo.cacheProgress(key, json)
-                    
+
                     // ViewModel (Server/DB)
                     viewModel.saveProgress(json)
 
-                     val bookId = intent.data?.toString() 
-                     if (bookId != null) {
-                         viewModel.saveProgressToDb(bookId, json)
-                     }
-
                     requestEinkRefresh()
                 }
+        }
+    }
+
+    // 增強 Locator 以確保包含正確的進度信息
+    private fun enhanceLocatorWithProgress(locator: Locator): Locator {
+        val currentLocations = locator.locations
+
+        // 如果已經有有效的 totalProgression，直接返回
+        val totalProgression = currentLocations?.totalProgression
+        if (totalProgression != null && totalProgression >= 0 && totalProgression <= 1.0) {
+            android.util.Log.d("ReaderActivity", "已存在有效的 totalProgression: $totalProgression")
+            return locator
+        }
+
+        // 如果沒有 totalProgression 但有 progression，將 progression 作為 totalProgression 的估算
+        val progression = currentLocations?.progression
+        if (progression != null && progression >= 0 && progression <= 1.0) {
+            android.util.Log.d("ReaderActivity", "使用 progression 作為 totalProgression: $progression")
+            val enhancedLocations = currentLocations!!.copy(
+                totalProgression = progression
+            )
+            return locator.copy(locations = enhancedLocations)
+        }
+
+        // 如果沒有 locations 對象，創建一個基本的
+        if (currentLocations == null) {
+            android.util.Log.d("ReaderActivity", "創建新的 locations 對象")
+            return locator.copy(
+                locations = Locator.Locations(
+                    totalProgression = 0.0,
+                    progression = 0.0
+                )
+            )
+        }
+
+        // 如果都沒有，保持原樣
+        android.util.Log.d("ReaderActivity", "保持原始 locator，無有效進度信息")
+        return locator
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 關鍵：每次回到Reader時都強制重新讀取並應用文石系統字體設定
+        if (EInkHelper.isBooxDevice()) {
+            android.util.Log.d("ReaderActivity", "onResume - 強制重新檢查文石系統字體設定")
+            lifecycleScope.launch {
+                delay(200) // 短暫延遲確保UI準備好
+
+                // 每次都重新讀取文石系統字體設定
+                currentFontSize = getBooxSystemFontSize()
+                currentFontWeight = 400 // 固定預設值
+
+                android.util.Log.d("ReaderActivity", "onResume應用文石系統字體設定: 大小=${currentFontSize}%")
+
+                applyFontSize(currentFontSize)
+                applyFontWeight(currentFontWeight)
+                applyContrastMode(currentContrastMode)
+
+                delay(100)
+                // 觸發文石系統深度刷新
+                EInkHelper.enableFastMode(binding.root)
+                binding.root.postDelayed({
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                    }
+                }, 50)
+            }
         }
     }
 
@@ -634,15 +1254,20 @@ class ReaderActivity : AppCompatActivity() {
         val navigator = navigatorFragment ?: return
         val key = viewModel.currentBookKey.value ?: return
         val locator = navigator.currentLocator.value
-        val json = LocatorJsonHelper.toJson(locator) ?: return
+
+        // 確保進度信息正確
+        val enhancedLocator = enhanceLocatorWithProgress(locator)
+        val json = LocatorJsonHelper.toJson(enhancedLocator) ?: return
+
+        // Debug: 記錄保存的數據
+        android.util.Log.d("ReaderActivity", "立即保存進度 - Key: $key")
+        android.util.Log.d("ReaderActivity", "立即保存進度 - JSON: $json")
+        android.util.Log.d("ReaderActivity", "立即保存進度 - totalProgression: ${enhancedLocator.locations?.totalProgression}")
+        android.util.Log.d("ReaderActivity", "立即保存進度 - progression: ${enhancedLocator.locations?.progression}")
 
         syncRepo.cacheProgress(key, json)
-            
+
         viewModel.saveProgress(json)
-        val bookId = intent.data?.toString()
-        if (bookId != null) {
-            viewModel.saveProgressToDb(bookId, json)
-        }
     }
 
     private fun setupDecorationListener() {
@@ -712,20 +1337,15 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun showSettingsDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_reader_settings, null)
-        val tvFontSize = dialogView.findViewById<TextView>(R.id.tvFontSize)
-        val btnDecrease = dialogView.findViewById<Button>(R.id.btnDecreaseFont)
-        val btnIncrease = dialogView.findViewById<Button>(R.id.btnIncreaseFont)
         val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
         val btnSettingsShowBookmarks = dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
         val switchPageTap = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
-        val tvFontWeight = dialogView.findViewById<TextView>(R.id.tvFontWeight)
-        val seekFontWeight = dialogView.findViewById<SeekBar>(R.id.seekFontWeight)
         val switchUseStreaming = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchUseStreaming)
 
-        // Add Security Buttons
+        // Add Security Buttons and Boox-specific settings
         val layout = dialogView as? android.widget.LinearLayout
-        if (layout != null) {
+        if (layout != null && EInkHelper.isBooxDevice()) {
             // Verify Hash Button
             val btnVerify = Button(this).apply {
                 text = "Verify File Hash"
@@ -739,14 +1359,18 @@ class ReaderActivity : AppCompatActivity() {
             }
             
             val booxTitle = TextView(this).apply {
-                text = "Boox / E-Ink"
+                text = if (EInkHelper.isModernBoox()) {
+                    "文石設備優化 (${EInkHelper.getBooxModel()})"
+                } else {
+                    "文石 E-Ink 設置"
+                }
                 textSize = 18f
                 setTypeface(null, android.graphics.Typeface.BOLD)
                 setPadding(0, 16, 0, 8)
             }
 
             val switchBatch = androidx.appcompat.widget.SwitchCompat(this).apply {
-                text = "Batch refresh (reduce flashing)"
+                text = "批量刷新 (減少閃爍)"
                 isChecked = booxBatchRefreshEnabled
                 setOnCheckedChangeListener { _, checked ->
                     booxBatchRefreshEnabled = checked
@@ -757,7 +1381,7 @@ class ReaderActivity : AppCompatActivity() {
             }
 
             val switchFast = androidx.appcompat.widget.SwitchCompat(this).apply {
-                text = "Auto A2 during interaction"
+                text = "交互時快速模式"
                 isChecked = booxFastModeEnabled
                 setOnCheckedChangeListener { _, checked ->
                     booxFastModeEnabled = checked
@@ -768,8 +1392,52 @@ class ReaderActivity : AppCompatActivity() {
             }
 
             val btnFullRefresh = Button(this).apply {
-                text = "Full refresh now"
-                setOnClickListener { requestEinkRefresh(full = true, immediate = true) }
+                text = "立即全屏刷新"
+                setOnClickListener {
+                    EInkHelper.refreshFull(binding.root)
+                    Toast.makeText(this@ReaderActivity, "已執行全屏刷新", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            val btnSmartRefresh = Button(this).apply {
+                text = "智能刷新測試"
+                setOnClickListener {
+                    EInkHelper.smartRefresh(binding.root, hasTextChanges = false, hasImageChanges = false)
+                    Toast.makeText(this@ReaderActivity, "已執行智能刷新", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // 新型號專用選項
+            if (EInkHelper.isModernBoox()) {
+                val btnOptimizeMode = Button(this).apply {
+                    text = "切換自動模式"
+                    setOnClickListener {
+                        EInkHelper.enableAutoMode(binding.root)
+                        Toast.makeText(this@ReaderActivity, "已切換到自動刷新模式", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                layout.addView(btnOptimizeMode, layout.childCount - 2)
+            }
+
+            val btnDeviceInfo = Button(this).apply {
+                text = "設備信息"
+                setOnClickListener {
+                    val info = """
+                        設備型號: ${EInkHelper.getBooxModel()}
+                        是否新型號: ${if (EInkHelper.isModernBoox()) "是" else "否"}
+                        支援高對比: ${if (EInkHelper.supportsHighContrast()) "是" else "否"}
+                        當前主題: ${EInkHelper.getContrastModeName(currentContrastMode)}
+                        當前刷新模式: ${EInkHelper.getCurrentRefreshMode(binding.root) ?: "未知"}
+                        批量刷新: ${if (booxBatchRefreshEnabled) "開啟" else "關閉"}
+                        快速模式: ${if (booxFastModeEnabled) "開啟" else "關閉"}
+                    """.trimIndent()
+
+                    AlertDialog.Builder(this@ReaderActivity)
+                        .setTitle("文石設備信息")
+                        .setMessage(info)
+                        .setPositiveButton("確定", null)
+                        .show()
+                }
             }
 
             layout.addView(btnVerify, layout.childCount - 2)
@@ -778,22 +1446,77 @@ class ReaderActivity : AppCompatActivity() {
             layout.addView(switchBatch, layout.childCount - 2)
             layout.addView(switchFast, layout.childCount - 2)
             layout.addView(btnFullRefresh, layout.childCount - 2)
+            layout.addView(btnSmartRefresh, layout.childCount - 2)
+
+            // 對比模式控制
+            if (EInkHelper.supportsHighContrast()) {
+                val contrastTitle = TextView(this).apply {
+                    text = "閱讀主題"
+                    textSize = 16f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 16, 0, 8)
+                }
+
+                val currentModeText = TextView(this).apply {
+                    text = "當前：${EInkHelper.getContrastModeName(currentContrastMode)}"
+                    textSize = 14f
+                    setPadding(0, 4, 0, 8)
+                }
+
+                val btnToggleContrast = Button(this).apply {
+                    text = "切換主題 (正常/深色/褐色/高對比)"
+                    setOnClickListener {
+                        toggleContrastMode()
+                        currentModeText.text = "當前：${EInkHelper.getContrastModeName(currentContrastMode)}"
+                    }
+                }
+
+                // 單獨的模式選擇按鈕
+                val btnNormalMode = Button(this).apply {
+                    text = "正常模式"
+                    setOnClickListener {
+                        applyContrastMode(ContrastMode.NORMAL)
+                        currentModeText.text = "當前：${EInkHelper.getContrastModeName(ContrastMode.NORMAL)}"
+                    }
+                }
+
+                val btnDarkMode = Button(this).apply {
+                    text = "深色模式"
+                    setOnClickListener {
+                        applyContrastMode(ContrastMode.DARK)
+                        currentModeText.text = "當前：${EInkHelper.getContrastModeName(ContrastMode.DARK)}"
+                    }
+                }
+
+                val btnSepiaMode = Button(this).apply {
+                    text = "褐色模式"
+                    setOnClickListener {
+                        applyContrastMode(ContrastMode.SEPIA)
+                        currentModeText.text = "當前：${EInkHelper.getContrastModeName(ContrastMode.SEPIA)}"
+                    }
+                }
+
+                val btnHighContrastMode = Button(this).apply {
+                    text = "高對比模式"
+                    setOnClickListener {
+                        applyContrastMode(ContrastMode.HIGH_CONTRAST)
+                        currentModeText.text = "當前：${EInkHelper.getContrastModeName(ContrastMode.HIGH_CONTRAST)}"
+                    }
+                }
+
+                layout.addView(contrastTitle, layout.childCount - 2)
+                layout.addView(currentModeText, layout.childCount - 2)
+                layout.addView(btnToggleContrast, layout.childCount - 2)
+                layout.addView(btnNormalMode, layout.childCount - 2)
+                layout.addView(btnDarkMode, layout.childCount - 2)
+                layout.addView(btnSepiaMode, layout.childCount - 2)
+                layout.addView(btnHighContrastMode, layout.childCount - 2)
+            }
+
+            layout.addView(btnDeviceInfo, layout.childCount - 2)
         }
 
-        tvFontSize.text = "$currentFontSize%"
         switchPageTap.isChecked = pageTapEnabled
-        tvFontWeight.text = currentFontWeight.toString()
-        seekFontWeight.max = 600 // represents 300-900
-        seekFontWeight.progress = currentFontWeight - 300
-        seekFontWeight.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val weight = 300 + progress
-                tvFontWeight.text = weight.toString()
-                applyFontWeight(weight)
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
 
         // Load current URL
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -816,24 +1539,7 @@ class ReaderActivity : AppCompatActivity() {
             }
             .create()
 
-        val fontStep = 10
-
-        btnDecrease.setOnClickListener {
-            if (currentFontSize > 50) {
-                currentFontSize = (currentFontSize - fontStep).coerceAtLeast(50)
-                tvFontSize.text = "$currentFontSize%"
-                applyFontSize(currentFontSize)
-            }
-        }
-
-        btnIncrease.setOnClickListener {
-            if (currentFontSize < 500) {
-                currentFontSize = (currentFontSize + fontStep).coerceAtMost(500)
-                tvFontSize.text = "$currentFontSize%"
-                applyFontSize(currentFontSize)
-            }
-        }
-
+        
         btnSettingsAddBookmark.setOnClickListener { addBookmarkFromCurrentPosition() }
         btnSettingsShowBookmarks.setOnClickListener { openBookmarkList() }
 
@@ -961,31 +1667,358 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun applyFontSize(sizePercent: Int) {
         currentFontSize = sizePercent
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putInt("font_size", sizePercent).apply()
-        
-        val navigator = navigatorFragment ?: return
-        
-        // Use textZoom for more reliable font scaling, especially with CJK fonts.
-        applyFontZoomLikeNeoReader(navigator.view, sizePercent)
+        android.util.Log.d("ReaderActivity", "applyFontSize 被調用，目標大小: $sizePercent%")
 
-        // Still apply other styles
+        // 立即直接設置所有可能的WebView實例
+        navigatorFragment?.view?.let { navView ->
+            findAndSetWebViewTextZoom(navView, sizePercent)
+        }
+
+        // 也嘗試設置root下的WebView
+        findAndSetWebViewTextZoom(binding.root, sizePercent)
+
+        // 關鍵：立即觸發文石系統刷新，不等待任何延遲
+        if (EInkHelper.isBooxDevice()) {
+            android.util.Log.d("ReaderActivity", "字體大小變更($sizePercent%)，立即觸發文石系統深度刷新")
+
+            // 立即觸發文石系統刷新模式變更
+            binding.root.post {
+                lifecycleScope.launch {
+                    // 立即執行完整的刷新序列
+                    EInkHelper.enableFastMode(binding.root)
+                    android.util.Log.d("ReaderActivity", "執行 enableFastMode")
+                    delay(50)
+
+                    EInkHelper.enableDUMode(binding.root)
+                    android.util.Log.d("ReaderActivity", "執行 enableDUMode")
+                    delay(50)
+
+                    EInkHelper.enableGL16Mode(binding.root)
+                    android.util.Log.d("ReaderActivity", "執行 enableGL16Mode")
+                    delay(50)
+
+                    // 最終恢復到閱讀模式
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                        android.util.Log.d("ReaderActivity", "執行 enableAutoMode")
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                        android.util.Log.d("ReaderActivity", "執行 restoreQualityMode")
+                    }
+
+                    android.util.Log.d("ReaderActivity", "文石系統刷新序列完成")
+                }
+            }
+        }
+
+        stylesDirty = true
         navigatorFragment?.view?.post {
-            applyFontWeight(currentFontWeight)
-            applyReaderCss(navigatorFragment?.view)
-            applySelectionFriendlyCss(navigatorFragment?.view)
+            applyReaderStyles(force = true)
         }
     }
 
+    // 新增：強制查找並設置所有WebView的字體大小
+    private fun findAndSetWebViewTextZoom(view: View, sizePercent: Int) {
+        if (view is android.webkit.WebView) {
+            val oldZoom = view.settings.textZoom
+            view.settings.textZoom = sizePercent
+            android.util.Log.d("ReaderActivity", "強制設置WebView textZoom: $oldZoom% -> $sizePercent%")
+
+            // 使用JavaScript強制設置字體大小
+            val js = """
+                document.documentElement.style.webkitTextSizeAdjust = '$sizePercent%';
+                document.body.style.webkitTextSizeAdjust = '$sizePercent%';
+                document.body.style.fontSize = 'calc(16px * $sizePercent / 100)';
+                console.log('強制字體大小設置為: $sizePercent%');
+            """
+            view.evaluateJavascript(js, null)
+
+            return
+        }
+
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                findAndSetWebViewTextZoom(view.getChildAt(i), sizePercent)
+            }
+        }
+    }
+
+    private fun getBooxSystemFontSize(): Int {
+    android.util.Log.d("ReaderActivity", "開始讀取文石系統字體設定")
+
+    return if (EInkHelper.isBooxDevice()) {
+        android.util.Log.d("ReaderActivity", "檢測到文石設備: ${EInkHelper.getBooxModel()}")
+
+        // 嘗試讀取，但即使失敗也使用文石系統合理的預設值
+        var fontSize = 150 // 文石系統預設值
+
+        // 方法1: 嘗試讀取文石系統設定
+        val systemSetting = tryReadBooxSystemSetting()
+        if (systemSetting > 0) {
+            fontSize = systemSetting
+            android.util.Log.d("ReaderActivity", "使用文石系統設定: $fontSize%")
+        }
+
+        // 方法2: 嘗試讀取Android通用設定
+        if (fontSize == 150) {
+            val androidSetting = tryReadAndroidSystemSetting()
+            if (androidSetting > 0) {
+                fontSize = androidSetting
+                android.util.Log.d("ReaderActivity", "使用Android系統設定: $fontSize%")
+            }
+        }
+
+        // 方法3: 嘗試從Configuration讀取
+        if (fontSize == 150) {
+            val configSetting = tryReadConfigurationFontScale()
+            if (configSetting > 0) {
+                fontSize = configSetting
+                android.util.Log.d("ReaderActivity", "使用Configuration設定: $fontSize%")
+            }
+        }
+
+        // 方法4: 嘗試讀取文石特有的設定
+        if (fontSize == 150) {
+            val booxSetting = tryReadBooxSpecificSettings()
+            if (booxSetting > 0) {
+                fontSize = booxSetting
+                android.util.Log.d("ReaderActivity", "使用文石特有設定: $fontSize%")
+            }
+        }
+
+        // 方法5: 嘗試讀取文石配置文件
+        if (fontSize == 150) {
+            val fileSetting = tryReadBooxConfigFiles()
+            if (fileSetting > 0) {
+                fontSize = fileSetting
+                android.util.Log.d("ReaderActivity", "使用文石配置文件設定: $fontSize%")
+            }
+        }
+
+        // 方法6: 嘗試通過系統命令獲取
+        if (fontSize == 150) {
+            val commandSetting = tryReadBooxSystemCommand()
+            if (commandSetting > 0) {
+                fontSize = commandSetting
+                android.util.Log.d("ReaderActivity", "使用系統命令獲取的字體設定: $fontSize%")
+            }
+        }
+
+        // 強制返回合理的文石系統字體值（100-200%範圍）
+        if (fontSize < 100 || fontSize > 200) {
+            android.util.Log.w("ReaderActivity", "字體大小超出合理範圍($fontSize%)，強制使用文石標準150%")
+            fontSize = 150
+        }
+
+        android.util.Log.d("ReaderActivity", "最終確定文石字體大小: $fontSize%")
+        fontSize
+    } else {
+        // 非文石設備使用Android系統字體設定
+        tryReadConfigurationFontScale()
+    }
+  }
+
+  private fun tryReadBooxSystemSetting(): Int {
+    return try {
+        val contentResolver = contentResolver
+
+        // 嘗試多個可能的系統設定鍵
+        val possibleKeys = listOf(
+            "font_scale",
+            "system_font_scale",
+            "display_font_scale",
+            "boox_font_scale",
+            "epd_font_size"
+        )
+
+        for (key in possibleKeys) {
+            try {
+                val fontSize = android.provider.Settings.System.getFloat(contentResolver, key, -1.0f)
+                if (fontSize > 0) {
+                    android.util.Log.d("ReaderActivity", "找到系統設定 $key = $fontSize")
+                    return (fontSize * 150).toInt()
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("ReaderActivity", "無法讀取設定 $key: ${e.message}")
+            }
+        }
+
+        -1
+    } catch (e: Exception) {
+        android.util.Log.d("ReaderActivity", "讀取文石系統設定失敗: ${e.message}")
+        -1
+    }
+  }
+
+  private fun tryReadAndroidSystemSetting(): Int {
+    return try {
+        val contentResolver = contentResolver
+        val fontSize = android.provider.Settings.System.getFloat(contentResolver, android.provider.Settings.System.FONT_SCALE, -1.0f)
+        if (fontSize > 0) {
+            (fontSize * 150).toInt()
+        } else {
+            -1
+        }
+    } catch (e: Exception) {
+        android.util.Log.d("ReaderActivity", "讀取Android系統設定失敗: ${e.message}")
+        -1
+    }
+  }
+
+  private fun tryReadConfigurationFontScale(): Int {
+    return try {
+        val config = resources.configuration
+        val fontScale = config.fontScale
+        android.util.Log.d("ReaderActivity", "Configuration fontScale: $fontScale")
+        if (fontScale > 0) {
+            (fontScale * 150).toInt()
+        } else {
+            -1
+        }
+    } catch (e: Exception) {
+        android.util.Log.d("ReaderActivity", "讀取Configuration失敗: ${e.message}")
+        -1
+    }
+  }
+
+  private fun tryReadBooxSpecificSettings(): Int {
+    return try {
+        val contentResolver = contentResolver
+
+        // 嘗試文石特有的設定路徑
+        val booxKeys = listOf(
+            "com.onyx.android.sdk.font_scale",
+            "com.onyx.epd.font_scale",
+            "com.boox.reader.font_size",
+            "eink_font_scale"
+        )
+
+        for (key in booxKeys) {
+            try {
+                val fontSize = android.provider.Settings.System.getFloat(contentResolver, key, -1.0f)
+                if (fontSize > 0) {
+                    android.util.Log.d("ReaderActivity", "找到文石設定 $key = $fontSize")
+                    return (fontSize * 150).toInt()
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("ReaderActivity", "無法讀取文石設定 $key: ${e.message}")
+            }
+        }
+
+        -1
+    } catch (e: Exception) {
+        android.util.Log.d("ReaderActivity", "讀取文石特有設定失敗: ${e.message}")
+        -1
+    }
+  }
+
+  private fun tryReadBooxConfigFiles(): Int {
+    return try {
+        // 嘗試讀取文石系統配置文件
+        val configPaths = listOf(
+            "/data/data/com.onyx.android.sdk/config/preferences.xml",
+            "/data/data/com.onyx.reader/preferences.xml",
+            "/system/etc/onyx_config.xml",
+            "/proc/onyx/display/font_scale"
+        )
+
+        for (path in configPaths) {
+            try {
+                val file = java.io.File(path)
+                if (file.exists() && file.canRead()) {
+                    android.util.Log.d("ReaderActivity", "找到配置文件: $path")
+                    val content = file.readText()
+                    android.util.Log.d("ReaderActivity", "配置文件內容: $content")
+
+                    // 尋找字體相關的設定
+                    val fontPatterns = listOf(
+                        Regex("font_scale[=:]\\s*([0-9.]+)"),
+                        Regex("font_size[=:]\\s*([0-9.]+)"),
+                        Regex("display_scale[=:]\\s*([0-9.]+)")
+                    )
+
+                    for (pattern in fontPatterns) {
+                        val match = pattern.find(content)
+                        if (match != null) {
+                            val value = match.groupValues[1].toFloatOrNull()
+                            if (value != null && value > 0) {
+                                android.util.Log.d("ReaderActivity", "從配置文件找到字體設定: $value")
+                                return (value * 150).toInt()
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("ReaderActivity", "無法讀取配置文件 $path: ${e.message}")
+            }
+        }
+
+        -1
+    } catch (e: Exception) {
+        android.util.Log.d("ReaderActivity", "讀取文石配置文件失敗: ${e.message}")
+        -1
+    }
+  }
+
+  private fun tryReadBooxSystemCommand(): Int {
+    return try {
+        android.util.Log.d("ReaderActivity", "嘗試通過系統命令獲取字體設定")
+
+        // 嘗試多個可能的系統命令
+        val commands = listOf(
+            "getprop persist.sys.font_scale",
+            "getprop ro.font.scale",
+            "cat /proc/onyx/display/font_scale",
+            "settings get system font_scale",
+            "settings get global font_scale"
+        )
+
+        for (command in commands) {
+            try {
+                val process = Runtime.getRuntime().exec(command)
+                val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+                val output = reader.readText().trim()
+                reader.close()
+                process.waitFor()
+
+                if (output.isNotEmpty()) {
+                    val value = output.toFloatOrNull()
+                    if (value != null && value > 0) {
+                        android.util.Log.d("ReaderActivity", "系統命令 '$command' 返回: $value")
+                        return (value * 150).toInt()
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("ReaderActivity", "執行系統命令 '$command' 失敗: ${e.message}")
+            }
+        }
+
+        -1
+    } catch (e: Exception) {
+        android.util.Log.d("ReaderActivity", "系統命令讀取失敗: ${e.message}")
+        -1
+    }
+  }
+
     private fun applyReaderSettings(settings: ReaderSettings) {
-        currentFontSize = settings.fontSize
-        currentFontWeight = settings.fontWeight
         pageTapEnabled = settings.pageTapEnabled
         booxBatchRefreshEnabled = settings.booxBatchRefresh
         booxFastModeEnabled = settings.booxFastMode
+
+        // 載入對比模式
+        val contrastMode = EInkHelper.ContrastMode.values().getOrNull(settings.contrastMode)
+            ?: EInkHelper.ContrastMode.NORMAL
+        currentContrastMode = contrastMode
+
+        // 字體大小使用文石系統設定
+        currentFontSize = getBooxSystemFontSize()
+        // 字體粗細使用預設值
+        currentFontWeight = 400
+
+        // 應用設定（字體大小從系統讀取，字體粗細使用預設）
         applyFontSize(currentFontSize)
         applyFontWeight(currentFontWeight)
-        applyReaderCss(navigatorFragment?.view)
-        applySelectionFriendlyCss(navigatorFragment?.view)
+        applyContrastMode(currentContrastMode)
     }
     
     private fun pushSettingsToCloud() {
@@ -997,11 +2030,90 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun applyFontWeight(weight: Int) {
         currentFontWeight = weight.coerceIn(300, 900)
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putInt("font_weight", currentFontWeight).apply()
+        // 移除SharedPreferences保存，不再保存字體粗細設定
 
+        stylesDirty = true
         navigatorFragment?.view?.post {
-            applyFontWeightViaWebView(navigatorFragment?.view, currentFontWeight)
+            applyReaderStyles(force = true)
+
+            // 字體粗細變更也需要觸發文石系統深度刷新
+            if (EInkHelper.isBooxDevice()) {
+                android.util.Log.d("ReaderActivity", "字體粗細變更，觸發文石系統深度刷新")
+                binding.root.postDelayed({
+                    EInkHelper.enableFastMode(binding.root)
+                    binding.root.postDelayed({
+                        if (EInkHelper.isModernBoox()) {
+                            EInkHelper.enableAutoMode(binding.root)
+                        } else {
+                            EInkHelper.restoreQualityMode(binding.root)
+                        }
+                    }, 30)
+                }, 20)
+            }
         }
+    }
+
+    // 新增：強制觸發文石系統的完整畫面重繪
+    private fun forceBooxFullRefresh() {
+        if (!EInkHelper.isBooxDevice()) return
+
+        android.util.Log.d("ReaderActivity", "強制觸發文石系統完整畫面重繪")
+
+        // 立即在主線程執行，不使用coroutine延遲
+        EInkHelper.enableFastMode(binding.root)
+        android.util.Log.d("ReaderActivity", "forceBooxFullRefresh: 執行 enableFastMode")
+
+        // 短暫後執行下一步
+        binding.root.postDelayed({
+            EInkHelper.enableDUMode(binding.root)
+            android.util.Log.d("ReaderActivity", "forceBooxFullRefresh: 執行 enableDUMode")
+
+            binding.root.postDelayed({
+                EInkHelper.enableGL16Mode(binding.root)
+                android.util.Log.d("ReaderActivity", "forceBooxFullRefresh: 執行 enableGL16Mode")
+
+                binding.root.postDelayed({
+                    // 最終恢復到閱讀模式
+                    if (EInkHelper.isModernBoox()) {
+                        EInkHelper.enableAutoMode(binding.root)
+                        android.util.Log.d("ReaderActivity", "forceBooxFullRefresh: 執行 enableAutoMode")
+                    } else {
+                        EInkHelper.restoreQualityMode(binding.root)
+                        android.util.Log.d("ReaderActivity", "forceBooxFullRefresh: 執行 restoreQualityMode")
+                    }
+                    android.util.Log.d("ReaderActivity", "forceBooxFullRefresh: 完整刷新序列執行完成")
+                }, 30)
+            }, 30)
+        }, 30)
+    }
+
+    private fun applyContrastMode(mode: ContrastMode) {
+        currentContrastMode = mode
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putInt("contrast_mode", mode.ordinal).apply()
+
+        navigatorFragment?.view?.let { view ->
+            EInkHelper.setHighContrastMode(view, mode)
+
+            // 對比模式變更後執行完整刷新
+            if (EInkHelper.isBooxDevice()) {
+                view.postDelayed({
+                    EInkHelper.refreshFull(binding.root)
+                }, 200)
+            }
+        }
+    }
+
+    private fun toggleContrastMode() {
+        val newMode = EInkHelper.toggleContrastMode(navigatorFragment?.view)
+        currentContrastMode = newMode
+
+        // 保存設置
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+            .putInt("contrast_mode", newMode.ordinal)
+            .apply()
+
+        // 顯示當前模式
+        Toast.makeText(this, "已切換到：${EInkHelper.getContrastModeName(newMode)}", Toast.LENGTH_SHORT).show()
     }
 
     // --- Action Mode ---
@@ -1035,32 +2147,16 @@ class ReaderActivity : AppCompatActivity() {
                 .setIcon(android.R.drawable.ic_menu_edit)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
-            menu.add(Menu.NONE, 999, 2, "發佈")
-                .setIcon(android.R.drawable.ic_menu_share)
+            menu.add(Menu.NONE, 1000, 2, "Google Maps")
+                .setIcon(android.R.drawable.ic_menu_mapmode)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
-            menu.add(Menu.NONE, 1000, 3, "Google Maps")
-                .setIcon(android.R.drawable.ic_menu_mapmode)
+            menu.add(Menu.NONE, 999, 3, "發佈")
+                .setIcon(android.R.drawable.ic_menu_share)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
             // 添加調試日誌
             android.util.Log.d("ReaderActivity", "onPrepareActionMode called")
-
-            // 延遲檢查選擇，避免在選擇還未準備好時就關閉菜單
-            lifecycleScope.launch {
-                delay(50) // 給選擇一點時間準備（從100ms減少到50ms）
-
-                val selection = navigatorFragment?.currentSelection()
-                val hasSelection = !selection?.locator?.text?.highlight.isNullOrBlank()
-                android.util.Log.d("ReaderActivity", "Selection check - hasSelection: $hasSelection")
-
-                if (!hasSelection && currentActionMode != null) {
-                    android.util.Log.d("ReaderActivity", "No selection found, finishing ActionMode")
-                    currentActionMode?.finish()
-                } else if (hasSelection) {
-                    android.util.Log.d("ReaderActivity", "Selection found: ${selection?.locator?.text?.highlight?.take(50)}...")
-                }
-            }
 
             return true
         }
@@ -1175,44 +2271,40 @@ class ReaderActivity : AppCompatActivity() {
             return super.dispatchTouchEvent(ev)
         }
 
-        // 如果正在選擇過程中，優先讓 WebView 處理觸摸事件
-        if (isSelectionFlowActive()) {
-            // 但仍然需要處理一些全局觸摸事件
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // 觸摸結束時恢復正常模式
-                    if (booxFastModeEnabled) {
-                        EInkHelper.restoreQualityMode(binding.root)
-                    }
-                }
-            }
-            return super.dispatchTouchEvent(ev)
-        }
-
-        // 非選擇狀態下的觸摸事件處理
+        // 處理全局觸摸事件，優先文字選取
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 refreshJob?.cancel()
-                // 如果当前是空闲状态，启动选择保护
-                if (selectionState == SelectionState.IDLE) {
-                    startSelectionGuard()
+                // 啟用快速模式以確保流暢的交互
+                if (booxFastModeEnabled) {
+                    EInkHelper.enableFastMode(binding.root)
                 }
-                gestureDetector.onTouchEvent(ev)
-            }
-            MotionEvent.ACTION_MOVE -> {
-                gestureDetector.onTouchEvent(ev)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // 觸摸結束時恢復高質量模式
                 if (booxFastModeEnabled) {
                     EInkHelper.restoreQualityMode(binding.root)
                 }
-                gestureDetector.onTouchEvent(ev)
-            }
-            else -> {
-                gestureDetector.onTouchEvent(ev)
+
+                // 如果目前還在 GUARDING 狀態，重置為 IDLE 以允許頁面導航
+                if (selectionState == SelectionState.GUARDING) {
+                    onSelectionFinished()
+                }
+
+                // 延遲檢查是否需要從 SELECTING 重置為 IDLE
+                // 這處理了可能卡在 SELECTING 狀態的情況
+                lifecycleScope.launch {
+                    delay(300) // 等待可能的文字選取菜單出現
+                    if (selectionState == SelectionState.SELECTING) {
+                        // 如果沒有打開選取菜單，重置狀態
+                        onSelectionFinished()
+                    }
+                }
             }
         }
 
+        // 讓手勢檢測器和子 View 處理觸摸事件
+        gestureDetector.onTouchEvent(ev)
         return super.dispatchTouchEvent(ev)
     }
 
@@ -1223,5 +2315,11 @@ class ReaderActivity : AppCompatActivity() {
             }
             context.startActivity(intent)
         }
+    }
+
+    
+    // 在主線程執行UI操作
+    private fun runOnUiThread(action: () -> Unit) {
+        runOnUiThread(action)
     }
 }

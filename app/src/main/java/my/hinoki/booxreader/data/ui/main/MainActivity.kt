@@ -32,7 +32,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var binding: ActivityMainBinding
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
     private val bookRepository by lazy { BookRepository(applicationContext, syncRepo) }
-    private val recentAdapter by lazy { RecentBooksAdapter(emptyList()) { openBook(it) } }
+    private val recentAdapter by lazy {
+        RecentBooksAdapter(
+            emptyList(),
+            onClick = { openBook(it) },
+            onDelete = { confirmDeleteBook(it) },
+            onMarkCompleted = { markBookCompleted(it) }
+        )
+    }
 
     private val pickEpub =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -143,8 +150,12 @@ class MainActivity : ComponentActivity() {
                 android.util.Log.d("MainActivity", "同步完成")
                 Toast.makeText(this@MainActivity, "同步完成", Toast.LENGTH_SHORT).show()
 
-                // 同步完成後重新載入最近閱讀
-                loadRecentBooks()
+                // Force refresh recent books after sync to ensure UI updates
+                // This ensures progress updates are reflected even if Flow doesn't emit automatically
+                lifecycleScope.launch {
+                    val recentBooks = bookRepository.getRecentBooksSync(10)
+                    recentAdapter.submit(recentBooks)
+                }
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "同步失敗", e)
                 Toast.makeText(this@MainActivity, "同步失敗: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -317,6 +328,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun markBookCompleted(entity: BookEntity) {
+        val title = entity.title?.takeIf { it.isNotBlank() } ?: "未命名書籍"
+        lifecycleScope.launch {
+            runCatching {
+                bookRepository.markCompleted(entity.bookId)
+            }.onSuccess {
+                Toast.makeText(this@MainActivity, "已將「$title」標記為已讀完", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Toast.makeText(this@MainActivity, "標記失敗: ${it.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun confirmDeleteBook(entity: BookEntity) {
+        val title = entity.title?.takeIf { it.isNotBlank() } ?: "未命名書籍"
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("刪除書籍")
+            .setMessage("確定要從最近閱讀中刪除「$title」嗎？")
+            .setPositiveButton("刪除") { _, _ ->
+                lifecycleScope.launch {
+                    bookRepository.deleteBook(entity.bookId)
+                    Toast.makeText(this@MainActivity, "已刪除 $title", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
     private fun openBook(entity: BookEntity) {
         lifecycleScope.launch {
             try {
@@ -421,9 +460,6 @@ class MainActivity : ComponentActivity() {
                 binding.tvSyncDetails.text = summary
                 binding.tvSyncProgress.text = "100%"
                 binding.progressSync.progress = 100
-
-                // 同步完成後重新載入最近閱讀
-                loadRecentBooks()
 
                 Toast.makeText(this@MainActivity, "同步完成", Toast.LENGTH_SHORT).show()
 

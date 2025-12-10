@@ -246,8 +246,74 @@ class UserSyncRepository(
             }
         }
 
-        android.util.Log.d("UserSyncRepository", "同步書籍完成: 更新${updatedCount}筆, 下載${downloadedCount}個檔案")
-        updatedCount
+        val storageDownloads = runCatching { syncStorageBooks() }.getOrElse {
+            android.util.Log.e("UserSyncRepository", "掃描Storage書籍失敗", it)
+            0
+        }
+
+        android.util.Log.d("UserSyncRepository", "同步書籍完成: 更新${updatedCount + storageDownloads}筆, 下載${downloadedCount + storageDownloads}個檔案 (Storage新增$storageDownloads)")
+        updatedCount + storageDownloads
+    }
+
+    /**
+     * 掃描 Firebase Storage 內的書籍，若本地沒有可讀檔案則下載並建立/更新資料庫紀錄
+     */
+    private suspend fun syncStorageBooks(): Int = withContext(io) {
+        val user = auth.currentUser ?: return@withContext 0
+        val dao = db.bookDao()
+
+        val booksRoot = storage.reference.child("users/${user.uid}/books")
+        val listResult = runCatching { booksRoot.listAll().await() }.getOrElse {
+            android.util.Log.e("UserSyncRepository", "列出Storage書籍失敗", it)
+            return@withContext 0
+        }
+
+        var downloaded = 0
+
+        listResult.items.forEach { item ->
+            val bookId = decodeBookIdFromStorageName(item.name) ?: return@forEach
+            val storagePath = item.path
+            val existing = dao.getByIds(listOf(bookId)).firstOrNull()
+
+            if (hasReadableLocalCopy(existing)) {
+                android.util.Log.d("UserSyncRepository", "本地已存在可讀書籍，跳過下載: $bookId")
+                return@forEach
+            }
+
+            val localUri = ensureBookFileAvailable(bookId, storagePath, existing?.fileUri) ?: run {
+                android.util.Log.w("UserSyncRepository", "無法從Storage下載書籍: $storagePath")
+                return@forEach
+            }
+
+            val meta = runCatching { item.metadata.await() }.getOrNull()
+            val title = meta?.getCustomMetadata("title")
+                ?: existing?.title
+                ?: "雲端書籍"
+            val updatedAt = meta?.updatedTimeMillis?.takeIf { it > 0 }
+                ?: meta?.creationTimeMillis?.takeIf { it > 0 }
+                ?: existing?.lastOpenedAt
+                ?: System.currentTimeMillis()
+
+            val entity = BookEntity(
+                bookId = bookId,
+                title = title,
+                fileUri = localUri.toString(),
+                lastLocatorJson = existing?.lastLocatorJson,
+                lastOpenedAt = updatedAt
+            )
+
+            if (existing == null) {
+                dao.insert(entity)
+                android.util.Log.d("UserSyncRepository", "從Storage新增書籍: $bookId, path=$storagePath")
+            } else {
+                dao.update(entity.copy(lastLocatorJson = existing.lastLocatorJson, lastOpenedAt = maxOf(existing.lastOpenedAt, updatedAt)))
+                android.util.Log.d("UserSyncRepository", "從Storage更新書籍檔案: $bookId, path=$storagePath")
+            }
+
+            downloaded++
+        }
+
+        downloaded
     }
 
     private suspend fun uploadBookFileIfNeeded(book: BookEntity): UploadedBookInfo? = withContext(io) {
@@ -257,8 +323,17 @@ class UserSyncRepository(
 
         val remoteMeta = runCatching { storageRef.metadata.await() }.getOrNull()
         val remoteChecksum = remoteMeta?.getCustomMetadata("checksum")
-        if (remoteMeta != null && remoteChecksum != null && remoteChecksum == localMeta.checksum) {
-            return@withContext UploadedBookInfo(storageRef.path, localMeta.size, localMeta.checksum)
+        if (remoteMeta != null) {
+            // 雲端已有檔案就不再重複上傳，透過checksum或大小判斷
+            if (remoteChecksum != null && remoteChecksum == localMeta.checksum) {
+                android.util.Log.d("UserSyncRepository", "Storage 已有相同檔案，跳過上傳: ${book.title}")
+                return@withContext UploadedBookInfo(storageRef.path, localMeta.size, remoteChecksum)
+            }
+            if (remoteMeta.sizeBytes > 0 && remoteMeta.sizeBytes == localMeta.size) {
+                android.util.Log.d("UserSyncRepository", "Storage 已有同尺寸檔案（無/不同checksum），略過重複上傳: ${book.title}")
+                return@withContext UploadedBookInfo(storageRef.path, remoteMeta.sizeBytes, remoteChecksum)
+            }
+            android.util.Log.d("UserSyncRepository", "Storage 已有檔案但校驗不符，重新上傳: ${book.title}")
         }
 
         val metadata = StorageMetadata.Builder()
@@ -626,6 +701,23 @@ class UserSyncRepository(
     }
 
     // --- Helpers ---
+
+    private fun decodeBookIdFromStorageName(name: String?): String? {
+        if (name.isNullOrBlank()) return null
+        val safeId = name.substringBeforeLast(".")
+        return runCatching {
+            val decoded = Base64.decode(safeId, Base64.URL_SAFE or Base64.NO_WRAP)
+            String(decoded, Charsets.UTF_8)
+        }.getOrNull()
+    }
+
+    private fun hasReadableLocalCopy(entity: BookEntity?): Boolean {
+        entity ?: return false
+        return runCatching {
+            val uri = Uri.parse(entity.fileUri)
+            appContext.contentResolver.openInputStream(uri)?.use { true } ?: false
+        }.getOrDefault(false)
+    }
 
     private fun userDoc() =
         auth.currentUser?.let { firestore.collection(COL_USERS).document(it.uid) }

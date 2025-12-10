@@ -120,33 +120,32 @@ class ReaderViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val pub = withContext(Dispatchers.IO) {
+                val result = withContext(Dispatchers.IO) {
                     val url = AbsoluteUrl(uri.toString())
                         ?: throw IllegalArgumentException("Invalid book URI: $uri")
 
                     val asset = assetRetriever.retrieve(url)
                         .getOrElse { throw IllegalStateException("Failed to retrieve asset: $it") }
 
-                    publicationOpener.open(asset, allowUserInteraction = false)
+                    val publication = publicationOpener.open(asset, allowUserInteraction = false)
                         .getOrElse { throw IllegalStateException("Failed to open publication: $it") }
+
+                    val book = bookRepo.getOrCreateByUri(uri.toString(), publication.metadata.title)
+                    bookRepo.touchOpened(book.bookId)
+                    Pair(publication, book)
                 }
 
-                // Identify book first to ensure UI can load progress immediately upon publication emission
-                val key = pub.metadata.identifier ?: uri.toString()
+                val (pub, book) = result
+                val key = book.bookId
+
+                _currentBookKey.value = key
 
                 // Fetch cloud progress before emitting publication so UI can pick it up
                 withContext(Dispatchers.IO) {
                     runCatching { syncRepo.pullProgress(key) }
                 }
-                _currentBookKey.value = key
 
                 _publication.value = pub
-                
-                // Touch repo
-                withContext(Dispatchers.IO) {
-                    bookRepo.getOrCreateByUri(uri.toString(), pub.metadata.title)
-                    bookRepo.touchOpened(uri.toString())
-                }
 
                 // Trigger highlights load
                 loadHighlights()
@@ -181,6 +180,9 @@ class ReaderViewModel(
                 val title = _publication.value?.metadata?.title
                 syncRepo.pushProgress(key, json, bookTitle = title)
             }
+
+            // 3. Update local DB so主頁面立即顯示最新進度
+            runCatching { bookRepo.updateProgress(key, json) }
         }
     }
     
@@ -378,4 +380,5 @@ class ReaderViewModel(
         }
         return pairs.toList()
     }
+
 }

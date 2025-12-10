@@ -33,4 +33,7 @@ interface BookDao {
 
     @Query("SELECT bookId FROM books")
     suspend fun getAllBookIds(): List<String>
+
+    @Query("DELETE FROM books WHERE bookId = :bookId")
+    suspend fun deleteById(bookId: String)
 }
