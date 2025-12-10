@@ -6,6 +6,15 @@ import android.view.ViewGroup
 
 object EInkHelper {
 
+    @Volatile
+    private var preserveSystemEngine: Boolean = true
+
+    fun setPreserveSystemEngine(preserve: Boolean) {
+        preserveSystemEngine = preserve
+    }
+
+    fun isPreservingSystemEngine(): Boolean = preserveSystemEngine
+
     // 文石設備型號檢測
     fun isBoox(): Boolean {
         return Build.MANUFACTURER.equals("ONYX", ignoreCase = true) ||
@@ -92,6 +101,10 @@ object EInkHelper {
      */
     fun enableFastMode(view: View) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            refresh(view, full = false)
+            return
+        }
         setEpdsMode(view, "EPD_A2")
     }
 
@@ -101,6 +114,10 @@ object EInkHelper {
      */
     fun enableAutoMode(view: View) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            refresh(view, full = false)
+            return
+        }
         setEpdsMode(view, "EPD_AUTO")
     }
 
@@ -110,6 +127,10 @@ object EInkHelper {
      */
     fun restoreQualityMode(view: View) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            refresh(view, full = true)
+            return
+        }
         val mode = if (isModernBoox()) "EPD_REGAL" else "EPD_TEXT"
         setEpdsMode(view, mode)
     }
@@ -119,6 +140,10 @@ object EInkHelper {
      */
     fun enableDUMode(view: View) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            refresh(view, full = false)
+            return
+        }
         setEpdsMode(view, "EPD_DU")
     }
 
@@ -127,11 +152,16 @@ object EInkHelper {
      */
     fun enableGL16Mode(view: View) {
         if (!isBoox()) return
+        if (preserveSystemEngine) {
+            refresh(view, full = false)
+            return
+        }
         setEpdsMode(view, "EPD_GL16")
     }
 
     // 設置刷新模式的核心方法
     private fun setEpdsMode(view: View, modeName: String) {
+        if (preserveSystemEngine) return
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
 
@@ -523,4 +553,3 @@ object EInkHelper {
         }
     }
 }
-

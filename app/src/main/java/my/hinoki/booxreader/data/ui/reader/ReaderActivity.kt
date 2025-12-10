@@ -253,6 +253,8 @@ class ReaderActivity : AppCompatActivity() {
 
         // 關鍵：在程式啟動時立即強制讀取文石系統字體設定
         if (EInkHelper.isBooxDevice()) {
+            // 保持文石系統預設的應用優化引擎，不再強行切換刷新模式
+            EInkHelper.setPreserveSystemEngine(true)
             android.util.Log.d("ReaderActivity", "onCreate - 立即強制讀取文石系統字體設定")
 
             // 測試多個可能的字體值
