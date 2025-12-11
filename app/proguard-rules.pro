@@ -41,6 +41,10 @@
 -keep class my.hinoki.booxreader.data.remote.** { *; }
 -keep class my.hinoki.booxreader.data.db.** { *; }
 -keep class my.hinoki.booxreader.data.model.** { *; }
+-keep class my.hinoki.booxreader.data.settings.** { *; }
+-keep class my.hinoki.booxreader.data.repo.** { *; }
+-keep class my.hinoki.booxreader.reader.** { *; }
+-keep class my.hinoki.booxreader.core.** { *; }
 
 # Room
 -keep class * extends androidx.room.RoomDatabase
