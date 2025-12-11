@@ -88,6 +88,13 @@
             android:text="Publish" />
 
         <Button
+            android:id="@+id/btnChapters"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="目錄" />
+
+        <Button
             android:id="@+id/btnSettings"
             android:layout_width="0dp"
             android:layout_height="match_parent"

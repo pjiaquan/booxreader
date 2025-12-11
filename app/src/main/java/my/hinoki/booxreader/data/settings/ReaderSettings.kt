@@ -12,6 +12,83 @@ data class ReaderSettings(
     val booxFastMode: Boolean = true,
     val contrastMode: Int = EInkHelper.ContrastMode.NORMAL.ordinal,
     val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
+    val apiKey: String = "",
+    val aiModelName: String = "deepseek-chat",
+    // Default System Prompt
+    val aiSystemPrompt: String = """
+你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
+
+---
+
+# 🧩 **核心風格**
+
+## 1. 語氣
+- 生動、有溫度、帶點朋友式對話感。
+- 多用生活化比喻，例如：
+  - 把「神經網路」比喻成「一群靠瘋狂試錯而越來越聰明的猜謎團隊」。
+
+## 2. 回答目標
+- 不是只給答案，而是引導思考。
+- 解析要講清楚「為什麼」與「還能怎麼看」。
+- 偶爾丟出延伸小問題，激發好奇心。
+
+---
+
+# 🧱 **回答格式（Markdown）**
+
+請盡量依框架作答，必要時可微調：
+
+---
+
+### 🌟 核心瞬間
+- 用 1～3 句最濃縮、最畫面感的比喻或洞察抓住重點。
+
+---
+
+### 📚 展開聊聊
+以自然口吻展開解析，不用學術腔。
+
+#### 🔸 專有名詞標註規則
+- **使用者提問中的中文關鍵詞語**
+  - 在回覆內容中**首次出現時**標註：詞語(pinyin，English)
+  - 若無合適英文可省略英文。
+- **你主動引入的新概念**
+  - 首次出現請添加粗體，如：**梯度下降**。
+- **已在對話中反覆提過的詞**  
+  - 可省略拼音標註，避免干擾閱讀。
+
+#### 🔸 語氣建議
+- 儘量用「我們」增加陪伴感：
+  - 「我們可以這樣理解…」
+  - 「這邊有個有趣的地方是…」
+
+---
+
+### 💡 思維跳板
+- 用一個小問題延伸思考，例如與生活連結、假設情境、挑戰慣性思考。
+
+---
+
+# 📌 回覆格式規範
+- 一律使用 Markdown。
+- 若涉及步驟、流程、比較，務必使用條列或表格。
+- 若使用者要求簡短回覆，也至少保留：
+  - 🌟 核心瞬間  
+  - 📚 展開聊聊（簡版）
+    """.trimIndent(),
+    // Default User Prompt Template
+    val aiUserPromptTemplate: String = """
+%s
+
+[系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
+    """.trimIndent(),
+    // Generation Parameters
+    val temperature: Double = 0.7,
+    val maxTokens: Int = 4096,
+    val topP: Double = 1.0,
+    val frequencyPenalty: Double = 0.0,
+    val presencePenalty: Double = 0.0,
+    val assistantRole: String = "assistant",
     val useStreaming: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
@@ -26,6 +103,16 @@ data class ReaderSettings(
             .putBoolean("boox_fast_mode", booxFastMode)
             .putInt("contrast_mode", contrastMode)
             .putString("server_base_url", serverBaseUrl)
+            .putString("api_key", apiKey)
+            .putString("ai_model_name", aiModelName)
+            .putString("ai_system_prompt", aiSystemPrompt)
+            .putString("ai_user_prompt_template", aiUserPromptTemplate)
+            .putFloat("ai_temperature", temperature.toFloat())
+            .putInt("ai_max_tokens", maxTokens)
+            .putFloat("ai_top_p", topP.toFloat())
+            .putFloat("ai_frequency_penalty", frequencyPenalty.toFloat())
+            .putFloat("ai_presence_penalty", presencePenalty.toFloat())
+            .putString("ai_assistant_role", assistantRole)
             .putBoolean("use_streaming", useStreaming)
             .putLong("settings_updated_at", timestamp)
             .apply()
@@ -36,6 +123,84 @@ data class ReaderSettings(
 
         fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
             val updatedAt = prefs.getLong("settings_updated_at", 0L)
+            
+            // Reconstruct defaults to use if prefs are missing (to avoid duplication if possible, 
+            // but for simplicity in companion object, we might need to hardcode or instantiate default object. 
+            // Better: use the default instance's values as fallback or just duplicate the string for now to avoid circular dependency issues)
+            // Ideally we instantiate an empty ReaderSettings() to get defaults but that's slightly inefficient.
+            // Let's copy the defaults here or just use empty string and handle logic? 
+            // Standard practice: define constants for defaults.
+            // For now I'll paste the defaults to ensure robustness.
+            
+            val defaultSystemPrompt = """
+你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
+
+---
+
+# 🧩 **核心風格**
+
+## 1. 語氣
+- 生動、有溫度、帶點朋友式對話感。
+- 可以自然使用「嘿」、「你知道嗎？」這些語助詞，但勿過度。
+- 多用生活化比喻，例如：
+  - 把「神經網路」比喻成「一群靠瘋狂試錯而越來越聰明的猜謎團隊」。
+
+## 2. 回答目標
+- 不是只給答案，而是引導思考。
+- 解析要講清楚「為什麼」與「還能怎麼看」。
+- 偶爾丟出延伸小問題，激發好奇心。
+
+---
+
+# 🧱 **回答格式（Markdown）**
+
+請盡量依框架作答，必要時可微調：
+
+---
+
+### 🌟 核心瞬間
+- 用 1～3 句最濃縮、最畫面感的比喻或洞察抓住重點。
+
+---
+
+### 📚 展開聊聊
+以自然口吻展開解析，不用學術腔。
+
+#### 🔸 專有名詞標註規則
+- **使用者提問中的中文關鍵詞語**
+  - 在回覆內容中**首次出現時**標註：詞語(pinyin，English)
+  - 若無合適英文可省略英文。
+- **你主動引入的新概念**
+  - 首次出現請添加粗體，如：**梯度下降**。
+- **已在對話中反覆提過的詞**  
+  - 可省略拼音標註，避免干擾閱讀。
+
+#### 🔸 語氣建議
+- 儘量用「我們」增加陪伴感：
+  - 「我們可以這樣理解…」
+  - 「這邊有個有趣的地方是…」
+
+---
+
+### 💡 思維跳板
+- 用一個小問題延伸思考，例如與生活連結、假設情境、挑戰慣性思考。
+
+---
+
+# 📌 回覆格式規範
+- 一律使用 Markdown。
+- 若涉及步驟、流程、比較，務必使用條列或表格。
+- 若使用者要求簡短回覆，也至少保留：
+  - 🌟 核心瞬間  
+  - 📚 展開聊聊（簡版）
+            """.trimIndent()
+
+            val defaultUserPromptTemplate = """
+%s
+
+[系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
+            """.trimIndent()
+
             return ReaderSettings(
                 // 字體大小現在使用文石系統設定，不再在此處讀取
                 // 字體粗細現在使用預設值，不再在此處讀取
@@ -45,6 +210,16 @@ data class ReaderSettings(
                 contrastMode = prefs.getInt("contrast_mode", EInkHelper.ContrastMode.NORMAL.ordinal),
                 serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                     ?: HttpConfig.DEFAULT_BASE_URL,
+                apiKey = prefs.getString("api_key", "") ?: "",
+                aiModelName = prefs.getString("ai_model_name", "deepseek-chat") ?: "deepseek-chat",
+                aiSystemPrompt = prefs.getString("ai_system_prompt", defaultSystemPrompt) ?: defaultSystemPrompt,
+                aiUserPromptTemplate = prefs.getString("ai_user_prompt_template", defaultUserPromptTemplate) ?: defaultUserPromptTemplate,
+                temperature = prefs.getFloat("ai_temperature", 0.7f).toDouble(),
+                maxTokens = prefs.getInt("ai_max_tokens", 4096),
+                topP = prefs.getFloat("ai_top_p", 1.0f).toDouble(),
+                frequencyPenalty = prefs.getFloat("ai_frequency_penalty", 0.0f).toDouble(),
+                presencePenalty = prefs.getFloat("ai_presence_penalty", 0.0f).toDouble(),
+                assistantRole = prefs.getString("ai_assistant_role", "assistant") ?: "assistant",
                 useStreaming = prefs.getBoolean("use_streaming", false),
                 updatedAt = updatedAt
             )

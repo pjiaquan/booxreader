@@ -305,6 +305,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
     }
 
     private fun publishNote(note: AiNoteEntity) {
+        val savedScrollY = currentScrollY()
         binding.btnPublish.isEnabled = false
         binding.btnPublish.text = "Publishing..."
         binding.btnRepublishSelection.isEnabled = false
@@ -313,7 +314,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
-                startStreaming(note, note.originalText)
+                startStreaming(note, note.originalText, savedScrollY)
                 binding.btnPublish.text = "Streaming..."
                 return@launch
             }
@@ -336,10 +337,12 @@ class AiNoteDetailActivity : AppCompatActivity() {
             }
             binding.btnRepublishSelection.isEnabled = true
             setLoading(false)
+            restoreScrollIfJumped(savedScrollY)
         }
     }
 
     private fun sendFollowUp(note: AiNoteEntity, question: String) {
+        val savedScrollY = currentScrollY()
         binding.btnFollowUp.isEnabled = false
         binding.btnFollowUp.text = "發佈中..."
         setLoading(true)
@@ -353,6 +356,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
                         separator +
                         "---\nQ: " + question + "\n\n" + partial
                     markwon.setMarkdown(binding.tvAiResponse, preview)
+                    restoreScrollIfJumped(savedScrollY)
                 }
             } else {
                 repository.continueConversation(note, question)
@@ -375,17 +379,19 @@ class AiNoteDetailActivity : AppCompatActivity() {
             binding.btnFollowUp.isEnabled = true
             binding.btnFollowUp.text = "發佈"
             setLoading(false)
+            restoreScrollIfJumped(savedScrollY)
         }
     }
 
     private fun rePublishSelection(note: AiNoteEntity) {
+        val savedScrollY = currentScrollY()
         binding.btnRepublishSelection.isEnabled = false
         binding.btnRepublishSelection.text = "重新發佈中..."
         setLoading(true)
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
-                startStreaming(note, note.originalText)
+                startStreaming(note, note.originalText, savedScrollY)
                 binding.btnRepublishSelection.text = "重新發佈選取內容"
                 return@launch
             }
@@ -407,6 +413,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
             binding.btnRepublishSelection.isEnabled = true
             binding.btnRepublishSelection.text = "重新發佈選取內容"
             setLoading(false)
+            restoreScrollIfJumped(savedScrollY)
         }
     }
 
@@ -426,11 +433,13 @@ class AiNoteDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun startStreaming(note: AiNoteEntity, text: String) {
+    private fun startStreaming(note: AiNoteEntity, text: String, preserveScrollY: Int? = null) {
         setLoading(true)
+        val savedScrollY = preserveScrollY ?: currentScrollY()
         lifecycleScope.launch {
             val result = repository.fetchAiExplanationStreaming(text) { partial ->
                 markwon.setMarkdown(binding.tvAiResponse, partial)
+                restoreScrollIfJumped(savedScrollY)
             }
             if (result != null) {
                 val (serverText, content) = result
@@ -449,6 +458,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
             binding.btnRepublishSelection.isEnabled = true
             binding.btnRepublishSelection.text = "重新發佈選取內容"
             setLoading(false)
+            restoreScrollIfJumped(savedScrollY)
         }
     }
 
@@ -587,6 +597,27 @@ class AiNoteDetailActivity : AppCompatActivity() {
                     }
                     .start()
                 android.util.Log.d("AiNoteDetailActivity", "隱藏滾動到底按鈕")
+            }
+        }
+    }
+
+    private fun currentScrollY(): Int = binding.scrollView.scrollY
+
+    // Keep the reader's position if the system jumps to the top or bottom after updates.
+    private fun restoreScrollIfJumped(targetY: Int?) {
+        if (targetY == null) return
+        binding.scrollView.post {
+            val scrollView = binding.scrollView
+            val child = scrollView.getChildAt(0)
+            val maxScroll = ((child?.height ?: 0) - scrollView.height + scrollView.paddingBottom)
+                .coerceAtLeast(0)
+            val clampedTarget = targetY.coerceIn(0, maxScroll)
+            val current = scrollView.scrollY
+            val jumpedToTop = clampedTarget > 0 && current < clampedTarget - 48 && current < 64
+            val jumpedToBottom = clampedTarget < maxScroll && current > maxScroll - 64 && clampedTarget < maxScroll - 48
+            if (jumpedToTop || jumpedToBottom) {
+                scrollView.scrollTo(0, clampedTarget)
+                checkScrollPosition()
             }
         }
     }

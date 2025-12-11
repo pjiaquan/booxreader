@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import my.hinoki.booxreader.data.settings.ReaderSettings
 import java.util.concurrent.TimeUnit
 
 class AiNoteRepository(
@@ -34,6 +35,83 @@ class AiNoteRepository(
         val prefs = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
         var url = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL) ?: HttpConfig.DEFAULT_BASE_URL
         return if (url.endsWith("/")) url.dropLast(1) else url
+    }
+
+    private fun isGoogleNative(url: String): Boolean {
+        return url.contains("generativelanguage.googleapis.com") && !url.contains("/openai/")
+    }
+
+    private fun isGoogleHost(url: String): Boolean {
+        return url.contains("generativelanguage.googleapis.com")
+    }
+
+    private fun transformToGooglePayload(model: String, messages: JSONArray, systemPrompt: String?, 
+                                         temperature: Double, maxTokens: Int, topP: Double, frequencyPenalty: Double, presencePenalty: Double): JSONObject {
+        val contents = JSONArray()
+        var finalSystemPrompt = systemPrompt ?: ""
+
+        val systemInstructionObj = if (finalSystemPrompt.isNotEmpty()) {
+            JSONObject().apply {
+                put("parts", JSONArray().put(JSONObject().put("text", finalSystemPrompt)))
+            }
+        } else null
+
+        for (i in 0 until messages.length()) {
+            val msg = messages.optJSONObject(i) ?: continue
+            val role = msg.optString("role")
+            val content = msg.optString("content")
+
+            if (role == "system") {
+                // If system prompt is in messages, prefer it or append it?
+                // For simplicity, if we already have systemPrompt from Settings, we might ignore this or override?
+                // The caller usually passes systemPrompt from settings.
+                // If caller put system prompt in messages (like in fetchAiExplanation), we extract it.
+                if (finalSystemPrompt.isEmpty()) {
+                    finalSystemPrompt = content
+                }
+                continue
+            }
+
+            val googleRole = if (role == "user") "user" else "model"
+            val parts = JSONArray().put(JSONObject().put("text", content))
+            
+            contents.put(JSONObject().apply {
+                put("role", googleRole)
+                put("parts", parts)
+            })
+        }
+        
+        // Use local variable for systemInstruction to avoid re-assignment error if val used incorrectly above
+        // Re-evaluate system instruction if it was extracted from messages
+        val finalSystemInstruction = if (finalSystemPrompt.isNotEmpty()) {
+            JSONObject().apply {
+                put("parts", JSONArray().put(JSONObject().put("text", finalSystemPrompt)))
+            }
+        } else systemInstructionObj
+
+        return JSONObject().apply {
+            // Google Native often embeds model in URL, but payload body structure is:
+            // { contents: [], systemInstruction: {}, generationConfig: {} }
+            put("contents", contents)
+            if (finalSystemInstruction != null) {
+                put("systemInstruction", finalSystemInstruction)
+            }
+            put("generationConfig", JSONObject().apply {
+                put("temperature", temperature)
+                put("maxOutputTokens", maxTokens)
+                put("topP", topP)
+                // Google Gemini API (v1beta) does not yet support frequency/presence penalty in standard generationConfig
+            })
+        }
+    }
+
+    private fun parseGoogleResponse(json: JSONObject): String? {
+        // candidates[0].content.parts[0].text
+        val candidates = json.optJSONArray("candidates")
+        val firstCandidate = candidates?.optJSONObject(0)
+        val content = firstCandidate?.optJSONObject("content")
+        val parts = content?.optJSONArray("parts")
+        return parts?.optJSONObject(0)?.optString("text", "")
     }
 
     suspend fun add(
@@ -83,7 +161,116 @@ class AiNoteRepository(
         return dao.findLatestByOriginalText(text)
     }
 
+    private fun getSettings(): ReaderSettings {
+        return ReaderSettings.fromPrefs(prefs())
+    }
+
     suspend fun fetchAiExplanation(text: String): Pair<String, String>? {
+        val settings = getSettings()
+        if (settings.apiKey.isNotBlank()) {
+            return withContext(Dispatchers.IO) {
+                try {
+                    val url = getBaseUrl()
+                    val isGoogle = isGoogleNative(url)
+                    
+                    val requestBody: okhttp3.RequestBody
+                    val requestBuilder = Request.Builder()
+                        .url(url)
+                        // Google Native often puts API Key in Query Param for simplicity if using that style, 
+                        // but Header 'x-goog-api-key' is standard. Adapter supports Header.
+                    
+                    if (isGoogle) {
+                        val messages = JSONArray().apply {
+                            // In Google adapter logic, we'll extract system prompt from here or pass it explicitly.
+                            // Here we construct OpenAI style first, then transform.
+                            // OR we just use transform directly.
+                             put(JSONObject().apply {
+                                put("role", "user")
+                                put("content", String.format(settings.aiUserPromptTemplate, text))
+                            })
+                        }
+                        
+                        val googlePayload = transformToGooglePayload(
+                            settings.aiModelName, 
+                            messages, 
+                            settings.aiSystemPrompt,
+                            settings.temperature,
+                            settings.maxTokens,
+                            settings.topP,
+                            settings.frequencyPenalty,
+                            settings.presencePenalty
+                        )
+                        requestBody = googlePayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                        
+                        // Header for Google
+                        requestBuilder.header("x-goog-api-key", settings.apiKey)
+
+                    } else {
+                        // Standard OpenAI logic
+                        val messages = JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("role", "system")
+                                put("content", settings.aiSystemPrompt)
+                            })
+                            put(JSONObject().apply {
+                                put("role", "user")
+                                put("content", String.format(settings.aiUserPromptTemplate, text))
+                            })
+                        }
+                        val payload = JSONObject().apply {
+                            put("model", settings.aiModelName)
+                            put("messages", messages)
+                            put("stream", false)
+                            put("temperature", settings.temperature)
+                            put("max_tokens", settings.maxTokens)
+                            put("top_p", settings.topP)
+                            if (!isGoogleHost(url)) {
+                                put("frequency_penalty", settings.frequencyPenalty)
+                                put("presence_penalty", settings.presencePenalty)
+                            }
+                        }
+                        requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                        requestBuilder.header("Authorization", "Bearer ${settings.apiKey}")
+                    }
+
+                    val request = requestBuilder
+                        .post(requestBody)
+                        .tag(String::class.java, "SKIP_AUTH") // Skip internal auth interceptor/authenticator
+                        .build()
+
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val respBody = response.body?.string()
+                            if (respBody != null) {
+                                val respJson = JSONObject(respBody)
+                                val content = if (isGoogle) {
+                                    parseGoogleResponse(respJson)
+                                } else {
+                                    val choices = respJson.optJSONArray("choices")
+                                    choices?.optJSONObject(0)?.optJSONObject("message")?.optString("content", "")
+                                } ?: ""
+
+                                if (content.isNotEmpty()) {
+                                    Pair(content, content)
+                                } else {
+                                    null
+                                }
+                            } else {
+                                null
+                            }
+                        } else {
+                            android.util.Log.e(TAG, "fetchAiExplanation failed: ${response.code} ${response.message}")
+                            null
+                        }
+                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
+        }
+    
+        // Legacy Implementation
         return withContext(Dispatchers.IO) {
             try {
                 val jsonBody = JSONObject().apply {
@@ -98,7 +285,7 @@ class AiNoteRepository(
             .url(url)
             .post(requestBody)
             .build()
-
+// ... existing client call ...
                 client.newBuilder()
                     .connectTimeout(30, TimeUnit.SECONDS)
                     .readTimeout(60, TimeUnit.SECONDS)
@@ -131,12 +318,75 @@ class AiNoteRepository(
         text: String,
         onPartial: suspend (String) -> Unit
     ): Pair<String, String>? {
-        val payload = JSONObject().apply { put("text", text) }
-        val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_STREAM
-        android.util.Log.d(TAG, "fetchAiExplanationStreaming url=$url")
-        return streamJsonPayloadSse(url, payload, text, onPartial)
-    }
+        val settings = getSettings()
+        if (settings.apiKey.isNotBlank()) {
+            // Direct DeepSeek API call
+            val url = getBaseUrl() // Use base URL directly without appending path
+            
+            val messages = JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", settings.aiSystemPrompt)
+                })
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", String.format(settings.aiUserPromptTemplate, text))
+                })
+            }
 
+            val payload = JSONObject().apply {
+                put("model", settings.aiModelName)
+                put("messages", messages)
+                put("stream", true)
+                put("stream", true)
+                put("temperature", settings.temperature)
+                put("max_tokens", settings.maxTokens)
+                put("top_p", settings.topP)
+                if (!isGoogleHost(url)) {
+                    put("frequency_penalty", settings.frequencyPenalty)
+                    put("presence_penalty", settings.presencePenalty)
+                }
+            }
+
+            android.util.Log.d(TAG, "fetchAiExplanationStreaming (Direct) url=$url")
+            
+            val isGoogle = isGoogleNative(url)
+            val finalUrl = if (isGoogle && !url.contains("alt=sse")) {
+                 if (url.contains("?")) "$url&alt=sse" else "$url?alt=sse"
+            } else url
+
+            val requestPayload = if (isGoogle) {
+                // OpenAI 'messages' -> Google 'contents'
+                 val messages = JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", String.format(settings.aiUserPromptTemplate, text))
+                    })
+                }
+                transformToGooglePayload(
+                    settings.aiModelName, 
+                    messages, 
+                    settings.aiSystemPrompt,
+                    settings.temperature,
+                    settings.maxTokens,
+                    settings.topP,
+                    settings.frequencyPenalty,
+                    settings.presencePenalty
+                )
+            } else {
+                 payload
+            }
+
+            return streamJsonPayloadSse(finalUrl, requestPayload, text, onPartial, settings.apiKey)
+
+        } else {
+            // Legacy Mode
+            val payload = JSONObject().apply { put("text", text) }
+            val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_STREAM
+            android.util.Log.d(TAG, "fetchAiExplanationStreaming (Legacy) url=$url")
+            return streamJsonPayloadSse(url, payload, text, onPartial, null)
+        }
+    }
     suspend fun exportAllNotes(): ExportResult = withContext(Dispatchers.IO) {
         val notes = dao.getAll()
         if (notes.isEmpty()) {
@@ -213,41 +463,132 @@ class AiNoteRepository(
             )
         }
     }
-
     suspend fun continueConversation(note: AiNoteEntity, followUpText: String): String? =
         withContext(Dispatchers.IO) {
-            try {
-                val payload = JSONObject().apply {
-                    put("history", buildHistoryArray(note))
-                    put("text", followUpText)
-                }
+            val settings = getSettings()
+            if (settings.apiKey.isNotBlank()) {
+                 try {
+                    val url = getBaseUrl()
+                    val isGoogle = isGoogleNative(url)
+                    
+                    val requestBody: okhttp3.RequestBody
+                    val requestBuilder = Request.Builder().url(url)
 
-                val requestBody =
-                    payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                    if (isGoogle) {
+                        val history = buildOpenAiHistory(note)
+                        // Add current user message
+                        val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+                        history.put(JSONObject().apply {
+                            put("role", "user")
+                            put("content", userInputWithHint)
+                        })
+                        
+                        val googlePayload = transformToGooglePayload(
+                            settings.aiModelName, 
+                            history, 
+                            settings.aiSystemPrompt,
+                            settings.temperature,
+                            settings.maxTokens,
+                            settings.topP,
+                            settings.frequencyPenalty,
+                            settings.presencePenalty
+                        )
+                        requestBody = googlePayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                         requestBuilder.header("x-goog-api-key", settings.apiKey)
 
-                val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE
-                val request = Request.Builder()
-                    .url(url)
-                    .post(requestBody)
-                    .build()
+                    } else {
+                        // Standard OpenAI
+                        val history = buildOpenAiHistory(note)
+                        val systemPrompt = settings.aiSystemPrompt
+                        
+                        val messages = JSONArray()
+                        messages.put(JSONObject().apply {
+                            put("role", "system")
+                            put("content", systemPrompt)
+                        })
+                        for (i in 0 until history.length()) messages.put(history.get(i))
+                        
+                        val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+                        messages.put(JSONObject().apply {
+                            put("role", "user")
+                            put("content", userInputWithHint)
+                        })
 
-                client.newBuilder()
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
-                    .writeTimeout(60, TimeUnit.SECONDS)
-                    .build()
-                    .newCall(request)
-                    .execute()
-                    .use { response ->
-                        if (!response.isSuccessful) return@withContext null
-                        response.body?.string()?.let { body ->
-                            JSONObject(body).optString("content", "")
-                                .takeIf { it.isNotEmpty() }
+                        val payload = JSONObject().apply {
+                            put("model", settings.aiModelName)
+                            put("messages", messages)
+                            put("stream", false)
+                            put("temperature", settings.temperature)
+                            put("max_tokens", settings.maxTokens)
+                            put("top_p", settings.topP)
+                            if (!isGoogleHost(url)) {
+                                put("frequency_penalty", settings.frequencyPenalty)
+                                put("presence_penalty", settings.presencePenalty)
+                            }
                         }
+                        requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                        requestBuilder.header("Authorization", "Bearer ${settings.apiKey}")
                     }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                null
+
+                    val request = requestBuilder
+                        .post(requestBody)
+                        .tag(String::class.java, "SKIP_AUTH")
+                        .build()
+
+                    client.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val respBody = response.body?.string()
+                             if (respBody != null) {
+                                val respJson = JSONObject(respBody)
+                                val content = if (isGoogle) {
+                                    parseGoogleResponse(respJson)
+                                } else {
+                                    val choices = respJson.optJSONArray("choices")
+                                    choices?.optJSONObject(0)?.optJSONObject("message")?.optString("content", "")
+                                } ?: ""
+                                if (content.isNotEmpty()) content else null
+                            } else null
+                        } else null
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            } else {
+                // Legacy
+                try {
+                    val payload = JSONObject().apply {
+                        put("history", buildHistoryArray(note))
+                        put("text", followUpText)
+                    }
+
+                    val requestBody =
+                        payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+
+                    val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE
+                    val request = Request.Builder()
+                        .url(url)
+                        .post(requestBody)
+                        .build()
+
+                    client.newBuilder()
+                        .connectTimeout(30, TimeUnit.SECONDS)
+                        .readTimeout(60, TimeUnit.SECONDS)
+                        .writeTimeout(60, TimeUnit.SECONDS)
+                        .build()
+                        .newCall(request)
+                        .execute()
+                        .use { response ->
+                            if (!response.isSuccessful) return@withContext null
+                            response.body?.string()?.let { body ->
+                                JSONObject(body).optString("content", "")
+                                    .takeIf { it.isNotEmpty() }
+                            }
+                        }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
             }
         }
 
@@ -256,30 +597,116 @@ class AiNoteRepository(
         followUpText: String,
         onPartial: suspend (String) -> Unit
     ): String? {
-        val payload = JSONObject().apply {
-            put("history", buildHistoryArray(note))
-            put("text", followUpText)
+        val settings = getSettings()
+        if (settings.apiKey.isNotBlank()) {
+            val url = getBaseUrl() // Direct URL
+            val history = buildOpenAiHistory(note)
+            
+            // System Prompt from Settings
+            val systemPrompt = settings.aiSystemPrompt
+
+            val messages = JSONArray()
+            messages.put(JSONObject().apply {
+                put("role", "system")
+                put("content", systemPrompt)
+            })
+            
+            // Add history items
+            for (i in 0 until history.length()) {
+                messages.put(history.get(i))
+            }
+
+            // Add current user message with template
+            val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+
+            messages.put(JSONObject().apply {
+                put("role", "user")
+                put("content", userInputWithHint)
+            })
+
+            val payload = JSONObject().apply {
+                put("model", settings.aiModelName)
+                put("messages", messages)
+                put("stream", true)
+                put("temperature", settings.temperature)
+                put("max_tokens", settings.maxTokens)
+                put("top_p", settings.topP)
+                if (!isGoogleHost(url)) {
+                    put("frequency_penalty", settings.frequencyPenalty)
+                    put("presence_penalty", settings.presencePenalty)
+                }
+            }
+
+            android.util.Log.d(TAG, "continueConversationStreaming (Direct) url=$url")
+            
+            val isGoogle = isGoogleNative(url)
+            val finalUrl = if (isGoogle && !url.contains("alt=sse")) {
+                 if (url.contains("?")) "$url&alt=sse" else "$url?alt=sse"
+            } else url
+
+             val requestPayload = if (isGoogle) {
+                // History + User Input -> Google 'contents'
+                val history = buildOpenAiHistory(note)
+                val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+                history.put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", userInputWithHint)
+                })
+                transformToGooglePayload(
+                    settings.aiModelName, 
+                    history, 
+                    settings.aiSystemPrompt,
+                    settings.temperature,
+                    settings.maxTokens,
+                    settings.topP,
+                    settings.frequencyPenalty,
+                    settings.presencePenalty
+                )
+            } else {
+                payload
+            }
+
+            return streamJsonPayloadSse(finalUrl, requestPayload, followUpText, onPartial, settings.apiKey)?.second
+
+        } else {
+            val payload = JSONObject().apply {
+                put("history", buildHistoryArray(note))
+                put("text", followUpText)
+            }
+            val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE_STREAM
+            android.util.Log.d(TAG, "continueConversationStreaming url=$url")
+            return streamJsonPayloadSse(url, payload, followUpText, onPartial)?.second
         }
-        val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE_STREAM
-        android.util.Log.d(TAG, "continueConversationStreaming url=$url")
-        return streamJsonPayloadSse(url, payload, followUpText, onPartial)?.second
     }
+
+
 
     private suspend fun streamJsonPayloadSse(
         url: String,
         payload: JSONObject,
         fallbackText: String,
-        onPartial: suspend (String) -> Unit
+        onPartial: suspend (String) -> Unit,
+        apiKey: String? = null
     ): Pair<String, String>? = withContext(Dispatchers.IO) {
         try {
             val requestBody =
                 payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
-            val request = Request.Builder()
+            val requestBuilder = Request.Builder()
                 .url(url)
                 .post(requestBody)
                 .header("Accept", "text/event-stream")
-                .build()
+
+            if (!apiKey.isNullOrBlank()) {
+                if (isGoogleNative(url)) {
+                     requestBuilder.header("x-goog-api-key", apiKey)
+                } else {
+                     requestBuilder.header("Authorization", "Bearer $apiKey")
+                }
+                requestBuilder.tag(String::class.java, "SKIP_AUTH")
+            }
+
+            val request = requestBuilder.build()
 
             client.newBuilder()
                 .connectTimeout(15, TimeUnit.SECONDS)
@@ -289,7 +716,11 @@ class AiNoteRepository(
                 .newCall(request)
                 .execute()
                 .use { response ->
-                    if (!response.isSuccessful) return@withContext null
+                    if (!response.isSuccessful) {
+                        val errorBody = response.body?.string()
+                        android.util.Log.e("AiNoteRepository", "Streaming failed: ${response.code} $errorBody")
+                        return@withContext null
+                    }
                     val source = response.body?.source() ?: return@withContext null
                     val contentBuilder = StringBuilder()
                     var serverText: String? = null
@@ -338,15 +769,25 @@ class AiNoteRepository(
             val deltaObj = firstChoice?.optJSONObject("delta")
             val contentFromDelta = deltaObj?.optString("content", "") ?: ""
             val finish = firstChoice?.optString("finish_reason", "")
+            
+            // Google Native SSE: candidates[0].content.parts[0].text
+            val candidates = json.optJSONArray("candidates")
+            val firstCandidate = candidates?.optJSONObject(0)
+            val contentParts = firstCandidate?.optJSONObject("content")?.optJSONArray("parts")
+            val contentFromGoogle = contentParts?.optJSONObject(0)?.optString("text", "") ?: ""
+            val finishGoogle = firstCandidate?.optString("finishReason", "")
 
             val delta = when {
                 contentFromDelta.isNotEmpty() -> contentFromDelta
+                contentFromGoogle.isNotEmpty() -> contentFromGoogle
                 json.has("delta") -> json.optString("delta", "")
                 json.has("content") -> json.optString("content", "")
                 else -> json.optString("text", "")
             }
 
-            val done = doneFromFlag || (finish != null && finish != "null" && finish != "unknown")
+            val done = doneFromFlag || 
+                       (finish != null && finish != "null" && finish != "unknown") ||
+                       (finishGoogle != null && finishGoogle != "null" && finishGoogle != "unknown" && finishGoogle != "STOP") // Google often sends STOP at end
             StreamingChunk(serverText, delta, done)
         } catch (e: Exception) {
             StreamingChunk(null, raw, false)
@@ -432,6 +873,80 @@ class AiNoteRepository(
             }
         }
 
+        return history
+    }
+
+    private fun buildOpenAiHistory(note: AiNoteEntity): JSONArray {
+        val history = JSONArray()
+
+        // Base user message
+        history.put(
+            JSONObject().apply {
+                put("role", "user")
+                put("content", note.originalText)
+            }
+        )
+
+        if (note.aiResponse.isBlank()) {
+            return history
+        }
+
+        // Split existing responses
+        val segments = note.aiResponse.split("\n---\n").filter { it.isNotBlank() }
+        if (segments.isNotEmpty()) {
+            // First segment: original AI answer
+            val baseAnswer = segments.first().trim()
+            if (baseAnswer.isNotEmpty()) {
+                history.put(
+                    JSONObject().apply {
+                        put("role", getSettings().assistantRole)
+                        put("content", baseAnswer)
+                    }
+                )
+            }
+
+            // Subsequent segments
+            segments.drop(1).forEach { seg ->
+                val trimmed = seg.trim()
+                if (trimmed.isEmpty()) return@forEach
+                val lines = trimmed.lines()
+                val first = lines.firstOrNull()?.trim().orEmpty()
+
+                val qPrefix =
+                    first.startsWith("Q:", true) ||
+                        first.startsWith("Question:", true) ||
+                        first.startsWith("User:", true)
+
+                if (qPrefix) {
+                    val question = first.substringAfter(":").trim()
+                    val answer = lines.drop(1).joinToString("\n").trim()
+
+                    if (question.isNotEmpty()) {
+                        history.put(
+                            JSONObject().apply {
+                                put("role", "user")
+                                put("content", question)
+                            }
+                        )
+                    }
+                    if (answer.isNotEmpty()) {
+                        history.put(
+                            JSONObject().apply {
+                                put("role", getSettings().assistantRole)
+                                put("content", answer)
+                            }
+                        )
+                    }
+                } else {
+                    history.put(
+                        JSONObject().apply {
+                            put("role", getSettings().assistantRole)
+                            put("content", trimmed)
+                        }
+                    )
+                }
+            }
+        }
         return history
     }
 }

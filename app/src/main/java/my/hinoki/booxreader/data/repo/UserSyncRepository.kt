@@ -17,6 +17,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.AiNoteEntity
+import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.db.BookmarkEntity
@@ -693,6 +694,89 @@ class UserSyncRepository(
         updatedCount
     }
 
+    suspend fun pushProfile(profile: AiProfileEntity): AiProfileEntity? = withContext(io) {
+        val ref = userDoc() ?: return@withContext null
+        val now = System.currentTimeMillis()
+        val remoteId = profile.remoteId ?: ref.collection(COL_AI_PROFILES).document().id
+        val payload = RemoteAiProfile(
+            remoteId = remoteId,
+            name = profile.name,
+            modelName = profile.modelName,
+            apiKey = profile.apiKey,
+            serverBaseUrl = profile.serverBaseUrl,
+            systemPrompt = profile.systemPrompt,
+            userPromptTemplate = profile.userPromptTemplate,
+            useStreaming = profile.useStreaming,
+            createdAt = profile.createdAt,
+            updatedAt = now
+        )
+
+        runCatching {
+            ref.collection(COL_AI_PROFILES)
+                .document(remoteId)
+                .set(payload, SetOptions.merge())
+                .await()
+        }
+
+        val updated = profile.copy(remoteId = remoteId, isSynced = true, updatedAt = now)
+        val dao = db.aiProfileDao()
+        if (updated.id == 0L) {
+            val newId = dao.insert(updated)
+            updated.copy(id = newId)
+        } else {
+            dao.update(updated)
+            updated
+        }
+    }
+
+    suspend fun pullProfiles(): Int = withContext(io) {
+        val ref = userDoc() ?: return@withContext 0
+        val dao = db.aiProfileDao()
+
+        // Push local-only first
+        runCatching {
+            dao.getLocalOnly().forEach { local ->
+                pushProfile(local)
+            }
+        }
+
+        val snapshot = runCatching {
+            ref.collection(COL_AI_PROFILES).get().await()
+        }.getOrElse { return@withContext 0 }
+
+        var updatedCount = 0
+
+        snapshot.documents.forEach { doc ->
+            val remote = doc.toObject(RemoteAiProfile::class.java) ?: return@forEach
+            if (remote.remoteId.isBlank()) return@forEach
+
+            val existing = dao.getByRemoteId(remote.remoteId)
+            val entity = AiProfileEntity(
+                id = existing?.id ?: 0,
+                name = remote.name,
+                modelName = remote.modelName,
+                apiKey = remote.apiKey,
+                serverBaseUrl = remote.serverBaseUrl,
+                systemPrompt = remote.systemPrompt,
+                userPromptTemplate = remote.userPromptTemplate,
+                useStreaming = remote.useStreaming,
+                remoteId = remote.remoteId,
+                createdAt = if (remote.createdAt > 0) remote.createdAt else (existing?.createdAt ?: System.currentTimeMillis()),
+                updatedAt = remote.updatedAt,
+                isSynced = true
+            )
+
+            if (existing == null) {
+                dao.insert(entity)
+                updatedCount++
+            } else if (remote.updatedAt > existing.updatedAt) {
+                dao.update(entity)
+                updatedCount++
+            }
+        }
+        updatedCount
+    }
+
     /**
      * Fetch all progress documents for the signed-in user and merge newer ones into local cache/DB.
      */
@@ -752,6 +836,7 @@ class UserSyncRepository(
         private const val COL_BOOKS = "books"
         private const val COL_AI_NOTES = "ai_notes"
         private const val COL_BOOKMARKS = "bookmarks"
+        private const val COL_AI_PROFILES = "ai_profiles"
     }
 }
 
@@ -800,6 +885,19 @@ data class RemoteBookmark(
     val remoteId: String = "",
     val bookId: String = "",
     val locatorJson: String = "",
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L
+)
+
+data class RemoteAiProfile(
+    val remoteId: String = "",
+    val name: String = "",
+    val modelName: String = "",
+    val apiKey: String = "",
+    val serverBaseUrl: String = "",
+    val systemPrompt: String = "",
+    val userPromptTemplate: String = "",
+    val useStreaming: Boolean = false,
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L
 )

@@ -168,7 +168,10 @@ object EInkHelper {
 
     // 設置刷新模式的核心方法
     private fun setEpdsMode(view: View, modeName: String) {
-        if (preserveSystemEngine) return
+        if (preserveSystemEngine) {
+            android.util.Log.w("EInkHelper", "setEpdsMode ($modeName) blocked because preserveSystemEngine is TRUE")
+            return
+        }
         try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
 
@@ -266,10 +269,14 @@ object EInkHelper {
     // 獲取當前刷新模式
     fun getCurrentRefreshMode(view: View): String? {
         if (!isBoox()) return null
+        // 關鍵修正：遵守 preserveSystemEngine 設定，防止意外觸發文石 SDK
+        if (preserveSystemEngine) {
+            return "System Engine (Preserved)"
+        }
         return try {
             val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
             val method = cls.getMethod("getMode", View::class.java)
-            method.invoke(null, view).toString()
+            method.invoke(null, view)?.toString()
         } catch (e: Exception) {
             null
         }

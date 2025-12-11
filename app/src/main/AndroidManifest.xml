@@ -85,6 +85,18 @@
             android:exported="false"
             android:label="Profile" />
 
+        <activity
+            android:name="my.hinoki.booxreader.data.ui.settings.AiProfileListActivity"
+            android:exported="false"
+            android:label="AI Profiles"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
+        <activity
+            android:name="my.hinoki.booxreader.data.ui.settings.AiProfileEditActivity"
+            android:exported="false"
+            android:label="Edit Profile"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
         <!-- FileProvider for secure file sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"

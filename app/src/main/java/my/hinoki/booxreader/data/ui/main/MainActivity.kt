@@ -396,15 +396,15 @@ class MainActivity : ComponentActivity() {
             try {
                 android.util.Log.d("MainActivity", "開始手動同步...")
 
-                val totalSteps = 7  // 下載 + 上傳 + 其他五步
+                val totalSteps = 8  // 下載 + 上傳 + 再次下載校驗 + 其他五步
                 var currentStep = 0
 
                 // 步驟1: 先下載雲端書籍（包含Storage檔案）
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "下載雲端書籍...")
                 val pullBooksResult = runCatching { syncRepo.pullBooks() }
-                val booksDownloaded = pullBooksResult.getOrNull() ?: 0
-                android.util.Log.d("MainActivity", "下載書籍: ${pullBooksResult.isSuccess}, 下載數量: $booksDownloaded")
+                val booksDownloadedInitial = pullBooksResult.getOrNull() ?: 0
+                android.util.Log.d("MainActivity", "下載書籍: ${pullBooksResult.isSuccess}, 下載數量: $booksDownloadedInitial")
 
                 // 步驟2: 上傳本地書籍到雲端
                 currentStep++
@@ -413,27 +413,34 @@ class MainActivity : ComponentActivity() {
                 val booksUploaded = uploadResult.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "上傳書籍: ${uploadResult.isSuccess}, 上傳數量: $booksUploaded")
 
-                // 步驟3: 同步設定
+                // 步驟3: 再次下載，確保剛剛其它裝置上傳的書籍也同步到本機
+                currentStep++
+                updateSyncProgress(currentStep, totalSteps, "再次下載雲端書籍...")
+                val pullBooksResultAfterUpload = runCatching { syncRepo.pullBooks() }
+                val booksDownloadedFinal = pullBooksResultAfterUpload.getOrNull() ?: 0
+                android.util.Log.d("MainActivity", "再次下載書籍: ${pullBooksResultAfterUpload.isSuccess}, 下載數量: $booksDownloadedFinal")
+
+                // 步驟4: 同步設定
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "同步設定...")
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
                 android.util.Log.d("MainActivity", "同步設定: ${settingsResult.isSuccess}")
 
-                // 步驟4: 同步AI筆記
+                // 步驟5: 同步AI筆記
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "同步AI筆記...")
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "同步筆記: ${notesResult.isSuccess}, 更新數量: $notesUpdated")
 
-                // 步驟5: 同步閱讀進度
+                // 步驟6: 同步閱讀進度
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "同步閱讀進度...")
                 val progressResult = runCatching { syncRepo.pullAllProgress() }
                 val progressUpdated = progressResult.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "同步進度: ${progressResult.isSuccess}, 更新數量: $progressUpdated")
 
-                // 步驟6: 同步書籤
+                // 步驟7: 同步書籤
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, "同步書籤...")
                 val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
@@ -447,11 +454,12 @@ class MainActivity : ComponentActivity() {
                 val summary = buildString {
                     append("同步完成！\n")
                     if (booksUploaded > 0) append("• 上傳書籍: $booksUploaded 本\n")
-                    if (booksDownloaded > 0) append("• 下載書籍: $booksDownloaded 本\n")
+                    val totalDownloaded = booksDownloadedInitial + booksDownloadedFinal
+                    if (totalDownloaded > 0) append("• 下載書籍: $totalDownloaded 本\n")
                     if (notesUpdated > 0) append("• 更新AI筆記: $notesUpdated 筆\n")
                     if (progressUpdated > 0) append("• 更新閱讀進度: $progressUpdated 筆\n")
                     if (bookmarksUpdated > 0) append("• 更新書籤: $bookmarksUpdated 個\n")
-                    if (booksUploaded == 0 && booksDownloaded == 0 && notesUpdated == 0 && progressUpdated == 0 && bookmarksUpdated == 0) {
+                    if (booksUploaded == 0 && totalDownloaded == 0 && notesUpdated == 0 && progressUpdated == 0 && bookmarksUpdated == 0) {
                         append("• 沒有需要更新的資料")
                     }
                 }

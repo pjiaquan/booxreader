@@ -46,3 +46,12 @@ google-services.json
 *.jks
 *.keystore
 keystore.properties
+
+# Telegram configuration
+.telegram_config
+
+# AI Profiles
+deepseek.json
+gemini_profile.json
+*_profile.json
+

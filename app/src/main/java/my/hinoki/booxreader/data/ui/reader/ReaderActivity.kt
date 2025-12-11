@@ -52,8 +52,11 @@ import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.ExperimentalReadiumApi
+import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.util.Url
+import org.readium.r2.shared.util.mediatype.MediaType
 
 import kotlin.OptIn
 
@@ -109,6 +112,12 @@ class ReaderActivity : AppCompatActivity() {
         SELECTING, // 正在選擇
         MENU_OPEN  // 菜單已打開
     }
+
+    private data class ChapterItem(
+        val title: String,
+        val link: Link,
+        val depth: Int
+    )
 
     private var selectionState = SelectionState.IDLE
     private var selectionGuardJob: Job? = null
@@ -334,6 +343,10 @@ class ReaderActivity : AppCompatActivity() {
 
         binding.btnShowBookmarks.setOnClickListener {
             publishCurrentSelection()
+        }
+
+        binding.btnChapters.setOnClickListener {
+            openChapterPicker()
         }
 
         binding.btnSettings.setOnClickListener {
@@ -819,17 +832,21 @@ class ReaderActivity : AppCompatActivity() {
         if (view is android.webkit.WebView) {
             val css = """
                 /* Enhanced text selection for e-ink readers */
-                html, body, p, span, div, li, h1, h2, h3, h4, h5, h6,
+                p, span, h1, h2, h3, h4, h5, h6,
                 blockquote, em, strong, b, i, u, mark, small, big,
                 cite, dfn, abbr, q, time, td, th, figcaption, pre, code,
-                article, section, aside, header, footer, nav {
+                article, section, aside, header, footer, nav, li {
                     -webkit-user-select: text !important;
                     -moz-user-select: text !important;
                     -ms-user-select: text !important;
                     user-select: text !important;
-                    -webkit-touch-callout: default !important;
                     cursor: text !important;
-                    -webkit-tap-highlight-color: rgba(128, 128, 128, 0.1) !important;
+                }
+
+                /* Layout elements should generally not be selectable unless they contain text directly */
+                html, body, div {
+                     -webkit-user-select: auto !important;
+                     user-select: auto !important;
                 }
 
                 /* Improve selection contrast for e-ink */
@@ -847,14 +864,6 @@ class ReaderActivity : AppCompatActivity() {
                 * {
                     -webkit-tap-highlight-color: transparent !important;
                     -webkit-touch-callout: none !important;
-                }
-
-                /* Allow text selection on all elements */
-                *, *::before, *::after {
-                    -webkit-user-select: text !important;
-                    -moz-user-select: text !important;
-                    -ms-user-select: text !important;
-                    user-select: text !important;
                 }
 
                 /* Ensure proper text wrapping for selection */
@@ -954,6 +963,9 @@ class ReaderActivity : AppCompatActivity() {
     }
 
     private fun applyAllSettingsWithRetry() {
+        // Capture initial location if possible
+        val initialLocator = navigatorFragment?.currentLocator?.value
+        
         // 關鍵：每次應用時都重新讀取文石系統字體設定
         currentFontSize = getBooxSystemFontSize()
         currentFontWeight = 400 // 固定使用預設字體粗細，不使用用戶設定
@@ -966,6 +978,11 @@ class ReaderActivity : AppCompatActivity() {
 
         stylesDirty = true
         applyReaderStyles(force = true)
+        
+        // Restore location immediately
+        if (initialLocator != null) {
+             navigatorFragment?.go(initialLocator)
+        }
 
         // 關鍵：在字體應用後觸發文石系統深度刷新
         if (EInkHelper.isBooxDevice()) {
@@ -986,8 +1003,14 @@ class ReaderActivity : AppCompatActivity() {
         // 延遲再次應用以確保文檔載入完成
         navigatorFragment?.view?.postDelayed({
             android.util.Log.d("ReaderActivity", "延遲重新應用字體設定")
+            
+            // Capture location again before this delayed update
+            val delayedLocator = navigatorFragment?.currentLocator?.value ?: initialLocator
+
             // 重新讀取文石系統字體設定
-            currentFontSize = getBooxSystemFontSize()
+            val newFontSize = getBooxSystemFontSize()
+            val fontChanged = newFontSize != currentFontSize
+            currentFontSize = newFontSize
             currentFontWeight = 400 // 固定預設值
 
             applyFontSize(currentFontSize)
@@ -996,6 +1019,11 @@ class ReaderActivity : AppCompatActivity() {
 
             stylesDirty = true
             applyReaderStyles(force = true)
+            
+            // Restore location
+            if (delayedLocator != null) {
+                 navigatorFragment?.go(delayedLocator)
+            }
 
             // 再次觸發文石系統深度刷新
             if (EInkHelper.isBooxDevice()) {
@@ -1012,16 +1040,27 @@ class ReaderActivity : AppCompatActivity() {
             // 再次延遲以確保穩定
             navigatorFragment?.view?.postDelayed({
                 android.util.Log.d("ReaderActivity", "最終確認字體設定")
+                
+                val finalLocator = navigatorFragment?.currentLocator?.value ?: delayedLocator
+                
                 // 最終確認時也重新讀取文石系統設定
-                currentFontSize = getBooxSystemFontSize()
+                val finalFontSize = getBooxSystemFontSize()
+                val finalFontChanged = finalFontSize != currentFontSize
+                
+                currentFontSize = finalFontSize
                 currentFontWeight = 400 // 固定預設值
 
+                // 如果字體沒有變化，可以跳過重應用以避免閃爍/重排，但為了保險起見還是應用，只是加上位置恢復
                 applyFontSize(currentFontSize)
                 applyFontWeight(currentFontWeight)
                 applyContrastMode(currentContrastMode)
 
                 stylesDirty = true
                 applyReaderStyles(force = true)
+                
+                if (finalLocator != null) {
+                     navigatorFragment?.go(finalLocator)
+                }
 
                 // 最終觸發文石系統深度刷新確保設定生效
                 if (EInkHelper.isBooxDevice()) {
@@ -1044,16 +1083,22 @@ class ReaderActivity : AppCompatActivity() {
             // 最終強制回退：確保即使前面的所有方法都失敗，也會強制應用
             binding.root.postDelayed({
                 android.util.Log.d("ReaderActivity", "最終強制回退 - 確保文石字體設定生效")
+                
+                val fallbackLocator = navigatorFragment?.currentLocator?.value
 
                 // 最後一次讀取文石系統字體設定
-                val finalFontSize = getBooxSystemFontSize()
-                currentFontSize = finalFontSize
+                val finalFallbackSize = getBooxSystemFontSize()
+                currentFontSize = finalFallbackSize
                 currentFontWeight = 400
 
-                android.util.Log.w("ReaderActivity", "最終強制應用字體: 大小=${finalFontSize}%")
+                android.util.Log.w("ReaderActivity", "最終強制應用字體: 大小=${finalFallbackSize}%")
 
-                applyFontSize(finalFontSize)
+                applyFontSize(finalFallbackSize)
                 applyFontWeight(400)
+                
+                if (fallbackLocator != null) {
+                     navigatorFragment?.go(fallbackLocator)
+                }
 
                 // 最終的強制完整重繪
                 lifecycleScope.launch {
@@ -1220,18 +1265,34 @@ class ReaderActivity : AppCompatActivity() {
         // 關鍵：每次回到Reader時都強制重新讀取並應用文石系統字體設定
         if (EInkHelper.isBooxDevice()) {
             android.util.Log.d("ReaderActivity", "onResume - 強制重新檢查文石系統字體設定")
+            
+            // 1. Capture current location before any layout changes
+            val savedLocator = navigatorFragment?.currentLocator?.value
+            android.util.Log.d("ReaderActivity", "onResume - 保存當前位置: ${savedLocator?.locations?.progression}")
+
             lifecycleScope.launch {
                 delay(200) // 短暫延遲確保UI準備好
 
                 // 每次都重新讀取文石系統字體設定
-                currentFontSize = getBooxSystemFontSize()
+                val newFontSize = getBooxSystemFontSize()
+                val fontChanged = newFontSize != currentFontSize
+                
+                currentFontSize = newFontSize
                 currentFontWeight = 400 // 固定預設值
 
-                android.util.Log.d("ReaderActivity", "onResume應用文石系統字體設定: 大小=${currentFontSize}%")
+                android.util.Log.d("ReaderActivity", "onResume應用文石系統字體設定: 大小=${currentFontSize}%, 變更=$fontChanged")
 
                 applyFontSize(currentFontSize)
                 applyFontWeight(currentFontWeight)
                 applyContrastMode(currentContrastMode)
+
+                // 2. Restore location if valid
+                if (savedLocator != null) {
+                    android.util.Log.d("ReaderActivity", "onResume - 嘗試恢復位置")
+                    // Small delay to let WebView apply text zoom first
+                    delay(50) 
+                    navigatorFragment?.go(savedLocator)
+                }
 
                 delay(100)
                 // 觸發文石系統深度刷新
@@ -1300,6 +1361,77 @@ class ReaderActivity : AppCompatActivity() {
 
     // --- UI Actions ---
 
+    private fun openChapterPicker() {
+        val publication = viewModel.publication.value
+        val navigator = navigatorFragment
+        if (publication == null || navigator == null) {
+            Toast.makeText(this, "尚未載入書籍", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val chapters = collectChapters(publication)
+        if (chapters.isEmpty()) {
+            Toast.makeText(this, "此書沒有可用的目錄", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val labels = chapters.map { item ->
+            val indent = "  ".repeat(item.depth.coerceAtLeast(0))
+            val title = item.title.ifBlank { item.link.href.toString() }
+            "$indent• $title"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("選擇章節")
+            .setItems(labels) { _, which ->
+                val target = chapters.getOrNull(which) ?: return@setItems
+                val locator = locatorFromLink(target.link)
+                if (locator != null) {
+                    navigator.go(locator)
+                    requestEinkRefresh()
+                } else {
+                    Toast.makeText(this, "無法開啟章節", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun collectChapters(publication: Publication): List<ChapterItem> {
+        val result = mutableListOf<ChapterItem>()
+
+        fun walk(links: List<Link>, depth: Int) {
+            links.forEach { link ->
+                val href = link.href.toString()
+                val title = link.title?.takeIf { it.isNotBlank() }
+                    ?: href.substringAfterLast('/').ifBlank { href }
+                result += ChapterItem(title = title, link = link, depth = depth)
+                if (link.children.isNotEmpty()) {
+                    walk(link.children, depth + 1)
+                }
+            }
+        }
+
+        val toc = publication.tableOfContents
+        if (toc.isNotEmpty()) {
+            walk(toc, 0)
+        } else {
+            walk(publication.readingOrder, 0)
+        }
+
+        return result
+    }
+
+    private fun locatorFromLink(link: Link): Locator? {
+        val href = Url(link.href.toString()) ?: return null
+        return Locator(
+            href = href,
+            mediaType = MediaType.EPUB,
+            title = link.title,
+            locations = Locator.Locations(progression = 0.0)
+        )
+    }
+
     private fun publishCurrentSelection() {
         lifecycleScope.launch {
             val selection = navigatorFragment?.currentSelection()
@@ -1343,10 +1475,22 @@ class ReaderActivity : AppCompatActivity() {
         val btnSettingsShowBookmarks = dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
         val switchPageTap = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
+        val etApiKey = dialogView.findViewById<EditText>(R.id.etApiKey)
+        val etModelName = dialogView.findViewById<EditText>(R.id.etModelName)
+        val etSystemPrompt = dialogView.findViewById<EditText>(R.id.etSystemPrompt)
+        val etUserPromptTemplate = dialogView.findViewById<EditText>(R.id.etUserPromptTemplate)
         val switchUseStreaming = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchUseStreaming)
+        
+        // Gen Params
+        val etTemperature = dialogView.findViewById<EditText>(R.id.etTemperature)
+        val etMaxTokens = dialogView.findViewById<EditText>(R.id.etMaxTokens)
+        val etTopP = dialogView.findViewById<EditText>(R.id.etTopP)
+        val etFrequencyPenalty = dialogView.findViewById<EditText>(R.id.etFrequencyPenalty)
+        val etPresencePenalty = dialogView.findViewById<EditText>(R.id.etPresencePenalty)
 
         // Add Security Buttons and Boox-specific settings
-        val layout = dialogView as? android.widget.LinearLayout
+        // dialogView is a ScrollView, so we need to get its child LinearLayout
+        val layout = (dialogView as? android.view.ViewGroup)?.getChildAt(0) as? android.widget.LinearLayout
         if (layout != null && EInkHelper.isBooxDevice()) {
             // Verify Hash Button
             val btnVerify = Button(this).apply {
@@ -1518,42 +1662,102 @@ class ReaderActivity : AppCompatActivity() {
             layout.addView(btnDeviceInfo, layout.childCount - 2)
         }
 
-        switchPageTap.isChecked = pageTapEnabled
+        val btnAiProfiles = Button(this).apply {
+            text = "AI Profiles (Switch Model/API)"
+            setOnClickListener {
+                my.hinoki.booxreader.data.ui.settings.AiProfileListActivity.open(this@ReaderActivity)
+            }
+        }
+        layout?.addView(btnAiProfiles, 2)
 
-        // Load current URL
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val currentUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
-        etServerUrl.setText(currentUrl)
-        val streamingEnabled = prefs.getBoolean("use_streaming", false)
-        switchUseStreaming.isChecked = streamingEnabled
+        // Load current Settings
+        val readerSettings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE) // keep raw prefs for specific edits if needed or just use saveTo
+
+        etServerUrl.setText(readerSettings.serverBaseUrl)
+        etApiKey.setText(readerSettings.apiKey)
+        etModelName.setText(readerSettings.aiModelName)
+        etSystemPrompt.setText(readerSettings.aiSystemPrompt)
+        etUserPromptTemplate.setText(readerSettings.aiUserPromptTemplate)
+        switchUseStreaming.isChecked = readerSettings.useStreaming
+        switchPageTap.isChecked = readerSettings.pageTapEnabled
+        
+        etTemperature.setText(readerSettings.temperature.toString())
+        etMaxTokens.setText(readerSettings.maxTokens.toString())
+        etTopP.setText(readerSettings.topP.toString())
+        etFrequencyPenalty.setText(readerSettings.frequencyPenalty.toString())
+        etPresencePenalty.setText(readerSettings.presencePenalty.toString())
+        val etAssistantRole = dialogView.findViewById<EditText>(R.id.etAssistantRole)
+        etAssistantRole.setText(readerSettings.assistantRole)
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setPositiveButton("Close") { _, _ ->
-                // Save URL on close
+                // Save settings
                 val newUrl = etServerUrl.text.toString().trim()
-                // Only save/toast if URL is valid and CHANGED
-                if (newUrl.isNotEmpty() && newUrl != currentUrl) {
-                    prefs.edit().putString("server_base_url", newUrl).apply()
-                    Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
+                val newApiKey = etApiKey.text.toString().trim()
+                val newModelName = etModelName.text.toString().trim()
+                val newSystemPrompt = etSystemPrompt.text.toString() // preserve newlines
+                val newUserPromptTemplate = etUserPromptTemplate.text.toString() // preserve newlines
+                val newStreaming = switchUseStreaming.isChecked
+                val newPageTap = switchPageTap.isChecked
+                
+                val newTemp = etTemperature.text.toString().toDoubleOrNull() ?: 0.7
+                val newMaxTokens = etMaxTokens.text.toString().toIntOrNull() ?: 4096
+                val newTopP = etTopP.text.toString().toDoubleOrNull() ?: 1.0
+                val newFreqPen = etFrequencyPenalty.text.toString().toDoubleOrNull() ?: 0.0
+                val newPresPen = etPresencePenalty.text.toString().toDoubleOrNull() ?: 0.0
+                val newAssistantRole = etAssistantRole.text.toString().takeIf { it.isNotBlank() } ?: "assistant"
+
+                // Update settings object
+                val updatedSettings = readerSettings.copy(
+                    serverBaseUrl = if (newUrl.isNotEmpty()) newUrl else readerSettings.serverBaseUrl,
+                    apiKey = newApiKey,
+                    aiModelName = if (newModelName.isNotEmpty()) newModelName else readerSettings.aiModelName,
+                    aiSystemPrompt = if (newSystemPrompt.isNotEmpty()) newSystemPrompt else readerSettings.aiSystemPrompt,
+                    aiUserPromptTemplate = if (newUserPromptTemplate.isNotEmpty()) newUserPromptTemplate else readerSettings.aiUserPromptTemplate,
+                    useStreaming = newStreaming,
+                    pageTapEnabled = newPageTap,
+                    temperature = newTemp,
+                    maxTokens = newMaxTokens,
+                    topP = newTopP,
+                    frequencyPenalty = newFreqPen,
+                    presencePenalty = newPresPen,
+                    assistantRole = newAssistantRole,
+                    updatedAt = System.currentTimeMillis()
+                )
+
+                updatedSettings.saveTo(prefs)
+                
+                if (newUrl != readerSettings.serverBaseUrl) {
+                     Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
                 }
+                 if (newApiKey != readerSettings.apiKey) {
+                     Toast.makeText(this, "API Key updated", Toast.LENGTH_SHORT).show()
+                }
+
                 pushSettingsToCloud()
             }
             .create()
 
+        btnAiProfiles.setOnClickListener {
+            dialog.dismiss()
+            my.hinoki.booxreader.data.ui.settings.AiProfileListActivity.open(this@ReaderActivity)
+        }
+
+        /* Removed redundant specific listeners as we save all on close now for simplicity and consistency */
         
         btnSettingsAddBookmark.setOnClickListener { addBookmarkFromCurrentPosition() }
         btnSettingsShowBookmarks.setOnClickListener { openBookmarkList() }
 
+        // Switch listeners update UI state but save happens on Close
         switchPageTap.setOnCheckedChangeListener { _, isChecked ->
-            pageTapEnabled = isChecked
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("page_tap_enabled", isChecked).apply()
+             pageTapEnabled = isChecked
         }
 
         switchUseStreaming.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean("use_streaming", isChecked).apply()
-            val msg = if (isChecked) "Streaming enabled (/ws)" else "Streaming disabled"
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+             val msg = if (isChecked) "Streaming enabled (/ws)" else "Streaming disabled"
+             // Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
         }
 
         dialog.show()

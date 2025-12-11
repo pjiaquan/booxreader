@@ -13,6 +13,11 @@ class TokenAuthenticator(private val tokenManager: TokenManager) : Authenticator
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     override fun authenticate(route: Route?, response: Response): Request? {
+        // Skip auth for requests explicitly tagged
+        if (response.request.tag(String::class.java) == "SKIP_AUTH") {
+            return null
+        }
+
         synchronized(this) {
             val currentAccessToken = tokenManager.getAccessToken()
             val requestToken = response.request.header("Authorization")?.removePrefix("Bearer ")

@@ -1,0 +1,17 @@
+# Telegram Bot Configuration for BooxReader
+# 
+# To enable Telegram integration:
+# 1. Create a Telegram bot using @BotFather
+# 2. Get your chat ID (you can use @userinfobot to get it)
+# 3. Copy this file to .telegram_config
+# 4. Fill in your bot token and chat ID
+# 5. Set TELEGRAM_ENABLED=true
+
+# Your Telegram bot token from @BotFather
+TELEGRAM_BOT_TOKEN="your_bot_token_here"
+
+# Your Telegram chat ID (can be user ID or group ID)
+TELEGRAM_CHAT_ID="your_chat_id_here"
+
+# Enable Telegram integration
+TELEGRAM_ENABLED=false
