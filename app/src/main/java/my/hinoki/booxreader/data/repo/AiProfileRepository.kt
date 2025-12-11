@@ -97,6 +97,14 @@ class AiProfileRepository(
     }
     
     suspend fun sync() = withContext(Dispatchers.IO) {
-        syncRepo.pullProfiles()
+        // First push any local changes to ensure they're backed up
+        val localProfiles = dao.getLocalOnly()
+        localProfiles.forEach { localProfile ->
+            syncRepo.pushProfile(localProfile)
+        }
+        
+        // Then pull latest changes from cloud
+        val syncedCount = syncRepo.pullProfiles()
+        syncedCount
     }
 }

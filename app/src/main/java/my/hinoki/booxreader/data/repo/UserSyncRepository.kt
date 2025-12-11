@@ -707,6 +707,12 @@ class UserSyncRepository(
             systemPrompt = profile.systemPrompt,
             userPromptTemplate = profile.userPromptTemplate,
             useStreaming = profile.useStreaming,
+            temperature = profile.temperature,
+            maxTokens = profile.maxTokens,
+            topP = profile.topP,
+            frequencyPenalty = profile.frequencyPenalty,
+            presencePenalty = profile.presencePenalty,
+            assistantRole = profile.assistantRole,
             createdAt = profile.createdAt,
             updatedAt = now
         )
@@ -760,6 +766,12 @@ class UserSyncRepository(
                 systemPrompt = remote.systemPrompt,
                 userPromptTemplate = remote.userPromptTemplate,
                 useStreaming = remote.useStreaming,
+                temperature = remote.temperature,
+                maxTokens = remote.maxTokens,
+                topP = remote.topP,
+                frequencyPenalty = remote.frequencyPenalty,
+                presencePenalty = remote.presencePenalty,
+                assistantRole = remote.assistantRole,
                 remoteId = remote.remoteId,
                 createdAt = if (remote.createdAt > 0) remote.createdAt else (existing?.createdAt ?: System.currentTimeMillis()),
                 updatedAt = remote.updatedAt,
@@ -898,6 +910,12 @@ data class RemoteAiProfile(
     val systemPrompt: String = "",
     val userPromptTemplate: String = "",
     val useStreaming: Boolean = false,
+    val temperature: Double = 0.7,
+    val maxTokens: Int = 4096,
+    val topP: Double = 1.0,
+    val frequencyPenalty: Double = 0.0,
+    val presencePenalty: Double = 0.0,
+    val assistantRole: String = "assistant",
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L
 )

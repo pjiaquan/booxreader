@@ -118,45 +118,6 @@ data class ReaderSettings(
             .apply()
     }
 
-    /**
-     * Gets the current AI settings that should be used for API calls.
-     * These settings come from the currently active AI profile.
-     */
-    fun getCurrentAiSettings(): AiSettings {
-        return AiSettings(
-            modelName = aiModelName,
-            apiKey = apiKey,
-            serverBaseUrl = serverBaseUrl,
-            systemPrompt = aiSystemPrompt,
-            userPromptTemplate = aiUserPromptTemplate,
-            assistantRole = assistantRole,
-            useStreaming = useStreaming,
-            temperature = temperature,
-            maxTokens = maxTokens,
-            topP = topP,
-            frequencyPenalty = frequencyPenalty,
-            presencePenalty = presencePenalty
-        )
-    }
-
-    /**
-     * Data class representing AI settings for API calls
-     */
-    data class AiSettings(
-        val modelName: String,
-        val apiKey: String,
-        val serverBaseUrl: String,
-        val systemPrompt: String,
-        val userPromptTemplate: String,
-        val assistantRole: String,
-        val useStreaming: Boolean,
-        val temperature: Double,
-        val maxTokens: Int,
-        val topP: Double,
-        val frequencyPenalty: Double,
-        val presencePenalty: Double
-    )
-
     companion object {
         const val PREFS_NAME = "reader_prefs"
 

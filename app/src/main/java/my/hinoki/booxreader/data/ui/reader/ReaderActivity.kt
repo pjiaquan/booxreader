@@ -1476,17 +1476,6 @@ class ReaderActivity : AppCompatActivity() {
         val switchPageTap = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
         val etApiKey = dialogView.findViewById<EditText>(R.id.etApiKey)
-        val etModelName = dialogView.findViewById<EditText>(R.id.etModelName)
-        val etSystemPrompt = dialogView.findViewById<EditText>(R.id.etSystemPrompt)
-        val etUserPromptTemplate = dialogView.findViewById<EditText>(R.id.etUserPromptTemplate)
-        val switchUseStreaming = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchUseStreaming)
-        
-        // Gen Params
-        val etTemperature = dialogView.findViewById<EditText>(R.id.etTemperature)
-        val etMaxTokens = dialogView.findViewById<EditText>(R.id.etMaxTokens)
-        val etTopP = dialogView.findViewById<EditText>(R.id.etTopP)
-        val etFrequencyPenalty = dialogView.findViewById<EditText>(R.id.etFrequencyPenalty)
-        val etPresencePenalty = dialogView.findViewById<EditText>(R.id.etPresencePenalty)
 
         // Add Security Buttons and Boox-specific settings
         // dialogView is a ScrollView, so we need to get its child LinearLayout
@@ -1676,19 +1665,7 @@ class ReaderActivity : AppCompatActivity() {
 
         etServerUrl.setText(readerSettings.serverBaseUrl)
         etApiKey.setText(readerSettings.apiKey)
-        etModelName.setText(readerSettings.aiModelName)
-        etSystemPrompt.setText(readerSettings.aiSystemPrompt)
-        etUserPromptTemplate.setText(readerSettings.aiUserPromptTemplate)
-        switchUseStreaming.isChecked = readerSettings.useStreaming
         switchPageTap.isChecked = readerSettings.pageTapEnabled
-        
-        etTemperature.setText(readerSettings.temperature.toString())
-        etMaxTokens.setText(readerSettings.maxTokens.toString())
-        etTopP.setText(readerSettings.topP.toString())
-        etFrequencyPenalty.setText(readerSettings.frequencyPenalty.toString())
-        etPresencePenalty.setText(readerSettings.presencePenalty.toString())
-        val etAssistantRole = dialogView.findViewById<EditText>(R.id.etAssistantRole)
-        etAssistantRole.setText(readerSettings.assistantRole)
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -1696,34 +1673,13 @@ class ReaderActivity : AppCompatActivity() {
                 // Save settings
                 val newUrl = etServerUrl.text.toString().trim()
                 val newApiKey = etApiKey.text.toString().trim()
-                val newModelName = etModelName.text.toString().trim()
-                val newSystemPrompt = etSystemPrompt.text.toString() // preserve newlines
-                val newUserPromptTemplate = etUserPromptTemplate.text.toString() // preserve newlines
-                val newStreaming = switchUseStreaming.isChecked
                 val newPageTap = switchPageTap.isChecked
-                
-                val newTemp = etTemperature.text.toString().toDoubleOrNull() ?: 0.7
-                val newMaxTokens = etMaxTokens.text.toString().toIntOrNull() ?: 4096
-                val newTopP = etTopP.text.toString().toDoubleOrNull() ?: 1.0
-                val newFreqPen = etFrequencyPenalty.text.toString().toDoubleOrNull() ?: 0.0
-                val newPresPen = etPresencePenalty.text.toString().toDoubleOrNull() ?: 0.0
-                val newAssistantRole = etAssistantRole.text.toString().takeIf { it.isNotBlank() } ?: "assistant"
 
                 // Update settings object
                 val updatedSettings = readerSettings.copy(
                     serverBaseUrl = if (newUrl.isNotEmpty()) newUrl else readerSettings.serverBaseUrl,
                     apiKey = newApiKey,
-                    aiModelName = if (newModelName.isNotEmpty()) newModelName else readerSettings.aiModelName,
-                    aiSystemPrompt = if (newSystemPrompt.isNotEmpty()) newSystemPrompt else readerSettings.aiSystemPrompt,
-                    aiUserPromptTemplate = if (newUserPromptTemplate.isNotEmpty()) newUserPromptTemplate else readerSettings.aiUserPromptTemplate,
-                    useStreaming = newStreaming,
                     pageTapEnabled = newPageTap,
-                    temperature = newTemp,
-                    maxTokens = newMaxTokens,
-                    topP = newTopP,
-                    frequencyPenalty = newFreqPen,
-                    presencePenalty = newPresPen,
-                    assistantRole = newAssistantRole,
                     updatedAt = System.currentTimeMillis()
                 )
 
@@ -1755,10 +1711,7 @@ class ReaderActivity : AppCompatActivity() {
              pageTapEnabled = isChecked
         }
 
-        switchUseStreaming.setOnCheckedChangeListener { _, isChecked ->
-             val msg = if (isChecked) "Streaming enabled (/ws)" else "Streaming disabled"
-             // Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-        }
+
 
         dialog.show()
     }

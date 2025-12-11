@@ -18,8 +18,7 @@
             android:textStyle="bold"
             android:layout_marginBottom="12dp"/>
 
-  
-        
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -120,173 +119,28 @@
             android:inputType="textPassword"
             android:textSize="14sp" />
 
-
-
-        <LinearLayout
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="8dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="AI Model Name"
-                android:textStyle="bold"
-                android:textSize="14sp" />
-
-            <EditText
-                android:id="@+id/etModelName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="deepseek-chat"
-                android:inputType="text"
-                android:textSize="14sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="System Prompt"
-                android:textStyle="bold"
-                android:textSize="14sp"
-                android:layout_marginTop="8dp"/>
-
-            <EditText
-                android:id="@+id/etSystemPrompt"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minLines="3"
-                android:maxLines="8"
-                android:scrollbars="vertical"
-                android:gravity="top|start"
-                android:inputType="textMultiLine"
-                android:textSize="12sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="User Prompt Hint (append to text)"
-                android:textStyle="bold"
-                android:textSize="14sp"
-                android:layout_marginTop="8dp"/>
-
-            <EditText
-                android:id="@+id/etUserPromptTemplate"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minLines="2"
-                android:maxLines="5"
-                android:scrollbars="vertical"
-                android:gravity="top|start"
-                android:inputType="textMultiLine"
-                android:textSize="12sp" />
-
-        </LinearLayout>
-
-
-        
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Assistant Role Name"
-            android:textStyle="bold"
-            android:textSize="14sp"
-            android:layout_marginTop="8dp"/>
-
-        <EditText
-            android:id="@+id/etAssistantRole"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="assistant"
-            android:inputType="text"
-            android:textSize="14sp" />
+            android:layout_height="1dp"
+            android:background="#DDDDDD"
+            android:layout_marginVertical="8dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Advanced Parameters"
+            android:text="AI Settings"
+            android:textSize="18sp"
             android:textStyle="bold"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AI settings have been moved to AI Profiles for better organization and management. Click the button below to manage your AI models and settings."
             android:textSize="14sp"
-            android:layout_marginTop="12dp"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="4dp">
-            
-            <EditText
-                android:id="@+id/etTemperature"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Temp (0.7)"
-                android:inputType="numberDecimal"
-                android:textSize="12sp" />
-                
-            <EditText
-                android:id="@+id/etMaxTokens"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Tokens (4096)"
-                android:inputType="number"
-                android:textSize="12sp" />
-                
-             <EditText
-                android:id="@+id/etTopP"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Top P (1.0)"
-                android:inputType="numberDecimal"
-                android:textSize="12sp" />
-        </LinearLayout>
-        
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            
-             <EditText
-                android:id="@+id/etFrequencyPenalty"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Freq Pen (0.0)"
-                android:inputType="numberDecimal"
-                android:textSize="12sp" />
-                
-             <EditText
-                android:id="@+id/etPresencePenalty"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Pres Pen (0.0)"
-                android:inputType="numberDecimal"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="12dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Use streaming (append /ws)"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchUseStreaming"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
+            android:textColor="#666666"
+            android:layout_marginBottom="12dp" />
 
     </LinearLayout>
 </ScrollView>

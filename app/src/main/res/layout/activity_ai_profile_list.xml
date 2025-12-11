@@ -17,12 +17,22 @@
         tools:listitem="@layout/item_ai_profile" />
 
     <Button
+        android:id="@+id/btnSync"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Sync with Cloud"
+        android:layout_margin="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btnImport"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <Button
         android:id="@+id/btnImport"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Import JSON File"
         android:layout_margin="16dp"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@id/btnSync"
         app:layout_constraintEnd_toStartOf="@id/btnCreate"
         app:layout_constraintBottom_toBottomOf="parent" />
 

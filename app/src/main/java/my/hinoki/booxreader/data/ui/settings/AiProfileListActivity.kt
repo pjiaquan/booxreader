@@ -57,6 +57,10 @@ class AiProfileListActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         
+        binding.btnSync.setOnClickListener {
+            syncProfiles()
+        }
+        
         binding.btnImport.setOnClickListener {
             openFilePicker()
         }
@@ -69,6 +73,18 @@ class AiProfileListActivity : AppCompatActivity() {
     private fun observeData() {
         repository.allProfiles.observe(this) { profiles ->
             adapter.submitList(profiles)
+        }
+    }
+
+    private fun syncProfiles() {
+        lifecycleScope.launch {
+            try {
+                val count = repository.sync()
+                Toast.makeText(this@AiProfileListActivity, "Sync completed: $count profiles updated from cloud", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this@AiProfileListActivity, "Sync failed: ${e.message}", Toast.LENGTH_LONG).show()
+                e.printStackTrace()
+            }
         }
     }
 
