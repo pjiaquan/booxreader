@@ -150,7 +150,7 @@ send_apk_to_telegram() {
         return 1
     fi
     
-    local apk_path="app/build/outputs/apk/debug/app-debug.apk"
+    local apk_path="app/build/outputs/apk/release/app-release.apk"
     
     if [ ! -f "$apk_path" ]; then
         echo "Error: APK not found at $apk_path"
@@ -251,11 +251,11 @@ main() {
     
     # 1. Compile the debug APK
     echo "Building the application..."
-    ./gradlew assembleDebug
+    ./gradlew assembleRelease
     
     # 2. Install the APK
     echo "Installing the APK..."
-    local apk_path="app/build/outputs/apk/debug/app-debug.apk"
+    local apk_path="app/build/outputs/apk/release/app-release.apk"
     
     if [ ! -f "$apk_path" ]; then
         echo "Error: APK not found at $apk_path"

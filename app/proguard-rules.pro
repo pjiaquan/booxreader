@@ -19,3 +19,38 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Standard R8/ProGuard Rules for Common Libraries ---
+
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.android.AndroidDispatcherFactory {
+    <init>();
+}
+
+# Retrofit
+-keepattributes Signature
+-keepattributes Exceptions
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+
+# Gson
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class my.hinoki.booxreader.data.remote.** { *; }
+-keep class my.hinoki.booxreader.data.db.** { *; }
+-keep class my.hinoki.booxreader.data.model.** { *; }
+
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
+
+# Readium (Prevent overly aggressive stripping of navigator internals)
+-keep class org.readium.** { *; }
+-dontwarn org.readium.**
+
+# OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
