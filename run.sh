@@ -8,7 +8,7 @@ set -e
 # TELEGRAM_CHAT_ID="your_chat_id"
 # TELEGRAM_ENABLED=true
 TELEGRAM_CONFIG_FILE=".telegram_config"
-TELEGRAM_ENABLED=false
+TELEGRAM_ENABLED=true
 SIGNING_ENV_HELPER="scripts/set-release-env.sh"
 
 # Load Telegram configuration if file exists
