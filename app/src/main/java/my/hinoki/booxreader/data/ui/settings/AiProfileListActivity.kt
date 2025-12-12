@@ -80,9 +80,25 @@ class AiProfileListActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val count = repository.sync()
-                Toast.makeText(this@AiProfileListActivity, "Sync completed: $count profiles updated from cloud", Toast.LENGTH_SHORT).show()
+                if (count > 0) {
+                    Toast.makeText(
+                        this@AiProfileListActivity, 
+                        "Sync completed: $count profiles updated", 
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        this@AiProfileListActivity, 
+                        "Sync completed: All profiles are up to date", 
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             } catch (e: Exception) {
-                Toast.makeText(this@AiProfileListActivity, "Sync failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@AiProfileListActivity, 
+                    "Sync failed: ${e.message}", 
+                    Toast.LENGTH_LONG
+                ).show()
                 e.printStackTrace()
             }
         }
@@ -98,11 +114,19 @@ class AiProfileListActivity : AppCompatActivity() {
                 contentResolver.openInputStream(uri)?.use { inputStream ->
                     val reader = BufferedReader(InputStreamReader(inputStream))
                     val jsonString = reader.readText()
-                    repository.importProfile(jsonString)
-                    Toast.makeText(this@AiProfileListActivity, "Profile Imported Successfully", Toast.LENGTH_SHORT).show()
+                    val importedProfile = repository.importProfile(jsonString)
+                    Toast.makeText(
+                        this@AiProfileListActivity, 
+                        "Profile '${importedProfile.name}' imported and synced successfully", 
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@AiProfileListActivity, "Import Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@AiProfileListActivity, 
+                    "Import Failed: ${e.message}", 
+                    Toast.LENGTH_LONG
+                ).show()
                 e.printStackTrace()
             }
         }

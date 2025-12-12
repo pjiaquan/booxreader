@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="my.hinoki.booxreader">
+
+    <application>
+        <!-- Debug-only launcher for AI Profile list to ease adb access -->
+        <activity
+            android:name="my.hinoki.booxreader.data.ui.settings.AiProfileListActivity"
+            android:exported="true"
+            android:enabled="true"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="my.hinoki.booxreader.DEBUG_OPEN_AI_PROFILES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

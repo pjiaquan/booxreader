@@ -695,14 +695,32 @@ class UserSyncRepository(
     }
 
     suspend fun pushProfile(profile: AiProfileEntity): AiProfileEntity? = withContext(io) {
-        val ref = userDoc() ?: return@withContext null
+        val ref = userDoc() ?: run {
+            android.util.Log.w("UserSyncRepository", "pushProfile: User not signed in")
+            return@withContext null
+        }
+        
         val now = System.currentTimeMillis()
         val remoteId = profile.remoteId ?: ref.collection(COL_AI_PROFILES).document().id
+        
+        android.util.Log.d("UserSyncRepository", "Pushing profile '${profile.name}' (remoteId: $remoteId)")
+        
+        // Check for existing remote profile to handle conflicts
+        val existingRemote = try {
+            ref.collection(COL_AI_PROFILES).document(remoteId).get().await()
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "Failed to check existing remote profile: ${e.message}", e)
+            null
+        }
+        
+        // Never upload the real API key to Firestore; keep it local only
+        val sanitizedApiKey = ""
+
         val payload = RemoteAiProfile(
             remoteId = remoteId,
             name = profile.name,
             modelName = profile.modelName,
-            apiKey = profile.apiKey,
+            apiKey = sanitizedApiKey,
             serverBaseUrl = profile.serverBaseUrl,
             systemPrompt = profile.systemPrompt,
             userPromptTemplate = profile.userPromptTemplate,
@@ -717,39 +735,68 @@ class UserSyncRepository(
             updatedAt = now
         )
 
-        runCatching {
+        try {
             ref.collection(COL_AI_PROFILES)
                 .document(remoteId)
                 .set(payload, SetOptions.merge())
                 .await()
+            android.util.Log.i("UserSyncRepository", "Successfully pushed profile '${profile.name}' to Firestore")
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "Failed to push profile '${profile.name}' to Firestore: ${e.message}", e)
+            return@withContext null
         }
 
         val updated = profile.copy(remoteId = remoteId, isSynced = true, updatedAt = now)
         val dao = db.aiProfileDao()
-        if (updated.id == 0L) {
-            val newId = dao.insert(updated)
-            updated.copy(id = newId)
-        } else {
-            dao.update(updated)
-            updated
+        try {
+            if (updated.id == 0L) {
+                val newId = dao.insert(updated)
+                android.util.Log.d("UserSyncRepository", "Inserted new profile with ID: $newId")
+                updated.copy(id = newId)
+            } else {
+                dao.update(updated)
+                android.util.Log.d("UserSyncRepository", "Updated existing profile with ID: ${updated.id}")
+                updated
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "Failed to update local database for profile '${profile.name}': ${e.message}", e)
+            return@withContext null
         }
     }
 
     suspend fun pullProfiles(): Int = withContext(io) {
-        val ref = userDoc() ?: return@withContext 0
+        val ref = userDoc() ?: run {
+            android.util.Log.w("UserSyncRepository", "pullProfiles: User not signed in")
+            return@withContext 0
+        }
         val dao = db.aiProfileDao()
 
+        android.util.Log.d("UserSyncRepository", "Starting pullProfiles operation")
+
         // Push local-only first
-        runCatching {
-            dao.getLocalOnly().forEach { local ->
-                pushProfile(local)
+        try {
+            val localProfiles = dao.getPendingSync()
+            android.util.Log.d("UserSyncRepository", "Found ${localProfiles.size} local profiles pending sync to push first")
+            localProfiles.forEach { local ->
+                try {
+                    pushProfile(local)
+                    android.util.Log.i("UserSyncRepository", "Pushed pending profile: ${local.name}")
+                } catch (e: Exception) {
+                    android.util.Log.e("UserSyncRepository", "Failed to push pending profile '${local.name}': ${e.message}", e)
+                }
             }
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "Failed to push pending profiles: ${e.message}", e)
         }
 
-        val snapshot = runCatching {
+        val snapshot = try {
             ref.collection(COL_AI_PROFILES).get().await()
-        }.getOrElse { return@withContext 0 }
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "Failed to fetch remote profiles: ${e.message}", e)
+            return@withContext 0
+        }
 
+        android.util.Log.d("UserSyncRepository", "Found ${snapshot.documents.size} remote profiles")
         var updatedCount = 0
 
         snapshot.documents.forEach { doc ->
@@ -757,35 +804,114 @@ class UserSyncRepository(
             if (remote.remoteId.isBlank()) return@forEach
 
             val existing = dao.getByRemoteId(remote.remoteId)
-            val entity = AiProfileEntity(
-                id = existing?.id ?: 0,
-                name = remote.name,
-                modelName = remote.modelName,
-                apiKey = remote.apiKey,
-                serverBaseUrl = remote.serverBaseUrl,
-                systemPrompt = remote.systemPrompt,
-                userPromptTemplate = remote.userPromptTemplate,
-                useStreaming = remote.useStreaming,
-                temperature = remote.temperature,
-                maxTokens = remote.maxTokens,
-                topP = remote.topP,
-                frequencyPenalty = remote.frequencyPenalty,
-                presencePenalty = remote.presencePenalty,
-                assistantRole = remote.assistantRole,
-                remoteId = remote.remoteId,
-                createdAt = if (remote.createdAt > 0) remote.createdAt else (existing?.createdAt ?: System.currentTimeMillis()),
-                updatedAt = remote.updatedAt,
-                isSynced = true
-            )
-
+            
+            // Enhanced conflict resolution strategy
             if (existing == null) {
-                dao.insert(entity)
-                updatedCount++
+                // New profile from cloud - add it
+                android.util.Log.i("UserSyncRepository", "Adding new profile from cloud: ${remote.name}")
+                val entity = AiProfileEntity(
+                    id = 0, // Will be auto-generated
+                    name = remote.name,
+                    modelName = remote.modelName,
+                    apiKey = remote.apiKey,
+                    serverBaseUrl = remote.serverBaseUrl,
+                    systemPrompt = remote.systemPrompt,
+                    userPromptTemplate = remote.userPromptTemplate,
+                    useStreaming = remote.useStreaming,
+                    temperature = remote.temperature,
+                    maxTokens = remote.maxTokens,
+                    topP = remote.topP,
+                    frequencyPenalty = remote.frequencyPenalty,
+                    presencePenalty = remote.presencePenalty,
+                    assistantRole = remote.assistantRole,
+                    remoteId = remote.remoteId,
+                    createdAt = if (remote.createdAt > 0) remote.createdAt else System.currentTimeMillis(),
+                    updatedAt = remote.updatedAt,
+                    isSynced = true
+                )
+                try {
+                    dao.insert(entity)
+                    updatedCount++
+                } catch (e: Exception) {
+                    android.util.Log.e("UserSyncRepository", "Failed to insert new profile '${remote.name}': ${e.message}", e)
+                }
             } else if (remote.updatedAt > existing.updatedAt) {
-                dao.update(entity)
-                updatedCount++
+                // Remote is newer - update local (with conflict resolution)
+                android.util.Log.i("UserSyncRepository", "Remote profile '${remote.name}' is newer (remote: ${remote.updatedAt}, local: ${existing.updatedAt})")
+                // Strategy: Always prefer remote changes for most fields, but preserve local
+                // sensitive data like API keys if they exist locally
+                val entity = AiProfileEntity(
+                    id = existing.id,
+                    name = remote.name,
+                    modelName = remote.modelName,
+                    // Conflict resolution: prefer local API key if it exists
+                    apiKey = if (existing.apiKey.isNotBlank()) existing.apiKey else remote.apiKey,
+                    serverBaseUrl = remote.serverBaseUrl,
+                    systemPrompt = remote.systemPrompt,
+                    userPromptTemplate = remote.userPromptTemplate,
+                    useStreaming = remote.useStreaming,
+                    temperature = remote.temperature,
+                    maxTokens = remote.maxTokens,
+                    topP = remote.topP,
+                    frequencyPenalty = remote.frequencyPenalty,
+                    presencePenalty = remote.presencePenalty,
+                    assistantRole = remote.assistantRole,
+                    remoteId = remote.remoteId,
+                    createdAt = existing.createdAt, // Preserve original creation time
+                    updatedAt = remote.updatedAt,
+                    isSynced = true
+                )
+                try {
+                    dao.update(entity)
+                    updatedCount++
+                } catch (e: Exception) {
+                    android.util.Log.e("UserSyncRepository", "Failed to update existing profile '${remote.name}': ${e.message}", e)
+                }
+            } else if (existing.updatedAt > remote.updatedAt && !existing.isSynced) {
+                // Local is newer and not synced - push to remote
+                android.util.Log.i("UserSyncRepository", "Local profile '${existing.name}' is newer and not synced, pushing to remote")
+                try {
+                    pushProfile(existing)
+                    updatedCount++
+                } catch (e: Exception) {
+                    android.util.Log.e("UserSyncRepository", "Failed to push newer local profile '${existing.name}': ${e.message}", e)
+                }
+            } else if (Math.abs(remote.updatedAt - existing.updatedAt) < 60000) {
+                // Timestamps are very close (within 1 minute) - potential conflict
+                android.util.Log.w("UserSyncRepository", "Potential conflict detected for profile '${existing.name}' - timestamps very close")
+                // Strategy: Merge changes, preferring local changes for user-editable fields
+                val mergedEntity = AiProfileEntity(
+                    id = existing.id,
+                    name = existing.name, // Prefer local name
+                    modelName = existing.modelName, // Prefer local model
+                    apiKey = existing.apiKey, // Always prefer local API key
+                    serverBaseUrl = existing.serverBaseUrl, // Prefer local server
+                    systemPrompt = existing.systemPrompt, // Prefer local prompts
+                    userPromptTemplate = existing.userPromptTemplate,
+                    useStreaming = existing.useStreaming,
+                    temperature = existing.temperature,
+                    maxTokens = existing.maxTokens,
+                    topP = existing.topP,
+                    frequencyPenalty = existing.frequencyPenalty,
+                    presencePenalty = existing.presencePenalty,
+                    assistantRole = existing.assistantRole,
+                    remoteId = remote.remoteId,
+                    createdAt = existing.createdAt,
+                    updatedAt = System.currentTimeMillis(), // New timestamp for merged version
+                    isSynced = false // Mark as not synced so it gets pushed back
+                )
+                try {
+                    dao.update(mergedEntity)
+                    // Push the merged version back to remote
+                    pushProfile(mergedEntity)
+                    updatedCount++
+                } catch (e: Exception) {
+                    android.util.Log.e("UserSyncRepository", "Failed to merge conflicting profile '${existing.name}': ${e.message}", e)
+                }
             }
         }
+        
+        android.util.Log.i("UserSyncRepository", "pullProfiles completed: $updatedCount profiles updated")
         updatedCount
     }
 

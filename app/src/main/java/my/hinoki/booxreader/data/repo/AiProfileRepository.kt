@@ -21,7 +21,7 @@ class AiProfileRepository(
 
     val allProfiles: LiveData<List<AiProfileEntity>> = dao.getAll().asLiveData()
 
-    suspend fun importProfile(jsonString: String) = withContext(Dispatchers.IO) {
+    suspend fun importProfile(jsonString: String): AiProfileEntity = withContext(Dispatchers.IO) {
         try {
             // Check if JSON is a valid profile structure
             // We use a temporary data class or Map to validate basic fields
@@ -43,28 +43,49 @@ class AiProfileRepository(
                 systemPrompt = systemPrompt,
                 userPromptTemplate = userPromptTemplate,
                 assistantRole = profileMap["assistantRole"] as? String ?: "assistant",
-                useStreaming = useStreaming
+                useStreaming = useStreaming,
+                // Additional fields with defaults
+                temperature = (profileMap["temperature"] as? Double) ?: 0.7,
+                maxTokens = (profileMap["maxTokens"] as? Double)?.toInt() ?: 4096,
+                topP = (profileMap["topP"] as? Double) ?: 1.0,
+                frequencyPenalty = (profileMap["frequencyPenalty"] as? Double) ?: 0.0,
+                presencePenalty = (profileMap["presencePenalty"] as? Double) ?: 0.0
             )
             
-            addProfile(entity)
+            // Add the profile (this will also trigger an initial push)
+            return@withContext addProfile(entity)
         } catch (e: Exception) {
             e.printStackTrace()
-            throw IllegalArgumentException("Invalid Profile JSON")
+            throw IllegalArgumentException("Invalid Profile JSON: ${e.message}")
         }
     }
 
-    suspend fun addProfile(profile: AiProfileEntity) = withContext(Dispatchers.IO) {
-        val newId = dao.insert(profile)
-        // Trigger sync immediately
+    suspend fun addProfile(profile: AiProfileEntity): AiProfileEntity = withContext(Dispatchers.IO) {
+        // Always mark new profiles as needing sync
+        val unsyncedProfile = profile.copy(isSynced = false)
+        val newId = dao.insert(unsyncedProfile)
+        // Get the saved profile with generated ID
         val saved = dao.getById(newId)
         if (saved != null) {
-            syncRepo.pushProfile(saved)
+            // Trigger sync immediately
+            val synced = syncRepo.pushProfile(saved)
+            return@withContext synced ?: saved
         }
+        throw IllegalStateException("Failed to retrieve saved profile after insertion")
     }
     
-    suspend fun updateProfile(profile: AiProfileEntity) = withContext(Dispatchers.IO) {
-        dao.update(profile.copy(updatedAt = System.currentTimeMillis()))
-        syncRepo.pushProfile(profile)
+    suspend fun updateProfile(profile: AiProfileEntity): AiProfileEntity = withContext(Dispatchers.IO) {
+        // Mark as dirty before pushing so offline edits are retried later
+        val updatedProfile = profile.copy(
+            updatedAt = System.currentTimeMillis(),
+            isSynced = false
+        )
+        dao.update(updatedProfile)
+        
+        // Force immediate sync to Firestore
+        val synced = syncRepo.pushProfile(updatedProfile)
+        
+        return@withContext synced ?: updatedProfile
     }
 
     suspend fun deleteProfile(profile: AiProfileEntity) = withContext(Dispatchers.IO) {
@@ -96,15 +117,31 @@ class AiProfileRepository(
         syncRepo.pushSettings(newSettings)
     }
     
-    suspend fun sync() = withContext(Dispatchers.IO) {
-        // First push any local changes to ensure they're backed up
-        val localProfiles = dao.getLocalOnly()
-        localProfiles.forEach { localProfile ->
-            syncRepo.pushProfile(localProfile)
+    suspend fun sync(): Int = withContext(Dispatchers.IO) {
+        var totalSynced = 0
+        
+        try {
+            // First push any local changes to ensure they're backed up
+            val localProfiles = dao.getPendingSync()
+            localProfiles.forEach { localProfile ->
+                try {
+                    syncRepo.pushProfile(localProfile)
+                    totalSynced++
+                } catch (e: Exception) {
+                    // Log error but continue with other profiles
+                    e.printStackTrace()
+                }
+            }
+            
+            // Then pull latest changes from cloud
+            val pulledCount = syncRepo.pullProfiles()
+            totalSynced += pulledCount
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            throw e
         }
         
-        // Then pull latest changes from cloud
-        val syncedCount = syncRepo.pullProfiles()
-        syncedCount
+        return@withContext totalSynced
     }
 }

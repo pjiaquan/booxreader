@@ -16,6 +16,9 @@ interface AiProfileDao {
     
     @Query("SELECT * FROM ai_profiles WHERE remoteId IS NULL OR remoteId = ''")
     suspend fun getLocalOnly(): List<AiProfileEntity>
+    
+    @Query("SELECT * FROM ai_profiles WHERE isSynced = 0")
+    suspend fun getPendingSync(): List<AiProfileEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(profile: AiProfileEntity): Long
