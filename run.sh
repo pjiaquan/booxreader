@@ -22,7 +22,11 @@ fi
 check_dependencies() {
     local missing_tools=()
     
-    for tool in gradle adb git; do
+    # Prefer local Gradle wrapper
+    if [ ! -x "./gradlew" ]; then
+        missing_tools+=("./gradlew")
+    fi
+    for tool in adb git; do
         if ! command -v "$tool" &> /dev/null; then
             missing_tools+=("$tool")
         fi
