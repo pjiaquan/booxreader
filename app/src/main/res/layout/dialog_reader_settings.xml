@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Reader Settings"
+            android:text="@string/reader_settings_title"
             android:textSize="22sp"
             android:textStyle="bold"
             android:layout_marginBottom="12dp"/>
@@ -36,7 +36,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="點擊翻頁"
+                android:text="@string/reader_settings_tap_to_turn"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
@@ -49,7 +49,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Bookmarks"
+            android:text="@string/reader_settings_bookmarks"
             android:textSize="16sp"
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
@@ -66,7 +66,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="新增書籤" />
+                android:text="@string/reader_settings_add_bookmark" />
 
             <Space
                 android:layout_width="8dp"
@@ -77,7 +77,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="查看書籤" />
+                android:text="@string/reader_settings_view_bookmark" />
         </LinearLayout>
 
         <View
@@ -89,7 +89,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Server URL"
+            android:text="@string/reader_settings_server_url"
             android:textSize="16sp"
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
@@ -98,14 +98,14 @@
             android:id="@+id/etServerUrl"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="https://your-server.com"
+            android:hint="@string/reader_settings_server_url_hint"
             android:inputType="textUri"
             android:textSize="14sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="API Key"
+            android:text="@string/reader_settings_api_key"
             android:textSize="16sp"
             android:textStyle="bold"
             android:layout_marginTop="8dp"
@@ -115,7 +115,7 @@
             android:id="@+id/etApiKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="sk-..."
+            android:hint="@string/reader_settings_api_key_hint"
             android:inputType="textPassword"
             android:textSize="14sp" />
 
@@ -128,7 +128,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="AI Settings"
+            android:text="@string/reader_settings_ai_section_title"
             android:textSize="18sp"
             android:textStyle="bold"
             android:layout_marginTop="12dp"
@@ -137,7 +137,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="AI settings have been moved to AI Profiles for better organization and management. Click the button below to manage your AI models and settings."
+            android:text="@string/reader_settings_ai_section_body"
             android:textSize="14sp"
             android:textColor="#666666"
             android:layout_marginBottom="12dp" />

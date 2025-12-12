@@ -12,7 +12,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Profile Name">
+            android:hint="@string/profile_name_hint">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etName"
                 android:layout_width="match_parent"
@@ -23,7 +23,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Model Name (e.g. gpt-4)"
+            android:hint="@string/model_name_hint"
             android:layout_marginTop="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etModelName"
@@ -35,7 +35,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="API Key"
+            android:hint="@string/api_key_hint"
             android:layout_marginTop="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etApiKey"
@@ -47,7 +47,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Base URL"
+            android:hint="@string/base_url_hint"
             android:layout_marginTop="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etBaseUrl"
@@ -59,7 +59,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="System Prompt"
+            android:hint="@string/system_prompt_hint"
             android:layout_marginTop="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etSystemPrompt"
@@ -73,7 +73,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="User Prompt Template (%s)"
+            android:hint="@string/user_prompt_template_hint"
             android:layout_marginTop="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etUserPromptTemplate"
@@ -87,7 +87,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Assistant Role (default: assistant)"
+            android:hint="@string/assistant_role_hint"
             android:layout_marginTop="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etAssistantRole"
@@ -108,7 +108,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Temp (0-2)"
+                android:hint="@string/temperature_hint"
                 android:layout_marginEnd="4dp">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etTemperature"
@@ -121,7 +121,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Max Tokens"
+                android:hint="@string/max_tokens_hint"
                 android:layout_marginStart="4dp">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etMaxTokens"
@@ -142,7 +142,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Top P (0-1)"
+                android:hint="@string/top_p_hint"
                 android:layout_marginEnd="4dp">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etTopP"
@@ -155,7 +155,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Freq Pen (0-2)"
+                android:hint="@string/frequency_penalty_hint"
                 android:layout_marginStart="4dp">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etFrequencyPenalty"
@@ -168,7 +168,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Pres Pen (0-2)"
+                android:hint="@string/presence_penalty_hint"
                 android:layout_marginStart="4dp">
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etPresencePenalty"
@@ -182,21 +182,21 @@
             android:id="@+id/cbStreaming"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Use Streaming"
+            android:text="@string/streaming_toggle_label"
             android:layout_marginTop="8dp" />
 
         <CheckBox
             android:id="@+id/cbEnableGoogleSearch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Enable Google Search (Gemini native)"
+            android:text="@string/enable_google_search"
             android:layout_marginTop="4dp" />
 
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Save Profile"
+            android:text="@string/save_profile"
             android:layout_marginTop="16dp" />
 
     </LinearLayout>

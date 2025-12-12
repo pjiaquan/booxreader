@@ -70,14 +70,14 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Ainote" />
+            android:text="@string/reader_ai_note" />
 
         <Button
             android:id="@+id/btnAddBookmark"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="☆ Bookmark"
+            android:text="@string/reader_bookmark"
             android:visibility="gone" />
 
         <Button
@@ -85,20 +85,20 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Publish" />
+            android:text="@string/reader_publish" />
 
         <Button
             android:id="@+id/btnChapters"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="目錄" />
+            android:text="@string/reader_table_of_contents" />
 
         <Button
             android:id="@+id/btnSettings"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Settings" />
+            android:text="@string/reader_settings" />
     </LinearLayout>
 </LinearLayout>

@@ -19,7 +19,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Original Text (Question):"
+            android:text="@string/ai_note_original_label"
             android:textStyle="bold"
             android:textSize="24sp"
             android:layout_marginBottom="8dp"/>
@@ -38,7 +38,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="AI Response (Answer):"
+            android:text="@string/ai_note_response_label"
             android:textStyle="bold"
             android:textSize="24sp"
             android:layout_marginBottom="8dp"/>
@@ -57,7 +57,7 @@
             android:id="@+id/btnPublish"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Publish / Retry"
+            android:text="@string/ai_note_publish_retry"
             android:layout_marginTop="16dp"
             android:visibility="gone"
             android:backgroundTint="#1565C0"
@@ -67,7 +67,7 @@
             android:id="@+id/btnRepublishSelection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="重新發佈選取內容"
+            android:text="@string/ai_note_republish_selected"
             android:layout_marginTop="8dp"
             android:backgroundTint="#D84315"
             android:textColor="#FFFFFF"/>
@@ -84,7 +84,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="輸入後續提問"
+                android:hint="@string/ai_note_follow_up_hint"
                 android:inputType="textMultiLine"
                 android:minLines="1"
                 android:maxLines="4" />
@@ -93,7 +93,7 @@
                 android:id="@+id/btnFollowUp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="發佈"
+                android:text="@string/ai_note_publish"
                 android:layout_marginStart="8dp"
                 android:backgroundTint="#2E7D32"
                 android:textColor="#FFFFFF" />
@@ -120,7 +120,7 @@
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="16dp"
         android:src="@android:drawable/ic_menu_more"
-        android:contentDescription="快速滾動到底"
+        android:contentDescription="@string/ai_note_scroll_to_bottom"
         android:backgroundTint="?attr/colorPrimary"
         android:tint="@android:color/white"
         app:fabSize="mini"

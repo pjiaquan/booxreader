@@ -83,20 +83,20 @@ class AiProfileListActivity : AppCompatActivity() {
                 if (count > 0) {
                     Toast.makeText(
                         this@AiProfileListActivity, 
-                        "Sync completed: $count profiles updated", 
+                        getString(R.string.ai_profile_sync_completed_count, count), 
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
                     Toast.makeText(
                         this@AiProfileListActivity, 
-                        "Sync completed: All profiles are up to date", 
+                        getString(R.string.ai_profile_sync_completed_up_to_date), 
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(
                     this@AiProfileListActivity, 
-                    "Sync failed: ${e.message}", 
+                    getString(R.string.ai_profile_sync_failed, e.message ?: ""), 
                     Toast.LENGTH_LONG
                 ).show()
                 e.printStackTrace()
@@ -117,14 +117,14 @@ class AiProfileListActivity : AppCompatActivity() {
                     val importedProfile = repository.importProfile(jsonString)
                     Toast.makeText(
                         this@AiProfileListActivity, 
-                        "Profile '${importedProfile.name}' imported and synced successfully", 
+                        getString(R.string.ai_profile_import_success, importedProfile.name), 
                         Toast.LENGTH_SHORT
                     ).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(
                     this@AiProfileListActivity, 
-                    "Import Failed: ${e.message}", 
+                    getString(R.string.ai_profile_import_failed, e.message ?: ""), 
                     Toast.LENGTH_LONG
                 ).show()
                 e.printStackTrace()
@@ -170,20 +170,20 @@ class AiProfileListActivity : AppCompatActivity() {
     
     private fun applyProfile(profile: AiProfileEntity) {
         AlertDialog.Builder(this)
-            .setTitle("Apply Profile")
-            .setMessage("Apply settings from '${profile.name}'?")
-            .setPositiveButton("Apply") { _, _ ->
+            .setTitle(R.string.ai_profile_apply_title)
+            .setMessage(getString(R.string.ai_profile_apply_message, profile.name))
+            .setPositiveButton(R.string.ai_profile_apply_positive) { _, _ ->
                 lifecycleScope.launch {
                     repository.applyProfile(profile.id)
-                    Toast.makeText(this@AiProfileListActivity, "Settings Applied", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AiProfileListActivity, getString(R.string.ai_profile_settings_applied), Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.ai_profile_apply_negative, null)
             .show()
     }
 
     private fun showOptionsDialog(profile: AiProfileEntity) {
-        val options = arrayOf("Edit", "Duplicate", "Delete")
+        val options = resources.getStringArray(R.array.ai_profile_options)
         AlertDialog.Builder(this)
             .setTitle(profile.name)
             .setItems(options) { _, which ->
@@ -214,12 +214,12 @@ class AiProfileListActivity : AppCompatActivity() {
             id = 0,
             remoteId = null,
             isSynced = false,
-            name = "${profile.name} (Copy)",
+            name = getString(R.string.ai_profile_copy_name, profile.name),
             createdAt = now,
             updatedAt = now
         )
         repository.addProfile(copy)
-        Toast.makeText(this, "Profile duplicated", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.ai_profile_duplicated), Toast.LENGTH_SHORT).show()
     }
     
     companion object {

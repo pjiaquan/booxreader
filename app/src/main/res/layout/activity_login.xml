@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="BooxReader Login"
+        android:text="@string/login_title"
         android:textSize="24sp"
         android:textStyle="bold"
         android:layout_marginBottom="32dp"/>
@@ -17,7 +17,7 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Email"
+        android:hint="@string/email_label"
         android:layout_marginBottom="16dp">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etEmail"
@@ -29,7 +29,7 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Password"
+        android:hint="@string/password_label"
         android:layout_marginBottom="24dp">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/etPassword"
@@ -42,13 +42,13 @@
         android:id="@+id/btnLogin"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Sign In"/>
+        android:text="@string/login_sign_in"/>
 
     <Button
         android:id="@+id/btnGoogleSignIn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Sign In with Google"
+        android:text="@string/login_sign_in_google"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_marginTop="16dp"/>
 
@@ -56,7 +56,7 @@
         android:id="@+id/btnResendVerification"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="重寄驗證信"
+        android:text="@string/login_resend_verification"
         android:layout_marginTop="12dp"
         android:visibility="gone"/>
 
@@ -64,7 +64,7 @@
         android:id="@+id/tvRegister"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="No account? Register here"
+        android:text="@string/login_no_account_register"
         android:layout_marginTop="24dp"
         android:textColor="?attr/colorPrimary"/>
 

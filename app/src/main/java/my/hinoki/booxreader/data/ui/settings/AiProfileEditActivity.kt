@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -79,7 +80,7 @@ class AiProfileEditActivity : AppCompatActivity() {
         val assistantRole = binding.etAssistantRole.text.toString().takeIf { it.isNotBlank() } ?: "assistant"
 
         if (name.isBlank() || modelName.isBlank()) {
-            Toast.makeText(this, "Name and Model Name are required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.ai_profile_required_fields), Toast.LENGTH_SHORT).show()
             return
         }
         

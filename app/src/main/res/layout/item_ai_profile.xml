@@ -13,7 +13,7 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary" 
-        android:text="Profile Name" />
+        android:text="@string/ai_profile_name_placeholder" />
 
     <TextView
         android:id="@+id/tvModel"
@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:textSize="14sp"
         android:textColor="?android:attr/textColorSecondary"
-        android:text="Model Info"
+        android:text="@string/ai_profile_model_info"
         android:layout_marginTop="4dp" />
 
 </LinearLayout>

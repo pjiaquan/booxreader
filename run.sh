@@ -10,6 +10,7 @@ set -e
 TELEGRAM_CONFIG_FILE=".telegram_config"
 TELEGRAM_ENABLED=true
 SIGNING_ENV_HELPER="scripts/set-release-env.sh"
+ADB_AVAILABLE=true
 
 # Load Telegram configuration if file exists
 if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -27,11 +28,18 @@ check_dependencies() {
     if [ ! -x "./gradlew" ]; then
         missing_tools+=("./gradlew")
     fi
-    for tool in adb git; do
+    for tool in git; do
         if ! command -v "$tool" &> /dev/null; then
             missing_tools+=("$tool")
         fi
     done
+    
+    if command -v adb &> /dev/null; then
+        ADB_AVAILABLE=true
+    else
+        echo "Warning: adb not found; device install/launch will be skipped."
+        ADB_AVAILABLE=false
+    fi
     
     if [ ${#missing_tools[@]} -gt 0 ]; then
         echo "Error: Missing required tools: ${missing_tools[*]}"
@@ -57,9 +65,13 @@ load_signing_env() {
 
 # Check if Android device is connected
 check_adb_device() {
+    if [ "$ADB_AVAILABLE" != "true" ]; then
+        echo "ADB not available; skipping device checks."
+        return
+    fi
     if ! adb devices | grep -q "device"; then
-        echo "Error: No Android device connected or authorized"
-        exit 1
+        echo "Warning: No Android device connected or authorized; install/launch steps will be skipped."
+        ADB_AVAILABLE=false
     fi
 }
 
@@ -264,27 +276,29 @@ main() {
     # Load signing env vars if helper is present
     load_signing_env
     
-    # Check ADB device
+    # Check ADB device (non-fatal)
     check_adb_device
     
     # 1. Compile the debug APK
     echo "Building the application..."
     ./gradlew assembleRelease
     
-    # 2. Install the APK
-    echo "Installing the APK..."
+    # 2. Install the APK (if ADB is available)
     local apk_path="app/build/outputs/apk/release/app-release.apk"
-    
-    if [ ! -f "$apk_path" ]; then
-        echo "Error: APK not found at $apk_path"
-        exit 1
+    if [ "$ADB_AVAILABLE" = "true" ]; then
+        echo "Installing the APK..."
+        if [ ! -f "$apk_path" ]; then
+            echo "Error: APK not found at $apk_path"
+            exit 1
+        fi
+        adb install -r "$apk_path"
+        
+        # 3. Launch the main activity
+        echo "Launching the application..."
+        adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.data.ui.main.MainActivity
+    else
+        echo "Skipping install/launch because ADB is unavailable."
     fi
-    
-    adb install -r "$apk_path"
-    
-    # 3. Launch the main activity
-    echo "Launching the application..."
-    adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.data.ui.main.MainActivity
     
     # 4. Update version information
     echo "Updating version information..."

@@ -53,7 +53,7 @@ class LoginActivity : AppCompatActivity() {
             if (email.isNotBlank() && pass.isNotBlank()) {
                 viewModel.resendVerification(email, pass)
             } else {
-                Toast.makeText(this, "請輸入帳號密碼以重寄驗證信", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.login_resend_prompt), Toast.LENGTH_SHORT).show()
             }
         }
         
@@ -67,12 +67,12 @@ class LoginActivity : AppCompatActivity() {
                     is AuthState.Loading -> {
                         btnLogin.isEnabled = false
                         btnResend.visibility = View.GONE
-                    }
-                    is AuthState.Success -> {
-                        Toast.makeText(this@LoginActivity, "Login Successful", Toast.LENGTH_SHORT).show()
-                        btnResend.visibility = View.GONE
-                        finish()
-                    }
+                }
+                is AuthState.Success -> {
+                    Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
+                    btnResend.visibility = View.GONE
+                    finish()
+                }
                     is AuthState.Error -> {
                         btnLogin.isEnabled = true
                         Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_SHORT).show()

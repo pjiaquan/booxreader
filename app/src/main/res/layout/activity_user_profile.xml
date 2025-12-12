@@ -19,20 +19,20 @@
         android:layout_height="wrap_content"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:text="User Name"/>
+        android:text="@string/profile_username_placeholder"/>
 
     <TextView
         android:id="@+id/tvEmail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        android:text="user@example.com"
+        android:text="@string/profile_email_placeholder"
         android:layout_marginBottom="32dp"/>
 
     <Button
         android:id="@+id/btnLogout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Logout"/>
+        android:text="@string/profile_logout"/>
 
 </LinearLayout>
