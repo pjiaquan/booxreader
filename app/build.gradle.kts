@@ -51,15 +51,25 @@ android {
 
     val hasReleaseKeystore = releaseSigningConfig.storeFile != null
     if (!hasReleaseKeystore) {
-        logger.lifecycle("Release keystore not configured; falling back to debug signing for release builds.")
+        logger.lifecycle("Release keystore not configured; release builds will fail until a keystore is provided.")
+    }
+
+    val isReleaseTaskRequested = gradle.startParameter.taskNames.any { task ->
+        task.contains("Release", ignoreCase = true)
+    }
+    if (isReleaseTaskRequested && !hasReleaseKeystore) {
+        throw GradleException(
+            "Release signing is not configured. " +
+                "Configure keystore.properties or STORE_FILE/KEY* environment variables so existing users can upgrade."
+        )
     }
 
     defaultConfig {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 45
-        versionName = "1.1.44"
+        versionCode = 46
+        versionName = "1.1.45"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -73,11 +83,7 @@ android {
             // signingConfig = signingConfigs.getByName("release")
         }
         release {
-            signingConfig = if (hasReleaseKeystore) {
-                releaseSigningConfig
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = releaseSigningConfig
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

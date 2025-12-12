@@ -63,6 +63,29 @@ load_signing_env() {
     fi
 }
 
+ensure_signing_env() {
+    local missing=()
+    for var in KEY_ALIAS KEY_ALIAS_PASSWORD KEYSTORE_PASSWORD STORE_FILE; do
+        if [ -z "${!var:-}" ]; then
+            missing+=("$var")
+        fi
+    done
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        cat <<'EOF'
+Release signing env vars are missing. Set the following before running the build:
+  export STORE_FILE=/absolute/path/to/release.keystore   # or a base64 string of the keystore
+  export KEYSTORE_PASSWORD=***
+  export KEY_ALIAS=***
+  export KEY_ALIAS_PASSWORD=***
+
+Tip: scripts/set-release-env.sh can export these from a local backup directory.
+EOF
+        echo "Missing vars: ${missing[*]}"
+        exit 1
+    fi
+}
+
 # Check if Android device is connected
 check_adb_device() {
     if [ "$ADB_AVAILABLE" != "true" ]; then
@@ -275,6 +298,7 @@ main() {
     
     # Load signing env vars if helper is present
     load_signing_env
+    ensure_signing_env
     
     # Check ADB device (non-fatal)
     check_adb_device
