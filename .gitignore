@@ -33,6 +33,7 @@ release.keystore
 .gradle-local/
 .grok/
 app/.grok/
+.kotlin/
 
 # Local Android SDK / tooling archives
 android-sdk/
@@ -54,4 +55,3 @@ keystore.properties
 deepseek.json
 gemini_profile.json
 *_profile.json
-
