@@ -18,9 +18,6 @@ class TokenAuthenticator(private val tokenManager: TokenManager) : Authenticator
             return null
         }
 
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-
-    override fun authenticate(route: Route?, response: Response): Request? {
         synchronized(this) {
             val currentAccessToken = tokenManager.getAccessToken()
             val requestToken = response.request.header("Authorization")?.removePrefix("Bearer ")

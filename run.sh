@@ -9,6 +9,7 @@ set -e
 # TELEGRAM_ENABLED=true
 TELEGRAM_CONFIG_FILE=".telegram_config"
 TELEGRAM_ENABLED=false
+SIGNING_ENV_HELPER="scripts/set-release-env.sh"
 
 # Load Telegram configuration if file exists
 if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -41,6 +42,16 @@ check_dependencies() {
     if [ "$TELEGRAM_ENABLED" = "true" ] && ! command -v curl &> /dev/null; then
         echo "Warning: curl not found, Telegram integration will be disabled"
         TELEGRAM_ENABLED=false
+    fi
+}
+
+load_signing_env() {
+    if [ -f "$SIGNING_ENV_HELPER" ]; then
+        echo "Loading signing env from $SIGNING_ENV_HELPER..."
+        # shellcheck disable=SC1090
+        source "$SIGNING_ENV_HELPER"
+    else
+        echo "Signing env helper not found at $SIGNING_ENV_HELPER; skipping."
     fi
 }
 
@@ -249,6 +260,9 @@ main() {
     
     # Check dependencies
     check_dependencies
+    
+    # Load signing env vars if helper is present
+    load_signing_env
     
     # Check ADB device
     check_adb_device

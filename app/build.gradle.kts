@@ -6,7 +6,9 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+import java.io.File
 import java.io.FileInputStream
+import java.util.Base64
 import java.util.Properties
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -15,36 +17,49 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val storeFileFromEnv: File? = run {
+    val encoded = System.getenv("STORE_FILE") ?: return@run null
+    val keystoreDir = File(rootProject.buildDir, "keystore")
+    keystoreDir.mkdirs()
+
+    try {
+        val decoded = Base64.getDecoder().decode(encoded)
+        val outFile = File(keystoreDir, "release.keystore")
+        outFile.writeBytes(decoded)
+        outFile
+    } catch (_: IllegalArgumentException) {
+        // If the env var is not Base64, treat it as a path.
+        val pathFile = rootProject.file(encoded)
+        if (pathFile.exists()) pathFile else null
+    }
+}
+
 android {
     namespace = "my.hinoki.booxreader"
     compileSdk = 35
 
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String? ?: System.getenv("KEY_ALIAS")
-            keyPassword = keystoreProperties["keyPassword"] as String? ?: System.getenv("KEY_ALIAS_PASSWORD")
-            
-            val storeFileName = keystoreProperties["storeFile"] as String?
-            val storeFileEnv = System.getenv("STORE_FILE")
-            
-            storeFile = if (storeFileName != null) {
-                file(storeFileName)
-            } else if (storeFileEnv != null) {
-                rootProject.file(storeFileEnv)
-            } else {
-                null
-            }
-            
-            storePassword = keystoreProperties["storePassword"] as String? ?: System.getenv("KEYSTORE_PASSWORD")
-        }
+    val releaseSigningConfig = signingConfigs.create("release") {
+        keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties["keyAlias"] as String?
+        keyPassword = System.getenv("KEY_ALIAS_PASSWORD") ?: keystoreProperties["keyPassword"] as String?
+
+        val storeFileName = keystoreProperties["storeFile"] as String?
+
+        storeFile = storeFileFromEnv ?: storeFileName?.let { file(it) }
+
+        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties["storePassword"] as String?
+    }
+
+    val hasReleaseKeystore = releaseSigningConfig.storeFile != null
+    if (!hasReleaseKeystore) {
+        logger.lifecycle("Release keystore not configured; falling back to debug signing for release builds.")
     }
 
     defaultConfig {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 42
-        versionName = "1.1.41"
+        versionCode = 43
+        versionName = "1.1.42"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -55,10 +70,14 @@ android {
     buildTypes {
         debug {
             // Use release signing config for debug to match Firebase SHA-1
-            signingConfig = signingConfigs.getByName("release")
+            // signingConfig = signingConfigs.getByName("release")
         }
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseKeystore) {
+                releaseSigningConfig
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

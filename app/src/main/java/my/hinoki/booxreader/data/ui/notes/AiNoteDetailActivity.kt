@@ -301,10 +301,6 @@ class AiNoteDetailActivity : AppCompatActivity() {
             binding.scrollView.post {
                 checkScrollPosition()
             }
-        } else if (previousScrollY != null) {
-            binding.scrollView.post {
-                binding.scrollView.scrollTo(0, previousScrollY)
-            }
         }
     }
 

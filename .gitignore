@@ -47,6 +47,7 @@ google-services.json
 *.jks
 *.keystore
 keystore.properties
+scripts/set-release-env.sh
 
 # Telegram configuration
 .telegram_config

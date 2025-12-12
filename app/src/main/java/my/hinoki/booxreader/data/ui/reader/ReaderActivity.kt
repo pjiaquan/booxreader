@@ -710,46 +710,7 @@ class ReaderActivity : AppCompatActivity() {
         }
     }
     
-    private fun applyReaderCss(view: View?) {
-        if (view is android.webkit.WebView) {
-            val css = """
-                :root, body, p { font-size: 1em !important; }
-                aside[epub\\:type~="footnote"],
-                section[epub\\:type~="footnote"],
-                nav[epub\\:type~="footnotes"],
-                .footnote, .note {
-                  font-size: 1em !important;
-                  line-height: 1.5 !important;
-                }
-                a[epub\\:type~="noteref"], sup, sub {
-                  font-size: 0.9em !important;
-                  line-height: 1.2 !important;
-                }
-                blockquote {
-                  font-size: 1em !important;
-                  line-height: 1.5 !important;
-                }
-            """.trimIndent()
-            val js = """
-                (function() {
-                  let style = document.getElementById('boox-reader-style');
-                  if (!style) {
-                    style = document.createElement('style');
-                    style.id = 'boox-reader-style';
-                    document.head.appendChild(style);
-                  }
-                  style.textContent = `${css}`;
-                })();
-            """.trimIndent()
-            view.evaluateJavascript(js, null)
-            return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyReaderCss(view.getChildAt(i))
-            }
-        }
-    }
+
 
     private fun applyReaderStyles(force: Boolean = false) {
         val navigatorView = navigatorFragment?.view ?: return
@@ -2018,6 +1979,7 @@ class ReaderActivity : AppCompatActivity() {
     }
   }
 
+
   private fun tryReadBooxSystemSetting(): Int {
     return try {
         val contentResolver = contentResolver
@@ -2041,30 +2003,7 @@ class ReaderActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 android.util.Log.d("ReaderActivity", "無法讀取設定 $key: ${e.message}")
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-        }
-    }
-
-    private fun applyReaderSettings(settings: ReaderSettings) {
-        currentFontSize = settings.fontSize
-        currentFontWeight = settings.fontWeight
-        pageTapEnabled = settings.pageTapEnabled
-        booxBatchRefreshEnabled = settings.booxBatchRefresh
-        booxFastModeEnabled = settings.booxFastMode
-        applyFontSize(currentFontSize)
-        applyFontWeight(currentFontWeight)
-        applyReaderCss(navigatorFragment?.view)
-        applySelectionFriendlyCss(navigatorFragment?.view)
-    }
-    
-    private fun pushSettingsToCloud() {
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        lifecycleScope.launch {
-            syncRepo.pushSettings(ReaderSettings.fromPrefs(prefs))
-        }
-
         -1
     } catch (e: Exception) {
         android.util.Log.d("ReaderActivity", "讀取文石系統設定失敗: ${e.message}")
