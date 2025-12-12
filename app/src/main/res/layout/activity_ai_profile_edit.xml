@@ -185,6 +185,13 @@
             android:text="Use Streaming"
             android:layout_marginTop="8dp" />
 
+        <CheckBox
+            android:id="@+id/cbEnableGoogleSearch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable Google Search (Gemini native)"
+            android:layout_marginTop="4dp" />
+
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"

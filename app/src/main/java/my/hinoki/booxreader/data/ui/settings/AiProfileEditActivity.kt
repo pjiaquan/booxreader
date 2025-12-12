@@ -49,6 +49,7 @@ class AiProfileEditActivity : AppCompatActivity() {
                 binding.etSystemPrompt.setText(p.systemPrompt)
                 binding.etUserPromptTemplate.setText(p.userPromptTemplate)
                 binding.cbStreaming.isChecked = p.useStreaming
+                binding.cbEnableGoogleSearch.isChecked = p.enableGoogleSearch
                 
                 binding.etTemperature.setText(p.temperature.toString())
                 binding.etMaxTokens.setText(p.maxTokens.toString())
@@ -68,6 +69,7 @@ class AiProfileEditActivity : AppCompatActivity() {
         val systemPrompt = binding.etSystemPrompt.text.toString()
         var userPromptTemplate = binding.etUserPromptTemplate.text.toString()
         val useStreaming = binding.cbStreaming.isChecked
+        val enableGoogleSearch = binding.cbEnableGoogleSearch.isChecked
         
         val temperature = binding.etTemperature.text.toString().toDoubleOrNull() ?: 0.7
         val maxTokens = binding.etMaxTokens.text.toString().toIntOrNull() ?: 4096
@@ -98,6 +100,7 @@ class AiProfileEditActivity : AppCompatActivity() {
                     systemPrompt = systemPrompt,
                     userPromptTemplate = userPromptTemplate,
                     useStreaming = useStreaming,
+                    enableGoogleSearch = enableGoogleSearch,
                     temperature = temperature,
                     maxTokens = maxTokens,
                     topP = topP,
@@ -114,7 +117,8 @@ class AiProfileEditActivity : AppCompatActivity() {
                     serverBaseUrl = baseUrl,
                     systemPrompt = systemPrompt,
                     userPromptTemplate = userPromptTemplate,
-                    useStreaming = useStreaming
+                    useStreaming = useStreaming,
+                    enableGoogleSearch = enableGoogleSearch
                 )
                 repository.addProfile(newProfile)
             }

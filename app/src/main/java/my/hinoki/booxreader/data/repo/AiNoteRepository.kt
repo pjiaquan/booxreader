@@ -44,9 +44,34 @@ class AiNoteRepository(
     private fun isGoogleHost(url: String): Boolean {
         return url.contains("generativelanguage.googleapis.com")
     }
+    
+    // Prefer native streaming endpoint for Gemini; append alt=sse if missing
+    private fun googleStreamUrl(url: String): String {
+        val streamUrl = if (url.contains(":streamGenerateContent")) {
+            url
+        } else {
+            url.replace(":generateContent", ":streamGenerateContent")
+        }
+        return if (streamUrl.contains("alt=sse")) {
+            streamUrl
+        } else if (streamUrl.contains("?")) {
+            "$streamUrl&alt=sse"
+        } else {
+            "$streamUrl?alt=sse"
+        }
+    }
 
-    private fun transformToGooglePayload(model: String, messages: JSONArray, systemPrompt: String?, 
-                                         temperature: Double, maxTokens: Int, topP: Double, frequencyPenalty: Double, presencePenalty: Double): JSONObject {
+    private fun transformToGooglePayload(
+        model: String,
+        messages: JSONArray,
+        systemPrompt: String?,
+        temperature: Double,
+        maxTokens: Int,
+        topP: Double,
+        frequencyPenalty: Double,
+        presencePenalty: Double,
+        includeGoogleSearch: Boolean = false
+    ): JSONObject {
         val contents = JSONArray()
         var finalSystemPrompt = systemPrompt ?: ""
 
@@ -102,6 +127,14 @@ class AiNoteRepository(
                 put("topP", topP)
                 // Google Gemini API (v1beta) does not yet support frequency/presence penalty in standard generationConfig
             })
+            if (includeGoogleSearch) {
+                // Use googleSearch tool (retrieval variant currently rejected by API)
+                put("tools", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("googleSearch", JSONObject())
+                    })
+                })
+            }
         }
     }
 
@@ -165,6 +198,14 @@ class AiNoteRepository(
         return ReaderSettings.fromPrefs(prefs())
     }
 
+    private fun logPayload(tag: String, payload: JSONObject) {
+        try {
+            android.util.Log.d(TAG, "$tag payload=${payload.toString(2)}")
+        } catch (_: Exception) {
+            android.util.Log.d(TAG, "$tag payload=${payload.toString()}")
+        }
+    }
+
     suspend fun fetchAiExplanation(text: String): Pair<String, String>? {
         val settings = getSettings()
         if (settings.apiKey.isNotBlank()) {
@@ -198,8 +239,10 @@ class AiNoteRepository(
                             settings.maxTokens,
                             settings.topP,
                             settings.frequencyPenalty,
-                            settings.presencePenalty
+                            settings.presencePenalty,
+                            includeGoogleSearch = settings.enableGoogleSearch
                         )
+                        logPayload("fetchAiExplanation_google", googlePayload)
                         requestBody = googlePayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                         
                         // Header for Google
@@ -351,9 +394,7 @@ class AiNoteRepository(
             android.util.Log.d(TAG, "fetchAiExplanationStreaming (Direct) url=$url")
             
             val isGoogle = isGoogleNative(url)
-            val finalUrl = if (isGoogle && !url.contains("alt=sse")) {
-                 if (url.contains("?")) "$url&alt=sse" else "$url?alt=sse"
-            } else url
+            val finalUrl = if (isGoogle) googleStreamUrl(url) else url
 
             val requestPayload = if (isGoogle) {
                 // OpenAI 'messages' -> Google 'contents'
@@ -363,7 +404,7 @@ class AiNoteRepository(
                         put("content", String.format(settings.aiUserPromptTemplate, text))
                     })
                 }
-                transformToGooglePayload(
+                val googlePayload = transformToGooglePayload(
                     settings.aiModelName, 
                     messages, 
                     settings.aiSystemPrompt,
@@ -371,8 +412,11 @@ class AiNoteRepository(
                     settings.maxTokens,
                     settings.topP,
                     settings.frequencyPenalty,
-                    settings.presencePenalty
+                    settings.presencePenalty,
+                    includeGoogleSearch = settings.enableGoogleSearch
                 )
+                logPayload("fetchAiExplanationStreaming_google", googlePayload)
+                googlePayload
             } else {
                  payload
             }
@@ -491,7 +535,8 @@ class AiNoteRepository(
                             settings.maxTokens,
                             settings.topP,
                             settings.frequencyPenalty,
-                            settings.presencePenalty
+                            settings.presencePenalty,
+                            includeGoogleSearch = settings.enableGoogleSearch
                         )
                         requestBody = googlePayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                          requestBuilder.header("x-goog-api-key", settings.apiKey)
@@ -640,9 +685,7 @@ class AiNoteRepository(
             android.util.Log.d(TAG, "continueConversationStreaming (Direct) url=$url")
             
             val isGoogle = isGoogleNative(url)
-            val finalUrl = if (isGoogle && !url.contains("alt=sse")) {
-                 if (url.contains("?")) "$url&alt=sse" else "$url?alt=sse"
-            } else url
+            val finalUrl = if (isGoogle) googleStreamUrl(url) else url
 
              val requestPayload = if (isGoogle) {
                 // History + User Input -> Google 'contents'
@@ -652,7 +695,7 @@ class AiNoteRepository(
                     put("role", "user")
                     put("content", userInputWithHint)
                 })
-                transformToGooglePayload(
+                val googlePayload = transformToGooglePayload(
                     settings.aiModelName, 
                     history, 
                     settings.aiSystemPrompt,
@@ -660,8 +703,11 @@ class AiNoteRepository(
                     settings.maxTokens,
                     settings.topP,
                     settings.frequencyPenalty,
-                    settings.presencePenalty
+                    settings.presencePenalty,
+                    includeGoogleSearch = settings.enableGoogleSearch
                 )
+                logPayload("continueConversationStreaming_google", googlePayload)
+                googlePayload
             } else {
                 payload
             }

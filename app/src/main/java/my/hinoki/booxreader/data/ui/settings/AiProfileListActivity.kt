@@ -183,7 +183,7 @@ class AiProfileListActivity : AppCompatActivity() {
     }
 
     private fun showOptionsDialog(profile: AiProfileEntity) {
-        val options = arrayOf("Edit", "Delete")
+        val options = arrayOf("Edit", "Duplicate", "Delete")
         AlertDialog.Builder(this)
             .setTitle(profile.name)
             .setItems(options) { _, which ->
@@ -193,7 +193,12 @@ class AiProfileListActivity : AppCompatActivity() {
                         intent.putExtra("profile_id", profile.id)
                         startActivity(intent)
                     }
-                    1 -> { // Delete
+                    1 -> { // Duplicate
+                        lifecycleScope.launch {
+                            duplicateProfile(profile)
+                        }
+                    }
+                    2 -> { // Delete
                         lifecycleScope.launch {
                             repository.deleteProfile(profile)
                         }
@@ -201,6 +206,20 @@ class AiProfileListActivity : AppCompatActivity() {
                 }
             }
             .show()
+    }
+
+    private suspend fun duplicateProfile(profile: AiProfileEntity) {
+        val now = System.currentTimeMillis()
+        val copy = profile.copy(
+            id = 0,
+            remoteId = null,
+            isSynced = false,
+            name = "${profile.name} (Copy)",
+            createdAt = now,
+            updatedAt = now
+        )
+        repository.addProfile(copy)
+        Toast.makeText(this, "Profile duplicated", Toast.LENGTH_SHORT).show()
     }
     
     companion object {

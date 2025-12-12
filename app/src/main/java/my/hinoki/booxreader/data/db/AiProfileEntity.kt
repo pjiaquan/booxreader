@@ -25,6 +25,7 @@ data class AiProfileEntity(
     val frequencyPenalty: Double = 0.0,
     val presencePenalty: Double = 0.0,
     val assistantRole: String = "assistant",
+    val enableGoogleSearch: Boolean = true,
     
     // Sync Metadata
     val remoteId: String? = null, // Firebase Doc ID

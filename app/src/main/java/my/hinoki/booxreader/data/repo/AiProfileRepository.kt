@@ -34,6 +34,7 @@ class AiProfileRepository(
             val systemPrompt = profileMap["systemPrompt"] as? String ?: ""
             val userPromptTemplate = profileMap["userPromptTemplate"] as? String ?: "%s"
             val useStreaming = profileMap["useStreaming"] as? Boolean ?: false
+            val enableGoogleSearch = profileMap["enableGoogleSearch"] as? Boolean ?: true
 
             val entity = AiProfileEntity(
                 name = name,
@@ -44,6 +45,7 @@ class AiProfileRepository(
                 userPromptTemplate = userPromptTemplate,
                 assistantRole = profileMap["assistantRole"] as? String ?: "assistant",
                 useStreaming = useStreaming,
+                enableGoogleSearch = enableGoogleSearch,
                 // Additional fields with defaults
                 temperature = (profileMap["temperature"] as? Double) ?: 0.7,
                 maxTokens = (profileMap["maxTokens"] as? Double)?.toInt() ?: 4096,
@@ -107,6 +109,7 @@ class AiProfileRepository(
             aiSystemPrompt = profile.systemPrompt,
             aiUserPromptTemplate = profile.userPromptTemplate,
             assistantRole = profile.assistantRole,
+            enableGoogleSearch = profile.enableGoogleSearch,
             useStreaming = profile.useStreaming,
             updatedAt = System.currentTimeMillis()
         )

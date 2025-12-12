@@ -89,6 +89,7 @@ data class ReaderSettings(
     val frequencyPenalty: Double = 0.0,
     val presencePenalty: Double = 0.0,
     val assistantRole: String = "assistant",
+    val enableGoogleSearch: Boolean = true,
     val useStreaming: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
@@ -113,6 +114,7 @@ data class ReaderSettings(
             .putFloat("ai_frequency_penalty", frequencyPenalty.toFloat())
             .putFloat("ai_presence_penalty", presencePenalty.toFloat())
             .putString("ai_assistant_role", assistantRole)
+            .putBoolean("ai_enable_google_search", enableGoogleSearch)
             .putBoolean("use_streaming", useStreaming)
             .putLong("settings_updated_at", timestamp)
             .apply()
@@ -130,6 +132,7 @@ data class ReaderSettings(
             systemPrompt = aiSystemPrompt,
             userPromptTemplate = aiUserPromptTemplate,
             assistantRole = assistantRole,
+            enableGoogleSearch = enableGoogleSearch,
             useStreaming = useStreaming,
             temperature = temperature,
             maxTokens = maxTokens,
@@ -149,6 +152,7 @@ data class ReaderSettings(
         val systemPrompt: String,
         val userPromptTemplate: String,
         val assistantRole: String,
+        val enableGoogleSearch: Boolean,
         val useStreaming: Boolean,
         val temperature: Double,
         val maxTokens: Int,
@@ -259,6 +263,7 @@ data class ReaderSettings(
                 frequencyPenalty = prefs.getFloat("ai_frequency_penalty", 0.0f).toDouble(),
                 presencePenalty = prefs.getFloat("ai_presence_penalty", 0.0f).toDouble(),
                 assistantRole = prefs.getString("ai_assistant_role", "assistant") ?: "assistant",
+                enableGoogleSearch = prefs.getBoolean("ai_enable_google_search", true),
                 useStreaming = prefs.getBoolean("use_streaming", false),
                 updatedAt = updatedAt
             )
