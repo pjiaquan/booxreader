@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 
 val storeFileFromEnv: File? = run {
     val encoded = System.getenv("STORE_FILE") ?: return@run null
-    val keystoreDir = File(rootProject.buildDir, "keystore")
+    val keystoreDir = rootProject.layout.buildDirectory.dir("keystore").get().asFile
     keystoreDir.mkdirs()
 
     try {
