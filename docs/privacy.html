@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boox Reader — Privacy Policy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero__bg"></div>
+      <div class="hero__content">
+        <div class="badge">Boox Reader · Privacy</div>
+        <h1>Privacy Policy</h1>
+        <p class="lede">How Boox Reader handles your data across authentication, sync, storage, and AI features.</p>
+        <div class="meta">
+          <span>Last updated: 2025-12-12</span>
+          <span>Scope: Android app & cloud sync</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section grid">
+        <div class="section__header">
+          <p class="eyebrow">What we collect</p>
+          <h2>Only what is needed to sync your library and AI notes.</h2>
+          <p class="muted">All cloud data is isolated to your Firebase user. We do not show ads or run third-party analytics.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Account & identity</h3>
+            <p>Firebase Authentication manages sign-in. We store your Firebase UID and the sign-in email you provide.</p>
+          </article>
+          <article class="feature">
+            <h3>App data you create</h3>
+            <p>Book files (EPUB) uploaded for backup, reading progress, bookmarks, AI notes, and AI profiles/settings you configure.</p>
+          </article>
+          <article class="feature">
+            <h3>AI requests</h3>
+            <p>Prompts, selected text, and system instructions you send to AI providers (Gemini or OpenAI-compatible endpoints). If enabled, Gemini requests may use Google Search.</p>
+          </article>
+          <article class="feature">
+            <h3>Diagnostics</h3>
+            <p>Limited device details (Android version, device model) and crash logs as needed to debug issues; no advertising identifiers.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section layout">
+        <div>
+          <p class="eyebrow">How we use data</p>
+          <h2>To sync your reading state and power AI responses.</h2>
+          <ul class="list">
+            <li>Sync library files, progress, bookmarks, and notes across your devices via Firestore and Firebase Storage.</li>
+            <li>Generate AI explanations or summaries by sending your provided text to the AI provider you choose.</li>
+            <li>Maintain your AI profiles and preferences so you can reuse them on all signed-in devices.</li>
+            <li>Troubleshoot reliability issues using minimal diagnostic logs.</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <h3>Where data lives</h3>
+          <ul class="list">
+            <li>Authentication: Firebase Authentication.</li>
+            <li>Cloud database: Firestore (per-user documents).</li>
+            <li>File storage: Firebase Storage for EPUB backups.</li>
+            <li>AI providers: Gemini (Google Generative Language API) or OpenAI-compatible endpoints you configure; optional Google Search when enabled.</li>
+            <li>On-device: Local caches for offline reading; removed when you uninstall the app.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section layout">
+        <div>
+          <p class="eyebrow">Sharing</p>
+          <h2>Your data is not sold.</h2>
+          <p class="muted">We share data only with services required to run the app (Firebase and the AI provider you select). No ads, no third-party tracking SDKs.</p>
+        </div>
+        <div>
+          <p class="eyebrow">Retention & control</p>
+          <h2>You stay in control.</h2>
+          <ul class="list">
+            <li>Delete books, bookmarks, or notes from within the app to remove them from sync.</li>
+            <li>Sign out to stop new sync. To remove your cloud data, delete your account data in-app if available or contact support.</li>
+            <li>Local caches are removed when you uninstall the app; cloud copies remain until you delete them.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section steps">
+        <p class="eyebrow">Security</p>
+        <h2>Transport encryption and per-user access rules.</h2>
+        <ol>
+          <li>All network traffic uses HTTPS/TLS.</li>
+          <li>Firestore security rules scope documents to your authenticated user.</li>
+          <li>We minimize stored data to what is necessary for sync and AI features.</li>
+        </ol>
+      </section>
+
+      <section class="section layout">
+        <div>
+          <p class="eyebrow">Contact</p>
+          <h2>Questions or deletion requests</h2>
+          <p class="muted">Use the support contact listed on the Google Play listing or your usual support channel. If you prefer GitHub, open a private issue with “privacy” in the title.</p>
+        </div>
+        <div class="callout">
+          <h3>Need changes?</h3>
+          <p class="muted">Tell us if you want a data export, correction, or deletion. We will respond using the contact method you provide.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>
+        <strong>Boox Reader</strong>
+        <p>Focused reading with private cloud sync for books, progress, bookmarks, and AI notes.</p>
+      </div>
+      <div class="footer__links">
+        <a href="index.html">Home</a>
+        <a href="https://play.google.com/store/apps/details?id=my.hinoki.booxreader">Google Play</a>
+        <a href="https://github.com/pjiaquan/booxreader">Source</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
