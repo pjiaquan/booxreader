@@ -10,7 +10,10 @@ set -e
 TELEGRAM_CONFIG_FILE=".telegram_config"
 TELEGRAM_ENABLED=true
 SIGNING_ENV_HELPER="scripts/set-release-env.sh"
+LOCAL_KEYSTORE_PATH="build/keystore/release.keystore"
+LOCAL_SECRET_ENV="$HOME/.booxreader-keystore.env"
 ADB_AVAILABLE=true
+BUILD_TYPE="debug"
 
 # Load Telegram configuration if file exists
 if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -60,6 +63,28 @@ load_signing_env() {
         source "$SIGNING_ENV_HELPER"
     else
         echo "Signing env helper not found at $SIGNING_ENV_HELPER; skipping."
+    fi
+}
+
+use_local_keystore_if_present() {
+    # If a keystore exists at the known local path, set STORE_FILE so builds can proceed
+    if [ -z "${STORE_FILE:-}" ] && [ -f "$LOCAL_KEYSTORE_PATH" ]; then
+        export STORE_FILE="$LOCAL_KEYSTORE_PATH"
+        echo "Using local keystore at $STORE_FILE"
+    fi
+
+    # Provide a default alias for the bundled keystore if none is set
+    if [ -z "${KEY_ALIAS:-}" ] && [ -f "$LOCAL_KEYSTORE_PATH" ]; then
+        export KEY_ALIAS="key0"
+        echo "Defaulting KEY_ALIAS to $KEY_ALIAS (from local keystore)"
+    fi
+}
+
+load_local_secret_env() {
+    if [ -f "$LOCAL_SECRET_ENV" ]; then
+        echo "Loading signing secrets from $LOCAL_SECRET_ENV"
+        # shellcheck disable=SC1090
+        source "$LOCAL_SECRET_ENV"
     fi
 }
 
@@ -179,6 +204,18 @@ update_version_info() {
     rm -f "${build_gradle}.backup"
 }
 
+choose_build_type() {
+    local prompt_choice
+    read -p "Build type (debug/release) [${BUILD_TYPE}]: " -r prompt_choice
+    prompt_choice=${prompt_choice,,}
+    if [ "$prompt_choice" = "release" ]; then
+        BUILD_TYPE="release"
+    else
+        BUILD_TYPE="debug"
+    fi
+    echo "Selected build type: $BUILD_TYPE"
+}
+
 # Restore backup in case of failure
 restore_backup() {
     local build_gradle="app/build.gradle.kts"
@@ -295,20 +332,42 @@ main() {
     
     # Check dependencies
     check_dependencies
+
+    # Let the user choose build type (default debug)
+    choose_build_type
     
-    # Load signing env vars if helper is present
-    load_signing_env
-    ensure_signing_env
+    # For release builds, load signing material and enforce presence
+    if [ "$BUILD_TYPE" = "release" ]; then
+        load_local_secret_env
+        use_local_keystore_if_present
+        ensure_signing_env
+    fi
     
     # Check ADB device (non-fatal)
     check_adb_device
+
+    # Update version only for release builds so debug loops stay fast
+    if [ "$BUILD_TYPE" = "release" ]; then
+        echo "Updating version information..."
+        extract_version_info
+        update_version_info
+    fi
     
-    # 1. Compile the debug APK
-    echo "Building the application..."
-    ./gradlew assembleRelease
+    # Build the requested APK
+    echo "Building the application ($BUILD_TYPE)..."
+    if [ "$BUILD_TYPE" = "release" ]; then
+        ./gradlew assembleRelease
+    else
+        ./gradlew assembleDebug
+    fi
     
-    # 2. Install the APK (if ADB is available)
-    local apk_path="app/build/outputs/apk/release/app-release.apk"
+    # Install the APK (if ADB is available)
+    local apk_path
+    if [ "$BUILD_TYPE" = "release" ]; then
+        apk_path="app/build/outputs/apk/release/app-release.apk"
+    else
+        apk_path="app/build/outputs/apk/debug/app-debug.apk"
+    fi
     if [ "$ADB_AVAILABLE" = "true" ]; then
         echo "Installing the APK..."
         if [ ! -f "$apk_path" ]; then
@@ -324,21 +383,22 @@ main() {
         echo "Skipping install/launch because ADB is unavailable."
     fi
     
-    # 4. Update version information
-    echo "Updating version information..."
-    extract_version_info
-    update_version_info
-    
-    # 5. Git operations
-    echo "Performing Git operations..."
-    git_operations
-    
-    # 6. Send APK to Telegram (if enabled)
-    echo "Sending APK to Telegram..."
-    send_apk_to_telegram
+    # Git operations only for release builds
+    if [ "$BUILD_TYPE" = "release" ]; then
+        echo "Performing Git operations..."
+        git_operations
+        
+        # Send APK to Telegram (if enabled)
+        echo "Sending APK to Telegram..."
+        send_apk_to_telegram
+    fi
     
     echo "Done."
-    echo "Application has been built, installed, and version updated to $NEW_VERSION_NAME"
+    if [ "$BUILD_TYPE" = "release" ]; then
+        echo "Application has been built, installed, and version updated to $NEW_VERSION_NAME"
+    else
+        echo "Application has been built and installed (debug build)."
+    fi
 }
 
 # Run main function

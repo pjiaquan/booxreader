@@ -5,21 +5,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Storage permissions for EPUB file download and access -->
+    <!-- Android 13+ media read permission (needed when targeting SDK 33+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <!-- For Android 10 and below -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" /> <!-- Only needed for Android 9 and below -->
-
-    <!-- For Android 13+ -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-
-    <!-- For Android 14+ -->
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
-        android:minSdkVersion="34" />
 
     <!-- For app-specific storage (no permission needed for Android 10+) -->
     <!-- App can write to its own directories without permission -->
