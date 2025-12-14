@@ -70,7 +70,12 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_ai_note" />
+            android:text="@string/reader_ai_note"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="8sp"
+            app:autoSizeMaxTextSize="14sp"
+            app:autoSizeStepGranularity="1sp" />
 
         <Button
             android:id="@+id/btnAddBookmark"
@@ -78,27 +83,47 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:text="@string/reader_bookmark"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="8sp"
+            app:autoSizeMaxTextSize="14sp"
+            app:autoSizeStepGranularity="1sp" />
 
         <Button
             android:id="@+id/btnShowBookmarks"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_publish" />
+            android:text="@string/reader_publish"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="8sp"
+            app:autoSizeMaxTextSize="14sp"
+            app:autoSizeStepGranularity="1sp" />
 
         <Button
             android:id="@+id/btnChapters"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_table_of_contents" />
+            android:text="@string/reader_table_of_contents"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="8sp"
+            app:autoSizeMaxTextSize="14sp"
+            app:autoSizeStepGranularity="1sp" />
 
         <Button
             android:id="@+id/btnSettings"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_settings" />
+            android:text="@string/reader_settings"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="8sp"
+            app:autoSizeMaxTextSize="14sp"
+            app:autoSizeStepGranularity="1sp" />
     </LinearLayout>
 </LinearLayout>

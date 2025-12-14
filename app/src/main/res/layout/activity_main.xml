@@ -40,8 +40,9 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnOpenEpub"
                 style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/main_select_epub"
                 app:cornerRadius="12dp"
                 app:icon="@android:drawable/ic_menu_add"
@@ -50,25 +51,30 @@
                 android:textColor="@android:color/white"
                 app:strokeColor="@android:color/white"
                 app:strokeWidth="2dp"
-                android:layout_marginEnd="12dp"/>
+                android:layout_marginEnd="8dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnProfile"
                 style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/main_profile"
                 app:cornerRadius="12dp"
+                app:icon="@drawable/ic_person"
+                app:iconPadding="8dp"
+                app:iconTint="@android:color/white"
                 android:textColor="@android:color/white"
                 app:strokeColor="@android:color/white"
                 app:strokeWidth="2dp"
-                android:layout_marginEnd="12dp"/>
+                android:layout_marginEnd="8dp"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSync"
                 style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/main_sync"
                 app:cornerRadius="12dp"
                 app:icon="@android:drawable/ic_menu_upload"
