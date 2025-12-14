@@ -239,13 +239,25 @@ update_version_info() {
 
 choose_build_type() {
     local prompt_choice
-    read -p "Build type (debug/release) [${BUILD_TYPE}]: " -r prompt_choice
-    prompt_choice=${prompt_choice,,}
-    if [ "$prompt_choice" = "release" ]; then
-        BUILD_TYPE="release"
+    local timeout=5
+    
+    echo -n "Build type (debug/release) [${BUILD_TYPE}]: "
+    
+    # Use read with timeout if available
+    if read -t $timeout -r prompt_choice; then
+        # User provided input
+        prompt_choice=${prompt_choice,,}
+        if [ "$prompt_choice" = "release" ]; then
+            BUILD_TYPE="release"
+        else
+            BUILD_TYPE="debug"
+        fi
     else
+        # Timeout reached, default to debug
+        echo "debug"
         BUILD_TYPE="debug"
     fi
+    
     echo "Selected build type: $BUILD_TYPE"
 }
 
@@ -439,14 +451,27 @@ main() {
             echo "Error: APK not found at $apk_path"
             exit 1
         fi
-        adb install -r "$apk_path"
         
-        # 3. Launch the main activity
-        echo "Launching the application..."
-        # Prefer the manifest alias (.MainActivity) but fall back to the full class name
-        if ! adb shell am start -n my.hinoki.booxreader/.MainActivity; then
-            adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.data.ui.main.MainActivity
+        # Uninstall first to ensure clean install
+        echo "Uninstalling previous version..."
+        adb uninstall my.hinoki.booxreader || true
+        
+        # Install the new APK
+        if ! adb install "$apk_path"; then
+            echo "Error: Failed to install APK"
+            exit 1
         fi
+        
+        # Wait for the app to be fully installed
+        sleep 2
+        
+        # Check if package is installed
+        if ! adb shell pm list packages | grep -q "my.hinoki.booxreader"; then
+            echo "Error: Package not installed after installation attempt"
+            exit 1
+        fi
+        
+        echo "Installation completed successfully. Skipping app launch as requested."
     else
         echo "Skipping install/launch because ADB is unavailable."
     fi

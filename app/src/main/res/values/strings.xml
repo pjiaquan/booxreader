@@ -99,4 +99,12 @@
     <string name="main_recent_title">最近閱讀</string>
     <string name="main_recent_hint">點擊即可繼續閱讀</string>
     <string name="main_empty_state">尚未有閱讀紀錄，先選擇一本 EPUB 開始吧！</string>
+
+    <!-- Welcome Activity -->
+    <string name="welcome_title">Welcome to BooxReader</string>
+    <string name="welcome_subtitle">Your minimalist e-book reader optimized for E-Ink devices.</string>
+    <string name="welcome_permission_title">Permission Required</string>
+    <string name="welcome_permission_desc">To read and manage your EPUB files, BooxReader needs access to your device\'s storage.</string>
+    <string name="welcome_grant_button">Grant Permissions</string>
+    <string name="welcome_skip_button">Skip for Now</string>
 </resources>

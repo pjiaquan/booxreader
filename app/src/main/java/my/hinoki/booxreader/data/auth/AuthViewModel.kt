@@ -9,6 +9,9 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
@@ -62,11 +65,16 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun syncUserData() {
         runCatching {
             android.util.Log.d("AuthViewModel", "開始同步用戶資料...")
-            syncRepo.pullSettingsIfNewer()
-            syncRepo.pullBooks()
-            syncRepo.pullNotes()
-            syncRepo.pullAllProgress()
-            syncRepo.pullBookmarks()
+            kotlinx.coroutines.coroutineScope {
+                val jobs = listOf(
+                    async { syncRepo.pullSettingsIfNewer() },
+                    async { syncRepo.pullBooks() },
+                    async { syncRepo.pullNotes() },
+                    async { syncRepo.pullAllProgress() },
+                    async { syncRepo.pullBookmarks() }
+                )
+                jobs.awaitAll()
+            }
             android.util.Log.d("AuthViewModel", "用戶資料同步完成")
         }.onFailure {
             android.util.Log.e("AuthViewModel", "用戶資料同步失敗", it)

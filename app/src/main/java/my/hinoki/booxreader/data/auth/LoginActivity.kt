@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -29,6 +30,7 @@ class LoginActivity : AppCompatActivity() {
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogle = findViewById<Button>(R.id.btnGoogleSignIn)
         val btnResend = findViewById<Button>(R.id.btnResendVerification)
+        val progressBar = findViewById<ProgressBar>(R.id.progressBar)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
 
         if (!googleHelper.isSupported()) {
@@ -66,15 +68,25 @@ class LoginActivity : AppCompatActivity() {
                 when (state) {
                     is AuthState.Loading -> {
                         btnLogin.isEnabled = false
+                        btnGoogle.isEnabled = false
+                        progressBar.visibility = View.VISIBLE
                         btnResend.visibility = View.GONE
-                }
-                is AuthState.Success -> {
-                    Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
-                    btnResend.visibility = View.GONE
-                    finish()
-                }
+                    }
+                    is AuthState.Success -> {
+                        Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
+                        btnResend.visibility = View.GONE
+                        progressBar.visibility = View.GONE
+                        
+                        // Navigate to MainActivity
+                        val intent = Intent(this@LoginActivity, my.hinoki.booxreader.data.ui.main.MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    }
                     is AuthState.Error -> {
                         btnLogin.isEnabled = true
+                        btnGoogle.isEnabled = true
+                        progressBar.visibility = View.GONE
                         Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_SHORT).show()
                         if (state.message.contains("not verified", ignoreCase = true) ||
                             state.message.contains("驗證", ignoreCase = true)) {
@@ -86,6 +98,8 @@ class LoginActivity : AppCompatActivity() {
                     }
                     else -> {
                         btnLogin.isEnabled = true
+                        btnGoogle.isEnabled = true
+                        progressBar.visibility = View.GONE
                         btnResend.visibility = View.GONE
                     }
                 }
