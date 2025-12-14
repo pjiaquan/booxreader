@@ -2,8 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/action_mark_complete"
-        android:title="標記為已讀完" />
+        android:title="@string/action_mark_complete" />
     <item
         android:id="@+id/action_delete"
-        android:title="刪除" />
+        android:title="@string/action_delete" />
 </menu>

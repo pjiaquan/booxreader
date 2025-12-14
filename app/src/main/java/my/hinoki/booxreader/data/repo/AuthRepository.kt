@@ -24,13 +24,13 @@ class AuthRepository(
     suspend fun login(email: String, password: String): Result<UserEntity> = withContext(Dispatchers.IO) {
         runCatching {
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
-            val firebaseUser = authResult.user ?: error("User not found")
+            val firebaseUser = authResult.user ?: error(context.getString(my.hinoki.booxreader.R.string.error_user_not_found))
             if (!firebaseUser.isEmailVerified) {
                 firebaseUser.sendEmailVerification().await()
                 auth.signOut()
                 userDao.clearAllUsers()
                 tokenManager.clearTokens()
-                error("Email not verified. Verification email sent.")
+                error(context.getString(my.hinoki.booxreader.R.string.error_email_not_verified))
             }
             cacheUser(firebaseUser)
         }
@@ -39,7 +39,7 @@ class AuthRepository(
     suspend fun register(email: String, password: String): Result<UserEntity> = withContext(Dispatchers.IO) {
         runCatching {
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-            val firebaseUser = authResult.user ?: error("User not found")
+            val firebaseUser = authResult.user ?: error(context.getString(my.hinoki.booxreader.R.string.error_user_not_found))
             firebaseUser.sendEmailVerification().await()
             auth.signOut()
             userDao.clearAllUsers()
@@ -58,7 +58,7 @@ class AuthRepository(
         runCatching {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
             val authResult = auth.signInWithCredential(credential).await()
-            val firebaseUser = authResult.user ?: error("User not found")
+            val firebaseUser = authResult.user ?: error(context.getString(my.hinoki.booxreader.R.string.error_user_not_found))
             cacheUser(firebaseUser, fallbackEmail = email, fallbackName = name)
         }
     }
@@ -72,7 +72,7 @@ class AuthRepository(
     suspend fun resendVerification(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
-            val firebaseUser = authResult.user ?: error("User not found")
+            val firebaseUser = authResult.user ?: error(context.getString(my.hinoki.booxreader.R.string.error_user_not_found))
             firebaseUser.sendEmailVerification().await()
             auth.signOut()
             userDao.clearAllUsers()

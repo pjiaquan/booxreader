@@ -7,23 +7,26 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import my.hinoki.booxreader.core.eink.EInkHelper
-import my.hinoki.booxreader.R
 
-class AiNoteDetailActivity : AppCompatActivity() {
+class AiNoteDetailActivity : BaseActivity() {
 
     companion object {
         private const val EXTRA_NOTE_ID = "extra_note_id"
@@ -362,7 +365,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
                         separator +
                         "---\nQ: " + question + "\n\n" + partial
                     renderStreamingMarkdown(preview)
-                    restoreScrollIfJumped(savedScrollY)
+                    // restoreScrollIfJumped(savedScrollY)
                 }
             } else {
                 repository.continueConversation(note, question)
@@ -383,10 +386,9 @@ class AiNoteDetailActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this@AiNoteDetailActivity, "發佈失敗", Toast.LENGTH_SHORT).show()
             }
-            binding.btnFollowUp.isEnabled = true
             binding.btnFollowUp.text = "發佈"
             setLoading(false)
-            restoreScrollIfJumped(savedScrollY)
+            // restoreScrollIfJumped(savedScrollY)
         }
     }
 

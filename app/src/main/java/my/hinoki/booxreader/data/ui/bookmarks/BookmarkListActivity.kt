@@ -15,8 +15,14 @@ import my.hinoki.booxreader.databinding.ActivityBookmarkListBinding
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import org.readium.r2.shared.publication.Locator
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 
-class BookmarkListActivity : AppCompatActivity() {
+class BookmarkListActivity : BaseActivity() {
 
     companion object {
         private const val EXTRA_BOOK_ID = "extra_book_id"

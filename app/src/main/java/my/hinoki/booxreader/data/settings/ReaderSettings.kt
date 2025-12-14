@@ -96,6 +96,7 @@ data class ReaderSettings(
     val enableGoogleSearch: Boolean = true,
     val useStreaming: Boolean = false,
     val pageAnimationEnabled: Boolean = false,
+    val language: String = "system", // "system", "en", "zh"
     val updatedAt: Long = System.currentTimeMillis()
 ) {
 
@@ -126,6 +127,7 @@ data class ReaderSettings(
             .putBoolean("ai_enable_google_search", enableGoogleSearch)
             .putBoolean("use_streaming", useStreaming)
             .putBoolean("page_animation_enabled", pageAnimationEnabled)
+            .putString("app_language", language)
             .putLong("settings_updated_at", timestamp)
             .apply()
     }
@@ -280,6 +282,7 @@ data class ReaderSettings(
                 enableGoogleSearch = prefs.getBoolean("ai_enable_google_search", true),
                 useStreaming = prefs.getBoolean("use_streaming", false),
                 pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
+                language = prefs.getString("app_language", "system") ?: "system",
                 updatedAt = updatedAt
             )
         }

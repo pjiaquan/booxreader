@@ -11,20 +11,23 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.ExportResult
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.os.Build
 
-class AiNoteListActivity : AppCompatActivity() {
+class AiNoteListActivity : BaseActivity() {
 
     companion object {
         private const val EXTRA_BOOK_ID = "extra_book_id"

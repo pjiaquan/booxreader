@@ -8,12 +8,14 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
@@ -24,7 +26,7 @@ import my.hinoki.booxreader.databinding.ItemAiProfileBinding
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
-class AiProfileListActivity : AppCompatActivity() {
+class AiProfileListActivity : BaseActivity() {
 
     private lateinit var binding: ActivityAiProfileListBinding
     private lateinit var repository: AiProfileRepository

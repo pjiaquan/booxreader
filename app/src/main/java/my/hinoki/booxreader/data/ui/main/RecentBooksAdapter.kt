@@ -51,7 +51,7 @@ class RecentBooksAdapter(
             onMarkCompleted: (BookEntity) -> Unit
         ) {
             android.util.Log.d("RecentBooksAdapter", "bind() 被調用 - 書籍: ${item.title}")
-            tvTitle.text = item.title?.takeIf { it.isNotBlank() } ?: "未命名書籍"
+            tvTitle.text = item.title?.takeIf { it.isNotBlank() } ?: itemView.context.getString(R.string.book_title_untitled)
             tvPath.text = item.fileUri
             tvTime.text = android.text.format.DateFormat.format("yyyy/MM/dd HH:mm", item.lastOpenedAt)
 
@@ -94,11 +94,11 @@ class RecentBooksAdapter(
                 val percentage = (progression * 100).toInt().coerceIn(0, 100)
 
                 android.util.Log.d("RecentBooksAdapter", "最終進度: $progression, 百分比: $percentage%")
-                tvProgress.text = "$percentage% complete"
+                tvProgress.text = itemView.context.getString(R.string.book_progress_format, percentage)
                 tvCompleted.visibility = if (percentage >= 99) View.VISIBLE else View.GONE
             } else {
                 android.util.Log.d("RecentBooksAdapter", "Locator 解析失敗 - 書籍: ${item.title}, JSON: ${item.lastLocatorJson}")
-                tvProgress.text = "0% complete"
+                tvProgress.text = itemView.context.getString(R.string.book_progress_format, 0)
                 tvCompleted.visibility = View.GONE
             }
 

@@ -73,9 +73,10 @@ import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import java.util.zip.ZipInputStream
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 
 @OptIn(ExperimentalReadiumApi::class)
-class ReaderActivity : AppCompatActivity() {
+class ReaderActivity : BaseActivity() {
 
     private lateinit var binding: ActivityReaderBinding
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
@@ -2255,14 +2256,40 @@ class ReaderActivity : AppCompatActivity() {
 
         val btnAiProfiles = Button(this).apply {
             text = "AI Profiles (Switch Model/API)"
-            setOnClickListener {
-                my.hinoki.booxreader.data.ui.settings.AiProfileListActivity.open(this@ReaderActivity)
-            }
+
         }
         layout?.addView(btnAiProfiles, 2)
 
+        // --- Language Selection ---
+        val languageTitle = TextView(this).apply {
+            text = "Language / 語言"
+            textSize = 16f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 16, 0, 8)
+        }
+        layout?.addView(languageTitle, 2)
+
+        val languageGroup = android.widget.RadioGroup(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+        }
+
+        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
+        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
+        val rbChinese = android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
+
+        languageGroup.addView(rbSystem)
+        languageGroup.addView(rbEnglish)
+        languageGroup.addView(rbChinese)
+        layout?.addView(languageGroup, 3)
+
         // Load current Settings
         val readerSettings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
+        
+        when (readerSettings.language) {
+            "zh" -> rbChinese.isChecked = true
+            "en" -> rbEnglish.isChecked = true
+            else -> rbSystem.isChecked = true
+        }
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE) // keep raw prefs for specific edits if needed or just use saveTo
 
         val switchPageAnimation = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageAnimation)
@@ -2363,10 +2390,23 @@ class ReaderActivity : AppCompatActivity() {
                     exportToCustomUrl = useCustomExport,
                     exportCustomUrl = normalizedCustomUrl,
                     exportToLocalDownloads = exportToLocal,
+                    language = when {
+                        rbChinese.isChecked -> "zh"
+                        rbEnglish.isChecked -> "en"
+                        else -> "system"
+                    },
                     updatedAt = System.currentTimeMillis()
                 )
 
                 updatedSettings.saveTo(prefs)
+
+                // Restart if language changed
+                if (updatedSettings.language != readerSettings.language) {
+                    val intent = Intent(applicationContext, my.hinoki.booxreader.data.ui.welcome.WelcomeActivity::class.java)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    startActivity(intent)
+                    return@setOnClickListener
+                }
                 pageAnimationEnabled = updatedSettings.pageAnimationEnabled
                 pageSwipeEnabled = updatedSettings.pageSwipeEnabled
                 stylesDirty = true
@@ -2384,6 +2424,9 @@ class ReaderActivity : AppCompatActivity() {
                 dialog.dismiss()
             }
         }
+
+
+
 
         btnAiProfiles.setOnClickListener {
             dialog.dismiss()

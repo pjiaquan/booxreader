@@ -9,16 +9,15 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.MainThread
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import my.hinoki.booxreader.BooxReaderApp
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.data.ui.main.MainActivity
 import my.hinoki.booxreader.databinding.ActivityWelcomeBinding
 
-class WelcomeActivity : ComponentActivity() {
+class WelcomeActivity : BaseActivity() {
 
     private lateinit var binding: ActivityWelcomeBinding
     private lateinit var prefs: SharedPreferences

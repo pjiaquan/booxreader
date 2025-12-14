@@ -2,16 +2,16 @@ package my.hinoki.booxreader.data.ui.settings
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiProfileEditBinding
 
-class AiProfileEditActivity : AppCompatActivity() {
+class AiProfileEditActivity : BaseActivity() {
 
     private lateinit var binding: ActivityAiProfileEditBinding
     private lateinit var repository: AiProfileRepository

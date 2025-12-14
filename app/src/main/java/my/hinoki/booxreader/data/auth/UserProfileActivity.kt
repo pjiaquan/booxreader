@@ -5,13 +5,13 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
+import my.hinoki.booxreader.data.ui.common.BaseActivity
 import androidx.lifecycle.lifecycleScope
 import my.hinoki.booxreader.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-class UserProfileActivity : AppCompatActivity() {
+class UserProfileActivity : BaseActivity() {
 
     private val viewModel: AuthViewModel by viewModels()
 

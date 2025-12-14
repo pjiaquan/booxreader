@@ -5,12 +5,13 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.ui.common.BaseActivity
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-class RegisterActivity : AppCompatActivity() {
+class RegisterActivity : BaseActivity() {
 
     private val viewModel: AuthViewModel by viewModels()
 
@@ -39,7 +40,8 @@ class RegisterActivity : AppCompatActivity() {
                     is AuthState.Error -> {
                         btnRegister.isEnabled = true
                         Toast.makeText(this@RegisterActivity, state.message, Toast.LENGTH_SHORT).show()
-                        if (state.message.contains("驗證", ignoreCase = true)) {
+                        val successMsg = getString(R.string.auth_registration_verification_sent)
+                        if (state.message == successMsg || state.message.contains("驗證", ignoreCase = true)) {
                             finish()
                         } else {
                             viewModel.resetState()
