@@ -11,17 +11,14 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+
 class RecentBooksAdapter(
-    private var items: List<BookEntity>,
     private val onClick: (BookEntity) -> Unit,
     private val onDelete: (BookEntity) -> Unit,
     private val onMarkCompleted: (BookEntity) -> Unit
-) : RecyclerView.Adapter<RecentBooksAdapter.RecentViewHolder>() {
-
-    fun submit(list: List<BookEntity>) {
-        items = list
-        notifyDataSetChanged()
-    }
+) : ListAdapter<BookEntity, RecentBooksAdapter.RecentViewHolder>(BookDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecentViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -30,15 +27,13 @@ class RecentBooksAdapter(
     }
 
     override fun onBindViewHolder(holder: RecentViewHolder, position: Int) {
-        val item = items[position]
+        val item = getItem(position)
         holder.bind(item, onClick, onDelete, onMarkCompleted)
     }
 
-    override fun getItemCount(): Int = items.size
-
     class RecentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val tvTitle: TextView = itemView.findViewById(R.id.tvTitle)
-        private val tvPath: TextView = itemView.findViewById(R.id.tvPath)
+
         private val tvTime: TextView = itemView.findViewById(R.id.tvTime)
         private val tvProgress: TextView = itemView.findViewById(R.id.tvProgress)
         private val tvCompleted: TextView = itemView.findViewById(R.id.tvCompleted)
@@ -50,26 +45,17 @@ class RecentBooksAdapter(
             onDelete: (BookEntity) -> Unit,
             onMarkCompleted: (BookEntity) -> Unit
         ) {
-            android.util.Log.d("RecentBooksAdapter", "bind() 被調用 - 書籍: ${item.title}")
+            // android.util.Log.d("RecentBooksAdapter", "bind() 被調用 - 書籍: ${item.title}")
             tvTitle.text = item.title?.takeIf { it.isNotBlank() } ?: itemView.context.getString(R.string.book_title_untitled)
-            tvPath.text = item.fileUri
             tvTime.text = android.text.format.DateFormat.format("yyyy/MM/dd HH:mm", item.lastOpenedAt)
 
             // Debug: 檢查原始數據
-            android.util.Log.d("RecentBooksAdapter", "書籍: ${item.title}")
-            android.util.Log.d("RecentBooksAdapter", "lastLocatorJson: ${item.lastLocatorJson}")
+            // android.util.Log.d("RecentBooksAdapter", "書籍: ${item.title}")
+            // android.util.Log.d("RecentBooksAdapter", "lastLocatorJson: ${item.lastLocatorJson}")
 
             val locator = LocatorJsonHelper.fromJson(item.lastLocatorJson)
 
             if (locator != null) {
-                android.util.Log.d("RecentBooksAdapter", "Locator 解析成功 - 書籍: ${item.title}")
-                android.util.Log.d("RecentBooksAdapter", "原始JSON: ${item.lastLocatorJson}")
-                android.util.Log.d("RecentBooksAdapter", "Locator href: ${locator.href}")
-                android.util.Log.d("RecentBooksAdapter", "totalProgression: ${locator.locations?.totalProgression}")
-                android.util.Log.d("RecentBooksAdapter", "progression: ${locator.locations?.progression}")
-                android.util.Log.d("RecentBooksAdapter", "position: ${locator.locations?.position}")
-                android.util.Log.d("RecentBooksAdapter", "locations object: ${locator.locations}")
-
                 // Use totalProgression (book-wide) if available, otherwise progression (chapter-wide)
                 val totalProgression = locator.locations?.totalProgression
                 val chapterProgression = locator.locations?.progression
@@ -77,27 +63,24 @@ class RecentBooksAdapter(
                 val progression = when {
                     // 優先使用 totalProgression (全書進度)
                     totalProgression != null && totalProgression > 0 && totalProgression <= 1.0 -> {
-                        android.util.Log.d("RecentBooksAdapter", "使用 totalProgression: $totalProgression")
                         totalProgression
                     }
                     // 備用：使用章節進度，但更寬鬆的範圍檢查
                     chapterProgression != null && chapterProgression > 0 && chapterProgression <= 1.0 -> {
-                        android.util.Log.d("RecentBooksAdapter", "使用 chapter progression: $chapterProgression")
                         chapterProgression
                     }
                     else -> {
-                        android.util.Log.d("RecentBooksAdapter", "無有效進度信息，使用預設值 0.0")
                         0.0
                     }
                 }
 
                 val percentage = (progression * 100).toInt().coerceIn(0, 100)
 
-                android.util.Log.d("RecentBooksAdapter", "最終進度: $progression, 百分比: $percentage%")
+                // android.util.Log.d("RecentBooksAdapter", "最終進度: $progression, 百分比: $percentage%")
                 tvProgress.text = itemView.context.getString(R.string.book_progress_format, percentage)
                 tvCompleted.visibility = if (percentage >= 99) View.VISIBLE else View.GONE
             } else {
-                android.util.Log.d("RecentBooksAdapter", "Locator 解析失敗 - 書籍: ${item.title}, JSON: ${item.lastLocatorJson}")
+                // android.util.Log.d("RecentBooksAdapter", "Locator 解析失敗 - 書籍: ${item.title}")
                 tvProgress.text = itemView.context.getString(R.string.book_progress_format, 0)
                 tvCompleted.visibility = View.GONE
             }
@@ -121,6 +104,16 @@ class RecentBooksAdapter(
                     }
                 }.show()
             }
+        }
+    }
+
+    class BookDiffCallback : DiffUtil.ItemCallback<BookEntity>() {
+        override fun areItemsTheSame(oldItem: BookEntity, newItem: BookEntity): Boolean {
+            return oldItem.bookId == newItem.bookId
+        }
+
+        override fun areContentsTheSame(oldItem: BookEntity, newItem: BookEntity): Boolean {
+            return oldItem == newItem
         }
     }
 }

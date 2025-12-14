@@ -36,7 +36,6 @@ class MainActivity : BaseActivity() {
     private val bookRepository by lazy { BookRepository(applicationContext, syncRepo) }
     private val recentAdapter by lazy {
         RecentBooksAdapter(
-            emptyList(),
             onClick = { openBook(it) },
             onDelete = { confirmDeleteBook(it) },
             onMarkCompleted = { markBookCompleted(it) }
@@ -156,7 +155,7 @@ class MainActivity : BaseActivity() {
                 // This ensures progress updates are reflected even if Flow doesn't emit automatically
                 lifecycleScope.launch {
                     val recentBooks = bookRepository.getRecentBooksSync(10)
-                    recentAdapter.submit(recentBooks)
+                    recentAdapter.submitList(recentBooks)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("MainActivity", "同步失敗", e)
@@ -285,7 +284,7 @@ class MainActivity : BaseActivity() {
                 } else {
                     binding.tvEmptyState.visibility = android.view.View.GONE
                     binding.recyclerRecent.visibility = android.view.View.VISIBLE
-                    recentAdapter.submit(recent)
+                    recentAdapter.submitList(recent)
                 }
             }
         }

@@ -156,6 +156,98 @@ check_adb_device() {
     fi
 }
 
+# Check if signing keys are different between installed app and new APK.
+# Returns 0 only when keys are confirmed different (uninstall required), 1 otherwise.
+# This avoids unnecessary data loss; if verification is inconclusive we skip uninstall.
+check_signing_key_difference() {
+    local apk_path="$1"
+    local package_name="my.hinoki.booxreader"
+    
+    # Check if app is already installed
+    if ! adb shell pm list packages | grep -q "$package_name"; then
+        echo "App not currently installed, no need to check signing keys"
+        return 1  # No uninstall needed
+    fi
+    
+    # Check if apksigner is available (part of Android SDK build-tools)
+    if ! command -v apksigner &> /dev/null; then
+        echo "apksigner not found, cannot verify signing keys - skipping uninstall"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    # Extract certificate from new APK first (this is more reliable)
+    echo "Extracting signing certificate from new APK..."
+    
+    # Use apksigner to verify and extract the certificate
+    local apksigner_output="/tmp/apksigner_output.txt"
+    if ! apksigner verify --print-certs "$apk_path" > "$apksigner_output" 2>/dev/null; then
+        echo "Could not verify new APK signature, skipping uninstall"
+        rm -f "$apksigner_output"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    # Extract the SHA-256 digest from apksigner output
+    local new_sha256=$(awk '/Signer #1 certificate/ {flag=1} flag && /SHA-256 digest:/ {print $NF; exit}' "$apksigner_output" 2>/dev/null | tr -d '[:space:]')
+    rm -f "$apksigner_output"
+    
+    if [ -z "$new_sha256" ]; then
+        echo "Could not extract SHA-256 from new APK, skipping uninstall"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    echo "New APK SHA-256: $new_sha256"
+    
+    # Now extract certificate from installed app using a more reliable method
+    echo "Extracting signing certificate from installed app..."
+    
+    # Pull the APK from the device to extract its certificate
+    local device_apk_path="/tmp/device_apk.apk"
+    
+    # Try to get the APK path from the device
+    local apk_on_device=$(adb shell pm path "$package_name" | grep -o '/[^ ]*.apk' | head -1)
+    
+    if [ -z "$apk_on_device" ]; then
+        echo "Could not find APK path on device, skipping uninstall"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    # Pull the APK from device
+    if ! adb pull "$apk_on_device" "$device_apk_path" 2>/dev/null; then
+        echo "Could not pull APK from device, skipping uninstall"
+        rm -f "$device_apk_path"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    # Extract certificate from the pulled APK
+    if ! apksigner verify --print-certs "$device_apk_path" > "/tmp/device_apksigner_output.txt" 2>/dev/null; then
+        echo "Could not verify pulled APK signature, skipping uninstall"
+        rm -f "$device_apk_path" "/tmp/device_apksigner_output.txt"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    # Extract the SHA-256 digest from device APK
+    local installed_sha256=$(awk '/Signer #1 certificate/ {flag=1} flag && /SHA-256 digest:/ {print $NF; exit}' "/tmp/device_apksigner_output.txt" 2>/dev/null | tr -d '[:space:]')
+    
+    # Clean up
+    rm -f "$device_apk_path" "/tmp/device_apksigner_output.txt"
+    
+    if [ -z "$installed_sha256" ]; then
+        echo "Could not extract SHA-256 from installed app, skipping uninstall"
+        return 1  # Inconclusive; don't uninstall
+    fi
+    
+    echo "Installed app SHA-256: $installed_sha256"
+    
+    # Compare the SHA-256 fingerprints
+    if [ "$installed_sha256" = "$new_sha256" ]; then
+        echo "Signing keys are the same - no need to uninstall"
+        return 1  # Same keys
+    else
+        echo "Signing keys are different - uninstall required"
+        return 0  # Different keys
+    fi
+}
+
 # Extract version information safely
 extract_version_info() {
     local build_gradle="app/build.gradle.kts"
@@ -451,13 +543,39 @@ main() {
             echo "Error: APK not found at $apk_path"
             exit 1
         fi
+
+        adb_install_with_signature_fallback() {
+            local apk_path="$1"
+            local package_name="my.hinoki.booxreader"
+
+            local install_out
+            install_out=$(adb install -r "$apk_path" 2>&1) || true
+            if echo "$install_out" | grep -q "Success"; then
+                return 0
+            fi
+
+            # Only uninstall when the install failure indicates a signature mismatch.
+            if echo "$install_out" | grep -Eq "INSTALL_FAILED_UPDATE_INCOMPATIBLE|INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES|INSTALL_FAILED_INCONSISTENT_CERTIFICATES|INSTALL_FAILED_SIGNATURE"; then
+                echo "Install failed due to signature mismatch; uninstalling and retrying..."
+                adb uninstall "$package_name" || true
+                adb install "$apk_path"
+                return $?
+            fi
+
+            echo "$install_out"
+            return 1
+        }
         
-        # Uninstall first to ensure clean install
-        echo "Uninstalling previous version..."
-        adb uninstall my.hinoki.booxreader || true
+        # Check if signing keys are different - only uninstall if they are
+        echo "Checking signing key compatibility..."
+        if check_signing_key_difference "$apk_path"; then
+            # Keys are different - uninstall required
+            echo "Uninstalling previous version due to signing key difference..."
+            adb uninstall my.hinoki.booxreader || true
+        fi
         
         # Install the new APK
-        if ! adb install "$apk_path"; then
+        if ! adb_install_with_signature_fallback "$apk_path"; then
             echo "Error: Failed to install APK"
             exit 1
         fi

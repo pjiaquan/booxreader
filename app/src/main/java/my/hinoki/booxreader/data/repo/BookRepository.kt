@@ -75,10 +75,13 @@ class BookRepository(
 
     suspend fun markCompleted(bookId: String) {
         // 標記為已讀完：寫入全書進度 100%
-        val entity = bookDao.getByIds(listOf(bookId)).firstOrNull() ?: return
+        val entity = bookDao.getByIds(listOf(bookId)).firstOrNull() 
+            ?: throw IllegalStateException("Book not found with ID: $bookId")
 
         // 使用書籍來源或 fallback URI 建立 Locator
-        val href = Url(entity.fileUri) ?: Url("progress://$bookId") ?: return
+        val href = Url(entity.fileUri) ?: Url("progress://$bookId") 
+            ?: throw IllegalStateException("Failed to create URL for book: ${entity.title}")
+            
         val locator = Locator(
             href = href,
             mediaType = MediaType.EPUB,
@@ -87,7 +90,10 @@ class BookRepository(
                 totalProgression = 1.0
             )
         )
-        val json = LocatorJsonHelper.toJson(locator) ?: return
+        val json = LocatorJsonHelper.toJson(locator) 
+            ?: throw IllegalStateException("Failed to serialize Locator to JSON")
+            
+        android.util.Log.d("BookRepository", "Marking book as completed: ${entity.title}, JSON: $json")
         updateProgress(bookId, json)
     }
 

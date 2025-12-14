@@ -1,6 +1,7 @@
 package my.hinoki.booxreader
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,10 @@ class BooxReaderApp : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
     private var periodicSyncRunnable: Runnable = Runnable { }
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(my.hinoki.booxreader.data.ui.common.LocaleHelper.onAttach(base))
+    }
 
     override fun onCreate() {
         super.onCreate()

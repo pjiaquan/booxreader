@@ -41,15 +41,7 @@
                 android:tint="#666666" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvPath"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/recent_book_path_placeholder"
-            android:textColor="#666666"
-            android:textSize="13sp"
-            android:maxLines="1"
-            android:ellipsize="end" />
+
 
         <TextView
             android:id="@+id/tvTime"
