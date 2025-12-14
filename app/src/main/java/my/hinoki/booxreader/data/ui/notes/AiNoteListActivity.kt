@@ -2,8 +2,11 @@ package my.hinoki.booxreader.data.ui.notes
 
 import android.content.Context
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.format.DateFormat
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -12,9 +15,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.ExportResult
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
 import kotlinx.coroutines.launch
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.os.Build
 
 class AiNoteListActivity : AppCompatActivity() {
 
@@ -36,6 +44,17 @@ class AiNoteListActivity : AppCompatActivity() {
     private lateinit var repo: AiNoteRepository
     private var bookId: String? = null
     private var exportMenuItem: MenuItem? = null
+    private var pendingExportAfterPermission: Boolean = false
+
+    private val storagePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted && pendingExportAfterPermission) {
+                exportAllNotes()
+            } else if (!granted && pendingExportAfterPermission) {
+                Toast.makeText(this, "Storage permission denied; local export skipped", Toast.LENGTH_SHORT).show()
+            }
+            pendingExportAfterPermission = false
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -127,18 +146,64 @@ class AiNoteListActivity : AppCompatActivity() {
     }
 
     private fun exportAllNotes() {
+        if (bookId.isNullOrEmpty()) {
+            Toast.makeText(this, "No book selected for export", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (shouldRequestStoragePermission()) {
+            pendingExportAfterPermission = true
+            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            return
+        }
+
         lifecycleScope.launch {
             setExportInProgress(true)
-            val result = repo.exportAllNotes()
+            val result = try {
+                repo.exportAllNotes(bookId!!)
+            } catch (e: Exception) {
+                ExportResult(
+                    success = false,
+                    exportedCount = 0,
+                    isEmpty = false,
+                    message = "Export failed: ${e.message ?: "Unknown error"}"
+                )
+            }
 
             val message = when {
                 result.isEmpty -> "No AI notes to export"
-                result.success -> "Exported ${result.exportedCount} AI notes"
+                result.success -> {
+                    val base = "Exported ${result.exportedCount} AI notes"
+                    val pathHint = result.localPath?.let { " (Saved at $it)" } ?: ""
+                    base + pathHint
+                }
                 else -> result.message ?: "Failed to export AI notes"
             }
 
-            Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_LONG).show()
             setExportInProgress(false)
+        }
+    }
+
+    private fun shouldRequestStoragePermission(): Boolean {
+        val settings = ReaderSettings.fromPrefs(getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE))
+        if (!settings.exportToLocalDownloads) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return false // scoped storage; we save in app dir without permission
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
+        return !granted
+    }
+
+    // Handle volume down button as back navigation
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                // Act as back button - return to previous activity
+                onBackPressed()
+                true
+            }
+            else -> super.onKeyDown(keyCode, event)
         }
     }
 }

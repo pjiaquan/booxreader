@@ -88,6 +88,39 @@ load_local_secret_env() {
     fi
 }
 
+# Auto-load from keystore.properties if variables are missing
+load_from_keystore_properties() {
+    local props_file="keystore.properties"
+    if [ -f "$props_file" ]; then
+        echo "Loading signing config from $props_file..."
+        # Read file line by line properly
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip comments and empty lines
+            [[ "$line" =~ ^#.*$ ]] && continue
+            [[ -z "$line" ]] && continue
+            
+            # Extract key and value
+            if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                value="${BASH_REMATCH[2]}"
+                
+                # Trim whitespace and carriage returns
+                key=$(echo "$key" | tr -d '[:space:]')
+                value=$(echo "$value" | tr -d '\r')
+
+                # Map properties to Env Vars (only if not already set)
+                case "$key" in
+                    "keyAlias") [ -z "$KEY_ALIAS" ] && export KEY_ALIAS="$value" ;;
+                    "keyPassword") [ -z "$KEY_ALIAS_PASSWORD" ] && export KEY_ALIAS_PASSWORD="$value" ;;
+                    "storeFile") [ -z "$STORE_FILE" ] && export STORE_FILE="$value" ;;
+                    "storePassword") [ -z "$KEYSTORE_PASSWORD" ] && export KEYSTORE_PASSWORD="$value" ;;
+                esac
+            fi
+        done < "$props_file"
+        echo "Finished loading properties."
+    fi
+}
+
 ensure_signing_env() {
     local missing=()
     for var in KEY_ALIAS KEY_ALIAS_PASSWORD KEYSTORE_PASSWORD STORE_FILE; do
@@ -237,7 +270,12 @@ send_apk_to_telegram() {
         return 1
     fi
     
-    local apk_path="app/build/outputs/apk/release/app-release.apk"
+    local apk_path
+    if [ "$BUILD_TYPE" = "release" ]; then
+        apk_path="app/build/outputs/apk/release/app-release.apk"
+    else
+        apk_path="app/build/outputs/apk/debug/app-debug.apk"
+    fi
     
     if [ ! -f "$apk_path" ]; then
         echo "Error: APK not found at $apk_path"
@@ -246,8 +284,30 @@ send_apk_to_telegram() {
     
     echo "Sending APK to Telegram..."
     
+    # Extract version info for the message
+    local version_name="unknown"
+    local version_code="0"
+    
+    if [ "$BUILD_TYPE" = "release" ]; then
+        # For release builds, use the new version info
+        version_name="$NEW_VERSION_NAME"
+        version_code="$NEW_VERSION_CODE"
+    else
+        # For debug builds, extract current version from build.gradle.kts
+        local build_gradle="app/build.gradle.kts"
+        if [ -f "$build_gradle" ]; then
+            version_code=$(grep -E 'versionCode = [0-9]+' "$build_gradle" | grep -o '[0-9]\+' || echo "0")
+            version_name=$(grep -E 'versionName = "[^"]*"' "$build_gradle" | grep -o '"[^"]*"' | tr -d '"' || echo "0.0.0")
+        fi
+    fi
+    
     # Send message with version info
-    local message="📦 New BooxReader Build Available\n\nVersion: $NEW_VERSION_NAME (code: $NEW_VERSION_CODE)\nSize: $(du -h "$apk_path" | cut -f1)\nBuilt: $(date)"
+    local version_info="${version_name} (code: ${version_code})"
+    if [ "$BUILD_TYPE" = "debug" ]; then
+        version_info="${version_info} - DEBUG"
+    fi
+    
+    local message="📦 New BooxReader Build Available\n\nVersion: ${version_info}\nType: ${BUILD_TYPE}^\nSize: $(du -h "$apk_path" | cut -f1)\nBuilt: $(date)"
     
     # Use curl to send the APK file
     if command -v curl &> /dev/null; then
@@ -261,7 +321,7 @@ send_apk_to_telegram() {
         curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
             -F chat_id="${TELEGRAM_CHAT_ID}" \
             -F document=@"${apk_path}" \
-            -F caption="BooxReader APK - Version ${NEW_VERSION_NAME}" > /dev/null
+            -F caption="BooxReader APK - ${BUILD_TYPE}^ - ${version_info}" > /dev/null
         
         echo "✅ APK successfully sent to Telegram"
         return 0
@@ -340,10 +400,14 @@ main() {
     if [ "$BUILD_TYPE" = "release" ]; then
         load_local_secret_env
         use_local_keystore_if_present
+        load_from_keystore_properties
+        echo "Verifying signing environment..."
         ensure_signing_env
+        echo "Signing environment verified."
     fi
     
     # Check ADB device (non-fatal)
+    echo "Checking for connected Android devices..."
     check_adb_device
 
     # Update version only for release builds so debug loops stay fast
@@ -356,7 +420,8 @@ main() {
     # Build the requested APK
     echo "Building the application ($BUILD_TYPE)..."
     if [ "$BUILD_TYPE" = "release" ]; then
-        ./gradlew assembleRelease
+        # Build both APK and Bundle for release
+        ./gradlew assembleRelease bundleRelease
     else
         ./gradlew assembleDebug
     fi
@@ -378,7 +443,10 @@ main() {
         
         # 3. Launch the main activity
         echo "Launching the application..."
-        adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.data.ui.main.MainActivity
+        # Prefer the manifest alias (.MainActivity) but fall back to the full class name
+        if ! adb shell am start -n my.hinoki.booxreader/.MainActivity; then
+            adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.data.ui.main.MainActivity
+        fi
     else
         echo "Skipping install/launch because ADB is unavailable."
     fi
@@ -387,11 +455,11 @@ main() {
     if [ "$BUILD_TYPE" = "release" ]; then
         echo "Performing Git operations..."
         git_operations
-        
-        # Send APK to Telegram (if enabled)
-        echo "Sending APK to Telegram..."
-        send_apk_to_telegram
     fi
+    
+    # Send APK to Telegram (if enabled) - works for both debug and release
+    echo "Sending APK to Telegram..."
+    send_apk_to_telegram
     
     echo "Done."
     if [ "$BUILD_TYPE" = "release" ]; then

@@ -5,6 +5,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
+
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.AiProfileEntity
@@ -19,7 +21,9 @@ class AiProfileRepository(
     private val prefs = context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
 
-    val allProfiles: LiveData<List<AiProfileEntity>> = dao.getAll().asLiveData()
+    val allProfiles: LiveData<List<AiProfileEntity>> = dao.getAll()
+        .map { list -> list.sortedByDescending { it.updatedAt } }
+        .asLiveData()
 
     suspend fun importProfile(jsonString: String): AiProfileEntity = withContext(Dispatchers.IO) {
         try {

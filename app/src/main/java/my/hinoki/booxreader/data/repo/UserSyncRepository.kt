@@ -23,6 +23,8 @@ import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import java.io.File
 import java.security.MessageDigest
+import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -713,8 +715,8 @@ class UserSyncRepository(
             null
         }
         
-        // Never upload the real API key to Firestore; keep it local only
-        val sanitizedApiKey = ""
+        // Encrypt the API key before uploading
+        val sanitizedApiKey = SyncCrypto.encrypt(profile.apiKey)
 
         val payload = RemoteAiProfile(
             remoteId = remoteId,
@@ -814,7 +816,7 @@ class UserSyncRepository(
                     id = 0, // Will be auto-generated
                     name = remote.name,
                     modelName = remote.modelName,
-                    apiKey = remote.apiKey,
+                    apiKey = SyncCrypto.decrypt(remote.apiKey),
                     serverBaseUrl = remote.serverBaseUrl,
                     systemPrompt = remote.systemPrompt,
                     userPromptTemplate = remote.userPromptTemplate,
@@ -846,8 +848,8 @@ class UserSyncRepository(
                     id = existing.id,
                     name = remote.name,
                     modelName = remote.modelName,
-                    // Conflict resolution: prefer local API key if it exists
-                    apiKey = if (existing.apiKey.isNotBlank()) existing.apiKey else remote.apiKey,
+                    // Conflict resolution: prefer local API key if currently set, otherwise use remote (decrypted)
+                    apiKey = if (existing.apiKey.isNotBlank()) existing.apiKey else SyncCrypto.decrypt(remote.apiKey),
                     serverBaseUrl = remote.serverBaseUrl,
                     systemPrompt = remote.systemPrompt,
                     userPromptTemplate = remote.userPromptTemplate,
@@ -887,7 +889,7 @@ class UserSyncRepository(
                     id = existing.id,
                     name = existing.name, // Prefer local name
                     modelName = existing.modelName, // Prefer local model
-                    apiKey = existing.apiKey, // Always prefer local API key
+                    apiKey = if (existing.apiKey.isNotBlank()) existing.apiKey else SyncCrypto.decrypt(remote.apiKey), // Use local if available
                     serverBaseUrl = existing.serverBaseUrl, // Prefer local server
                     systemPrompt = existing.systemPrompt, // Prefer local prompts
                     userPromptTemplate = existing.userPromptTemplate,
@@ -1056,4 +1058,39 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont 
     addOnSuccessListener { cont.resume(it) }
     addOnFailureListener { cont.resumeWithException(it) }
     addOnCanceledListener { cont.cancel() }
+}
+
+private object SyncCrypto {
+    private const val ALGORITHM = "AES"
+    private const val TRANSFORMATION = "AES/ECB/PKCS5Padding"
+    // Use a fixed key for simplicity in this context. 
+    private const val KEY_STR = "BooxReaderAiKeysSyncSecret2024!!" 
+
+    fun encrypt(input: String): String {
+        if (input.isBlank()) return ""
+        return try {
+            val key = SecretKeySpec(KEY_STR.toByteArray(), ALGORITHM)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+            val encrypted = cipher.doFinal(input.toByteArray())
+            Base64.encodeToString(encrypted, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            android.util.Log.e("SyncCrypto", "Encryption failed", e)
+            ""
+        }
+    }
+
+    fun decrypt(input: String): String {
+        if (input.isBlank()) return ""
+        return try {
+            val key = SecretKeySpec(KEY_STR.toByteArray(), ALGORITHM)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key)
+            val decoded = Base64.decode(input, Base64.NO_WRAP)
+            String(cipher.doFinal(decoded))
+        } catch (e: Exception) {
+            android.util.Log.w("SyncCrypto", "Decryption failed, returning input/empty. Input: $input")
+            ""
+        }
+    }
 }

@@ -4,9 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
+import android.graphics.Rect
 import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.Menu
+import android.view.GestureDetector
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -14,10 +17,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.SeekBar
+import android.webkit.WebView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -38,6 +44,7 @@ import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -46,6 +53,8 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import org.json.JSONTokener
 import kotlin.math.abs
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.DecorableNavigator
@@ -91,11 +100,13 @@ class ReaderActivity : AppCompatActivity() {
   
     // Activity local state for UI interaction
     private var pageTapEnabled: Boolean = true
+    private var pageSwipeEnabled: Boolean = true
     private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
     private var currentFontSize: Int = 150 // 從文石系統讀取
     private var currentFontWeight: Int = 400
     private var booxBatchRefreshEnabled: Boolean = true
     private var booxFastModeEnabled: Boolean = true
+    private var pageAnimationEnabled: Boolean = false
     private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
     private var refreshJob: Job? = null
     private val booxRefreshDelayMs = if (EInkHelper.isModernBoox()) 150L else 250L
@@ -104,6 +115,7 @@ class ReaderActivity : AppCompatActivity() {
     private val scrollDetectionThreshold = 25f // 更高的滑動檢測閾值，減少干擾
     private var isSelectingText = false // 追蹤是否真的在選取文字
     private val pageNavigationRefreshDelayMs = 300L // 頁面導航專用延遲
+    private var lastSelectionJsUpdateAtMs: Long = 0L
 
     // 簡化的選擇狀態管理
     private enum class SelectionState {
@@ -124,14 +136,31 @@ class ReaderActivity : AppCompatActivity() {
     private var pendingDecorations: List<Decoration>? = null
     private var selectionStartX = 0f
     private var selectionStartY = 0f
+    private var selectionStartContentX = 0f
+    private var selectionStartContentY = 0f
+    private var lastTouchContentX = 0f
+    private var lastTouchContentY = 0f
     private var lastStyledHref: String? = null
     private var stylesDirty: Boolean = true
+    private var selectionMenuFallbackJob: Job? = null
+    private var pendingSelectionCheckJob: Job? = null
+    private var hasPendingSelection: Boolean = false
+    private var lastSelectionContentRect: Rect? = null
+    private var swipeBlockActive: Boolean = false
+    private var swipeBlockStartX: Float = 0f
+    private var swipeBlockStartY: Float = 0f
+    private var swipeBlockStartAtMs: Long = 0L
+    private val pageDebugLogging = false
+    // WebView.getScale() is deprecated; cache it via this helper to avoid compiler warnings
+    @Suppress("DEPRECATION")
+    private fun WebView.currentPageScale(): Float = runCatching { scale }.getOrDefault(1f).takeIf { it > 0f } ?: 1f
+    private val selectionDebugLogging = false
 
     private val REQ_BOOKMARK = 1001
     private val PREFS_NAME = "reader_prefs"
 
     private val gestureDetector by lazy {
-        androidx.core.view.GestureDetectorCompat(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+        GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean {
                 return true
             }
@@ -142,6 +171,11 @@ class ReaderActivity : AppCompatActivity() {
                 distanceX: Float,
                 distanceY: Float
             ): Boolean {
+                // 當正在選取文字時，阻止滑動手勢觸發翻頁或其他行為
+                if (isSelectionFlowActive() || selectionState == SelectionState.GUARDING) {
+                    return true
+                }
+
                 // Enable fast mode on scroll to ensure smooth movement
                 if (booxFastModeEnabled && !isSelectionFlowActive()) {
                     EInkHelper.enableFastMode(binding.root)
@@ -167,6 +201,7 @@ class ReaderActivity : AppCompatActivity() {
                 // 如果有活動的ActionMode（選擇菜單已打開），優先關閉它
                 if (currentActionMode != null) {
                     currentActionMode?.finish()
+                    hasPendingSelection = false
                     lifecycleScope.launch {
                         try { navigatorFragment?.clearSelection() } catch (_: Exception) {}
                     }
@@ -177,6 +212,15 @@ class ReaderActivity : AppCompatActivity() {
                 if (isSelectionFlowActive()) {
                     return true
                 }
+                // 2.1 若仍有已選中的文字但 ActionMode 已關閉，優先清除選取，再由下一次點擊處理翻頁
+                if (hasPendingSelection) {
+                    hasPendingSelection = false
+                    lifecycleScope.launch {
+                        try { navigatorFragment?.clearSelection() } catch (_: Exception) {}
+                    }
+                    // Consume this tap; next tap will handle navigation.
+                    return true
+                }
 
                 // 3. 頁面導航（僅在沒有選擇活動時）- 這裡只處理真正的單擊
                 if (pageTapEnabled) {
@@ -185,7 +229,7 @@ class ReaderActivity : AppCompatActivity() {
                     if (width > 0) {
                         // 30-40-30 規則 - 只有真正的單擊（無拖動）才觸發頁面導航
                         if (x < width * 0.3f) {
-                            navigatorFragment?.goBackward()
+                            goPageBackward()
                             // 延遲刷新以確保頁面切換完成
                             if (EInkHelper.isBooxDevice()) {
                                 binding.root.postDelayed({
@@ -194,7 +238,7 @@ class ReaderActivity : AppCompatActivity() {
                             }
                             return true
                         } else if (x > width * 0.7f) {
-                            navigatorFragment?.goForward()
+                            goPageForward()
                             // 延遲刷新以確保頁面切換完成
                             if (EInkHelper.isBooxDevice()) {
                                 binding.root.postDelayed({
@@ -217,6 +261,7 @@ class ReaderActivity : AppCompatActivity() {
     private fun startSelectionGuard() {
         selectionGuardJob?.cancel()
         selectionState = SelectionState.GUARDING
+        logSelectionDebug("startSelectionGuard -> GUARDING")
         navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(true)
 
         // 180ms 後如果沒有開始選擇，則釋放
@@ -224,6 +269,7 @@ class ReaderActivity : AppCompatActivity() {
             delay(selectionGuardDelayMs)
             if (selectionState == SelectionState.GUARDING) {
                 selectionState = SelectionState.IDLE
+                logSelectionDebug("selectionGuard timeout -> IDLE")
                 navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
             }
         }
@@ -232,15 +278,412 @@ class ReaderActivity : AppCompatActivity() {
     private fun onSelectionStarted() {
         selectionGuardJob?.cancel()
         selectionState = SelectionState.SELECTING
+        hasPendingSelection = true
+        logSelectionDebug("onSelectionStarted -> SELECTING")
+        navigatorFragment?.view?.let { view ->
+            if (view is WebView) {
+                // Immediately clamp selection to current drag position to prevent page-wide selects.
+                updateSelectionRange(view, lastTouchContentX, lastTouchContentY)
+            }
+        }
     }
 
     private fun onActionModeCreated() {
         selectionState = SelectionState.MENU_OPEN
+        hasPendingSelection = true
+        logSelectionDebug("onActionModeCreated -> MENU_OPEN")
     }
 
     private fun onSelectionFinished() {
         selectionState = SelectionState.IDLE
+        logSelectionDebug("onSelectionFinished -> IDLE")
         navigatorFragment?.view?.parent?.requestDisallowInterceptTouchEvent(false)
+
+        // If nothing is actually selected, don't keep blocking page navigation.
+        pendingSelectionCheckJob?.cancel()
+        pendingSelectionCheckJob = lifecycleScope.launch {
+            delay(60)
+            val text = runCatching {
+                navigatorFragment?.currentSelection()?.locator?.text?.highlight?.trim()
+            }.getOrNull()
+            if (text.isNullOrBlank()) {
+                hasPendingSelection = false
+                logSelectionDebug("onSelectionFinished: empty selection -> clear pending")
+            }
+        }
+    }
+
+    private fun findFirstWebView(view: View?): WebView? {
+        if (view is WebView) return view
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                val found = findFirstWebView(view.getChildAt(i))
+                if (found != null) return found
+            }
+        }
+        return null
+    }
+
+    private fun applySwipeNavigationSetting(view: View?) {
+        if (view == null) return
+        // Disable pager swipes without blocking child touches (selection/taps) whenever possible.
+        // Use reflection to avoid hard dependency on Readium internals.
+        val className = view.javaClass.name
+        if (className.contains("ViewPager", ignoreCase = true)) {
+            val enabled = pageSwipeEnabled
+            val ok =
+                runCatching {
+                    view.javaClass.getMethod("setUserInputEnabled", Boolean::class.javaPrimitiveType).invoke(view, enabled)
+                    true
+                }.getOrNull() == true ||
+                    runCatching {
+                        view.javaClass.getMethod("setPagingEnabled", Boolean::class.javaPrimitiveType).invoke(view, enabled)
+                        true
+                    }.getOrNull() == true ||
+                    runCatching {
+                        view.javaClass.getMethod("setSwipeEnabled", Boolean::class.javaPrimitiveType).invoke(view, enabled)
+                        true
+                    }.getOrNull() == true
+            if (ok) return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applySwipeNavigationSetting(view.getChildAt(i))
+            }
+        }
+    }
+
+    private fun logPageEdgeWords(label: String) {
+        if (!pageDebugLogging) return
+        val webView = findFirstWebView(navigatorFragment?.view) ?: return
+        val js = """
+            (function() {
+                const vw = Math.max(2, (window.innerWidth || document.documentElement.clientWidth || 0));
+                const vh = Math.max(2, (window.innerHeight || document.documentElement.clientHeight || 0));
+                const startX = 8, startY = 8;
+                const endX = Math.max(2, vw - 8);
+                const endY = Math.max(2, vh - 8);
+                function caretAt(x, y) {
+                    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+                    if (document.caretPositionFromPoint) {
+                        const pos = document.caretPositionFromPoint(x, y);
+                        if (!pos) return null;
+                        const r = document.createRange();
+                        r.setStart(pos.offsetNode, pos.offset);
+                        return r;
+                    }
+                    return null;
+                }
+                function fallbackRange(x, y) {
+                    const el = document.elementFromPoint(x, y);
+                    if (!el) return null;
+                    const r = document.createRange();
+                    r.selectNodeContents(el);
+                    r.collapse(true);
+                    return r;
+                }
+                const s = caretAt(startX, startY) || fallbackRange(startX, startY);
+                const e = caretAt(endX, endY) || fallbackRange(endX, endY);
+                if (!s || !e) return "";
+                const range = document.createRange();
+                range.setStart(s.startContainer, s.startOffset);
+                range.setEnd(e.startContainer, e.startOffset);
+                const text = range.toString().replace(/\s+/g, " ").trim();
+                const words = text ? text.split(" ").filter(Boolean) : [];
+                const first = words.slice(0, 10).join(" ");
+                const last = words.slice(-10).join(" ");
+                return JSON.stringify({ first, last, count: words.length });
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js) { result ->
+            logSelectionDebug("PageEdge($label): $result")
+        }
+    }
+
+    private fun adjustSelectionIntoView(webView: WebView) {
+        val paddingPx = (96 * resources.displayMetrics.density).toInt()
+        val scale = webView.currentPageScale()
+        val js = """
+            (function() {
+                const sel = window.getSelection && window.getSelection();
+                if (!sel || sel.rangeCount === 0) return null;
+                const r = sel.getRangeAt(0).getBoundingClientRect();
+                if (!r) return null;
+                return JSON.stringify({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js) { raw ->
+            try {
+                if (raw.isNullOrBlank() || raw == "null") return@evaluateJavascript
+                val json = parseJsObject(raw) ?: return@evaluateJavascript
+                val topPx = json.optDouble("top", 0.0) * scale + webView.scrollY
+                val bottomPx = json.optDouble("bottom", 0.0) * scale + webView.scrollY
+                val currentTop = webView.scrollY.toDouble()
+                val currentBottom = currentTop + webView.height
+                val targetDelta = when {
+                    topPx < currentTop + paddingPx -> topPx - (currentTop + paddingPx)
+                    bottomPx > currentBottom - paddingPx -> bottomPx - (currentBottom - paddingPx)
+                    else -> 0.0
+                }
+                if (targetDelta != 0.0) {
+                    val newScroll = (webView.scrollY + targetDelta).toInt().coerceAtLeast(0)
+                    webView.post {
+                        webView.scrollTo(webView.scrollX, newScroll)
+                    }
+                    logSelectionDebug("adjustSelectionIntoView scroll by $targetDelta newY=$newScroll")
+                }
+            } catch (e: Exception) {
+                logSelectionDebug("adjustSelectionIntoView error ${e.message}")
+            }
+        }
+    }
+
+    private fun refreshSelectionContentRect(webView: WebView) {
+        val scale = webView.currentPageScale()
+        val js = """
+            (function() {
+              const sel = window.getSelection && window.getSelection();
+              if (!sel || sel.rangeCount === 0) return null;
+              const r = sel.getRangeAt(0).getBoundingClientRect();
+              if (!r) return null;
+              return JSON.stringify({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js) { raw ->
+            val json = parseJsObject(raw) ?: return@evaluateJavascript
+            val left = (json.optDouble("left", 0.0) * scale).toInt()
+            val top = (json.optDouble("top", 0.0) * scale).toInt()
+            val right = (json.optDouble("right", 0.0) * scale).toInt()
+            val bottom = (json.optDouble("bottom", 0.0) * scale).toInt()
+            val clamped = Rect(
+                left.coerceIn(0, webView.width.coerceAtLeast(1)),
+                top.coerceIn(0, webView.height.coerceAtLeast(1)),
+                right.coerceIn(0, webView.width.coerceAtLeast(1)),
+                bottom.coerceIn(0, webView.height.coerceAtLeast(1))
+            )
+            if (clamped.right <= clamped.left || clamped.bottom <= clamped.top) return@evaluateJavascript
+            lastSelectionContentRect = clamped
+        }
+    }
+
+    private fun parseJsObject(raw: String): JSONObject? {
+        // WebView.evaluateJavascript returns a JSON value encoded as a String.
+        // Sometimes this is:
+        // - an object: { ... }
+        // - a quoted JSON string: "{\"top\":1}" (value is a String)
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty() || trimmed == "null") return null
+        return runCatching {
+            when (val value = JSONTokener(trimmed).nextValue()) {
+                is JSONObject -> value
+                is String -> runCatching { JSONObject(value) }.getOrNull()
+                else -> null
+            }
+        }.getOrNull()
+    }
+
+    // Selection uses the system ActionMode menu. Avoid adding extra overlay UI here to keep paging/selection fast on e-ink.
+
+    private fun maybeStartSelectionMenuFallback() {
+        selectionMenuFallbackJob?.cancel()
+        selectionMenuFallbackJob = lifecycleScope.launch {
+            delay(200)
+            if (currentActionMode != null) return@launch
+            if (selectionState != SelectionState.SELECTING && selectionState != SelectionState.MENU_OPEN) return@launch
+            val selection = navigatorFragment?.currentSelection()
+            val text = selection?.locator?.text?.highlight
+            val hasSelection = !text.isNullOrBlank()
+            if (hasSelection) {
+                startActionMode(selectionActionModeCallback)?.let { mode ->
+                    currentActionMode = mode
+                }
+                }
+            }
+        }
+
+    private fun enforceSelectionBounds(webView: WebView) {
+        updateSelectionRange(webView, lastTouchContentX, lastTouchContentY, finalize = true)
+    }
+
+    private fun updateSelectionRange(
+        webView: WebView,
+        endContentX: Float,
+        endContentY: Float,
+        finalize: Boolean = false
+    ) {
+        val startX = selectionStartContentX
+        val startY = selectionStartContentY
+        val scale = webView.currentPageScale()
+        // IMPORTANT: JS caretRangeFromPoint/elementFromPoint expect viewport (client) coordinates.
+        // Use DOM viewport coordinates (CSS px) derived from touch positions, not document coordinates.
+        val minX = 0f
+        val maxX = webView.width / scale
+        val minY = 0f
+        val maxY = webView.height / scale
+        logSelectionDebug("updateSelectionRange start=($startX,$startY) end=($endContentX,$endContentY) finalize=$finalize state=$selectionState viewport=[$minX,$maxX]x[$minY,$maxY]")
+        val js = """
+            (function() {
+                const minX = ${minX};
+                const maxX = ${maxX};
+                const minY = ${minY};
+                const maxY = ${maxY};
+                // 擴大搜索半徑以提高觸摸容錯率
+                const SEARCH_RADIUS = 30;
+                
+                function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+                const sX = clamp($startX, minX, maxX);
+                const sY = clamp($startY, minY, maxY);
+                const eX = clamp($endContentX, minX, maxX);
+                const eY = clamp($endContentY, minY, maxY);
+
+                function caretAt(x, y) {
+                    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+                    if (document.caretPositionFromPoint) {
+                        const pos = document.caretPositionFromPoint(x, y);
+                        if (!pos) return null;
+                        const r = document.createRange();
+                        r.setStart(pos.offsetNode, pos.offset);
+                        r.collapse(true);
+                        return r;
+                    }
+                    return null;
+                }
+                
+                // 檢查 Range 是否真的在目標點附近 (解決選到上一頁文字的問題)
+                function isRangeNearPoint(range, targetX, targetY) {
+                    if (!range) return false;
+                    const rect = range.getBoundingClientRect();
+                    if (!rect || (rect.width === 0 && rect.height === 0)) {
+                        // 有些只有光標的 range 大小為 0，嘗試擴展一個字元來檢查
+                        try {
+                            const clone = range.cloneRange();
+                            clone.setEnd(range.startContainer, Math.min(range.startContainer.length || 0, range.startOffset + 1));
+                            const rect2 = clone.getBoundingClientRect();
+                             if (rect2 && rect2.width > 0) {
+                                 // 檢查目標點是否在矩形稍微擴大的範圍內
+                                 return (targetX >= rect2.left - SEARCH_RADIUS && targetX <= rect2.right + SEARCH_RADIUS &&
+                                         targetY >= rect2.top - SEARCH_RADIUS && targetY <= rect2.bottom + SEARCH_RADIUS);
+                             }
+                        } catch(e) {}
+                        return true; // 無法測量，姑且相信
+                    }
+                    
+                    // 檢查目標點與 range 矩形的距離
+                    // 如果是上一頁的文字，通常 left 會是負值或者遠小於 0 (視分頁實作而定)
+                    // 對於分頁閱讀器，上一頁內容可能在視口左側
+                    
+                    // 寬鬆判定：只要在矩形周圍 SEARCH_RADIUS 像素內即可
+                    const distLeft = targetX - rect.left;
+                    const distRight = targetX - rect.right;
+                    const distTop = targetY - rect.top;
+                    const distBottom = targetY - rect.bottom;
+                    
+                    const nearX = (targetX >= rect.left - SEARCH_RADIUS) && (targetX <= rect.right + SEARCH_RADIUS);
+                    const nearY = (targetY >= rect.top - SEARCH_RADIUS) && (targetY <= rect.bottom + SEARCH_RADIUS);
+                    
+                    return nearX && nearY;
+                }
+
+                function caretNear(x, y) {
+                    // 1. 標準 viewport 座標嘗試
+                    let range = tryFindCaret(x, y);
+                    if (range && isRangeNearPoint(range, x, y)) return range;
+                    
+                    // 2. 失敗重試機制：有時候在某些設備上 caretRangeFromPoint 行為怪異
+                    // 嘗試偏移座標 (針對某些特殊的 WebView 座標空間偏移)
+                    // 這種情況較少見，但可能是 Boox 設備問題的根源
+                    
+                    // Case A: 嘗試加上 scrollX (如果 webview 錯誤地預期 document coordinates)
+                    const docX = x + window.scrollX;
+                    const docY = y + window.scrollY;
+                    if (docX !== x || docY !== y) {
+                         range = tryFindCaret(docX, docY);
+                         // 注意：這裡驗證仍需使用 viewport 座標 (x,y) 與 getBoundingClientRect 比較
+                         if (range && isRangeNearPoint(range, x, y)) return range;
+                    }
+                    
+                    return null;
+                }
+                
+                function tryFindCaret(x, y) {
+                    // 螺旋搜索
+                    const offsets = [
+                      0,0, 
+                      0,5, 0,-5, 5,0, -5,0,
+                      5,5, 5,-5, -5,5, -5,-5,
+                      0,10, 0,-10, 10,0, -10,0,
+                      0,15, 0,-15, 15,0, -15,0,
+                      0,20, 0,-20, 20,0, -20,0
+                    ];
+                    
+                    for (let i = 0; i < offsets.length; i += 2) {
+                        const cx = clamp(x + offsets[i], minX, maxX);
+                        const cy = clamp(y + offsets[i + 1], minY, maxY);
+                        const r = caretAt(cx, cy);
+                        if (r) return r;
+                    }
+                    return null;
+                }
+
+                try {
+                    let startRange = caretNear(sX, sY);
+                    let endRange = caretNear(eX, eY);
+                    
+                    // 如果無法找到有效的鄰近光標，則保留原樣或嘗試回退
+                    if (!startRange || !endRange) {
+                         // 當找不到精確位置時，若是 finalizing (手指放開)，嘗試更寬鬆的策略或保持選區
+                         // 這裡選擇不更新，以免選區亂跳
+                         return;
+                    }
+
+                    // 不允許反向：若終點在起點之前，則收斂為起點
+                    try {
+                        const cmp = startRange.compareBoundaryPoints(Range.START_TO_START, endRange);
+                        if (cmp > 0) {
+                            endRange = startRange;
+                        }
+                    } catch (e) {}
+
+                    const range = document.createRange();
+                    range.setStart(startRange.startContainer, startRange.startOffset);
+                    range.setEnd(endRange.startContainer, endRange.startOffset);
+                    const sel = window.getSelection ? window.getSelection() : null;
+                    if (sel) {
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        ${if (finalize) "window.__lastSelectionText = sel.toString();" else ""}
+                    }
+                } catch (e) {
+                    console.log('updateSelectionRange error', e);
+                }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js) { _ ->
+            if (selectionDebugLogging) {
+                webView.evaluateJavascript(
+                    "(function(){var s=window.getSelection();return s?s.toString().slice(0,200):'';})();"
+                ) { text ->
+                    logSelectionDebug("JS selection preview: $text")
+                }
+            }
+        }
+    }
+
+    private fun logSelectionDebug(message: String) {
+        if (!selectionDebugLogging) return
+        android.util.Log.d("ReaderSelection", message)
+    }
+
+    private fun goPageForward() {
+        logPageEdgeWords("beforeForward")
+        navigatorFragment?.goForward(pageAnimationEnabled)
+        binding.root.postDelayed({ logPageEdgeWords("afterForward") }, 200)
+    }
+
+    private fun goPageBackward() {
+        logPageEdgeWords("beforeBackward")
+        navigatorFragment?.goBackward(pageAnimationEnabled)
+        binding.root.postDelayed({ logPageEdgeWords("afterBackward") }, 200)
     }
 
 
@@ -310,8 +753,10 @@ class ReaderActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         currentFontWeight = 400 // 使用預設字體粗細，不從SharedPreferences讀取
         pageTapEnabled = prefs.getBoolean("page_tap_enabled", true)
+        pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true)
         booxBatchRefreshEnabled = prefs.getBoolean("boox_batch_refresh", true)
         booxFastModeEnabled = prefs.getBoolean("boox_fast_mode", true)
+        pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false)
 
         // 載入本地設置（包括對比模式）
         val contrastModeOrdinal = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal)
@@ -434,6 +879,7 @@ class ReaderActivity : AppCompatActivity() {
             disableWebViewOverscroll(navigatorFragment?.view)
             applyBooxWebViewSettings(navigatorFragment?.view)
             setupWebViewSelectionListener(navigatorFragment?.view)
+            applySwipeNavigationSetting(navigatorFragment?.view)
 
             // 立即強制應用字體設定（不等待延遲）
             android.util.Log.d("ReaderActivity", "initNavigator完成，立即強制應用字體設定")
@@ -545,7 +991,6 @@ class ReaderActivity : AppCompatActivity() {
                 // 性能優化
                 cacheMode = android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK
                 domStorageEnabled = true
-                databaseEnabled = true
                 allowFileAccess = true
                 allowContentAccess = true
 
@@ -554,8 +999,7 @@ class ReaderActivity : AppCompatActivity() {
                 mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
                 // 文字選取優化
-                allowFileAccessFromFileURLs = false
-                allowUniversalAccessFromFileURLs = false
+                // Keep defaults for file URL access to avoid deprecated settings
 
                 // 文石設備特定優化
                 if (EInkHelper.isModernBoox()) {
@@ -595,18 +1039,85 @@ class ReaderActivity : AppCompatActivity() {
                         // 重置文字選取標記
                         isSelectingText = false
 
+                        // If swipe page-turn is disabled, prevent the pager parent from intercepting horizontal swipes.
+                        // This keeps taps/selection working, but stops "swipe to turn page".
+                        if (!pageSwipeEnabled) {
+                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                        }
+
                         // 記錄觸摸開始位置
                         selectionStartX = event.x
                         selectionStartY = event.y
 
-                        // 延遲啟動選擇保護，給時間讓 WebView 開始處理
+                        // 將游標放在實際點擊位置，避免長按時選區從頁首開始
+                        if (selectionState == SelectionState.IDLE || selectionState == SelectionState.GUARDING) {
+                            val scale = view.currentPageScale()
+                            // Use viewport (client) coords in CSS px. Do NOT add scroll offsets.
+                            val domX = event.x / scale
+                            val domY = event.y / scale
+                            selectionStartContentX = domX
+                            selectionStartContentY = domY
+                            lastTouchContentX = domX
+                            lastTouchContentY = domY
+                            logSelectionDebug("ACTION_DOWN anchor dom=($domX,$domY) view=(${event.x},${event.y}) scale=$scale scroll=(${view.scrollX},${view.scrollY}) state=$selectionState")
+                            // Clear any previous selection inside the WebView to avoid reusing stale ranges.
+                            view.evaluateJavascript("(function(){var s=window.getSelection&&window.getSelection();if(s){s.removeAllRanges();}})();", null)
+                            val js = """
+                                (function() {
+                                    const minX = 0;
+                                    const maxX = Math.max(1, (window.innerWidth || document.documentElement.clientWidth || 0));
+                                    const minY = 0;
+                                    const maxY = Math.max(1, (window.innerHeight || document.documentElement.clientHeight || 0));
+                                    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+                                    const x = clamp(${domX}, minX, maxX);
+                                    const y = clamp(${domY}, minY, maxY);
+
+                                    function caretAt(x, y) {
+                                        if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+                                        if (document.caretPositionFromPoint) {
+                                            const pos = document.caretPositionFromPoint(x, y);
+                                            if (!pos) return null;
+                                            const r = document.createRange();
+                                            r.setStart(pos.offsetNode, pos.offset);
+                                            r.collapse(true);
+                                            return r;
+                                        }
+                                        return null;
+                                    }
+                                    function caretNear(x, y) {
+                                        const offsets = [
+                                          0,0, 1,0, -1,0, 0,1, 0,-1,
+                                          2,0, -2,0, 0,2, 0,-2,
+                                          4,0, -4,0, 0,4, 0,-4,
+                                          6,0, -6,0, 0,6, 0,-6,
+                                          8,0, -8,0, 0,8, 0,-8,
+                                          12,0, -12,0, 0,12, 0,-12
+                                        ];
+                                        for (let i = 0; i < offsets.length; i += 2) {
+                                            const cx = clamp(x + offsets[i], minX, maxX);
+                                            const cy = clamp(y + offsets[i + 1], minY, maxY);
+                                            const r = caretAt(cx, cy);
+                                            if (r) return r;
+                                        }
+                                        return null;
+                                    }
+
+                                    const sel = window.getSelection ? window.getSelection() : null;
+                                    if (!sel) return;
+                                    const range = caretNear(x, y);
+                                    if (!range) return;
+                                    try {
+                                        sel.removeAllRanges();
+                                        sel.addRange(range);
+                                    } catch (_) {}
+                                })();
+                            """.trimIndent()
+                            view.evaluateJavascript(js, null)
+                        }
+
+                        // 立即啟動選擇保護，避免快速滑動時仍為 IDLE
                         if (selectionState == SelectionState.IDLE) {
-                            lifecycleScope.launch {
-                                delay(50) // 短暫延遲，讓 WebView 先處理
-                                if (selectionState == SelectionState.IDLE) {
-                                    startSelectionGuard()
-                                }
-                            }
+                            startSelectionGuard()
                         }
 
                         // 立即啟用快速模式以支持流暢的文字選取
@@ -619,6 +1130,21 @@ class ReaderActivity : AppCompatActivity() {
                         val dx = abs(event.x - selectionStartX)
                         val dy = abs(event.y - selectionStartY)
 
+                        // Optional: disable swipe page turns (keeps tap/volume navigation).
+                        if (!pageSwipeEnabled && selectionState == SelectionState.IDLE && !isSelectingText) {
+                            val isMostlyHorizontal = dx > scrollDetectionThreshold && dx > dy * 1.2f
+                            if (isMostlyHorizontal) {
+                                return@setOnTouchListener true
+                            }
+                        }
+                        val scale = view.currentPageScale()
+                        lastTouchContentX = event.x / scale
+                        lastTouchContentY = event.y / scale
+                        logSelectionDebug("MOVE content=($lastTouchContentX,$lastTouchContentY) view=(${event.x},${event.y}) state=$selectionState dx=$dx dy=$dy")
+
+                        val now = SystemClock.uptimeMillis()
+                        val canRunSelectionJs = (now - lastSelectionJsUpdateAtMs) > 50
+
                         // 檢查是否為文字選取（小範圍移動）
                         if (dx < scrollDetectionThreshold && dy < scrollDetectionThreshold) {
                             if (dx > textSelectionSensitivity || dy > textSelectionSensitivity) {
@@ -626,12 +1152,18 @@ class ReaderActivity : AppCompatActivity() {
                                     onSelectionStarted()
                                     isSelectingText = true
                                 }
+                                // 當開始文字選取時，持續以起點為基準更新終點，避免反向選取整頁
+                                if (selectionState == SelectionState.SELECTING && canRunSelectionJs) {
+                                    lastSelectionJsUpdateAtMs = now
+                                    updateSelectionRange(view, lastTouchContentX, lastTouchContentY)
+                                }
                             }
                         } else {
                             // 大範圍移動，可能不是文字選取
-                            if (selectionState == SelectionState.SELECTING && !isSelectingText) {
-                                // 如果沒有標記為文字選取，可能是在滑動
-                                // 但不要立即重置，讓 WebView 先處理
+                            if (selectionState == SelectionState.SELECTING && canRunSelectionJs) {
+                                lastSelectionJsUpdateAtMs = now
+                                // 仍然依照起點->當前點更新選區，避免系統默認反向或整頁選取
+                                updateSelectionRange(view, lastTouchContentX, lastTouchContentY)
                             }
                         }
                     }
@@ -662,6 +1194,19 @@ class ReaderActivity : AppCompatActivity() {
 
                         // 重置文字選取標記
                         isSelectingText = false
+
+                        // 如果已經開始選取且 WebView 沒有彈出菜單，嘗試用起點/終點重新限定選區，避免整頁被選中
+                        if (selectionState == SelectionState.SELECTING) {
+                            enforceSelectionBounds(view)
+                        }
+
+                        // 後備：如果選取後沒有彈出菜單，主動嘗試啟動 ActionMode
+                        maybeStartSelectionMenuFallback()
+
+                        // Re-allow parent intercept when we're done, unless a selection flow is still active.
+                        if (!pageSwipeEnabled && !isSelectionFlowActive() && selectionState != SelectionState.GUARDING) {
+                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         // 取消時立即清理狀態
@@ -671,6 +1216,10 @@ class ReaderActivity : AppCompatActivity() {
                         isSelectingText = false
                         if (EInkHelper.isBooxDevice() && booxFastModeEnabled) {
                             EInkHelper.restoreQualityMode(v)
+                        }
+
+                        if (!pageSwipeEnabled && !isSelectionFlowActive() && selectionState != SelectionState.GUARDING) {
+                            v.parent?.requestDisallowInterceptTouchEvent(false)
                         }
                     }
                 }
@@ -718,8 +1267,56 @@ class ReaderActivity : AppCompatActivity() {
         applyFontZoomLikeNeoReader(navigatorView, currentFontSize)
         applyFontWeightViaWebView(navigatorView, currentFontWeight)
         applyReaderCss(navigatorView)
+        applyPageAnimationCss(navigatorView)
         applySelectionFriendlyCss(navigatorView)
         stylesDirty = false
+    }
+
+    private fun applyPageAnimationCss(view: View?) {
+        if (view is android.webkit.WebView) {
+            val css = if (pageAnimationEnabled) {
+                ""
+            } else {
+                """
+                    * {
+                        -webkit-transition: none !important;
+                        transition: none !important;
+                        -webkit-animation: none !important;
+                        animation: none !important;
+                        scroll-behavior: auto !important;
+                    }
+                    html, body {
+                        scroll-behavior: auto !important;
+                    }
+                """.trimIndent()
+            }
+
+            val js = """
+                (function() {
+                    const id = 'boox-page-animation-style';
+                    const existing = document.getElementById(id);
+                    const cssText = `${css}`;
+                    if (!cssText) {
+                        if (existing) existing.remove();
+                        return;
+                    }
+                    let style = existing;
+                    if (!style) {
+                        style = document.createElement('style');
+                        style.id = id;
+                        document.head.appendChild(style);
+                    }
+                    style.textContent = cssText;
+                })();
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
+            return
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applyPageAnimationCss(view.getChildAt(i))
+            }
+        }
     }
     
     private fun applyReaderCss(view: View?) {
@@ -983,7 +1580,7 @@ class ReaderActivity : AppCompatActivity() {
         
         // Restore location immediately
         if (initialLocator != null) {
-             navigatorFragment?.go(initialLocator)
+             navigatorFragment?.go(initialLocator, pageAnimationEnabled)
         }
 
         // 關鍵：在字體應用後觸發文石系統深度刷新
@@ -1024,7 +1621,7 @@ class ReaderActivity : AppCompatActivity() {
             
             // Restore location
             if (delayedLocator != null) {
-                 navigatorFragment?.go(delayedLocator)
+                 navigatorFragment?.go(delayedLocator, pageAnimationEnabled)
             }
 
             // 再次觸發文石系統深度刷新
@@ -1061,7 +1658,7 @@ class ReaderActivity : AppCompatActivity() {
                 applyReaderStyles(force = true)
                 
                 if (finalLocator != null) {
-                     navigatorFragment?.go(finalLocator)
+                    navigatorFragment?.go(finalLocator, pageAnimationEnabled)
                 }
 
                 // 最終觸發文石系統深度刷新確保設定生效
@@ -1099,7 +1696,7 @@ class ReaderActivity : AppCompatActivity() {
                 applyFontWeight(400)
                 
                 if (fallbackLocator != null) {
-                     navigatorFragment?.go(fallbackLocator)
+                    navigatorFragment?.go(fallbackLocator, pageAnimationEnabled)
                 }
 
                 // 最終的強制完整重繪
@@ -1228,6 +1825,15 @@ class ReaderActivity : AppCompatActivity() {
     // 增強 Locator 以確保包含正確的進度信息
     private fun enhanceLocatorWithProgress(locator: Locator): Locator {
         val currentLocations = locator.locations
+            ?: run {
+                android.util.Log.d("ReaderActivity", "創建新的 locations 對象")
+                return locator.copy(
+                    locations = Locator.Locations(
+                        totalProgression = 0.0,
+                        progression = 0.0
+                    )
+                )
+            }
 
         // 如果已經有有效的 totalProgression，直接返回
         val totalProgression = currentLocations?.totalProgression
@@ -1240,21 +1846,10 @@ class ReaderActivity : AppCompatActivity() {
         val progression = currentLocations?.progression
         if (progression != null && progression >= 0 && progression <= 1.0) {
             android.util.Log.d("ReaderActivity", "使用 progression 作為 totalProgression: $progression")
-            val enhancedLocations = currentLocations!!.copy(
+            val enhancedLocations = currentLocations.copy(
                 totalProgression = progression
             )
             return locator.copy(locations = enhancedLocations)
-        }
-
-        // 如果沒有 locations 對象，創建一個基本的
-        if (currentLocations == null) {
-            android.util.Log.d("ReaderActivity", "創建新的 locations 對象")
-            return locator.copy(
-                locations = Locator.Locations(
-                    totalProgression = 0.0,
-                    progression = 0.0
-                )
-            )
         }
 
         // 如果都沒有，保持原樣
@@ -1293,7 +1888,7 @@ class ReaderActivity : AppCompatActivity() {
                     android.util.Log.d("ReaderActivity", "onResume - 嘗試恢復位置")
                     // Small delay to let WebView apply text zoom first
                     delay(50) 
-                    navigatorFragment?.go(savedLocator)
+                    navigatorFragment?.go(savedLocator, pageAnimationEnabled)
                 }
 
                 delay(100)
@@ -1355,7 +1950,7 @@ class ReaderActivity : AppCompatActivity() {
             val json = data.getStringExtra(BookmarkListActivity.EXTRA_LOCATOR_JSON)
             val locator = LocatorJsonHelper.fromJson(json)
             if (locator != null) {
-                navigatorFragment?.go(locator)
+                navigatorFragment?.go(locator, pageAnimationEnabled)
                 requestEinkRefresh()
             }
         }
@@ -1389,7 +1984,7 @@ class ReaderActivity : AppCompatActivity() {
                 val target = chapters.getOrNull(which) ?: return@setItems
                 val locator = locatorFromLink(target.link)
                 if (locator != null) {
-                    navigator.go(locator)
+                    navigator.go(locator, pageAnimationEnabled)
                     requestEinkRefresh()
                 } else {
                     Toast.makeText(this, "無法開啟章節", Toast.LENGTH_SHORT).show()
@@ -1476,8 +2071,13 @@ class ReaderActivity : AppCompatActivity() {
         val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
         val btnSettingsShowBookmarks = dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
         val switchPageTap = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
+        val switchPageSwipe = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageSwipe)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
         val etApiKey = dialogView.findViewById<EditText>(R.id.etApiKey)
+        val cbCustomExport = dialogView.findViewById<CheckBox>(R.id.cbCustomExportUrl)
+        val etCustomExportUrl = dialogView.findViewById<EditText>(R.id.etCustomExportUrl)
+        val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
+        val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
 
         // Add Security Buttons and Boox-specific settings
         // dialogView is a ScrollView, so we need to get its child LinearLayout
@@ -1665,29 +2265,115 @@ class ReaderActivity : AppCompatActivity() {
         val readerSettings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE) // keep raw prefs for specific edits if needed or just use saveTo
 
+        val switchPageAnimation = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageAnimation)
+
         etServerUrl.setText(readerSettings.serverBaseUrl)
         etApiKey.setText(readerSettings.apiKey)
         switchPageTap.isChecked = readerSettings.pageTapEnabled
+        switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
+        switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
+        cbCustomExport.isChecked = readerSettings.exportToCustomUrl
+        etCustomExportUrl.setText(readerSettings.exportCustomUrl)
+        etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
+        cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
+
+        cbCustomExport.setOnCheckedChangeListener { _, isChecked ->
+            etCustomExportUrl.isEnabled = isChecked
+        }
+        btnTestExport.setOnClickListener {
+            val app = application as my.hinoki.booxreader.BooxReaderApp
+            val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
+            val baseUrl = etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
+            val targetUrl = if (cbCustomExport.isChecked && etCustomExportUrl.text.toString().trim()
+                    .isNotEmpty()
+            ) {
+                etCustomExportUrl.text.toString().trim()
+            } else {
+                val trimmed = baseUrl.trimEnd('/')
+                if (trimmed.isNotEmpty()) trimmed + HttpConfig.PATH_AI_NOTES_EXPORT else ""
+            }
+
+            if (targetUrl.isEmpty()) {
+                Toast.makeText(this, "請輸入有效的 URL", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            btnTestExport.isEnabled = false
+            val originalText = btnTestExport.text
+            btnTestExport.text = "Testing..."
+            lifecycleScope.launch {
+                val result = repo.testExportEndpoint(targetUrl)
+                Toast.makeText(
+                    this@ReaderActivity,
+                    "Export test: $result",
+                    Toast.LENGTH_LONG
+                ).show()
+                btnTestExport.text = originalText
+                btnTestExport.isEnabled = true
+            }
+        }
+
+        fun normalizeUrl(raw: String): String {
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) return ""
+            return if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
+                trimmed
+            } else {
+                "https://$trimmed"
+            }
+        }
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
-            .setPositiveButton("Close") { _, _ ->
-                // Save settings
-                val newUrl = etServerUrl.text.toString().trim()
+            .setPositiveButton("Close", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+                val newUrlRaw = etServerUrl.text.toString().trim()
                 val newApiKey = etApiKey.text.toString().trim()
                 val newPageTap = switchPageTap.isChecked
+                val newPageSwipe = switchPageSwipe.isChecked
+                val newPageAnimation = switchPageAnimation.isChecked
+                val useCustomExport = cbCustomExport.isChecked
+                val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
+                val exportToLocal = cbLocalExport.isChecked
+
+                val normalizedBaseUrl =
+                    if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw) else readerSettings.serverBaseUrl
+                val normalizedCustomUrl =
+                    if (useCustomExport && customExportUrlRaw.isNotEmpty()) normalizeUrl(customExportUrlRaw) else ""
+
+                if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.toHttpUrlOrNull() == null) {
+                    Toast.makeText(this, "Server URL is invalid", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                if (useCustomExport && customExportUrlRaw.isNotEmpty() && normalizedCustomUrl.toHttpUrlOrNull() == null) {
+                    Toast.makeText(this, "Custom export URL is invalid", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
 
                 // Update settings object
                 val updatedSettings = readerSettings.copy(
-                    serverBaseUrl = if (newUrl.isNotEmpty()) newUrl else readerSettings.serverBaseUrl,
+                    serverBaseUrl = normalizedBaseUrl,
                     apiKey = newApiKey,
                     pageTapEnabled = newPageTap,
+                    pageSwipeEnabled = newPageSwipe,
+                    pageAnimationEnabled = newPageAnimation,
+                    exportToCustomUrl = useCustomExport,
+                    exportCustomUrl = normalizedCustomUrl,
+                    exportToLocalDownloads = exportToLocal,
                     updatedAt = System.currentTimeMillis()
                 )
 
                 updatedSettings.saveTo(prefs)
+                pageAnimationEnabled = updatedSettings.pageAnimationEnabled
+                pageSwipeEnabled = updatedSettings.pageSwipeEnabled
+                stylesDirty = true
+                applyReaderStyles(force = true)
+                applySwipeNavigationSetting(navigatorFragment?.view)
                 
-                if (newUrl != readerSettings.serverBaseUrl) {
+                if (normalizedBaseUrl != readerSettings.serverBaseUrl) {
                      Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
                 }
                  if (newApiKey != readerSettings.apiKey) {
@@ -1695,8 +2381,9 @@ class ReaderActivity : AppCompatActivity() {
                 }
 
                 pushSettingsToCloud()
+                dialog.dismiss()
             }
-            .create()
+        }
 
         btnAiProfiles.setOnClickListener {
             dialog.dismiss()
@@ -1711,6 +2398,15 @@ class ReaderActivity : AppCompatActivity() {
         // Switch listeners update UI state but save happens on Close
         switchPageTap.setOnCheckedChangeListener { _, isChecked ->
              pageTapEnabled = isChecked
+        }
+        switchPageSwipe.setOnCheckedChangeListener { _, isChecked ->
+            pageSwipeEnabled = isChecked
+            applySwipeNavigationSetting(navigatorFragment?.view)
+        }
+        switchPageAnimation.setOnCheckedChangeListener { _, isChecked ->
+            pageAnimationEnabled = isChecked
+            stylesDirty = true
+            applyReaderStyles(force = true)
         }
 
 
@@ -2163,8 +2859,10 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun applyReaderSettings(settings: ReaderSettings) {
         pageTapEnabled = settings.pageTapEnabled
+        pageSwipeEnabled = settings.pageSwipeEnabled
         booxBatchRefreshEnabled = settings.booxBatchRefresh
         booxFastModeEnabled = settings.booxFastMode
+        pageAnimationEnabled = settings.pageAnimationEnabled
 
         // 載入對比模式
         val contrastMode = EInkHelper.ContrastMode.values().getOrNull(settings.contrastMode)
@@ -2180,6 +2878,9 @@ class ReaderActivity : AppCompatActivity() {
         applyFontSize(currentFontSize)
         applyFontWeight(currentFontWeight)
         applyContrastMode(currentContrastMode)
+        stylesDirty = true
+        applyReaderStyles(force = true)
+        applySwipeNavigationSetting(navigatorFragment?.view)
     }
     
     private fun pushSettingsToCloud() {
@@ -2281,6 +2982,7 @@ class ReaderActivity : AppCompatActivity() {
     private val selectionActionModeCallback = object : ActionMode.Callback2() {
         override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
             currentActionMode = mode
+            selectionMenuFallbackJob?.cancel()
             onSelectionStarted()
 
             // 確保在 UI 線程更新狀態
@@ -2293,8 +2995,41 @@ class ReaderActivity : AppCompatActivity() {
 
             // 添加調試日誌
             android.util.Log.d("ReaderActivity", "ActionMode created - selectionState: $selectionState")
+            logSelectionDebug("ActionMode created (MENU_OPEN) - should be visible")
+            if (selectionDebugLogging) {
+                Toast.makeText(this@ReaderActivity, "Selection menu opened", Toast.LENGTH_SHORT).show()
+            }
+            // 確保選取區域不在螢幕邊緣被遮擋，輕微捲動以露出 ActionMode
+            findFirstWebView(navigatorFragment?.view)?.let {
+                refreshSelectionContentRect(it)
+                adjustSelectionIntoView(it)
+            }
+            // Some devices (esp. e-ink) may not refresh the floating ActionMode promptly.
+            binding.root.postDelayed({
+                if (selectionState == SelectionState.MENU_OPEN) {
+                    mode?.invalidate()
+                    binding.root.invalidate()
+                    if (EInkHelper.isBooxDevice()) {
+                        EInkHelper.refreshPartial(binding.root)
+                    }
+                }
+            }, 80)
 
             return true
+        }
+
+        override fun onGetContentRect(mode: ActionMode?, view: View?, outRect: Rect?) {
+            if (outRect == null) return
+            // Provide an anchor rect so the floating ActionMode positions within the visible area.
+            // Without this, some devices (esp. paginated WebView + e-ink) may place it off-screen.
+            val rect = lastSelectionContentRect
+            if (rect != null) {
+                outRect.set(rect)
+                return
+            }
+            val x = selectionStartX.toInt()
+            val y = selectionStartY.toInt()
+            outRect.set(x, y, (x + 1), (y + 1))
         }
 
         override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
@@ -2306,6 +3041,10 @@ class ReaderActivity : AppCompatActivity() {
             // 添加菜單項，確保有圖標和正確的顯示方式
             menu.add(Menu.NONE, 998, 1, "複製")
                 .setIcon(android.R.drawable.ic_menu_edit)
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+
+            menu.add(Menu.NONE, 1001, 2, "分享")
+                .setIcon(android.R.drawable.ic_menu_share)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
             menu.add(Menu.NONE, 1000, 2, "Google Maps")
@@ -2332,6 +3071,25 @@ class ReaderActivity : AppCompatActivity() {
                         val clip = android.content.ClipData.newPlainText("Book Text", text)
                         clipboard.setPrimaryClip(clip)
                         Toast.makeText(this@ReaderActivity, "已複製", Toast.LENGTH_SHORT).show()
+                        navigatorFragment?.clearSelection()
+                        mode?.finish()
+                    } else {
+                        Toast.makeText(this@ReaderActivity, "No text selected", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                return true
+            }
+
+            if (item?.itemId == 1001) {
+                lifecycleScope.launch {
+                    val selection = navigatorFragment?.currentSelection()
+                    val text = selection?.locator?.text?.highlight
+                    if (!text.isNullOrBlank()) {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "分享選取文字"))
                         navigatorFragment?.clearSelection()
                         mode?.finish()
                     } else {
@@ -2404,6 +3162,7 @@ class ReaderActivity : AppCompatActivity() {
         override fun onDestroyActionMode(mode: ActionMode?) {
             android.util.Log.d("ReaderActivity", "onDestroyActionMode called - selectionState: $selectionState")
             currentActionMode = null
+            selectionMenuFallbackJob?.cancel()
             onSelectionFinished()
             flushPendingDecorations()
         }
@@ -2413,11 +3172,11 @@ class ReaderActivity : AppCompatActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
-                navigatorFragment?.goBackward()
+                goPageBackward()
                 true
             }
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                navigatorFragment?.goForward()
+                goPageForward()
                 true
             }
             else -> super.onKeyDown(keyCode, event)
@@ -2432,6 +3191,56 @@ class ReaderActivity : AppCompatActivity() {
             return super.dispatchTouchEvent(ev)
         }
 
+        // Hard block swipe-to-turn when disabled.
+        // Some devices/pagers intercept before the WebView sees MOVE events, so we must stop it at Activity level.
+        // When swipe-to-turn is disabled, block horizontal swipes even if we are in GUARDING.
+        // GUARDING is entered early to improve text selection, but it must not re-enable page swipes.
+        if (!pageSwipeEnabled &&
+            currentActionMode == null &&
+            !hasPendingSelection &&
+            selectionState != SelectionState.SELECTING &&
+            selectionState != SelectionState.MENU_OPEN
+        ) {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeBlockActive = false
+                    swipeBlockStartX = ev.x
+                    swipeBlockStartY = ev.y
+                    swipeBlockStartAtMs = SystemClock.uptimeMillis()
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!swipeBlockActive) {
+                        val dx = abs(ev.x - swipeBlockStartX)
+                        val dy = abs(ev.y - swipeBlockStartY)
+                        // Use a low threshold because Readium may flip pages on short, fast flicks.
+                        val threshold = (touchSlop * 0.25f).coerceAtLeast(2f)
+                        val isHorizontalSwipe = dx > threshold && dx > dy * 1.1f
+                        if (isHorizontalSwipe) {
+                            swipeBlockActive = true
+                        }
+                    }
+                    if (swipeBlockActive) return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    // Block short horizontal flicks even if we didn't mark active in MOVE (e.g. very fast gestures).
+                    val dt = (SystemClock.uptimeMillis() - swipeBlockStartAtMs).coerceAtLeast(0L)
+                    val dx = abs(ev.x - swipeBlockStartX)
+                    val dy = abs(ev.y - swipeBlockStartY)
+                    val threshold = (touchSlop * 0.25f).coerceAtLeast(2f)
+                    val isQuickHorizontal = dt < 350 && dx > threshold && dx > dy * 1.1f
+                    if (isQuickHorizontal) {
+                        swipeBlockActive = false
+                        return true
+                    }
+                    if (swipeBlockActive) {
+                        swipeBlockActive = false
+                        return true
+                    }
+                    swipeBlockActive = false
+                }
+            }
+        }
+
         // 處理全局觸摸事件，優先文字選取
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -2442,6 +3251,42 @@ class ReaderActivity : AppCompatActivity() {
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // 記錄目前選取的文字供偵錯
+                if (selectionDebugLogging) {
+                    lifecycleScope.launch {
+                        try {
+                            val sel = navigatorFragment?.currentSelection()
+                            val text = sel?.locator?.text?.highlight?.trim()?.take(200)
+                            if (!text.isNullOrBlank()) {
+                                logSelectionDebug("Selected text: \"$text\"")
+                            }
+                        } catch (_: Exception) {}
+                    }
+
+                    // Also log DOM selection bounds to detect cross-page/hidden-menu cases.
+                    findFirstWebView(navigatorFragment?.view)?.let { webView ->
+                        val js = """
+                            (function() {
+                              const sel = window.getSelection && window.getSelection();
+                              if (!sel || sel.rangeCount === 0) return null;
+                              const r = sel.getRangeAt(0).getBoundingClientRect();
+                              const vw = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 0);
+                              const vh = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
+                              return JSON.stringify({
+                                rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
+                                viewport: { w: vw, h: vh },
+                                scroll: { x: window.scrollX || 0, y: window.scrollY || 0 }
+                              });
+                            })();
+                        """.trimIndent()
+                        webView.evaluateJavascript(js) { raw ->
+                            if (!raw.isNullOrBlank() && raw != "null") {
+                                logSelectionDebug("SelectionRect: $raw")
+                            }
+                        }
+                    }
+                }
+
                 // 觸摸結束時恢復高質量模式
                 if (booxFastModeEnabled) {
                     EInkHelper.restoreQualityMode(binding.root)
@@ -2461,6 +3306,9 @@ class ReaderActivity : AppCompatActivity() {
                         onSelectionFinished()
                     }
                 }
+
+                // 後備：如果 WebView 沒有自動打開選單，延遲嘗試啟動 ActionMode
+                maybeStartSelectionMenuFallback()
             }
         }
 
@@ -2476,11 +3324,5 @@ class ReaderActivity : AppCompatActivity() {
             }
             context.startActivity(intent)
         }
-    }
-
-    
-    // 在主線程執行UI操作
-    private fun runOnUiThread(action: () -> Unit) {
-        runOnUiThread(action)
     }
 }

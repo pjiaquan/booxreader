@@ -52,6 +52,9 @@ scripts/set-release-env.sh
 # Telegram configuration
 .telegram_config
 
+# Local signing env
+.booxreader-keystore.env
+
 # AI Profiles
 deepseek.json
 gemini_profile.json

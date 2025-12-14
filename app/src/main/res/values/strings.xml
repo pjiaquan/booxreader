@@ -72,6 +72,8 @@
     <string name="recent_book_more_actions">更多操作</string>
     <string name="reader_settings_title">Reader Settings</string>
     <string name="reader_settings_tap_to_turn">點擊翻頁</string>
+    <string name="reader_settings_swipe_to_turn">滑動翻頁</string>
+    <string name="reader_settings_page_animation">翻頁動畫</string>
     <string name="reader_settings_bookmarks">Bookmarks</string>
     <string name="reader_settings_add_bookmark">新增書籤</string>
     <string name="reader_settings_view_bookmark">查看書籤</string>
@@ -81,6 +83,12 @@
     <string name="reader_settings_api_key_hint">sk-...</string>
     <string name="reader_settings_ai_section_title">AI Settings</string>
     <string name="reader_settings_ai_section_body">AI settings have been moved to AI Profiles for better organization and management. Click the button below to manage your AI models and settings.</string>
+    <string name="reader_settings_export_section_title">AI Note Export</string>
+    <string name="reader_settings_custom_export_checkbox">Use custom export URL</string>
+    <string name="reader_settings_custom_export_hint">https://example.com/custom-export</string>
+    <string name="reader_settings_custom_export_label">Custom export URL</string>
+    <string name="reader_settings_local_export_checkbox">Also save AI notes to Downloads as JSON</string>
+    <string name="reader_settings_test_export">Test export endpoint</string>
     <string name="main_title">Boox Reader</string>
     <string name="main_subtitle">快速開啟最近閱讀的書籍或新增新的 EPUB</string>
     <string name="main_select_epub">選擇 EPUB</string>

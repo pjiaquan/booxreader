@@ -5,16 +5,28 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import android.os.Build
+import android.os.Environment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import android.content.ContentValues
+import android.provider.MediaStore
 
 class AiNoteRepository(
     private val context: Context,
@@ -431,16 +443,19 @@ class AiNoteRepository(
             return streamJsonPayloadSse(url, payload, text, onPartial, null)
         }
     }
-    suspend fun exportAllNotes(): ExportResult = withContext(Dispatchers.IO) {
-        val notes = dao.getAll()
+    suspend fun exportAllNotes(bookId: String): ExportResult = withContext(Dispatchers.IO) {
+        try {
+        val notes = getByBook(bookId)
         if (notes.isEmpty()) {
             return@withContext ExportResult(
                 success = false,
                 exportedCount = 0,
                 isEmpty = true,
-                message = "No AI notes to export"
+                message = "No AI notes to export for this book"
             )
         }
+
+        val settings = getSettings()
 
         val bookTitlesById: Map<String, String?> = notes
             .mapNotNull { it.bookId }
@@ -469,42 +484,172 @@ class AiNoteRepository(
         val payload = JSONObject().apply {
             put("notes", notesArray)
         }
+        val payloadString = payload.toString()
 
-        val requestBody =
-            payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        // Remote export (default or custom URL)
+        val exportUrl = if (settings.exportToCustomUrl && settings.exportCustomUrl.isNotBlank()) {
+            settings.exportCustomUrl.trim()
+        } else {
+            getBaseUrl() + HttpConfig.PATH_AI_NOTES_EXPORT
+        }
 
-        val url = getBaseUrl() + HttpConfig.PATH_AI_NOTES_EXPORT
+        val statusMessages = mutableListOf<String>()
+        var remoteSuccess = false
+        var remoteAttempted = false
+
+        if (exportUrl.isNotBlank()) {
+            remoteAttempted = true
+            val normalizedExportUrl = when {
+                exportUrl.startsWith("http://", ignoreCase = true) || exportUrl.startsWith("https://", ignoreCase = true) -> exportUrl
+                else -> "https://$exportUrl"
+            }
+            val httpUrl = normalizedExportUrl.toHttpUrlOrNull()
+            if (httpUrl == null) {
+                statusMessages += "Invalid export URL: $exportUrl"
+            } else {
+                val requestBody =
+                    payloadString.toRequestBody("application/json; charset=utf-8".toMediaType())
+
+                val request = Request.Builder()
+                    .url(httpUrl)
+                    .post(requestBody)
+                    .build()
+
+                try {
+                    client.newBuilder()
+                        .connectTimeout(15, TimeUnit.SECONDS)
+                        .readTimeout(30, TimeUnit.SECONDS)
+                        .writeTimeout(30, TimeUnit.SECONDS)
+                        .build()
+                        .newCall(request)
+                        .execute()
+                        .use { response ->
+                            if (response.isSuccessful) {
+                                remoteSuccess = true
+                                statusMessages += "Uploaded ${notes.size} notes to $httpUrl"
+                            } else {
+                                statusMessages += "Server export failed (${response.code})"
+                            }
+                        }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    statusMessages += "Server export error: ${e.message ?: "Unknown error"}"
+                }
+            }
+        }
+
+        // Local export to Downloads (optional)
+        var localSuccess = true
+        var localPath: String? = null
+        if (settings.exportToLocalDownloads) {
+            val hasLegacyPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+            val canUsePublicDir = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && hasLegacyPermission
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && !hasLegacyPermission) {
+                statusMessages += "Local export skipped: storage permission not granted"
+                localSuccess = false
+            } else {
+                localSuccess = try {
+                    val locationHint: String
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val resolver = context.contentResolver
+                        val fileName = "ai-notes.json"
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                            put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                            put(MediaStore.Downloads.IS_PENDING, 1)
+                        }
+                        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                            ?: throw IllegalStateException("Unable to create download entry")
+                        resolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
+                            writer?.write(payload.toString(2)) ?: throw IllegalStateException("Unable to open output stream")
+                        }
+                        contentValues.clear()
+                        contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+                        resolver.update(uri, contentValues, null, null)
+                        locationHint = "Downloads"
+                        localPath = "Downloads/$fileName"
+                        statusMessages += "Saved to Downloads/$fileName (public)"
+                    } else {
+                        val targetDir = when {
+                            canUsePublicDir -> Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                            else -> context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                        } ?: throw IllegalStateException("No Downloads directory available")
+
+                        if (!targetDir.exists() && !targetDir.mkdirs()) {
+                            throw IllegalStateException("Unable to create Downloads directory")
+                        }
+                        val outFile = File(targetDir, "ai-notes.json")
+                        outFile.writeText(payload.toString(2))
+                        locationHint = if (canUsePublicDir) "Downloads" else "app Downloads (no permission required)"
+                        localPath = outFile.absolutePath
+                        statusMessages += "Saved to ${outFile.absolutePath} ($locationHint)"
+                    }
+                    true
+                } catch (e: Exception) {
+                    statusMessages += "Local export failed: ${e.message ?: "Unknown error"}"
+                    false
+                }
+            }
+        }
+
+        val overallSuccess = (!remoteAttempted || remoteSuccess) && (!settings.exportToLocalDownloads || localSuccess)
+
+        return@withContext ExportResult(
+            success = overallSuccess,
+            exportedCount = notes.size,
+            isEmpty = false,
+            message = statusMessages.joinToString(" | ").ifBlank { null },
+            localPath = localPath
+        )
+        } catch (e: Exception) {
+            return@withContext ExportResult(
+                success = false,
+                exportedCount = 0,
+                isEmpty = false,
+                message = "Export failed: ${e.message ?: "Unknown error"}"
+            )
+        }
+    }
+
+    suspend fun testExportEndpoint(targetUrl: String): String = withContext(Dispatchers.IO) {
+        val safeUrl = targetUrl.trim()
+        if (safeUrl.isEmpty()) {
+            return@withContext "URL is empty"
+        }
+        val normalizedUrl = when {
+            safeUrl.startsWith("http://", ignoreCase = true) || safeUrl.startsWith(
+                "https://",
+                ignoreCase = true
+            ) -> safeUrl
+            else -> "https://$safeUrl"
+        }
+
+        val payload = JSONObject().apply {
+            put("ping", "ai-notes-export-test")
+            put("timestamp", System.currentTimeMillis())
+        }
+        val httpUrl = normalizedUrl.toHttpUrlOrNull()
+            ?: return@withContext "Invalid URL"
         val request = Request.Builder()
-            .url(url)
-            .post(requestBody)
+            .url(httpUrl)
+            .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
             .build()
 
         return@withContext try {
-            client.newBuilder()
-                .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .build()
-                .newCall(request)
-                .execute()
-                .use { response ->
-                    if (response.isSuccessful) {
-                        ExportResult(success = true, exportedCount = notes.size)
-                    } else {
-                        ExportResult(
-                            success = false,
-                            exportedCount = notes.size,
-                            message = "Server error: ${response.code}"
-                        )
-                    }
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    "Success (${response.code})"
+                } else {
+                    "Failed (${response.code})"
                 }
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
-            ExportResult(
-                success = false,
-                exportedCount = notes.size,
-                message = e.message ?: "Unknown error"
-            )
+            "Error: ${e.message ?: "Unknown error"}"
         }
     }
     suspend fun continueConversation(note: AiNoteEntity, followUpText: String): String? =
@@ -1001,5 +1146,6 @@ data class ExportResult(
     val success: Boolean,
     val exportedCount: Int,
     val isEmpty: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val localPath: String? = null
 )

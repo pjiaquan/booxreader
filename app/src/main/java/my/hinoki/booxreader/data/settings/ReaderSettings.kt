@@ -8,10 +8,14 @@ data class ReaderSettings(
     // 字體大小現在使用文石系統設定，不再在此處儲存
     // 字體粗細現在使用預設值，不再在此處儲存
     val pageTapEnabled: Boolean = true,
+    val pageSwipeEnabled: Boolean = true,
     val booxBatchRefresh: Boolean = true,
     val booxFastMode: Boolean = true,
     val contrastMode: Int = EInkHelper.ContrastMode.NORMAL.ordinal,
     val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
+    val exportToCustomUrl: Boolean = false,
+    val exportCustomUrl: String = "",
+    val exportToLocalDownloads: Boolean = false,
     val apiKey: String = "",
     val aiModelName: String = "deepseek-chat",
     // Default System Prompt
@@ -91,6 +95,7 @@ data class ReaderSettings(
     val assistantRole: String = "assistant",
     val enableGoogleSearch: Boolean = true,
     val useStreaming: Boolean = false,
+    val pageAnimationEnabled: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 ) {
 
@@ -100,10 +105,14 @@ data class ReaderSettings(
             // 字體大小現在使用文石系統設定，不再在此處儲存
             // 字體粗細現在使用預設值，不再在此處儲存
             .putBoolean("page_tap_enabled", pageTapEnabled)
+            .putBoolean("page_swipe_enabled", pageSwipeEnabled)
             .putBoolean("boox_batch_refresh", booxBatchRefresh)
             .putBoolean("boox_fast_mode", booxFastMode)
             .putInt("contrast_mode", contrastMode)
             .putString("server_base_url", serverBaseUrl)
+            .putBoolean("export_to_custom_url", exportToCustomUrl)
+            .putString("export_custom_url", exportCustomUrl)
+            .putBoolean("export_to_local_downloads", exportToLocalDownloads)
             .putString("api_key", apiKey)
             .putString("ai_model_name", aiModelName)
             .putString("ai_system_prompt", aiSystemPrompt)
@@ -116,6 +125,7 @@ data class ReaderSettings(
             .putString("ai_assistant_role", assistantRole)
             .putBoolean("ai_enable_google_search", enableGoogleSearch)
             .putBoolean("use_streaming", useStreaming)
+            .putBoolean("page_animation_enabled", pageAnimationEnabled)
             .putLong("settings_updated_at", timestamp)
             .apply()
     }
@@ -248,11 +258,15 @@ data class ReaderSettings(
                 // 字體大小現在使用文石系統設定，不再在此處讀取
                 // 字體粗細現在使用預設值，不再在此處讀取
                 pageTapEnabled = prefs.getBoolean("page_tap_enabled", true),
+                pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
                 booxBatchRefresh = prefs.getBoolean("boox_batch_refresh", true),
                 booxFastMode = prefs.getBoolean("boox_fast_mode", true),
                 contrastMode = prefs.getInt("contrast_mode", EInkHelper.ContrastMode.NORMAL.ordinal),
                 serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                     ?: HttpConfig.DEFAULT_BASE_URL,
+                exportToCustomUrl = prefs.getBoolean("export_to_custom_url", false),
+                exportCustomUrl = prefs.getString("export_custom_url", "") ?: "",
+                exportToLocalDownloads = prefs.getBoolean("export_to_local_downloads", false),
                 apiKey = prefs.getString("api_key", "") ?: "",
                 aiModelName = prefs.getString("ai_model_name", "deepseek-chat") ?: "deepseek-chat",
                 aiSystemPrompt = prefs.getString("ai_system_prompt", defaultSystemPrompt) ?: defaultSystemPrompt,
@@ -265,6 +279,7 @@ data class ReaderSettings(
                 assistantRole = prefs.getString("ai_assistant_role", "assistant") ?: "assistant",
                 enableGoogleSearch = prefs.getBoolean("ai_enable_google_search", true),
                 useStreaming = prefs.getBoolean("use_streaming", false),
+                pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
                 updatedAt = updatedAt
             )
         }

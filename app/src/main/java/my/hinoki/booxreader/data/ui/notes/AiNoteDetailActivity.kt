@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -14,6 +15,9 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import my.hinoki.booxreader.core.eink.EInkHelper
@@ -53,6 +57,8 @@ class AiNoteDetailActivity : AppCompatActivity() {
     private val selectionSanitizeRegex = Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$")
     private var isLoading = false
     private var scrollToBottomButton: FloatingActionButton? = null
+    private var streamingRenderJob: Job? = null
+    private var pendingStreamingMarkdown: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -355,12 +361,13 @@ class AiNoteDetailActivity : AppCompatActivity() {
                     val preview = note.aiResponse +
                         separator +
                         "---\nQ: " + question + "\n\n" + partial
-                    markwon.setMarkdown(binding.tvAiResponse, preview)
+                    renderStreamingMarkdown(preview)
                     restoreScrollIfJumped(savedScrollY)
                 }
             } else {
                 repository.continueConversation(note, question)
             }
+            clearStreamingRenderer()
             if (result != null) {
                 val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
                 val newContent = note.aiResponse +
@@ -438,9 +445,10 @@ class AiNoteDetailActivity : AppCompatActivity() {
         val savedScrollY = preserveScrollY ?: currentScrollY()
         lifecycleScope.launch {
             val result = repository.fetchAiExplanationStreaming(text) { partial ->
-                markwon.setMarkdown(binding.tvAiResponse, partial)
+                renderStreamingMarkdown(partial)
                 restoreScrollIfJumped(savedScrollY)
             }
+            clearStreamingRenderer()
             if (result != null) {
                 val (serverText, content) = result
                 val updated = note.copy(
@@ -622,8 +630,58 @@ class AiNoteDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun renderStreamingMarkdown(markdown: String, force: Boolean = false) {
+        pendingStreamingMarkdown = markdown
+        streamingRenderJob?.cancel()
+
+        // Delay slightly when we appear to be in the middle of a table row so the parser
+        // receives a complete block, which prevents malformed table rendering during SSE.
+        val delayMs = when {
+            force -> 0L
+            isLikelyMidTable(markdown) -> 140L
+            else -> 30L
+        }
+
+        streamingRenderJob = lifecycleScope.launch(Dispatchers.Main) {
+            if (delayMs > 0) delay(delayMs)
+            if (pendingStreamingMarkdown == markdown) {
+                markwon.setMarkdown(binding.tvAiResponse, markdown)
+            }
+        }
+    }
+
+    private fun clearStreamingRenderer() {
+        streamingRenderJob?.cancel()
+        streamingRenderJob = null
+        pendingStreamingMarkdown = null
+    }
+
+    private fun isLikelyMidTable(markdown: String): Boolean {
+        val trimmed = markdown.trimEnd()
+        if (trimmed.isEmpty()) return false
+        val lastLine = trimmed.substringAfterLast('\n', trimmed).trim()
+        val hasTablePipes = lastLine.count { it == '|' } >= 2
+        val looksLikeHeaderSeparator = lastLine.contains("---")
+
+        // If the last non-blank line looks like part of a table and there is no blank
+        // line after it yet, wait for more content before re-rendering.
+        return lastLine.isNotEmpty() && (hasTablePipes || looksLikeHeaderSeparator)
+    }
+
     private fun setLoading(active: Boolean) {
         isLoading = active
         binding.pbLoading.visibility = if (active) View.VISIBLE else View.GONE
+    }
+
+    // Handle volume down button as back navigation
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                // Act as back button - return to previous activity (reader page)
+                onBackPressed()
+                true
+            }
+            else -> super.onKeyDown(keyCode, event)
+        }
     }
 }
