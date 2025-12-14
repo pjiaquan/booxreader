@@ -678,7 +678,7 @@ class AiNoteDetailActivity : AppCompatActivity() {
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 // Act as back button - return to previous activity (reader page)
-                onBackPressed()
+                onBackPressedDispatcher.onBackPressed()
                 true
             }
             else -> super.onKeyDown(keyCode, event)

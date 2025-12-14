@@ -218,7 +218,8 @@ object EInkHelper {
     fun refreshRegion(view: View, left: Int, top: Int, right: Int, bottom: Int) {
         if (!isBoox()) return
         if (preserveSystemEngine) {
-            view.invalidate(left, top, right, bottom)
+            // view.invalidate(l, t, r, b) is deprecated in API 28
+            view.invalidate()
             return
         }
         try {

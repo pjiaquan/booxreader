@@ -71,6 +71,7 @@ class LoginActivity : AppCompatActivity() {
                         btnGoogle.isEnabled = false
                         progressBar.visibility = View.VISIBLE
                         btnResend.visibility = View.GONE
+                        tvRegister.visibility = View.GONE
                     }
                     is AuthState.Success -> {
                         Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
@@ -94,6 +95,7 @@ class LoginActivity : AppCompatActivity() {
                         } else {
                             btnResend.visibility = View.GONE
                         }
+                        tvRegister.visibility = View.VISIBLE
                         viewModel.resetState()
                     }
                     else -> {
@@ -101,6 +103,7 @@ class LoginActivity : AppCompatActivity() {
                         btnGoogle.isEnabled = true
                         progressBar.visibility = View.GONE
                         btnResend.visibility = View.GONE
+                        tvRegister.visibility = View.VISIBLE
                     }
                 }
             }
