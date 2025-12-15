@@ -357,38 +357,42 @@ class AiNoteDetailActivity : BaseActivity() {
         setLoading(true)
 
         lifecycleScope.launch {
-            val useStreaming = repository.isStreamingEnabled()
-            val result = if (useStreaming) {
-                repository.continueConversationStreaming(note, question) { partial ->
-                    val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
-                    val preview = note.aiResponse +
-                        separator +
-                        "---\nQ: " + question + "\n\n" + partial
-                    renderStreamingMarkdown(preview)
-                    // restoreScrollIfJumped(savedScrollY)
+            try {
+                val useStreaming = repository.isStreamingEnabled()
+                val result = if (useStreaming) {
+                    repository.continueConversationStreaming(note, question) { partial ->
+                        val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
+                        val preview = note.aiResponse +
+                                separator +
+                                "---\nQ: " + question + "\n\n" + partial
+                        renderStreamingMarkdown(preview)
+                        // restoreScrollIfJumped(savedScrollY)
+                    }
+                } else {
+                    repository.continueConversation(note, question)
                 }
-            } else {
-                repository.continueConversation(note, question)
+                clearStreamingRenderer()
+                if (result != null) {
+                    val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
+                    val newContent = note.aiResponse +
+                            separator +
+                            "---\nQ: " + question + "\n\n" + result
+                    val updated = note.copy(aiResponse = newContent)
+                    repository.update(updated)
+                    currentNote = updated
+                    // Avoid jumping the viewport after publish to keep the reader in place.
+                    updateUI(updated, scrollToQuestionHeader = false)
+                    binding.etFollowUp.setText("")
+                    Toast.makeText(this@AiNoteDetailActivity, "已發佈", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@AiNoteDetailActivity, "發佈失敗", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                binding.btnFollowUp.isEnabled = true
+                binding.btnFollowUp.text = "發佈"
+                setLoading(false)
+                // restoreScrollIfJumped(savedScrollY)
             }
-            clearStreamingRenderer()
-            if (result != null) {
-                val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
-                val newContent = note.aiResponse +
-                    separator +
-                    "---\nQ: " + question + "\n\n" + result
-                val updated = note.copy(aiResponse = newContent)
-                repository.update(updated)
-                currentNote = updated
-                // Avoid jumping the viewport after publish to keep the reader in place.
-                updateUI(updated, scrollToQuestionHeader = false)
-                binding.etFollowUp.setText("")
-                Toast.makeText(this@AiNoteDetailActivity, "已發佈", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this@AiNoteDetailActivity, "發佈失敗", Toast.LENGTH_SHORT).show()
-            }
-            binding.btnFollowUp.text = "發佈"
-            setLoading(false)
-            // restoreScrollIfJumped(savedScrollY)
         }
     }
 

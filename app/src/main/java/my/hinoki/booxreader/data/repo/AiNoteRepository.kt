@@ -998,7 +998,7 @@ class AiNoteRepository(
         history.put(
             JSONObject().apply {
                 put("role", "user")
-                put("parts", JSONArray().put(JSONObject().put("text", note.originalText)))
+                put("parts", JSONArray().put(JSONObject().put("text", String.format(getSettings().aiUserPromptTemplate, note.originalText))))
             }
         )
 
@@ -1074,7 +1074,7 @@ class AiNoteRepository(
         history.put(
             JSONObject().apply {
                 put("role", "user")
-                put("content", note.originalText)
+                put("content", String.format(getSettings().aiUserPromptTemplate, note.originalText))
             }
         )
 

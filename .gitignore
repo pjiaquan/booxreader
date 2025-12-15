@@ -6,14 +6,18 @@ google-services.json
 *.iml
 .gradle
 /local.properties
+/.idea/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+/.vscode/
+/.claude/
 .DS_Store
 /build
+**/build/
 /captures
 .externalNativeBuild
 .cxx
@@ -42,12 +46,35 @@ commandlinetools-*.zip
 
 # Firebase
 google-services.json
+**/google-services.json
 
 # Keystore
 *.jks
 *.keystore
 keystore.properties
 scripts/set-release-env.sh
+
+# Release artifacts
+*.apk
+*.aab
+*.apks
+
+# Local backups / editor swaps
+*.backup
+*.bak
+*~
+*.swp
+
+# Local env files
+.env
+.env.*
+*.env
+
+# Common secret formats
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Telegram configuration
 .telegram_config
