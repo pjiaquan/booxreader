@@ -72,10 +72,11 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
         binding.tvAiResponse.customSelectionActionModeCallback = selectionActionModeCallback
 
+
         val noteId = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
         autoStreamText = intent.getStringExtra(EXTRA_AUTO_STREAM_TEXT)
         if (noteId == -1L) {
-            Toast.makeText(this, "Invalid Note ID", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.ai_note_invalid_id), Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -96,7 +97,7 @@ class AiNoteDetailActivity : BaseActivity() {
             val note = currentNote ?: return@setOnClickListener
             val question = binding.etFollowUp.text.toString().trim()
             if (question.isEmpty()) {
-                Toast.makeText(this, "請輸入問題", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.ai_note_follow_up_hint_input), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             sendFollowUp(note, question)
@@ -114,10 +115,10 @@ class AiNoteDetailActivity : BaseActivity() {
 
     private val selectionActionModeCallback = object : android.view.ActionMode.Callback {
         override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean {
-            menu?.add(android.view.Menu.NONE, 999, 0, "發佈")
-            menu?.add(android.view.Menu.NONE, 1000, 1, "發佈並追問")
-            menu?.add(android.view.Menu.NONE, 1001, 2, "地圖搜尋")
-            menu?.add(android.view.Menu.NONE, 1002, 3, "Google 搜尋")
+            menu?.add(android.view.Menu.NONE, 999, 0, getString(R.string.action_publish))
+            menu?.add(android.view.Menu.NONE, 1000, 1, getString(R.string.action_publish_follow_up))
+            menu?.add(android.view.Menu.NONE, 1001, 2, getString(R.string.action_map_search))
+            menu?.add(android.view.Menu.NONE, 1002, 3, getString(R.string.action_google_search))
             return true
         }
 
@@ -169,7 +170,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 if (trimmedText.isNotBlank()) {
                     onSelected(trimmedText)
                 } else {
-                    Toast.makeText(this, "選取內容為空", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -185,12 +186,12 @@ class AiNoteDetailActivity : BaseActivity() {
             // 0. Check existence
             val existingNote = repository.findNoteByText(text)
             if (existingNote != null) {
-                Toast.makeText(this@AiNoteDetailActivity, "Note found!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_note_found), Toast.LENGTH_SHORT).show()
                 AiNoteDetailActivity.open(this@AiNoteDetailActivity, existingNote.id)
                 return@launch
             }
 
-            Toast.makeText(this@AiNoteDetailActivity, "Publishing new selection...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_publishing_selection), Toast.LENGTH_SHORT).show()
 
             // 1. Save Draft
             // Use current note's bookId if available
@@ -229,7 +230,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 // Open the NEW note
                 AiNoteDetailActivity.open(this@AiNoteDetailActivity, newNoteId)
             } else {
-                 Toast.makeText(this@AiNoteDetailActivity, "Saved as draft (Network Error)", Toast.LENGTH_SHORT).show()
+                 Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_saved_draft_network_error), Toast.LENGTH_SHORT).show()
                  // Open the NEW draft
                  AiNoteDetailActivity.open(this@AiNoteDetailActivity, newNoteId)
             }
@@ -246,13 +247,13 @@ class AiNoteDetailActivity : BaseActivity() {
                 if (shouldAutoStream) {
                     autoStreamText?.let { text ->
                         binding.btnPublish.isEnabled = false
-                        binding.btnPublish.text = "Streaming..."
+                        binding.btnPublish.text = getString(R.string.ai_note_streaming)
                         setLoading(true)
                         startStreaming(note, text)
                     }
                 }
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, "Note not found", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_not_found), Toast.LENGTH_SHORT).show()
                 finish()
             }
         }
@@ -273,10 +274,10 @@ class AiNoteDetailActivity : BaseActivity() {
         markwon.setMarkdown(binding.tvOriginalText, note.originalText)
 
         if (note.aiResponse.isBlank()) {
-            binding.tvAiResponse.text = "(Draft / Failed) Click button to retry."
+            binding.tvAiResponse.text = getString(R.string.ai_note_draft_status)
             binding.btnPublish.visibility = View.VISIBLE
             binding.btnPublish.isEnabled = true
-            binding.btnPublish.text = "Publish / Retry"
+            binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             binding.btnRepublishSelection.isEnabled = false
             setLoading(false)
         } else {
@@ -316,7 +317,7 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun publishNote(note: AiNoteEntity) {
         val savedScrollY = currentScrollY()
         binding.btnPublish.isEnabled = false
-        binding.btnPublish.text = "Publishing..."
+        binding.btnPublish.text = getString(R.string.ai_note_publishing)
         binding.btnRepublishSelection.isEnabled = false
         setLoading(true)
 
@@ -324,7 +325,7 @@ class AiNoteDetailActivity : BaseActivity() {
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
                 startStreaming(note, note.originalText, savedScrollY)
-                binding.btnPublish.text = "Streaming..."
+                binding.btnPublish.text = getString(R.string.ai_note_streaming)
                 return@launch
             }
 
@@ -338,11 +339,11 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
-                Toast.makeText(this@AiNoteDetailActivity, "Published!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_published), Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, "Failed to publish", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_publish_failed), Toast.LENGTH_SHORT).show()
                 binding.btnPublish.isEnabled = true
-                binding.btnPublish.text = "Publish / Retry"
+                binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             }
             binding.btnRepublishSelection.isEnabled = true
             setLoading(false)
@@ -353,7 +354,7 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun sendFollowUp(note: AiNoteEntity, question: String) {
         val savedScrollY = currentScrollY()
         binding.btnFollowUp.isEnabled = false
-        binding.btnFollowUp.text = "發佈中..."
+        binding.btnFollowUp.text = getString(R.string.ai_note_follow_up_publishing)
         setLoading(true)
 
         lifecycleScope.launch {
@@ -383,13 +384,13 @@ class AiNoteDetailActivity : BaseActivity() {
                     // Avoid jumping the viewport after publish to keep the reader in place.
                     updateUI(updated, scrollToQuestionHeader = false)
                     binding.etFollowUp.setText("")
-                    Toast.makeText(this@AiNoteDetailActivity, "已發佈", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_follow_up_success), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this@AiNoteDetailActivity, "發佈失敗", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_follow_up_failed), Toast.LENGTH_SHORT).show()
                 }
             } finally {
                 binding.btnFollowUp.isEnabled = true
-                binding.btnFollowUp.text = "發佈"
+                binding.btnFollowUp.text = getString(R.string.ai_note_follow_up_button)
                 setLoading(false)
                 // restoreScrollIfJumped(savedScrollY)
             }
@@ -399,13 +400,13 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun rePublishSelection(note: AiNoteEntity) {
         val savedScrollY = currentScrollY()
         binding.btnRepublishSelection.isEnabled = false
-        binding.btnRepublishSelection.text = "重新發佈中..."
+        binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_progress)
         setLoading(true)
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
                 startStreaming(note, note.originalText, savedScrollY)
-                binding.btnRepublishSelection.text = "重新發佈選取內容"
+                binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
                 return@launch
             }
 
@@ -419,12 +420,12 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
-                Toast.makeText(this@AiNoteDetailActivity, "已重新發佈", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_republish_success), Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, "重新發佈失敗", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_republish_failed), Toast.LENGTH_SHORT).show()
             }
             binding.btnRepublishSelection.isEnabled = true
-            binding.btnRepublishSelection.text = "重新發佈選取內容"
+            binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
             setLoading(false)
             restoreScrollIfJumped(savedScrollY)
         }
@@ -442,7 +443,7 @@ class AiNoteDetailActivity : BaseActivity() {
         if (question.isNotEmpty()) {
             sendFollowUp(note, question)
         } else {
-            Toast.makeText(this, "請輸入內容", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.ai_note_follow_up_empty), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -465,12 +466,12 @@ class AiNoteDetailActivity : BaseActivity() {
                 currentNote = updated
                 updateUI(updated)
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, "Streaming failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_streaming_failed), Toast.LENGTH_SHORT).show()
                 binding.btnPublish.isEnabled = true
-                binding.btnPublish.text = "Publish / Retry"
+                binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             }
             binding.btnRepublishSelection.isEnabled = true
-            binding.btnRepublishSelection.text = "重新發佈選取內容"
+            binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
             setLoading(false)
             restoreScrollIfJumped(savedScrollY)
         }
@@ -479,27 +480,27 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun openMapSearch(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
-            Toast.makeText(this, "選取內容為空", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT).show()
             return
         }
         val encoded = Uri.encode(trimmed)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=$encoded"))
         intent.addCategory(Intent.CATEGORY_BROWSABLE)
         runCatching { startActivity(intent) }
-            .onFailure { Toast.makeText(this, "無法開啟地圖搜尋", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(this, getString(R.string.action_map_search_failed), Toast.LENGTH_SHORT).show() }
     }
 
     private fun openWebSearch(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
-            Toast.makeText(this, "選取內容為空", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT).show()
             return
         }
         val encoded = Uri.encode(trimmed)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=$encoded"))
         intent.addCategory(Intent.CATEGORY_BROWSABLE)
         runCatching { startActivity(intent) }
-            .onFailure { Toast.makeText(this, "無法開啟搜尋", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(this, getString(R.string.action_web_search_failed), Toast.LENGTH_SHORT).show() }
     }
 
     // 設置滾動監聽

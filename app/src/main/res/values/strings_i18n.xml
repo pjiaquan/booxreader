@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI Note Detail Activity -->
+    <string name="ai_note_invalid_id">Invalid Note ID</string>
+    <string name="ai_note_streaming">Streaming...</string>
+    <string name="ai_note_publishing">Publishing...</string>
+    <string name="ai_note_published">Published!</string>
+    <string name="ai_note_publish_failed">Failed to publish</string>
+    <string name="ai_note_streaming_failed">Streaming failed</string>
+    <string name="ai_note_saved_draft_network_error">Saved as draft (Network Error)</string>
+    <string name="ai_note_note_found">Note found!</string>
+    <string name="ai_note_publishing_selection">Publishing new selection...</string>
+    <string name="ai_note_not_found">Note not found</string>
+    <string name="ai_note_draft_status">(Draft / Failed) Click button to retry.</string>
+    
+    <!-- Follow up -->
+    <string name="ai_note_follow_up_hint_input">請輸入問題</string>
+    <string name="ai_note_follow_up_publishing">發佈中...</string>
+    <string name="ai_note_follow_up_success">已發佈</string>
+    <string name="ai_note_follow_up_failed">發佈失敗</string>
+    <string name="ai_note_follow_up_button">發佈</string>
+    <string name="ai_note_follow_up_empty">請輸入內容</string>
+    
+    <!-- Selection Action Mode -->
+    <string name="action_publish">發佈</string>
+    <string name="action_publish_follow_up">發佈並追問</string>
+    <string name="action_map_search">地圖搜尋</string>
+    <string name="action_google_search">Google 搜尋</string>
+    <string name="action_selection_empty">選取內容為空</string>
+    <string name="action_map_search_failed">無法開啟地圖搜尋</string>
+    <string name="action_web_search_failed">無法開啟搜尋</string>
+
+    <!-- Republish -->
+    <string name="ai_note_republish_progress">重新發佈中...</string>
+    <string name="ai_note_republish_success">已重新發佈</string>
+    <string name="ai_note_republish_failed">重新發佈失敗</string>
+    <string name="ai_note_republish_button">重新發佈選取內容</string>
+
+    <!-- Repository Defaults -->
+    <string name="ai_profile_default_imported_name">Imported Profile</string>
+</resources>

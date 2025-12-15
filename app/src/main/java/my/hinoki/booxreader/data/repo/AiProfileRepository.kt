@@ -13,7 +13,7 @@ import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.settings.ReaderSettings
 
 class AiProfileRepository(
-    context: Context,
+    private val context: Context,
     private val syncRepo: UserSyncRepository
 ) {
     private val db = AppDatabase.get(context)
@@ -22,7 +22,12 @@ class AiProfileRepository(
     private val gson = Gson()
 
     val allProfiles: LiveData<List<AiProfileEntity>> = dao.getAll()
-        .map { list -> list.sortedByDescending { it.updatedAt } }
+        .map { list -> 
+            list.sortedWith(
+                compareByDescending<AiProfileEntity> { it.updatedAt }
+                    .thenByDescending { it.id }
+            ) 
+        }
         .asLiveData()
 
     suspend fun importProfile(jsonString: String): AiProfileEntity = withContext(Dispatchers.IO) {
@@ -31,7 +36,7 @@ class AiProfileRepository(
             // We use a temporary data class or Map to validate basic fields
             val profileMap = gson.fromJson(jsonString, Map::class.java)
             
-            val name = profileMap["name"] as? String ?: "Imported Profile"
+            val name = profileMap["name"] as? String ?: context.getString(my.hinoki.booxreader.R.string.ai_profile_default_imported_name)
             val modelName = profileMap["modelName"] as? String ?: "deepseek-chat"
             val apiKey = profileMap["apiKey"] as? String ?: ""
             val serverBaseUrl = profileMap["serverBaseUrl"] as? String ?: ""
@@ -115,7 +120,8 @@ class AiProfileRepository(
             assistantRole = profile.assistantRole,
             enableGoogleSearch = profile.enableGoogleSearch,
             useStreaming = profile.useStreaming,
-            updatedAt = System.currentTimeMillis()
+            updatedAt = System.currentTimeMillis(),
+            activeProfileId = profile.id
         )
         
         newSettings.saveTo(prefs)

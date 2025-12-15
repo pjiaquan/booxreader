@@ -97,7 +97,8 @@ data class ReaderSettings(
     val useStreaming: Boolean = false,
     val pageAnimationEnabled: Boolean = false,
     val language: String = "system", // "system", "en", "zh"
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val activeProfileId: Long = -1L
 ) {
 
     fun saveTo(prefs: SharedPreferences) {
@@ -128,6 +129,7 @@ data class ReaderSettings(
             .putBoolean("use_streaming", useStreaming)
             .putBoolean("page_animation_enabled", pageAnimationEnabled)
             .putString("app_language", language)
+            .putLong("active_ai_profile_id", activeProfileId)
             .putLong("settings_updated_at", timestamp)
             .apply()
     }
@@ -283,7 +285,8 @@ data class ReaderSettings(
                 useStreaming = prefs.getBoolean("use_streaming", false),
                 pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
                 language = prefs.getString("app_language", "system") ?: "system",
-                updatedAt = updatedAt
+                updatedAt = updatedAt,
+                activeProfileId = prefs.getLong("active_ai_profile_id", -1L)
             )
         }
     }

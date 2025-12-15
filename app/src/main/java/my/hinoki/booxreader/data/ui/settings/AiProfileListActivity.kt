@@ -50,9 +50,16 @@ class AiProfileListActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateActiveProfileId()
         lifecycleScope.launch {
             repository.sync()
         }
+    }
+
+    private fun updateActiveProfileId() {
+        val prefs = getSharedPreferences(my.hinoki.booxreader.data.settings.ReaderSettings.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+        val settings = my.hinoki.booxreader.data.settings.ReaderSettings.fromPrefs(prefs)
+        adapter.setActiveProfileId(settings.activeProfileId)
     }
 
     private fun setupUI() {
@@ -136,9 +143,17 @@ class AiProfileListActivity : BaseActivity() {
 
     private inner class ProfileAdapter : RecyclerView.Adapter<ProfileAdapter.ViewHolder>() {
         private var list: List<AiProfileEntity> = emptyList()
+        private var activeProfileId: Long = -1L
 
         fun submitList(newList: List<AiProfileEntity>) {
             list = newList
+            notifyDataSetChanged()
+        }
+
+        fun setActiveProfileId(id: Long) {
+            val oldId = activeProfileId
+            activeProfileId = id
+            // Notify changes to refresh UI (could be optimized)
             notifyDataSetChanged()
         }
 
@@ -157,6 +172,13 @@ class AiProfileListActivity : BaseActivity() {
             fun bind(profile: AiProfileEntity) {
                 binding.tvName.text = profile.name
                 binding.tvModel.text = profile.modelName
+                
+                if (profile.id == activeProfileId) {
+                    binding.tvCurrent.visibility = android.view.View.VISIBLE
+                    // Optional: Highlight background or something
+                } else {
+                    binding.tvCurrent.visibility = android.view.View.GONE
+                }
                 
                 binding.root.setOnClickListener {
                     applyProfile(profile)
@@ -177,6 +199,7 @@ class AiProfileListActivity : BaseActivity() {
             .setPositiveButton(R.string.ai_profile_apply_positive) { _, _ ->
                 lifecycleScope.launch {
                     repository.applyProfile(profile.id)
+                    updateActiveProfileId()
                     Toast.makeText(this@AiProfileListActivity, getString(R.string.ai_profile_settings_applied), Toast.LENGTH_SHORT).show()
                 }
             }
