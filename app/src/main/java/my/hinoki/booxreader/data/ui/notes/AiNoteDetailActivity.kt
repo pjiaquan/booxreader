@@ -628,9 +628,12 @@ class AiNoteDetailActivity : BaseActivity() {
                 .coerceAtLeast(0)
             val clampedTarget = targetY.coerceIn(0, maxScroll)
             val current = scrollView.scrollY
+            
+            // Only fix if it weirdly jumped to top (common issue with text updates)
+            // We do NOT fix "jumping to bottom" because the user might have scrolled there manually to read.
             val jumpedToTop = clampedTarget > 0 && current < clampedTarget - 48 && current < 64
-            val jumpedToBottom = clampedTarget < maxScroll && current > maxScroll - 64 && clampedTarget < maxScroll - 48
-            if (jumpedToTop || jumpedToBottom) {
+            
+            if (jumpedToTop) {
                 scrollView.scrollTo(0, clampedTarget)
                 checkScrollPosition()
             }

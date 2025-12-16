@@ -31,4 +31,7 @@ interface AiNoteDao {
 
     @Query("SELECT * FROM ai_notes WHERE originalText = :text ORDER BY createdAt DESC LIMIT 1")
     suspend fun findLatestByOriginalText(text: String): AiNoteEntity?
+
+    @Query("UPDATE ai_notes SET bookId = :newBookId WHERE bookId = :oldBookId")
+    suspend fun migrateBookId(oldBookId: String, newBookId: String)
 }

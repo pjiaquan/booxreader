@@ -31,8 +31,14 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE bookId IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<BookEntity>
 
+    @Query("SELECT * FROM books")
+    suspend fun getAllBooks(): List<BookEntity>
+
     @Query("SELECT bookId FROM books")
     suspend fun getAllBookIds(): List<String>
+
+    @Query("SELECT * FROM books WHERE title = :title")
+    suspend fun findByTitle(title: String): List<BookEntity>
 
     @Query("DELETE FROM books WHERE bookId = :bookId")
     suspend fun deleteById(bookId: String)

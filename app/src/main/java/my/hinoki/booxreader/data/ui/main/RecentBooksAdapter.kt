@@ -50,8 +50,9 @@ class RecentBooksAdapter(
             tvTime.text = android.text.format.DateFormat.format("yyyy/MM/dd HH:mm", item.lastOpenedAt)
 
             // Debug: 檢查原始數據
-            // android.util.Log.d("RecentBooksAdapter", "書籍: ${item.title}")
-            // android.util.Log.d("RecentBooksAdapter", "lastLocatorJson: ${item.lastLocatorJson}")
+            if (item.lastLocatorJson != null) {
+                 android.util.Log.d("RecentBooksAdapter", "書籍: ${item.title}, JSON: ${item.lastLocatorJson?.take(50)}...")
+            }
 
             val locator = LocatorJsonHelper.fromJson(item.lastLocatorJson)
 
@@ -59,6 +60,8 @@ class RecentBooksAdapter(
                 // Use totalProgression (book-wide) if available, otherwise progression (chapter-wide)
                 val totalProgression = locator.locations?.totalProgression
                 val chapterProgression = locator.locations?.progression
+                
+                // android.util.Log.d("RecentBooksAdapter", "Parsed: total=$totalProgression, chapter=$chapterProgression")
 
                 val progression = when {
                     // 優先使用 totalProgression (全書進度)

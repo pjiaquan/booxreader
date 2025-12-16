@@ -22,4 +22,7 @@ interface BookmarkDao {
 
     @Query("SELECT * FROM bookmarks WHERE remoteId IS NULL")
     suspend fun getLocalOnly(): List<BookmarkEntity>
+
+    @Query("UPDATE bookmarks SET bookId = :newBookId WHERE bookId = :oldBookId")
+    suspend fun migrateBookId(oldBookId: String, newBookId: String)
 }

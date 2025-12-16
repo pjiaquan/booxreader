@@ -68,8 +68,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 65
-        versionName = "1.1.64"
+        versionCode = 66
+        versionName = "1.1.65"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

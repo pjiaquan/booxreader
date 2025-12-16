@@ -150,6 +150,13 @@ class AiProfileRepository(
             val pulledCount = syncRepo.pullProfiles()
             totalSynced += pulledCount
             
+            // Also sync settings to get the latest 'activeProfileId'
+            try {
+                syncRepo.pullSettingsIfNewer()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            
         } catch (e: Exception) {
             e.printStackTrace()
             throw e

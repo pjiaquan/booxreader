@@ -11,6 +11,8 @@ data class BookEntity(
     val title: String?,
     val fileUri: String,
     val lastLocatorJson: String?,
-    val lastOpenedAt: Long
+    val lastOpenedAt: Long,
+    val deleted: Boolean = false,
+    val deletedAt: Long? = null
 )
 

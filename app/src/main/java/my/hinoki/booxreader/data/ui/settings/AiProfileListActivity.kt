@@ -53,6 +53,7 @@ class AiProfileListActivity : BaseActivity() {
         updateActiveProfileId()
         lifecycleScope.launch {
             repository.sync()
+            updateActiveProfileId()
         }
     }
 

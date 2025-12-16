@@ -8,6 +8,9 @@ interface AiProfileDao {
     @Query("SELECT * FROM ai_profiles ORDER BY updatedAt DESC")
     fun getAll(): Flow<List<AiProfileEntity>>
 
+    @Query("SELECT * FROM ai_profiles")
+    suspend fun getAllList(): List<AiProfileEntity>
+
     @Query("SELECT * FROM ai_profiles WHERE id = :id")
     suspend fun getById(id: Long): AiProfileEntity?
     

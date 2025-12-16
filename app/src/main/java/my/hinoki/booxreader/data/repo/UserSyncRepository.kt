@@ -21,6 +21,7 @@ import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.db.BookmarkEntity
+import my.hinoki.booxreader.reader.LocatorJsonHelper
 import java.io.File
 import java.security.MessageDigest
 import javax.crypto.Cipher
@@ -53,19 +54,73 @@ class UserSyncRepository(
         }.getOrElse { return@withContext null }
 
         if (!snapshot.exists()) return@withContext null
-        val remote = snapshot.toObject(ReaderSettings::class.java) ?: return@withContext null
-        val local = ReaderSettings.fromPrefs(prefs)
-        return@withContext if (remote.updatedAt > local.updatedAt) {
-            remote.saveTo(prefs)
-            remote
-        } else {
+        
+        val remote = try {
+            snapshot.toObject(RemoteReaderSettings::class.java)
+        } catch (e: Exception) {
+            android.util.Log.e("UserSyncRepository", "Failed to parse remote ReaderSettings", e)
             null
+        } ?: return@withContext null
+        
+        // Map remote string ID to local long ID
+        var localProfileId = -1L
+        var activeProfile: AiProfileEntity? = null
+        
+        if (!remote.activeProfileId.isNullOrBlank()) {
+             val profile = db.aiProfileDao().getByRemoteId(remote.activeProfileId)
+             if (profile != null) {
+                 localProfileId = profile.id
+                 activeProfile = profile
+             }
+        }
+
+        val local = ReaderSettings.fromPrefs(prefs)
+        
+        if (remote.updatedAt > local.updatedAt) {
+            var mergedSettings = remote.toLocal(localProfileId)
+            
+            // If we switched to a profile (or the remote says we are on a profile),
+            // we must apply that profile's values to the local settings immediately.
+            // otherwise the app will have the new ID but old cached API key/model.
+            if (activeProfile != null) {
+                android.util.Log.i("UserSyncRepository", "Applying active profile settings: ${activeProfile.name}")
+                mergedSettings = mergedSettings.copy(
+                    apiKey = activeProfile.apiKey,
+                    aiModelName = activeProfile.modelName,
+                    serverBaseUrl = activeProfile.serverBaseUrl,
+                    aiSystemPrompt = activeProfile.systemPrompt,
+                    aiUserPromptTemplate = activeProfile.userPromptTemplate,
+                    useStreaming = activeProfile.useStreaming,
+                    enableGoogleSearch = activeProfile.enableGoogleSearch,
+                    temperature = activeProfile.temperature,
+                    maxTokens = activeProfile.maxTokens,
+                    topP = activeProfile.topP,
+                    frequencyPenalty = activeProfile.frequencyPenalty,
+                    presencePenalty = activeProfile.presencePenalty,
+                    assistantRole = activeProfile.assistantRole
+                )
+            }
+            
+            mergedSettings.saveTo(prefs)
+            return@withContext mergedSettings
+        } else {
+            return@withContext null
         }
     }
 
     suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromPrefs(prefs)) {
         val ref = userDoc() ?: return
-        val payload = settings.copy(updatedAt = System.currentTimeMillis())
+        
+        // Map local long ID to remote string ID
+        var remoteProfileId: String? = null
+        if (settings.activeProfileId > 0) {
+            val profile = db.aiProfileDao().getById(settings.activeProfileId)
+            remoteProfileId = profile?.remoteId
+        }
+        
+        val payload = RemoteReaderSettings.fromLocal(settings, remoteProfileId)
+            .copy(updatedAt = System.currentTimeMillis())
+            
         withContext(io) {
             runCatching {
                 ref.collection(COL_SETTINGS)
@@ -189,6 +244,37 @@ class UserSyncRepository(
         }
     }
 
+    suspend fun softDeleteBook(bookId: String): Boolean = withContext(io) {
+        val ref = userDoc() ?: return@withContext true // Not signed in, safe to delete locally
+        val updates = mapOf(
+            "deleted" to true,
+            "updatedAt" to System.currentTimeMillis()
+        )
+        return@withContext runCatching {
+            // 1. Mark as deleted in Firestore (Tombstone)
+            ref.collection(COL_BOOKS)
+                .document(bookId)
+                .set(updates, SetOptions.merge())
+                .await()
+            android.util.Log.d("UserSyncRepository", "書籍已標記為刪除 (Soft Delete): $bookId")
+
+            // 2. Delete file from Storage (Best effort)
+            val storageRef = bookStorageRef(bookId)
+            if (storageRef != null) {
+                runCatching {
+                    storageRef.delete().await()
+                    android.util.Log.d("UserSyncRepository", "書籍檔案已從Storage刪除: $bookId")
+                }.onFailure {
+                    android.util.Log.w("UserSyncRepository", "從Storage刪除檔案失敗 (可能已不存在): $bookId", it)
+                }
+            }
+            true
+        }.getOrElse {
+            android.util.Log.e("UserSyncRepository", "標記書籍刪除失敗: $bookId", it)
+            false
+        }
+    }
+
     suspend fun pullBooks(): Int = withContext(io) {
         val ref = userDoc()
         if (ref == null) {
@@ -216,6 +302,15 @@ class UserSyncRepository(
             if (remote.bookId.isBlank()) return@forEach
 
             android.util.Log.d("UserSyncRepository", "處理書籍: ${remote.title} (ID: ${remote.bookId})")
+
+            if (remote.deleted) {
+                // Cloud says deleted -> Delete locally
+                android.util.Log.d("UserSyncRepository", "書籍已被標記為刪除 (Soft Delete)，移除本地紀錄: ${remote.title}")
+                dao.deleteById(remote.bookId)
+                updatedCount++
+                return@forEach
+            }
+
             android.util.Log.d("UserSyncRepository", "書籍數據: storagePath=${remote.storagePath}, checksum=${remote.checksumSha256}, fileUri=${remote.fileUri}")
 
             val existing = dao.getByIds(listOf(remote.bookId)).firstOrNull()
@@ -243,22 +338,88 @@ class UserSyncRepository(
                 }
             }
 
+            // DUPLICATE DETECTION & MIGRATION
+            var migrationTarget: BookEntity? = null
+            if (existing == null && !remote.checksumSha256.isNullOrBlank()) {
+                // Aggressive Scan: Check ALL local books for checksum match
+                // This handles cases where Titles differ (filename vs metadata) but content is identical.
+                val allLocalBooks = dao.getAllBooks()
+                
+                for (candidate in allLocalBooks) {
+                    // Skip if IDs somehow match (should be handled by 'existing' check, but safety first)
+                    if (candidate.bookId == remote.bookId) continue
+                    
+                    try {
+                        val uri = Uri.parse(candidate.fileUri)
+                        val meta = readLocalFileMeta(uri)
+                        if (meta != null && meta.checksum == remote.checksumSha256) {
+                            migrationTarget = candidate
+                            android.util.Log.i("UserSyncRepository", "發現重複書籍 (全庫掃描 Checksum匹配): ${candidate.title}. 準備遷移 ID: ${candidate.bookId} -> ${remote.bookId}")
+                            break
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w("UserSyncRepository", "檢查候選書籍失敗: ${candidate.title}", e)
+                    }
+                }
+            }
+
+            // SMART MERGE: Prevent overwriting valid local progress with "0%" remote stub
+            var finalLocatorJson = remote.lastLocatorJson
+            var finalLastOpenedAt = remoteLastOpened
+            
+            // Use existing OR migration target as the base for comparison
+            val baseLocalBook = existing ?: migrationTarget
+
+            if (baseLocalBook != null) {
+                val remoteLoc = LocatorJsonHelper.fromJson(remote.lastLocatorJson)
+                val localLoc = LocatorJsonHelper.fromJson(baseLocalBook.lastLocatorJson)
+                
+                val remoteProg = remoteLoc?.locations?.totalProgression ?: 0.0
+                val localProg = localLoc?.locations?.totalProgression ?: 0.0
+                
+                if (localProg > 0.01 && remoteProg < 0.01) {
+                    android.util.Log.w("UserSyncRepository", "防止進度回退: 保留本地進度 ${(localProg*100).toInt()}% (雲端為 ${(remoteProg*100).toInt()}%)")
+                    finalLocatorJson = baseLocalBook.lastLocatorJson
+                    finalLastOpenedAt = maxOf(baseLocalBook.lastOpenedAt, remoteLastOpened)
+                }
+            }
+
             val entity = BookEntity(
                 bookId = remote.bookId,
                 title = remote.title,
-                fileUri = if (fileUri.isNotBlank()) fileUri else remote.bookId,
-                lastLocatorJson = remote.lastLocatorJson,
-                lastOpenedAt = remoteLastOpened
+                fileUri = if (fileUri.isNotBlank()) fileUri else (migrationTarget?.fileUri ?: remote.bookId),
+                lastLocatorJson = finalLocatorJson,
+                lastOpenedAt = finalLastOpenedAt
             )
 
-            if (existing == null) {
+            if (existing != null) {
+                // Update existing
+                if (remoteUpdatedAt > existing.lastOpenedAt) {
+                    dao.update(entity.copy(bookId = existing.bookId))
+                    updatedCount++
+                    android.util.Log.d("UserSyncRepository", "更新書籍資料: ${remote.title}")
+                }
+            } else if (migrationTarget != null) {
+                // Perform Migration
+                android.util.Log.i("UserSyncRepository", "執行書籍遷移: ${migrationTarget.title}")
+                
+                // 1. Update Foreign Keys
+                db.aiNoteDao().migrateBookId(migrationTarget.bookId, remote.bookId)
+                db.bookmarkDao().migrateBookId(migrationTarget.bookId, remote.bookId)
+                
+                // 2. Insert NEW entity (with Remote ID but Local File URI)
+                dao.insert(entity)
+                
+                // 3. Delete OLD entity
+                dao.deleteById(migrationTarget.bookId)
+                
+                updatedCount++
+                android.util.Log.i("UserSyncRepository", "書籍遷移完成")
+            } else {
+                // Insert New
                 dao.insert(entity)
                 updatedCount++
                 android.util.Log.d("UserSyncRepository", "新增書籍到資料庫: ${remote.title}")
-            } else if (remoteUpdatedAt > existing.lastOpenedAt) {
-                dao.update(entity.copy(bookId = existing.bookId))
-                updatedCount++
-                android.util.Log.d("UserSyncRepository", "更新書籍資料: ${remote.title}")
             }
         }
 
@@ -533,7 +694,7 @@ class UserSyncRepository(
         // Download from storage
         val result = downloadBookFile(bookId, storagePath)
         if (result != null) {
-            android.util.Log.d("UserSyncRepository", "書籍下載成功: $result")
+            android.util.Log.d("UserSyncRepository", "書籍下載成功: ${result}")
         } else {
             android.util.Log.w("UserSyncRepository", "書籍下載失敗")
         }
@@ -801,6 +962,19 @@ class UserSyncRepository(
 
         android.util.Log.d("UserSyncRepository", "Found ${snapshot.documents.size} remote profiles")
         var updatedCount = 0
+        
+        // 1. Collect all remote IDs
+        val remoteIds = snapshot.documents.mapNotNull { it.id }.toSet()
+        
+        // 2. Find local profiles that have a remoteId but are missing from remoteIds (Deleted on Cloud)
+        val allLocalProfiles = dao.getAllList()
+        allLocalProfiles.forEach { local ->
+            if (!local.remoteId.isNullOrBlank() && !remoteIds.contains(local.remoteId)) {
+                android.util.Log.i("UserSyncRepository", "Deleting local profile '${local.name}' because it was removed from cloud.")
+                dao.delete(local)
+                updatedCount++
+            }
+        }
 
         snapshot.documents.forEach { doc ->
             val remote = doc.toObject(RemoteAiProfile::class.java) ?: return@forEach
@@ -926,22 +1100,45 @@ class UserSyncRepository(
      */
     suspend fun pullAllProgress(): Int = withContext(io) {
         val ref = userDoc() ?: return@withContext 0
+        android.util.Log.d("UserSyncRepository", "開始同步閱讀進度 (pullAllProgress)")
+        
         val snapshot = runCatching {
             ref.collection(COL_PROGRESS).get().await()
-        }.getOrElse { return@withContext 0 }
+        }.getOrElse { 
+            android.util.Log.e("UserSyncRepository", "獲取進度失敗", it)
+            return@withContext 0 
+        }
+
+        android.util.Log.d("UserSyncRepository", "找到 ${snapshot.documents.size} 筆進度紀錄")
 
         var updated = 0
         snapshot.documents.forEach { doc ->
             val remote = doc.toObject(RemoteProgress::class.java) ?: return@forEach
-            if (remote.bookId.isBlank() || remote.locatorJson.isBlank()) return@forEach
+            if (remote.bookId.isBlank() || remote.locatorJson.isBlank()) {
+                android.util.Log.w("UserSyncRepository", "略過無效進度紀錄 (ID或JSON為空)")
+                return@forEach
+            }
 
             val localTs = prefs.getLong(progressTimestampKey(remote.bookId), 0)
+            
+            android.util.Log.d("UserSyncRepository", "檢查書籍[${remote.bookId.take(8)}...]: 雲端時間=${remote.updatedAt}, 本地時間=$localTs")
+            android.util.Log.d("UserSyncRepository", "JSON預覽: ${remote.locatorJson.take(100)}...")
+
+            // Force update if local is 0 (never synced) or remote is newer
+            // Also lenient check: if remote > local - 1 minute (to handle clock drift slightly)
             if (remote.updatedAt > localTs) {
+                android.util.Log.d("UserSyncRepository", "-> 執行更新")
                 cacheProgress(remote.bookId, remote.locatorJson, remote.updatedAt)
                 runCatching {
                     db.bookDao().updateProgress(remote.bookId, remote.locatorJson, remote.updatedAt)
+                }.onSuccess {
+                    android.util.Log.d("UserSyncRepository", "-> DB更新成功")
+                }.onFailure {
+                    android.util.Log.e("UserSyncRepository", "-> DB更新失敗", it)
                 }
                 updated++
+            } else {
+                android.util.Log.d("UserSyncRepository", "-> 跳過 (無需更新)")
             }
         }
         updated
@@ -1011,7 +1208,8 @@ data class RemoteBook(
     val updatedAt: Long = 0L,
     val storagePath: String? = null,
     val fileSize: Long = 0L,
-    val checksumSha256: String? = null
+    val checksumSha256: String? = null,
+    val deleted: Boolean = false
 )
 
 data class RemoteAiNote(
@@ -1091,6 +1289,96 @@ private object SyncCrypto {
         } catch (e: Exception) {
             android.util.Log.w("SyncCrypto", "Decryption failed, returning input/empty. Input: $input")
             ""
+        }
+    }
+}
+
+data class RemoteReaderSettings(
+    val pageTapEnabled: Boolean = true,
+    val pageSwipeEnabled: Boolean = true,
+    val booxBatchRefresh: Boolean = true,
+    val booxFastMode: Boolean = true,
+    val contrastMode: Int = 0,
+    val serverBaseUrl: String = "",
+    val exportToCustomUrl: Boolean = false,
+    val exportCustomUrl: String = "",
+    val exportToLocalDownloads: Boolean = false,
+    val apiKey: String = "",
+    val aiModelName: String = "deepseek-chat",
+    val aiSystemPrompt: String = "",
+    val aiUserPromptTemplate: String = "",
+    val temperature: Double = 0.7,
+    val maxTokens: Int = 4096,
+    val topP: Double = 1.0,
+    val frequencyPenalty: Double = 0.0,
+    val presencePenalty: Double = 0.0,
+    val assistantRole: String = "assistant",
+    val enableGoogleSearch: Boolean = true,
+    val useStreaming: Boolean = false,
+    val pageAnimationEnabled: Boolean = false,
+    val language: String = "system",
+    val updatedAt: Long = 0L,
+    val activeProfileId: String? = null // Remote UUID
+) {
+    fun toLocal(localProfileId: Long): ReaderSettings {
+        return ReaderSettings(
+            pageTapEnabled = pageTapEnabled,
+            pageSwipeEnabled = pageSwipeEnabled,
+            booxBatchRefresh = booxBatchRefresh,
+            booxFastMode = booxFastMode,
+            contrastMode = contrastMode,
+            serverBaseUrl = serverBaseUrl,
+            exportToCustomUrl = exportToCustomUrl,
+            exportCustomUrl = exportCustomUrl,
+            exportToLocalDownloads = exportToLocalDownloads,
+            apiKey = apiKey,
+            aiModelName = aiModelName,
+            aiSystemPrompt = aiSystemPrompt,
+            aiUserPromptTemplate = aiUserPromptTemplate,
+            temperature = temperature,
+            maxTokens = maxTokens,
+            topP = topP,
+            frequencyPenalty = frequencyPenalty,
+            presencePenalty = presencePenalty,
+            assistantRole = assistantRole,
+            enableGoogleSearch = enableGoogleSearch,
+            useStreaming = useStreaming,
+            pageAnimationEnabled = pageAnimationEnabled,
+            language = language,
+            updatedAt = updatedAt,
+            activeProfileId = localProfileId
+        )
+    }
+
+    companion object {
+        fun fromLocal(local: ReaderSettings, remoteProfileId: String?): RemoteReaderSettings {
+            return RemoteReaderSettings(
+                pageTapEnabled = local.pageTapEnabled,
+                pageSwipeEnabled = local.pageSwipeEnabled,
+                booxBatchRefresh = local.booxBatchRefresh,
+                booxFastMode = local.booxFastMode,
+                contrastMode = local.contrastMode,
+                serverBaseUrl = local.serverBaseUrl,
+                exportToCustomUrl = local.exportToCustomUrl,
+                exportCustomUrl = local.exportCustomUrl,
+                exportToLocalDownloads = local.exportToLocalDownloads,
+                apiKey = local.apiKey,
+                aiModelName = local.aiModelName,
+                aiSystemPrompt = local.aiSystemPrompt,
+                aiUserPromptTemplate = local.aiUserPromptTemplate,
+                temperature = local.temperature,
+                maxTokens = local.maxTokens,
+                topP = local.topP,
+                frequencyPenalty = local.frequencyPenalty,
+                presencePenalty = local.presencePenalty,
+                assistantRole = local.assistantRole,
+                enableGoogleSearch = local.enableGoogleSearch,
+                useStreaming = local.useStreaming,
+                pageAnimationEnabled = local.pageAnimationEnabled,
+                language = local.language,
+                updatedAt = local.updatedAt,
+                activeProfileId = remoteProfileId
+            )
         }
     }
 }
