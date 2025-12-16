@@ -126,6 +126,11 @@ class MainActivity : BaseActivity() {
                 Toast.makeText(this@MainActivity, getString(R.string.sync_start_toast), Toast.LENGTH_SHORT).show()
 
                 // Sync all user data
+                // Sync Profiles FIRST so settings can link to them
+                val profilesResult = runCatching { syncRepo.pullProfiles() }
+                val profilesUpdated = profilesResult.getOrNull() ?: 0
+                android.util.Log.d("MainActivity", "同步Profiles: ${profilesResult.isSuccess}, 更新數量: $profilesUpdated")
+
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
                 android.util.Log.d("MainActivity", "同步設定: ${settingsResult.isSuccess}")
 
@@ -383,7 +388,7 @@ class MainActivity : BaseActivity() {
             try {
                 android.util.Log.d("MainActivity", "開始手動同步...")
 
-                val totalSteps = 8  // 下載 + 上傳 + 再次下載校驗 + 其他五步
+                val totalSteps = 9  // 下載 + 上傳 + 再次下載校驗 + Profiles + 設定 + Notes + Progress + Bookmarks + Done
                 var currentStep = 0
 
                 // 步驟1: 先下載雲端書籍（包含Storage檔案）
@@ -407,27 +412,34 @@ class MainActivity : BaseActivity() {
                 val booksDownloadedFinal = pullBooksResultAfterUpload.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "再次下載書籍: ${pullBooksResultAfterUpload.isSuccess}, 下載數量: $booksDownloadedFinal")
 
-                // 步驟4: 同步設定
+                // 步驟4: 同步AI Profiles (Critical to run before settings)
+                currentStep++
+                updateSyncProgress(currentStep, totalSteps, "Syncing AI Profiles...") // TODO: Add string resource
+                val profilesResult = runCatching { syncRepo.pullProfiles() }
+                val profilesUpdated = profilesResult.getOrNull() ?: 0
+                android.util.Log.d("MainActivity", "同步Profiles: ${profilesResult.isSuccess}, 更新數量: $profilesUpdated")
+
+                // 步驟5: 同步設定
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_settings))
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
                 android.util.Log.d("MainActivity", "同步設定: ${settingsResult.isSuccess}")
 
-                // 步驟5: 同步AI筆記
+                // 步驟6: 同步AI筆記
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_ai_notes))
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "同步筆記: ${notesResult.isSuccess}, 更新數量: $notesUpdated")
 
-                // 步驟6: 同步閱讀進度
+                // 步驟7: 同步閱讀進度
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_progress))
                 val progressResult = runCatching { syncRepo.pullAllProgress() }
                 val progressUpdated = progressResult.getOrNull() ?: 0
                 android.util.Log.d("MainActivity", "同步進度: ${progressResult.isSuccess}, 更新數量: $progressUpdated")
 
-                // 步驟7: 同步書籤
+                // 步驟8: 同步書籤
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_bookmarks))
                 val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
@@ -443,10 +455,11 @@ class MainActivity : BaseActivity() {
                     if (booksUploaded > 0) append(getString(R.string.sync_result_uploaded_books, booksUploaded) + "\n")
                     val totalDownloaded = booksDownloadedInitial + booksDownloadedFinal
                     if (totalDownloaded > 0) append(getString(R.string.sync_result_downloaded_books, totalDownloaded) + "\n")
+                    if (profilesUpdated > 0) append("Profiles updated: $profilesUpdated\n")
                     if (notesUpdated > 0) append(getString(R.string.sync_result_updated_notes, notesUpdated) + "\n")
                     if (progressUpdated > 0) append(getString(R.string.sync_result_updated_progress, progressUpdated) + "\n")
                     if (bookmarksUpdated > 0) append(getString(R.string.sync_result_updated_bookmarks, bookmarksUpdated) + "\n")
-                    if (booksUploaded == 0 && totalDownloaded == 0 && notesUpdated == 0 && progressUpdated == 0 && bookmarksUpdated == 0) {
+                    if (booksUploaded == 0 && totalDownloaded == 0 && notesUpdated == 0 && progressUpdated == 0 && bookmarksUpdated == 0 && profilesUpdated == 0) {
                         append(getString(R.string.sync_result_no_updates))
                     }
                 }
@@ -495,7 +508,7 @@ class MainActivity : BaseActivity() {
         localBooks.forEach { book ->
             try {
                 android.util.Log.d("MainActivity", "上傳書籍: ${book.title} (${book.bookId})")
-                syncRepo.pushBook(book = book, uploadFile = true)
+                syncRepo.pushBook(book = book, uploadFile = false)
                 uploadedCount++
                 android.util.Log.d("MainActivity", "書籍上傳成功: ${book.title}")
             } catch (e: Exception) {

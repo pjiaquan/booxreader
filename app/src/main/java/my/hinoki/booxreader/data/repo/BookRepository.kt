@@ -26,7 +26,7 @@ class BookRepository(
     suspend fun getOrCreateByUri(fileUri: String, title: String?): BookEntity {
         val existing = bookDao.getByUri(fileUri)
         if (existing != null) {
-            try { syncRepo?.pushBook(existing, uploadFile = true) } catch (_: Exception) { }
+            try { syncRepo?.pushBook(existing, uploadFile = false) } catch (_: Exception) { }
             return existing
         }
 
@@ -41,7 +41,7 @@ class BookRepository(
             lastOpenedAt = now
         )
         bookDao.insert(book)
-        try { syncRepo?.pushBook(book, uploadFile = true) } catch (_: Exception) { }
+        try { syncRepo?.pushBook(book, uploadFile = false) } catch (_: Exception) { }
         return book
     }
 
@@ -51,6 +51,22 @@ class BookRepository(
     suspend fun updateProgress(bookId: String, locatorJson: String) {
         val now = System.currentTimeMillis()
         bookDao.updateProgress(bookId, locatorJson, now)
+        
+        // Push to 'progress' collection for Web Client compatibility
+        val entity = bookDao.getByIds(listOf(bookId)).firstOrNull()
+        if (entity != null) {
+            try {
+                syncRepo?.pushProgress(
+                    bookId = bookId,
+                    locatorJson = locatorJson,
+                    bookTitle = entity.title
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("BookRepository", "Failed to push progress: ${e.message}")
+            }
+        }
+
+        // Push to 'books' collection (Snapshot)
         pushSnapshot(bookId)
     }
 
@@ -69,8 +85,16 @@ class BookRepository(
     }
 
     suspend fun deleteBook(bookId: String) {
-        bookDao.deleteById(bookId)
-        // 不同步刪除到遠端以避免意外刪除跨裝置資料，僅本地清除
+        // 1. Notify cloud (Soft Delete)
+        // Only delete locally if cloud update succeeds (to prevent Zombies) OR if sync is disabled (null)
+        val success = syncRepo?.softDeleteBook(bookId) ?: true
+
+        if (success) {
+            // 2. Delete locally
+            bookDao.deleteById(bookId)
+        } else {
+            android.util.Log.w("BookRepository", "Skipping local delete for $bookId because cloud soft-delete failed.")
+        }
     }
 
     suspend fun markCompleted(bookId: String) {
