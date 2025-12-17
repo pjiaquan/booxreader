@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -105,6 +106,8 @@ class MainActivity : BaseActivity() {
         checkAndRequestFilePermissions()
     }
 
+    private var progressSyncJob: Job? = null
+
     override fun onResume() {
         super.onResume()
         // Check if user is still signed in
@@ -117,6 +120,32 @@ class MainActivity : BaseActivity() {
 
         // Note: Books are now automatically observed via Flow
         // No need to manually call loadRecentBooks() here
+        startPeriodicProgressSync()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        progressSyncJob?.cancel()
+    }
+
+    private fun startPeriodicProgressSync() {
+        progressSyncJob?.cancel()
+        progressSyncJob = lifecycleScope.launch {
+            while (true) {
+                // Wait 30 seconds
+                kotlinx.coroutines.delay(30_000)
+                
+                try {
+                    android.util.Log.d("MainActivity", "執行週期性進度同步...")
+                    val updated = syncRepo.pullAllProgress()
+                    if (updated > 0) {
+                        android.util.Log.d("MainActivity", "週期性同步完成，更新了 $updated 筆進度")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "週期性同步失敗", e)
+                }
+            }
+        }
     }
 
     private fun performFullSync() {
