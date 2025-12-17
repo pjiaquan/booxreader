@@ -144,7 +144,7 @@ data class ReaderSettings(
             apiKey = apiKey,
             serverBaseUrl = serverBaseUrl,
             systemPrompt = aiSystemPrompt,
-            userPromptTemplate = aiUserPromptTemplate,
+            userPromptTemplate = safeUserPromptTemplate, // Use safe version
             assistantRole = assistantRole,
             enableGoogleSearch = enableGoogleSearch,
             useStreaming = useStreaming,
@@ -155,6 +155,19 @@ data class ReaderSettings(
             presencePenalty = presencePenalty
         )
     }
+
+    /**
+     * Ensures the user prompt template always contains the '%s' placeholder.
+     * If missing, '%s' is prepended to the template.
+     */
+    val safeUserPromptTemplate: String
+        get() {
+            return if (aiUserPromptTemplate.contains("%s")) {
+                aiUserPromptTemplate
+            } else {
+                "%s\n\n$aiUserPromptTemplate"
+            }
+        }
 
     /**
      * Data class representing AI settings for API calls

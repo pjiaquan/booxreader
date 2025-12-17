@@ -237,9 +237,9 @@ class AiNoteRepository(
                             // In Google adapter logic, we'll extract system prompt from here or pass it explicitly.
                             // Here we construct OpenAI style first, then transform.
                             // OR we just use transform directly.
-                             put(JSONObject().apply {
+                            put(JSONObject().apply {
                                 put("role", "user")
-                                put("content", String.format(settings.aiUserPromptTemplate, text))
+                                put("content", String.format(settings.safeUserPromptTemplate, text))
                             })
                         }
                         
@@ -269,7 +269,7 @@ class AiNoteRepository(
                             })
                             put(JSONObject().apply {
                                 put("role", "user")
-                                put("content", String.format(settings.aiUserPromptTemplate, text))
+                                put("content", String.format(settings.safeUserPromptTemplate, text))
                             })
                         }
                         val payload = JSONObject().apply {
@@ -383,9 +383,9 @@ class AiNoteRepository(
                     put("role", "system")
                     put("content", settings.aiSystemPrompt)
                 })
-                put(JSONObject().apply {
+                    put(JSONObject().apply {
                     put("role", "user")
-                    put("content", String.format(settings.aiUserPromptTemplate, text))
+                    put("content", String.format(settings.safeUserPromptTemplate, text))
                 })
             }
 
@@ -413,7 +413,7 @@ class AiNoteRepository(
                  val messages = JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
-                        put("content", String.format(settings.aiUserPromptTemplate, text))
+                        put("content", String.format(settings.safeUserPromptTemplate, text))
                     })
                 }
                 val googlePayload = transformToGooglePayload(
@@ -666,7 +666,7 @@ class AiNoteRepository(
                     if (isGoogle) {
                         val history = buildOpenAiHistory(note)
                         // Add current user message
-                        val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+                        val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
                         history.put(JSONObject().apply {
                             put("role", "user")
                             put("content", userInputWithHint)
@@ -698,7 +698,7 @@ class AiNoteRepository(
                         })
                         for (i in 0 until history.length()) messages.put(history.get(i))
                         
-                        val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+                        val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
                         messages.put(JSONObject().apply {
                             put("role", "user")
                             put("content", userInputWithHint)
@@ -807,7 +807,7 @@ class AiNoteRepository(
             }
 
             // Add current user message with template
-            val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+            val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
 
             messages.put(JSONObject().apply {
                 put("role", "user")
@@ -835,7 +835,7 @@ class AiNoteRepository(
              val requestPayload = if (isGoogle) {
                 // History + User Input -> Google 'contents'
                 val history = buildOpenAiHistory(note)
-                val userInputWithHint = String.format(settings.aiUserPromptTemplate, followUpText)
+                val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
                 history.put(JSONObject().apply {
                     put("role", "user")
                     put("content", userInputWithHint)
@@ -998,7 +998,7 @@ class AiNoteRepository(
         history.put(
             JSONObject().apply {
                 put("role", "user")
-                put("parts", JSONArray().put(JSONObject().put("text", String.format(getSettings().aiUserPromptTemplate, note.originalText))))
+                put("parts", JSONArray().put(JSONObject().put("text", String.format(getSettings().safeUserPromptTemplate, note.originalText))))
             }
         )
 
@@ -1074,7 +1074,7 @@ class AiNoteRepository(
         history.put(
             JSONObject().apply {
                 put("role", "user")
-                put("content", String.format(getSettings().aiUserPromptTemplate, note.originalText))
+                put("content", String.format(getSettings().safeUserPromptTemplate, note.originalText))
             }
         )
 
