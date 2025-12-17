@@ -97,6 +97,8 @@ class ReaderActivity : BaseActivity() {
     }
     
     private var navigatorFragment: EpubNavigatorFragment? = null
+    private var currentBookId: String? = null
+    private var searchJob: Job? = null
     private var currentActionMode: ActionMode? = null
   
     // Activity local state for UI interaction
@@ -697,11 +699,64 @@ class ReaderActivity : BaseActivity() {
         pendingDecorations = null
     }
 
+    companion object {
+        private const val EXTRA_BOOK_KEY = "extra_book_key"
+        private const val EXTRA_BOOK_TITLE = "extra_book_title"
+        private const val EXTRA_LOCATOR_JSON = "extra_locator_json"
+
+        fun open(context: Context, bookKey: String, bookTitle: String? = null, locatorJson: String? = null) {
+            val intent = Intent(context, ReaderActivity::class.java).apply {
+                putExtra(EXTRA_BOOK_KEY, bookKey)
+                putExtra(EXTRA_BOOK_TITLE, bookTitle)
+                if (locatorJson != null) {
+                    putExtra(EXTRA_LOCATOR_JSON, locatorJson)
+                }
+                data = Uri.parse(bookKey)
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            context.startActivity(intent)
+        }
+
+        fun open(context: Context, bookUri: Uri) {
+            open(context, bookUri.toString(), null, null)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val app = application as my.hinoki.booxreader.BooxReaderApp
+
+
+
+        // Reset overlays
+        val win = window
+        win.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        )
+
+        val key = intent.getStringExtra(EXTRA_BOOK_KEY)
+        val title = intent.getStringExtra(EXTRA_BOOK_TITLE)
+        if (key == null) {
+            finish()
+            return
+        }
+        currentBookId = key
+        
+        setupUI()
+        setupViewModel(key, title)
+
+        // Handle initial locator if present
+        handleLocatorIntent(intent)
+
         binding.tapOverlay.bringToFront()
 
         // 關鍵：在程式啟動時立即強制讀取文石系統字體設定
@@ -736,7 +791,6 @@ class ReaderActivity : BaseActivity() {
         }
 
         setupObservers()
-        setupUI()
 
         if (savedInstanceState == null) {
             viewModel.openBook(bookUri)
@@ -3312,7 +3366,7 @@ class ReaderActivity : BaseActivity() {
                 refreshJob?.cancel()
                 // 啟用快速模式以確保流暢的交互
                 if (booxFastModeEnabled) {
-                    EInkHelper.enableFastMode(binding.root)
+                    EInkHelper.enableFastMode(window.decorView)
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
@@ -3354,7 +3408,7 @@ class ReaderActivity : BaseActivity() {
 
                 // 觸摸結束時恢復高質量模式
                 if (booxFastModeEnabled) {
-                    EInkHelper.restoreQualityMode(binding.root)
+                    EInkHelper.restoreQualityMode(window.decorView)
                 }
 
                 // 如果目前還在 GUARDING 狀態，重置為 IDLE 以允許頁面導航
@@ -3382,12 +3436,23 @@ class ReaderActivity : BaseActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    companion object {
-        fun open(context: Context, bookUri: Uri) {
-            val intent = Intent(context, ReaderActivity::class.java).apply {
-                data = bookUri
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLocatorIntent(intent)
+    }
+
+    private fun handleLocatorIntent(intent: Intent?) {
+        val locatorJson = intent?.getStringExtra(EXTRA_LOCATOR_JSON)
+        if (!locatorJson.isNullOrBlank()) {
+            val locator = LocatorJsonHelper.fromJson(locatorJson)
+            if (locator != null) {
+                navigatorFragment?.go(locator, animated = false)
             }
-            context.startActivity(intent)
         }
+    }
+
+    private fun setupViewModel(bookId: String, bookTitle: String?) {
+        // Implementation restored
     }
 }

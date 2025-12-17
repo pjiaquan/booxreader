@@ -230,7 +230,7 @@ class ReaderViewModel(
                     Decoration(
                         id = note.id.toString(),
                         locator = loc,
-                        style = Decoration.Style.Underline(tint = android.graphics.Color.parseColor("#FF8C00"))
+                        style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#40FF8C00"))
                     )
                 }
 
@@ -363,7 +363,7 @@ class ReaderViewModel(
                                 locations = Locator.Locations(progression = progression),
                                 text = Locator.Text(highlight = match.value)
                             ),
-                            style = Decoration.Style.Underline(tint = android.graphics.Color.parseColor("#FF8C00"))
+                            style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#40FF8C00"))
                         ))
                     }
                 }

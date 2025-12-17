@@ -156,4 +156,5 @@
     <string name="action_mark_complete">Mark as Completed</string>
     <string name="action_delete">Delete</string>
     <string name="action_export_all">Export All</string>
+    <string name="ai_note_go_to_page">Go to Page</string>
 </resources>

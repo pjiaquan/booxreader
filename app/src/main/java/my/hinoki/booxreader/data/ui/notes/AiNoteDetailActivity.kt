@@ -286,6 +286,20 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.btnRepublishSelection.isEnabled = true
         }
 
+        if (!note.locatorJson.isNullOrBlank() && !note.bookId.isNullOrBlank()) {
+            binding.btnGoToPage.visibility = View.VISIBLE
+            binding.btnGoToPage.setOnClickListener {
+                my.hinoki.booxreader.data.ui.reader.ReaderActivity.open(
+                    this@AiNoteDetailActivity,
+                    note.bookId,
+                    note.bookTitle,
+                    note.locatorJson
+                )
+            }
+        } else {
+            binding.btnGoToPage.visibility = View.GONE
+        }
+
         if (scrollToQuestionHeader) {
             binding.scrollView.post {
                 val layout = binding.tvAiResponse.layout ?: return@post

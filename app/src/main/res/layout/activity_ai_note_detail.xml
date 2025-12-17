@@ -29,11 +29,21 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="24sp"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="8dp"
             android:background="#F0F0F0"
             android:padding="8dp"
             android:textColor="#000000"
             android:textIsSelectable="true"/>
+
+        <Button
+            android:id="@+id/btnGoToPage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/ai_note_go_to_page"
+            android:visibility="gone"
+            android:layout_marginBottom="24dp"
+            android:backgroundTint="#FF9800"
+            android:textColor="#FFFFFF" />
 
         <TextView
             android:layout_width="wrap_content"
