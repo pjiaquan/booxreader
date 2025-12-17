@@ -56,7 +56,8 @@ class ReaderViewModel(
     private val bookRepo: BookRepository,
     private val bookmarkRepo: BookmarkRepository,
     private val aiNoteRepo: AiNoteRepository,
-    private val syncRepo: UserSyncRepository
+    private val syncRepo: UserSyncRepository,
+    private val progressPublisher: ProgressPublisher
 ) : AndroidViewModel(app) {
 
     private fun getBaseUrl(context: Context): String {
@@ -65,11 +66,7 @@ class ReaderViewModel(
     }
 
     // --- Repositories ---
-    // Injected via constructor
-    private val progressPublisher = ProgressPublisher(
-        baseUrlProvider = { getBaseUrl(app) },
-        client = (app as? BooxReaderApp)?.okHttpClient ?: OkHttpClient()
-    )
+    // All injected via constructor
 
     // --- State ---
     private val _publication = MutableStateFlow<Publication?>(null)

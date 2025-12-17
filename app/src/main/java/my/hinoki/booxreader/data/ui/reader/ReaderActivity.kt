@@ -45,6 +45,9 @@ import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -90,7 +93,14 @@ class ReaderActivity : BaseActivity() {
                     BookRepository(app, syncRepo),
                     BookmarkRepository(app, app.okHttpClient, syncRepo),
                     AiNoteRepository(app, app.okHttpClient, syncRepo),
-                    syncRepo
+                    syncRepo,
+                    my.hinoki.booxreader.data.remote.ProgressPublisher(
+                        baseUrlProvider = {
+                             val prefs = app.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
+                             prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL) ?: HttpConfig.DEFAULT_BASE_URL
+                        },
+                        client = app.okHttpClient
+                    )
                 ) as T
             }
         }
@@ -733,15 +743,13 @@ class ReaderActivity : BaseActivity() {
 
 
         // Reset overlays
+        // Reset overlays
         val win = window
-        win.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        )
+        WindowCompat.setDecorFitsSystemWindows(win, false)
+        WindowCompat.getInsetsController(win, win.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
 
         val key = intent.getStringExtra(EXTRA_BOOK_KEY)
         val title = intent.getStringExtra(EXTRA_BOOK_TITLE)
