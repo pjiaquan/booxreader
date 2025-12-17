@@ -144,20 +144,33 @@ class UserSyncRepository(
 
     suspend fun pullProgress(bookId: String) = withContext(io) {
         val ref = userDoc() ?: return@withContext null
+        android.util.Log.d("ReaderDebug", "Pulling progress for bookId: '$bookId'")
         val snapshot = runCatching {
             ref.collection(COL_PROGRESS).document(bookId).get().await()
-        }.getOrElse { return@withContext null }
+        }.getOrElse { 
+             android.util.Log.e("ReaderDebug", "Pull progress failed", it)
+             return@withContext null 
+        }
 
-        if (!snapshot.exists()) return@withContext null
+        if (!snapshot.exists()) {
+             android.util.Log.d("ReaderDebug", "Progress doc does not exist for $bookId")
+             return@withContext null
+        }
         val remote = snapshot.toObject(RemoteProgress::class.java) ?: return@withContext null
+        
+        android.util.Log.d("ReaderDebug", "Got remote progress: ${remote.locatorJson}")
+
         if (remote.locatorJson.isBlank()) return@withContext null
 
         val localTs = prefs.getLong(progressTimestampKey(bookId), 0)
         if (remote.updatedAt > localTs) {
+            android.util.Log.d("ReaderDebug", "Remote is newer ($remote.updatedAt > $localTs), caching.")
             cacheProgress(bookId, remote.locatorJson, remote.updatedAt)
             runCatching {
                 db.bookDao().updateProgress(bookId, remote.locatorJson, remote.updatedAt)
             }
+        } else {
+             android.util.Log.d("ReaderDebug", "Remote is not newer ($remote.updatedAt <= $localTs)")
         }
         remote.locatorJson
     }
@@ -579,7 +592,8 @@ class UserSyncRepository(
                 booksDir.mkdirs()
             }
 
-            val fileName = "book_${bookId}_${System.currentTimeMillis()}.epub"
+            val safeId = android.util.Base64.encodeToString(bookId.toByteArray(Charsets.UTF_8), android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+            val fileName = "book_${safeId}_${System.currentTimeMillis()}.epub"
             val localFile = File(booksDir, fileName)
 
             android.util.Log.d("UserSyncRepository", "下載路徑: ${localFile.absolutePath}")

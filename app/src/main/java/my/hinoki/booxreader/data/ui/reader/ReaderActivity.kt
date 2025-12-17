@@ -849,6 +849,28 @@ class ReaderActivity : BaseActivity() {
     }
     
     private fun initNavigator(publication: Publication, initialLocator: Locator?) {
+        var startLocator = initialLocator
+        
+        // Fix Href mismatch (e.g. Web "text.html" vs Android "OEBPS/text.html")
+        if (startLocator != null) {
+            val href = startLocator.href.toString()
+            val exactMatch = publication.readingOrder.any { it.href.toString() == href }
+            if (!exactMatch) {
+                // Try fuzzy match (suffix)
+                val fuzzyMatch = publication.readingOrder.find { it.href.toString().endsWith(href) || href.endsWith(it.href.toString()) }
+                if (fuzzyMatch != null) {
+                    android.util.Log.d("ReaderDebug", "Correcting locator href: '$href' -> '${fuzzyMatch.href}'")
+                    startLocator = startLocator?.copy(href = Url(fuzzyMatch.href.toString())!!)
+                } else {
+                    android.util.Log.w("ReaderDebug", "Could not find matching spine item for href: '$href'")
+                }
+            }
+        }
+
+        android.util.Log.d("ReaderDebug", "Initializing navigator. Final Locator: $startLocator")
+        startLocator?.let {
+            android.util.Log.d("ReaderDebug", "Locator Details JSON: ${LocatorJsonHelper.toJson(it)}")
+        }
         // Avoid re-creating if already set up
         if (navigatorFragment != null) return
         lastStyledHref = null
@@ -858,9 +880,9 @@ class ReaderActivity : BaseActivity() {
         val config = EpubNavigatorFragment.Configuration {
             selectionActionModeCallback = this@ReaderActivity.selectionActionModeCallback
         }
-
+        
         supportFragmentManager.fragmentFactory = factory.createFragmentFactory(
-            initialLocator = initialLocator,
+            initialLocator = startLocator,
             listener = null,
             configuration = config
         )

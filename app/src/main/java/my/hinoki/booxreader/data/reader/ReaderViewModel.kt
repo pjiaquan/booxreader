@@ -130,6 +130,10 @@ class ReaderViewModel(
                     val publication = publicationOpener.open(asset, allowUserInteraction = false)
                         .getOrElse { throw IllegalStateException("Failed to open publication: $it") }
 
+                    publication.readingOrder.forEach { link ->
+                         android.util.Log.d("ReaderDebug", "Spine Item Href: '${link.href}'")
+                    }
+
                     val book = bookRepo.getOrCreateByUri(uri.toString(), publication.metadata.title)
                     bookRepo.touchOpened(book.bookId)
                     Pair(publication, book)
@@ -138,6 +142,7 @@ class ReaderViewModel(
                 val (pub, book) = result
                 val key = book.bookId
                 _currentBookKey.value = key
+                android.util.Log.d("ReaderDebug", "OpenBook Key: '$key'")
 
                 // 確保新開啟的書籍檔案立即嘗試同步到雲端 Storage
                 viewModelScope.launch(Dispatchers.IO) {
