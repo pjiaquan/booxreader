@@ -174,7 +174,6 @@ data class ReaderSettings(
         val frequencyPenalty: Double,
         val presencePenalty: Double
     )
-
     companion object {
         const val PREFS_NAME = "reader_prefs"
 

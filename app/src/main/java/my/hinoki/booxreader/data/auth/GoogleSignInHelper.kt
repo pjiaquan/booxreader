@@ -58,7 +58,7 @@ class GoogleSignInHelper(private val activity: Activity) {
     }
 
     fun isSupported(): Boolean {
-        val hasClientId = !webClientId.isNullOrBlank()
+        val hasClientId = !(webClientId ?: androidClientId).isNullOrBlank()
         val playServicesAvailable = GoogleApiAvailability.getInstance()
             .isGooglePlayServicesAvailable(activity) == ConnectionResult.SUCCESS
         return hasClientId && playServicesAvailable

@@ -28,10 +28,10 @@ gha-creds-*.json
 
 # Ignore log and repo outputs generated during CI or local runs
 logs/
-/repo/
+repo/
+!app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
 *.log
 release.keystore
-# !app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
 
 # Local tooling caches
 .gradle-local/
@@ -45,12 +45,9 @@ cmdline-tools/
 commandlinetools-*.zip
 
 # Firebase
-google-services.json
 **/google-services.json
 
 # Keystore
-*.jks
-*.keystore
 keystore.properties
 scripts/set-release-env.sh
 

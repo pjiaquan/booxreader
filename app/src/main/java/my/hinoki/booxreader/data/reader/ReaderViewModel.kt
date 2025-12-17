@@ -137,7 +137,6 @@ class ReaderViewModel(
 
                 val (pub, book) = result
                 val key = book.bookId
-
                 _currentBookKey.value = key
 
                 // 確保新開啟的書籍檔案立即嘗試同步到雲端 Storage
@@ -267,7 +266,6 @@ class ReaderViewModel(
                     _navigateToNote.emit(NavigateToNote(noteId, autoStreamText = text))
                     return@launch
                 }
-
                 // Non-streaming path: fetch immediately
                 val result = withContext(Dispatchers.IO) { aiNoteRepo.fetchAiExplanation(text) }
 
@@ -385,5 +383,4 @@ class ReaderViewModel(
         }
         return pairs.toList()
     }
-
 }

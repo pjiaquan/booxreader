@@ -17,7 +17,6 @@ class TokenAuthenticator(private val tokenManager: TokenManager) : Authenticator
         if (response.request.tag(String::class.java) == "SKIP_AUTH") {
             return null
         }
-
         synchronized(this) {
             val currentAccessToken = tokenManager.getAccessToken()
             val requestToken = response.request.header("Authorization")?.removePrefix("Bearer ")
