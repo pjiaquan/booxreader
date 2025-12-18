@@ -70,7 +70,6 @@ mkdir -p "$GRADLE_USER_HOME"
 TELEGRAM_CONFIG_FILE="${TELEGRAM_CONFIG_FILE:-.telegram_config}"
 TELEGRAM_ENABLED="${TELEGRAM_ENABLED:-false}"
 TELEGRAM_ENABLED_LOCKED="${TELEGRAM_ENABLED_LOCKED:-false}"
-SIGNING_ENV_HELPER="${SIGNING_ENV_HELPER:-scripts/set-release-env.sh}"
 LOCAL_KEYSTORE_PATH="${LOCAL_KEYSTORE_PATH:-build/keystore/release.keystore}"
 LOCAL_SECRET_ENV="${LOCAL_SECRET_ENV:-$HOME/.booxreader-keystore.env}"
 ADB_AVAILABLE=false
@@ -194,15 +193,7 @@ check_dependencies() {
     fi
 }
 
-load_signing_env() {
-    if [ -f "$SIGNING_ENV_HELPER" ]; then
-        log "Loading signing env from $SIGNING_ENV_HELPER..."
-        # shellcheck disable=SC1090
-        source "$SIGNING_ENV_HELPER"
-    else
-        log "Signing env helper not found at $SIGNING_ENV_HELPER; skipping."
-    fi
-}
+
 
 use_local_keystore_if_present() {
     # If a keystore exists at the known local path, set STORE_FILE so builds can proceed
@@ -277,7 +268,8 @@ Release signing env vars are missing. Set the following before running the build
   export KEY_ALIAS=***
   export KEY_ALIAS_PASSWORD=***
 
-Tip: scripts/set-release-env.sh can export these from a local backup directory.
+Tip: You can provide these via environment variables, keystore.properties file,
+or .booxreader-keystore.env file in the repository root or your home directory.
 EOF
         echo "Missing vars: ${missing[*]}"
         exit 1
@@ -693,7 +685,6 @@ main() {
     
     # For release builds, load signing material and enforce presence
     if [ "$BUILD_TYPE" = "release" ]; then
-        load_signing_env
         load_local_secret_env
         use_local_keystore_if_present
         load_from_keystore_properties

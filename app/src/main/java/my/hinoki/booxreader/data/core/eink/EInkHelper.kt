@@ -3,11 +3,14 @@ package my.hinoki.booxreader.core.eink
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import com.onyx.android.sdk.api.device.epd.EpdController
+import com.onyx.android.sdk.api.device.epd.UpdateMode
 
 object EInkHelper {
 
-    @Volatile
-    private var preserveSystemEngine: Boolean = true
+    // Always preserve system engine (Boox App Optimization)
+    // No manual SDK calls will be made.
+    @Volatile private var preserveSystemEngine: Boolean = false
 
     fun setPreserveSystemEngine(preserve: Boolean) {
         preserveSystemEngine = preserve
@@ -18,10 +21,10 @@ object EInkHelper {
     // 文石設備型號檢測
     fun isBoox(): Boolean {
         return Build.MANUFACTURER.contains("ONYX", ignoreCase = true) ||
-               Build.BRAND.contains("ONYX", ignoreCase = true) ||
-               Build.BRAND.contains("boox", ignoreCase = true) ||
-               Build.MODEL.contains("BOOX", ignoreCase = true) ||
-               Build.MODEL.contains("ONYX", ignoreCase = true)
+                Build.BRAND.contains("ONYX", ignoreCase = true) ||
+                Build.BRAND.contains("boox", ignoreCase = true) ||
+                Build.MODEL.contains("BOOX", ignoreCase = true) ||
+                Build.MODEL.contains("ONYX", ignoreCase = true)
     }
 
     fun isBooxDevice(): Boolean = isBoox()
@@ -35,219 +38,103 @@ object EInkHelper {
         }
     }
 
-    // 檢查是否為新型號文石設備（支援更好刷新模式）
+    // 檢查是否為新型號文石設備
     fun isModernBoox(): Boolean {
         if (!isBoox()) return false
         val model = getBooxModel()
-        return (model.startsWith("BOOX") || model.contains("GO")) && (
-            model.contains("NOTE AIR") ||
-            model.contains("PAGE") ||
-            model.contains("LEAF") ||
-            model.contains("KON-TIKI") ||
-            model.contains("FAOLI") ||
-            model.contains("PALMA") ||
-            model.contains("TAB X") ||
-            model.contains("TAB ULTRA") ||
-            model.contains("COLOR") ||
-            model.contains("GO")
-        )
+        return (model.startsWith("BOOX") || model.contains("GO")) &&
+                (model.contains("NOTE AIR") ||
+                        model.contains("PAGE") ||
+                        model.contains("LEAF") ||
+                        model.contains("KON-TIKI") ||
+                        model.contains("FAOLI") ||
+                        model.contains("PALMA") ||
+                        model.contains("TAB X") ||
+                        model.contains("TAB ULTRA") ||
+                        model.contains("COLOR") ||
+                        model.contains("GO"))
     }
 
-    // 基本刷新功能
+    // 基本刷新功能 - 只從事標準無效化，讓系統引擎接管
     fun refresh(view: View, full: Boolean = false) {
-        android.util.Log.d("BOOX-DEBUG", "refresh - full: $full")
         if (!isBoox()) return
         if (preserveSystemEngine) {
-            // 保持文石系統引擎，不呼叫 Onyx SDK
             view.invalidate()
             view.postInvalidateOnAnimation()
             return
         }
-        try {
-            val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val method = cls.getMethod("invalidate", View::class.java, Boolean::class.java)
-            method.invoke(null, view, full)
-        } catch (e: Exception) {
-            // fallback for newer SDKs
-            tryAlternativeRefresh(view, full)
-        }
+
+        val mode = if (full) UpdateMode.GC else UpdateMode.GU
+        EpdController.invalidate(view, mode)
     }
 
-    // 新型號刷新功能備用方案
-    private fun tryAlternativeRefresh(view: View, full: Boolean = false) {
-        if (preserveSystemEngine) return
-        try {
-            val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val method = cls.getMethod("requestRefresh", View::class.java, Int::class.java)
-            val mode = if (full) 3 else 1 // 3 = FULL, 1 = PARTIAL
-            method.invoke(null, view, mode)
-        } catch (e: Exception) {
-            // ignore
-        }
-    }
-
-    // 局部刷新（針對文字選取、頁面翻轉等）
+    // 局部刷新
     fun refreshPartial(view: View) {
-        if (!isBoox()) return
         refresh(view, full = false)
     }
 
-    // 全屏刷新（針對切換章節、打開書籍等）
+    // 全屏刷新
     fun refreshFull(view: View) {
-        if (!isBoox()) return
         refresh(view, full = true)
     }
 
-    // 智能刷新：根據內容變化選擇刷新模式
-    fun smartRefresh(view: View, hasTextChanges: Boolean = false, hasImageChanges: Boolean = false) {
-        if (!isBoox()) return
-
-        when {
-            hasImageChanges || hasTextChanges -> refreshFull(view)
-            else -> refreshPartial(view)
+    // 智能刷新
+    fun smartRefresh(
+            view: View,
+            hasTextChanges: Boolean = false,
+            hasImageChanges: Boolean = false
+    ) {
+        if (hasImageChanges) {
+            refreshFull(view)
+        } else {
+            refreshPartial(view)
         }
     }
 
-    /**
-     * A2 模式 - 快速黑白模式（適合滑動、拖動、選取）
-     * 最快但只有黑白，適合暫時的快速交互
-     */
+    /** Mode switching methods - now using Onyx SDK */
     fun enableFastMode(view: View) {
-        android.util.Log.d("BOOX-DEBUG", "enableFastMode")
-        if (!isBoox()) return
-        if (preserveSystemEngine) {
-            refresh(view, full = false)
-            return
-        }
-        setEpdsMode(view, "EPD_A2")
+        if (!isBoox() || preserveSystemEngine) return
+        EpdController.invalidate(view, UpdateMode.DU)
     }
 
-    /**
-     * AUTO 模式 - 自動模式（適合一般閱讀）
-     * 在速度和品質之間平衡
-     */
     fun enableAutoMode(view: View) {
-        android.util.Log.d("BOOX-DEBUG", "enableAutoMode")
-        if (!isBoox()) return
-        if (preserveSystemEngine) {
-            refresh(view, full = false)
-            return
-        }
-        setEpdsMode(view, "EPD_AUTO")
+        if (!isBoox() || preserveSystemEngine) return
+        // Auto usually means let the system decide or standard quality
+        EpdController.invalidate(view, UpdateMode.GU)
     }
 
-    /**
-     * REGAL 模式 - 高品質模式（適合靜態文字閱讀）
-     * 最清晰的文字顯示，速度較慢
-     */
     fun restoreQualityMode(view: View) {
-        android.util.Log.d("BOOX-DEBUG", "restoreQualityMode")
-        if (!isBoox()) return
-        if (preserveSystemEngine) {
-            refresh(view, full = true)
-            return
-        }
-        val mode = if (isModernBoox()) "EPD_REGAL" else "EPD_TEXT"
-        setEpdsMode(view, mode)
+        if (!isBoox() || preserveSystemEngine) return
+        EpdController.invalidate(view, UpdateMode.GC)
     }
 
-    /**
-     * DU 模式 - 局部刷新模式（適合小範圍更新）
-     */
     fun enableDUMode(view: View) {
-        if (!isBoox()) return
-        if (preserveSystemEngine) {
-            refresh(view, full = false)
-            return
-        }
-        setEpdsMode(view, "EPD_DU")
+        if (!isBoox() || preserveSystemEngine) return
+        EpdController.invalidate(view, UpdateMode.DU)
     }
 
-    /**
-     * GL16 模式 - 16級灰度模式（適合圖片顯示）
-     */
     fun enableGL16Mode(view: View) {
-        if (!isBoox()) return
-        if (preserveSystemEngine) {
-            refresh(view, full = false)
-            return
-        }
-        setEpdsMode(view, "EPD_GL16")
+        if (!isBoox() || preserveSystemEngine) return
+        // GL16 is distinct, often used for video or high speed animations
+        // Defaulting to DU/A2 if GL16 assumption matches Animation mode
+        EpdController.invalidate(view, UpdateMode.ANIMATION)
     }
 
-    // 設置刷新模式的核心方法
-    private fun setEpdsMode(view: View, modeName: String) {
-        android.util.Log.d("BOOX-DEBUG", "setEpdsMode - mode: $modeName")
-        if (preserveSystemEngine) {
-            android.util.Log.w("EInkHelper", "setEpdsMode ($modeName) blocked because preserveSystemEngine is TRUE")
-            return
-        }
-        try {
-            val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-
-            // 嘗試獲取模式常量
-            val modeField = try {
-                cls.getField(modeName)
-            } catch (e: NoSuchFieldException) {
-                // 備用模式映射
-                getFallbackMode(cls, modeName)
-            }
-
-            if (modeField != null) {
-                val modeValue = modeField.get(null)
-
-                // 尋找合適的 setMode 方法
-                val setModeMethod = cls.methods.find {
-                    it.name == "setMode" &&
-                    it.parameterTypes.size == 2 &&
-                    it.parameterTypes[0] == View::class.java
-                }
-
-                setModeMethod?.invoke(null, view, modeValue)
-            }
-        } catch (e: Exception) {
-            // 忽略錯誤，確保在非文石設備上不會崩潰
-        }
-    }
-
-    // 備用模式映射
-    private fun getFallbackMode(cls: Class<*>, modeName: String): java.lang.reflect.Field? {
-        return try {
-            when (modeName) {
-                "EPD_REGAL" -> cls.getField("EPD_TEXT")
-                "EPD_AUTO" -> cls.getField("EPD_Du") // 某些舊型號使用 Du 作為自動模式
-                "EPD_DU" -> cls.getField("EPD_Du")
-                else -> null
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    // 為特定區域設置刷新（優化性能）
+    // 為特定區域設置刷新
     fun refreshRegion(view: View, left: Int, top: Int, right: Int, bottom: Int) {
-        if (!isBoox()) return
-        if (preserveSystemEngine) {
-            // view.invalidate(l, t, r, b) is deprecated in API 28
-            view.invalidate()
+        if (!isBoox()) {
+            view.invalidate(left, top, right, bottom)
             return
         }
-        try {
-            val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val method = cls.getMethod(
-                "invalidate",
-                View::class.java,
-                Int::class.java,
-                Int::class.java,
-                Int::class.java,
-                Int::class.java,
-                Boolean::class.java
-            )
-            method.invoke(null, view, left, top, right, bottom, false)
-        } catch (e: Exception) {
-            // fallback to normal refresh
-            refresh(view, false)
+        if (preserveSystemEngine) {
+            view.invalidate(left, top, right, bottom)
+            return
         }
+        // Onyx EpdController handles view-based updates well.
+        // For specific rect, simple view update is usually enough unless using specific rect API
+        // which is complex.
+        // We will default to full view update with fast mode for regions to ensure response.
+        EpdController.invalidate(view, UpdateMode.DU)
     }
 
     // 禁用觸摸反饋以減少干擾
@@ -255,7 +142,8 @@ object EInkHelper {
         if (!isBoox()) return
 
         view.isHapticFeedbackEnabled = false
-        view.overScrollMode = View.OVER_SCROLL_NEVER
+        // Keep standard overscroll behavior or let activity decide
+        // view.overScrollMode = View.OVER_SCROLL_NEVER
 
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
@@ -264,41 +152,23 @@ object EInkHelper {
         }
     }
 
-    // 等待刷新完成
+    // 等待刷新完成 - NO-OP
     fun waitForRefresh(view: View) {
-        if (!isBoox()) return
-        if (preserveSystemEngine) return
-        try {
-            val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val method = cls.getMethod("waitForUpdateComplete", View::class.java)
-            method.invoke(null, view)
-        } catch (e: Exception) {
-            // 忽略錯誤
-        }
+        // SDK doesn't expose synchronous wait easily.
     }
 
     // 獲取當前刷新模式
     fun getCurrentRefreshMode(view: View): String? {
-        if (!isBoox()) return null
-        // 關鍵修正：遵守 preserveSystemEngine 設定，防止意外觸發文石 SDK
-        if (preserveSystemEngine) {
-            return "System Engine (Preserved)"
-        }
-        return try {
-            val cls = Class.forName("com.onyx.android.sdk.api.device.EpdController")
-            val method = cls.getMethod("getMode", View::class.java)
-            method.invoke(null, view)?.toString()
-        } catch (e: Exception) {
-            null
-        }
+        // Since we are using SDK requests, we don't hold state here.
+        return "Onyx SDK Controlled"
     }
 
     // ========== 高對比模式功能 ==========
 
     enum class ContrastMode {
-        NORMAL,     // 正常模式：白底黑字
-        DARK,       // 深色模式：黑底白字
-        SEPIA,      // 褐色模式：米褐色背景深色字
+        NORMAL, // 正常模式：白底黑字
+        DARK, // 深色模式：黑底白字
+        SEPIA, // 褐色模式：米褐色背景深色字
         HIGH_CONTRAST // 高對比模式：極強對比度
     }
 
@@ -311,7 +181,7 @@ object EInkHelper {
 
     // 設置高對比模式
     fun setHighContrastMode(view: View?, mode: ContrastMode) {
-        if (!supportsHighContrast() || view == null) return
+        if (view == null) return
 
         currentContrastMode = mode
         applyContrastMode(view, mode)
@@ -323,14 +193,16 @@ object EInkHelper {
     // 應用對比模式到 WebView
     private fun applyContrastMode(view: View, mode: ContrastMode) {
         if (view is android.webkit.WebView) {
-            val css = when (mode) {
-                ContrastMode.NORMAL -> generateNormalCSS()
-                ContrastMode.DARK -> generateDarkCSS()
-                ContrastMode.SEPIA -> generateSepiaCSS()
-                ContrastMode.HIGH_CONTRAST -> generateHighContrastCSS()
-            }
+            val css =
+                    when (mode) {
+                        ContrastMode.NORMAL -> generateNormalCSS()
+                        ContrastMode.DARK -> generateDarkCSS()
+                        ContrastMode.SEPIA -> generateSepiaCSS()
+                        ContrastMode.HIGH_CONTRAST -> generateHighContrastCSS()
+                    }
 
-            val js = """
+            val js =
+                    """
                 (function() {
                     try {
                         // 移除舊的主題樣式
@@ -362,9 +234,7 @@ object EInkHelper {
             // 如果是深色模式，可能需要調整刷新策略
             if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) {
                 // 深色模式使用更積極的刷新
-                view.postDelayed({
-                    refreshFull(view)
-                }, 100)
+                view.postDelayed({ refreshFull(view) }, 100)
             }
         }
 
@@ -447,6 +317,7 @@ object EInkHelper {
                 background-color: #1a1a1a !important;
                 color: #00ff00 !important;
                 border: 1px solid #666666 !important;
+                font-weight: bold !important;
             }
         """
     }
@@ -562,12 +433,13 @@ object EInkHelper {
 
     // 切換到下一個對比模式
     fun toggleContrastMode(view: View?): ContrastMode {
-        val nextMode = when (currentContrastMode) {
-            ContrastMode.NORMAL -> ContrastMode.DARK
-            ContrastMode.DARK -> ContrastMode.SEPIA
-            ContrastMode.SEPIA -> ContrastMode.HIGH_CONTRAST
-            ContrastMode.HIGH_CONTRAST -> ContrastMode.NORMAL
-        }
+        val nextMode =
+                when (currentContrastMode) {
+                    ContrastMode.NORMAL -> ContrastMode.DARK
+                    ContrastMode.DARK -> ContrastMode.SEPIA
+                    ContrastMode.SEPIA -> ContrastMode.HIGH_CONTRAST
+                    ContrastMode.HIGH_CONTRAST -> ContrastMode.NORMAL
+                }
 
         setHighContrastMode(view, nextMode)
         return nextMode

@@ -1,21 +1,15 @@
 package my.hinoki.booxreader.data.reader
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import my.hinoki.booxreader.data.db.AiNoteEntity
-import my.hinoki.booxreader.data.db.BookmarkEntity
-import my.hinoki.booxreader.data.remote.ProgressPublisher
-import my.hinoki.booxreader.data.repo.AiNoteRepository
-import my.hinoki.booxreader.data.repo.BookRepository
-import my.hinoki.booxreader.data.repo.BookmarkRepository
-import my.hinoki.booxreader.data.repo.UserSyncRepository
-import my.hinoki.booxreader.reader.LocatorJsonHelper
+import java.util.concurrent.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -26,6 +20,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import my.hinoki.booxreader.data.db.AiNoteEntity
+import my.hinoki.booxreader.data.remote.HttpConfig
+import my.hinoki.booxreader.data.remote.ProgressPublisher
+import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.BookRepository
+import my.hinoki.booxreader.data.repo.BookmarkRepository
+import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.reader.LocatorJsonHelper
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Locator
@@ -38,33 +40,27 @@ import org.readium.r2.shared.util.http.DefaultHttpClient
 import org.readium.r2.shared.util.mediatype.MediaType
 import org.readium.r2.streamer.PublicationOpener
 import org.readium.r2.streamer.parser.epub.EpubParser
-import java.util.concurrent.CancellationException
-
-import android.content.Context
-import my.hinoki.booxreader.data.remote.HttpConfig
-import my.hinoki.booxreader.BooxReaderApp
-import okhttp3.OkHttpClient
 
 /**
- * ViewModel for the Reader screen.
- * Handles book loading, navigation state, bookmarks, and AI notes.
+ * ViewModel for the Reader screen. Handles book loading, navigation state, bookmarks, and AI notes.
  *
  * Refactored to use Constructor Injection for repositories to facilitate Unit Testing.
  */
 @OptIn(ExperimentalReadiumApi::class)
 class ReaderViewModel(
-    app: Application,
-    private val bookRepo: BookRepository,
-    private val bookmarkRepo: BookmarkRepository,
-    private val aiNoteRepo: AiNoteRepository,
-    private val syncRepo: UserSyncRepository,
-    private val progressPublisher: ProgressPublisher,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+        app: Application,
+        private val bookRepo: BookRepository,
+        private val bookmarkRepo: BookmarkRepository,
+        private val aiNoteRepo: AiNoteRepository,
+        private val syncRepo: UserSyncRepository,
+        private val progressPublisher: ProgressPublisher,
+        private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : AndroidViewModel(app) {
 
     private fun getBaseUrl(context: Context): String {
         val prefs = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
-        return prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL) ?: HttpConfig.DEFAULT_BASE_URL
+        return prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
+                ?: HttpConfig.DEFAULT_BASE_URL
     }
 
     // --- Repositories ---
@@ -79,7 +75,7 @@ class ReaderViewModel(
 
     private val _toastMessage = MutableSharedFlow<String>()
     val toastMessage: SharedFlow<String> = _toastMessage.asSharedFlow()
-    
+
     data class NavigateToNote(val noteId: Long, val autoStreamText: String? = null)
 
     private val _navigateToNote = MutableSharedFlow<NavigateToNote>()
@@ -95,10 +91,7 @@ class ReaderViewModel(
     private val httpClient by lazy { DefaultHttpClient() }
     private val assetRetriever by lazy { AssetRetriever(app.contentResolver, httpClient) }
     private val publicationOpener by lazy {
-        PublicationOpener(
-            publicationParser = EpubParser(),
-            contentProtections = emptyList()
-        )
+        PublicationOpener(publicationParser = EpubParser(), contentProtections = emptyList())
     }
 
     private var searchJob: Job? = null
@@ -119,28 +112,43 @@ class ReaderViewModel(
         android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.openBook: $uri")
         if (_publication.value != null) {
             // Already loaded
-            return viewModelScope.launch { }
+            return viewModelScope.launch {}
         }
 
         return viewModelScope.launch {
             _isLoading.value = true
             try {
                 // Avoid main-thread IO; dispatcher is injectable for deterministic tests.
-                val (pub, book) = withContext(ioDispatcher) {
-                    val url = AbsoluteUrl(uri.toString())
-                        ?: throw IllegalArgumentException("Invalid book URI: $uri")
+                val (pub, book) =
+                        withContext(ioDispatcher) {
+                            val url =
+                                    AbsoluteUrl(uri.toString())
+                                            ?: throw IllegalArgumentException(
+                                                    "Invalid book URI: $uri"
+                                            )
 
-                    val asset = assetRetriever.retrieve(url)
-                        .getOrElse { throw IllegalStateException("Failed to retrieve asset: $it") }
+                            val asset =
+                                    assetRetriever.retrieve(url).getOrElse {
+                                        throw IllegalStateException("Failed to retrieve asset: $it")
+                                    }
 
-                    val publication = publicationOpener.open(asset, allowUserInteraction = false)
-                        .getOrElse { throw IllegalStateException("Failed to open publication: $it") }
+                            val publication =
+                                    publicationOpener.open(asset, allowUserInteraction = false)
+                                            .getOrElse {
+                                                throw IllegalStateException(
+                                                        "Failed to open publication: $it"
+                                                )
+                                            }
 
-                    val book = bookRepo.getOrCreateByUri(uri.toString(), publication.metadata.title)
-                    bookRepo.touchOpened(book.bookId)
-                    
-                    Pair(publication, book)
-                }
+                            val book =
+                                    bookRepo.getOrCreateByUri(
+                                            uri.toString(),
+                                            publication.metadata.title
+                                    )
+                            bookRepo.touchOpened(book.bookId)
+
+                            Pair(publication, book)
+                        }
 
                 val key = book.bookId
                 _currentBookKey.value = key
@@ -152,15 +160,12 @@ class ReaderViewModel(
                 }
 
                 // Fetch cloud progress
-                withContext(ioDispatcher) {
-                    runCatching { syncRepo.pullProgress(key) }
-                }
+                withContext(ioDispatcher) { runCatching { syncRepo.pullProgress(key) } }
 
                 _publication.value = pub
-                
+
                 // Trigger highlights load
                 loadHighlights()
-                
             } catch (e: Exception) {
                 e.printStackTrace()
                 _toastMessage.emit("Failed to open book: ${e.message}")
@@ -185,12 +190,15 @@ class ReaderViewModel(
     fun saveProgress(json: String) {
         android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.saveProgress - json: $json")
         val key = _currentBookKey.value ?: return
-        val uri = _publication.value?.let { /* We might need to store URI separately if needed for updateProgress */ }
+        val uri =
+                _publication.value
+                        ?.let { /* We might need to store URI separately if needed for updateProgress */
+                        }
         // Note: Repository updateProgress typically needs the Book ID (URI in this app's logic)
         // We can pass the URI string or store it. For now, let's assume key or look it up.
         // The original code passed 'currentBookId' (URI) to updateProgress.
         // Let's update the repo call if possible.
-        
+
         viewModelScope.launch(Dispatchers.IO) {
             // 1. Publish to server (Best effort)
             try {
@@ -209,12 +217,12 @@ class ReaderViewModel(
             runCatching { bookRepo.updateProgress(key, json) }
         }
     }
-    
+
     fun saveProgressToDb(bookId: String, json: String) {
         viewModelScope.launch(Dispatchers.IO) {
-             try {
+            try {
                 bookRepo.updateProgress(bookId, json)
-            } catch (_: Exception) { }
+            } catch (_: Exception) {}
         }
     }
 
@@ -235,38 +243,47 @@ class ReaderViewModel(
         val pub = _publication.value ?: return
 
         searchJob?.cancel()
-        searchJob = viewModelScope.launch(Dispatchers.Default) {
-            try {
-                val notes = aiNoteRepo.getByBook(key)
-                
-                // Base decorations (Notes themselves)
-                val noteDecorations = notes.mapNotNull { note ->
-                    val loc = LocatorJsonHelper.fromJson(note.locatorJson) ?: return@mapNotNull null
-                    Decoration(
-                        id = note.id.toString(),
-                        locator = loc,
-                        style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#FF000000"))
-                    )
-                }
+        searchJob =
+                viewModelScope.launch(Dispatchers.Default) {
+                    try {
+                        val notes = aiNoteRepo.getByBook(key)
 
-                // Keyword decorations (Heavy)
-                val keywordDecorations = buildKeywordDecorations(pub, notes)
+                        // Base decorations (Notes themselves)
+                        val noteDecorations =
+                                notes.mapNotNull { note ->
+                                    val loc =
+                                            LocatorJsonHelper.fromJson(note.locatorJson)
+                                                    ?: return@mapNotNull null
+                                    Decoration(
+                                            id = note.id.toString(),
+                                            locator = loc,
+                                            style =
+                                                    Decoration.Style.Underline(
+                                                            tint =
+                                                                    android.graphics.Color
+                                                                            .parseColor("#FF000000")
+                                                    )
+                                    )
+                                }
 
-                if (isActive) {
-                    _decorations.value = noteDecorations + keywordDecorations
+                        // Keyword decorations (Heavy)
+                        val keywordDecorations = buildKeywordDecorations(pub, notes)
+
+                        if (isActive) {
+                            _decorations.value = noteDecorations + keywordDecorations
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
     }
-    
+
     fun postTextToServer(text: String, locatorJson: String?) {
         val key = _currentBookKey.value ?: return
         viewModelScope.launch {
-             try {
+            try {
                 _toastMessage.emit("Publishing...")
                 // 0. Check existence
                 val existingNote = withContext(Dispatchers.IO) { aiNoteRepo.findNoteByText(text) }
@@ -278,7 +295,10 @@ class ReaderViewModel(
 
                 // 1. Save Draft
                 val bookTitle = _publication.value?.metadata?.title
-                val noteId = withContext(Dispatchers.IO) { aiNoteRepo.add(key, text, "", locatorJson, bookTitle) }
+                val noteId =
+                        withContext(Dispatchers.IO) {
+                            aiNoteRepo.add(key, text, "", locatorJson, bookTitle)
+                        }
 
                 // 2. If streaming is enabled, navigate to detail to stream there.
                 if (aiNoteRepo.isStreamingEnabled()) {
@@ -317,75 +337,103 @@ class ReaderViewModel(
      * 3. Avoids unnecessary string allocations where possible.
      */
     private suspend fun buildKeywordDecorations(
-        pub: Publication,
-        notes: List<AiNoteEntity>
-    ): List<Decoration> = withContext(Dispatchers.IO) {
-        
-        val pairs = buildKeywordPairs(notes)
-        if (pairs.isEmpty()) return@withContext emptyList()
+            pub: Publication,
+            notes: List<AiNoteEntity>
+    ): List<Decoration> =
+            withContext(Dispatchers.IO) {
+                val pairs = buildKeywordPairs(notes)
+                if (pairs.isEmpty()) return@withContext emptyList()
 
-        val decorations = mutableListOf<Decoration>()
-        val keywordPatterns = pairs.associate { (keyword, noteId) ->
-            keyword to (Regex(Regex.escape(keyword), setOf(RegexOption.IGNORE_CASE)) to noteId)
-        }
+                val decorations = mutableListOf<Decoration>()
+                val keywordPatterns =
+                        pairs.associate { (keyword, noteId) ->
+                            keyword to
+                                    (Regex(Regex.escape(keyword), setOf(RegexOption.IGNORE_CASE)) to
+                                            noteId)
+                        }
 
-        // Iterate reading order
-        for (link in pub.readingOrder) {
-            yield() // Allow cancellation between chapters
+                // Iterate reading order
+                for (link in pub.readingOrder) {
+                    yield() // Allow cancellation between chapters
 
-            val resource = pub.get(link) ?: continue
-            // Warning: Reading full content into memory is still risky for huge chapters.
-            // Optimization: Set a limit or try streaming if Reader supported it easily.
-            val contentBytes = try { resource.read().getOrNull() } catch(e: Exception) { null } ?: continue
-            val rawContent = contentBytes.toString(Charsets.UTF_8)
-            
-            if (rawContent.isEmpty()) continue
+                    val resource = pub.get(link) ?: continue
+                    // Warning: Reading full content into memory is still risky for huge chapters.
+                    // Optimization: Set a limit or try streaming if Reader supported it easily.
+                    val contentBytes =
+                            try {
+                                resource.read().getOrNull()
+                            } catch (e: Exception) {
+                                null
+                            } ?: continue
+                    val rawContent = contentBytes.toString(Charsets.UTF_8)
 
-            // Simple stripping (approximate)
-            val plainBuilder = StringBuilder(rawContent.length)
-            val plainToRaw = IntArray(rawContent.length) // Map plain index to raw index
-            var plainIdx = 0
-            var inTag = false
-            
-            for (i in rawContent.indices) {
-                val ch = rawContent[i]
-                if (ch == '<') {
-                    inTag = true
-                } else if (ch == '>' && inTag) {
-                    inTag = false
-                } else if (!inTag) {
-                    plainBuilder.append(ch)
-                    plainToRaw[plainIdx++] = i
-                }
-            }
-            val plainText = plainBuilder.toString()
-            
-            yield() // Allow cancellation before regex
+                    if (rawContent.isEmpty()) continue
 
-            keywordPatterns.values.forEach { (regex, noteId) ->
-                regex.findAll(plainText).forEach { match ->
-                    val start = match.range.first
-                    if (start < plainIdx) {
-                        val rawIndex = plainToRaw[start]
-                        val progression = rawIndex.toDouble() / rawContent.length.coerceAtLeast(1)
-                        
-                        decorations.add(Decoration(
-                            id = "note_${noteId}_kw_${link.href}_${start}",
-                            locator = Locator(
-                                href = Url(link.href.toString())!!,
-                                mediaType = link.mediaType ?: MediaType.BINARY,
-                                title = link.title,
-                                locations = Locator.Locations(progression = progression),
-                                text = Locator.Text(highlight = match.value)
-                            ),
-                            style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#FF000000"))
-                        ))
+                    // Simple stripping (approximate)
+                    val plainBuilder = StringBuilder(rawContent.length)
+                    val plainToRaw = IntArray(rawContent.length) // Map plain index to raw index
+                    var plainIdx = 0
+                    var inTag = false
+
+                    for (i in rawContent.indices) {
+                        val ch = rawContent[i]
+                        if (ch == '<') {
+                            inTag = true
+                        } else if (ch == '>' && inTag) {
+                            inTag = false
+                        } else if (!inTag) {
+                            plainBuilder.append(ch)
+                            plainToRaw[plainIdx++] = i
+                        }
+                    }
+                    val plainText = plainBuilder.toString()
+
+                    yield() // Allow cancellation before regex
+
+                    keywordPatterns.values.forEach { (regex, noteId) ->
+                        regex.findAll(plainText).forEach { match ->
+                            val start = match.range.first
+                            if (start < plainIdx) {
+                                val rawIndex = plainToRaw[start]
+                                val progression =
+                                        rawIndex.toDouble() / rawContent.length.coerceAtLeast(1)
+
+                                decorations.add(
+                                        Decoration(
+                                                id = "note_${noteId}_kw_${link.href}_${start}",
+                                                locator =
+                                                        Locator(
+                                                                href = Url(link.href.toString())!!,
+                                                                mediaType = link.mediaType
+                                                                                ?: MediaType.BINARY,
+                                                                title = link.title,
+                                                                locations =
+                                                                        Locator.Locations(
+                                                                                progression =
+                                                                                        progression
+                                                                        ),
+                                                                text =
+                                                                        Locator.Text(
+                                                                                highlight =
+                                                                                        match.value
+                                                                        )
+                                                        ),
+                                                style =
+                                                        Decoration.Style.Underline(
+                                                                tint =
+                                                                        android.graphics.Color
+                                                                                .parseColor(
+                                                                                        "#FF000000"
+                                                                                )
+                                                        )
+                                        )
+                                )
+                            }
+                        }
                     }
                 }
+                decorations
             }
-        }
-        decorations
-    }
 
     private fun buildKeywordPairs(notes: List<AiNoteEntity>): List<Pair<String, Long>> {
         val pairs = LinkedHashSet<Pair<String, Long>>()
@@ -395,10 +443,9 @@ class ReaderViewModel(
             val base = note.originalText.trim()
             if (base.isNotEmpty()) {
                 pairs.add(base to note.id)
-                splitRegex.split(base)
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .forEach { pairs.add(it to note.id) }
+                splitRegex.split(base).map { it.trim() }.filter { it.isNotEmpty() }.forEach {
+                    pairs.add(it to note.id)
+                }
             }
         }
         return pairs.toList()

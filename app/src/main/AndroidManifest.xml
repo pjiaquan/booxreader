@@ -52,6 +52,7 @@
         <activity
             android:name="my.hinoki.booxreader.data.ui.reader.ReaderActivity"
             android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
             android:exported="false" />
 
         <activity
