@@ -17,9 +17,11 @@ object EInkHelper {
 
     // 文石設備型號檢測
     fun isBoox(): Boolean {
-        return Build.MANUFACTURER.equals("ONYX", ignoreCase = true) ||
-               Build.BRAND.equals("boox", ignoreCase = true) ||
-               Build.MODEL.contains("BOOX", ignoreCase = true)
+        return Build.MANUFACTURER.contains("ONYX", ignoreCase = true) ||
+               Build.BRAND.contains("ONYX", ignoreCase = true) ||
+               Build.BRAND.contains("boox", ignoreCase = true) ||
+               Build.MODEL.contains("BOOX", ignoreCase = true) ||
+               Build.MODEL.contains("ONYX", ignoreCase = true)
     }
 
     fun isBooxDevice(): Boolean = isBoox()
@@ -35,8 +37,9 @@ object EInkHelper {
 
     // 檢查是否為新型號文石設備（支援更好刷新模式）
     fun isModernBoox(): Boolean {
+        if (!isBoox()) return false
         val model = getBooxModel()
-        return model.startsWith("BOOX") && (
+        return (model.startsWith("BOOX") || model.contains("GO")) && (
             model.contains("NOTE AIR") ||
             model.contains("PAGE") ||
             model.contains("LEAF") ||
@@ -44,12 +47,15 @@ object EInkHelper {
             model.contains("FAOLI") ||
             model.contains("PALMA") ||
             model.contains("TAB X") ||
-            model.contains("TAB ULTRA")
+            model.contains("TAB ULTRA") ||
+            model.contains("COLOR") ||
+            model.contains("GO")
         )
     }
 
     // 基本刷新功能
     fun refresh(view: View, full: Boolean = false) {
+        android.util.Log.d("BOOX-DEBUG", "refresh - full: $full")
         if (!isBoox()) return
         if (preserveSystemEngine) {
             // 保持文石系統引擎，不呼叫 Onyx SDK
@@ -107,6 +113,7 @@ object EInkHelper {
      * 最快但只有黑白，適合暫時的快速交互
      */
     fun enableFastMode(view: View) {
+        android.util.Log.d("BOOX-DEBUG", "enableFastMode")
         if (!isBoox()) return
         if (preserveSystemEngine) {
             refresh(view, full = false)
@@ -120,6 +127,7 @@ object EInkHelper {
      * 在速度和品質之間平衡
      */
     fun enableAutoMode(view: View) {
+        android.util.Log.d("BOOX-DEBUG", "enableAutoMode")
         if (!isBoox()) return
         if (preserveSystemEngine) {
             refresh(view, full = false)
@@ -133,6 +141,7 @@ object EInkHelper {
      * 最清晰的文字顯示，速度較慢
      */
     fun restoreQualityMode(view: View) {
+        android.util.Log.d("BOOX-DEBUG", "restoreQualityMode")
         if (!isBoox()) return
         if (preserveSystemEngine) {
             refresh(view, full = true)
@@ -168,6 +177,7 @@ object EInkHelper {
 
     // 設置刷新模式的核心方法
     private fun setEpdsMode(view: View, modeName: String) {
+        android.util.Log.d("BOOX-DEBUG", "setEpdsMode - mode: $modeName")
         if (preserveSystemEngine) {
             android.util.Log.w("EInkHelper", "setEpdsMode ($modeName) blocked because preserveSystemEngine is TRUE")
             return

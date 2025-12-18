@@ -1,27 +1,161 @@
 #!/bin/bash
-# Exit immediately if a command exits with a non-zero status.
-set -e
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+log() { printf '%s\n' "$*"; }
+warn() { printf 'Warning: %s\n' "$*" >&2; }
+die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+
+is_tty() { [[ -t 0 && -t 1 ]]; }
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+cd "$SCRIPT_DIR"
+
+is_writable_dir() {
+    local dir="$1"
+    mkdir -p "$dir" 2>/dev/null || return 1
+    local probe=""
+    probe="$(mktemp -p "$dir" .writable_probe.XXXXXX 2>/dev/null)" || return 1
+    rm -f "$probe" 2>/dev/null || true
+    return 0
+}
+
+seed_gradle_user_home_from_default() {
+    local default_home="$HOME/.gradle"
+    local local_home="$GRADLE_USER_HOME"
+
+    # If we're already using the default Gradle home, nothing to do.
+    if [ "$local_home" = "$default_home" ]; then
+        return 0
+    fi
+
+    # If the user has an existing Gradle cache under ~/.gradle but this script
+    # is forced to use a repo-local GRADLE_USER_HOME (e.g. sandboxed runs),
+    # copy caches/wrapper state so Gradle doesn't need network access.
+    if [ -d "$default_home" ]; then
+        mkdir -p "$local_home"
+
+        if [ -d "$default_home/wrapper" ]; then
+            mkdir -p "$local_home/wrapper"
+            cp -an "$default_home/wrapper/." "$local_home/wrapper/" 2>/dev/null || true
+        fi
+
+        if [ "${SEED_GRADLE_CACHES:-false}" = "true" ] && [ -d "$default_home/caches" ]; then
+            mkdir -p "$local_home/caches"
+            cp -an "$default_home/caches/." "$local_home/caches/" 2>/dev/null || true
+        fi
+
+        # Clean up stale partial downloads that would otherwise trigger network fetches.
+        rm -f "$local_home"/wrapper/dists/*/*/*.part "$local_home"/wrapper/dists/*/*/*.lck 2>/dev/null || true
+    fi
+}
+
+# Choose a writable Gradle home:
+# - Prefer ~/.gradle when writable (keeps caches small and avoids copies)
+# - Fall back to repo-local .gradle-local in restricted environments (e.g. sandbox)
+if [ -z "${GRADLE_USER_HOME:-}" ]; then
+    if is_writable_dir "$HOME/.gradle"; then
+        export GRADLE_USER_HOME="$HOME/.gradle"
+    else
+        export GRADLE_USER_HOME="$SCRIPT_DIR/.gradle-local"
+    fi
+fi
+mkdir -p "$GRADLE_USER_HOME"
 
 # Telegram Bot Configuration
 # Create a config file at .telegram_config with:
 # TELEGRAM_BOT_TOKEN="your_bot_token"
 # TELEGRAM_CHAT_ID="your_chat_id"
 # TELEGRAM_ENABLED=true
-TELEGRAM_CONFIG_FILE=".telegram_config"
-TELEGRAM_ENABLED=true
-SIGNING_ENV_HELPER="scripts/set-release-env.sh"
-LOCAL_KEYSTORE_PATH="build/keystore/release.keystore"
-LOCAL_SECRET_ENV="$HOME/.booxreader-keystore.env"
-ADB_AVAILABLE=true
-BUILD_TYPE="debug"
+TELEGRAM_CONFIG_FILE="${TELEGRAM_CONFIG_FILE:-.telegram_config}"
+TELEGRAM_ENABLED="${TELEGRAM_ENABLED:-false}"
+TELEGRAM_ENABLED_LOCKED="${TELEGRAM_ENABLED_LOCKED:-false}"
+SIGNING_ENV_HELPER="${SIGNING_ENV_HELPER:-scripts/set-release-env.sh}"
+LOCAL_KEYSTORE_PATH="${LOCAL_KEYSTORE_PATH:-build/keystore/release.keystore}"
+LOCAL_SECRET_ENV="${LOCAL_SECRET_ENV:-$HOME/.booxreader-keystore.env}"
+ADB_AVAILABLE=false
+BUILD_TYPE="${BUILD_TYPE:-debug}"
+BUILD_TYPE_LOCKED="${BUILD_TYPE_LOCKED:-false}"
+SKIP_TESTS="${SKIP_TESTS:-false}"
+SKIP_INSTALL="${SKIP_INSTALL:-false}"
+SKIP_GIT="${SKIP_GIT:-false}"
 
-# Load Telegram configuration if file exists
-if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
-    source "$TELEGRAM_CONFIG_FILE"
-    if [ "$TELEGRAM_ENABLED" = "true" ]; then
-        echo "Telegram integration enabled"
+load_telegram_config() {
+    if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
+        # shellcheck disable=SC1090
+        source "$TELEGRAM_CONFIG_FILE"
     fi
-fi
+
+    if [ "$TELEGRAM_ENABLED_LOCKED" = "true" ]; then
+        TELEGRAM_ENABLED=false
+        return 0
+    fi
+
+    if [ "${TELEGRAM_ENABLED:-false}" = "true" ]; then
+        log "Telegram integration enabled"
+    else
+        TELEGRAM_ENABLED=false
+    fi
+}
+
+usage() {
+    cat <<'EOF'
+Usage: ./run.sh [options]
+
+Options:
+  --debug            Build debug (default)
+  --release          Build release
+  --skip-tests       Skip running unit tests first
+  --skip-install     Skip ADB install steps
+  --skip-git         Skip git commit/tag/push steps (release only)
+  --no-telegram      Disable Telegram upload
+  -h, --help         Show this help
+
+Env vars (optional):
+  BUILD_TYPE=debug|release
+  SKIP_TESTS=true|false
+  SKIP_INSTALL=true|false
+  SKIP_GIT=true|false
+  TELEGRAM_ENABLED=true|false
+EOF
+}
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --debug) BUILD_TYPE="debug"; BUILD_TYPE_LOCKED="true" ;;
+            --release) BUILD_TYPE="release"; BUILD_TYPE_LOCKED="true" ;;
+            --skip-tests) SKIP_TESTS="true" ;;
+            --skip-install) SKIP_INSTALL="true" ;;
+            --skip-git) SKIP_GIT="true" ;;
+            --no-telegram) TELEGRAM_ENABLED="false"; TELEGRAM_ENABLED_LOCKED="true" ;;
+            -h|--help) usage; exit 0 ;;
+            *) die "Unknown argument: $1 (use --help)" ;;
+        esac
+        shift
+    done
+}
+
+# sed -i portability (GNU vs BSD/macOS)
+sedi() {
+    if sed --version >/dev/null 2>&1; then
+        sed -i "$@"
+    else
+        sed -i '' "$@"
+    fi
+}
+
+cleanup_paths=()
+register_cleanup() { cleanup_paths+=("$1"); }
+
+cleanup() {
+    set +e
+    for p in "${cleanup_paths[@]:-}"; do
+        rm -f "$p" >/dev/null 2>&1 || true
+    done
+    restore_backup >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 # Safety: Check if required tools are available
 check_dependencies() {
@@ -36,33 +170,37 @@ check_dependencies() {
             missing_tools+=("$tool")
         fi
     done
+
+    # Java is required by Gradle/AGP.
+    if ! command -v java &> /dev/null; then
+        missing_tools+=("java")
+    fi
     
     if command -v adb &> /dev/null; then
         ADB_AVAILABLE=true
     else
-        echo "Warning: adb not found; device install/launch will be skipped."
+        warn "adb not found; device install/launch will be skipped."
         ADB_AVAILABLE=false
     fi
     
     if [ ${#missing_tools[@]} -gt 0 ]; then
-        echo "Error: Missing required tools: ${missing_tools[*]}"
-        exit 1
+        die "Missing required tools: ${missing_tools[*]}"
     fi
     
     # Check for curl (needed for Telegram integration)
     if [ "$TELEGRAM_ENABLED" = "true" ] && ! command -v curl &> /dev/null; then
-        echo "Warning: curl not found, Telegram integration will be disabled"
+        warn "curl not found; Telegram integration will be disabled"
         TELEGRAM_ENABLED=false
     fi
 }
 
 load_signing_env() {
     if [ -f "$SIGNING_ENV_HELPER" ]; then
-        echo "Loading signing env from $SIGNING_ENV_HELPER..."
+        log "Loading signing env from $SIGNING_ENV_HELPER..."
         # shellcheck disable=SC1090
         source "$SIGNING_ENV_HELPER"
     else
-        echo "Signing env helper not found at $SIGNING_ENV_HELPER; skipping."
+        log "Signing env helper not found at $SIGNING_ENV_HELPER; skipping."
     fi
 }
 
@@ -82,9 +220,17 @@ use_local_keystore_if_present() {
 
 load_local_secret_env() {
     if [ -f "$LOCAL_SECRET_ENV" ]; then
-        echo "Loading signing secrets from $LOCAL_SECRET_ENV"
+        log "Loading signing secrets from $LOCAL_SECRET_ENV"
         # shellcheck disable=SC1090
         source "$LOCAL_SECRET_ENV"
+        return
+    fi
+
+    # Convenience: allow repo-local secrets file too.
+    if [ -f ".booxreader-keystore.env" ]; then
+        log "Loading signing secrets from .booxreader-keystore.env"
+        # shellcheck disable=SC1091
+        source ".booxreader-keystore.env"
     fi
 }
 
@@ -92,32 +238,26 @@ load_local_secret_env() {
 load_from_keystore_properties() {
     local props_file="keystore.properties"
     if [ -f "$props_file" ]; then
-        echo "Loading signing config from $props_file..."
-        # Read file line by line properly
+        log "Loading signing config from $props_file..."
         while IFS= read -r line || [ -n "$line" ]; do
-            # Skip comments and empty lines
-            [[ "$line" =~ ^#.*$ ]] && continue
-            [[ -z "$line" ]] && continue
-            
-            # Extract key and value
-            if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
-                key="${BASH_REMATCH[1]}"
-                value="${BASH_REMATCH[2]}"
-                
-                # Trim whitespace and carriage returns
-                key=$(echo "$key" | tr -d '[:space:]')
-                value=$(echo "$value" | tr -d '\r')
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+            [[ "$line" != *"="* ]] && continue
 
-                # Map properties to Env Vars (only if not already set)
-                case "$key" in
-                    "keyAlias") [ -z "$KEY_ALIAS" ] && export KEY_ALIAS="$value" ;;
-                    "keyPassword") [ -z "$KEY_ALIAS_PASSWORD" ] && export KEY_ALIAS_PASSWORD="$value" ;;
-                    "storeFile") [ -z "$STORE_FILE" ] && export STORE_FILE="$value" ;;
-                    "storePassword") [ -z "$KEYSTORE_PASSWORD" ] && export KEYSTORE_PASSWORD="$value" ;;
-                esac
-            fi
+            local key="${line%%=*}"
+            local value="${line#*=}"
+
+            key="$(printf '%s' "$key" | tr -d '[:space:]')"
+            value="$(printf '%s' "$value" | tr -d '\r')"
+
+            case "$key" in
+                keyAlias) [ -z "${KEY_ALIAS:-}" ] && export KEY_ALIAS="$value" ;;
+                keyPassword) [ -z "${KEY_ALIAS_PASSWORD:-}" ] && export KEY_ALIAS_PASSWORD="$value" ;;
+                storeFile) [ -z "${STORE_FILE:-}" ] && export STORE_FILE="$value" ;;
+                storePassword) [ -z "${KEYSTORE_PASSWORD:-}" ] && export KEYSTORE_PASSWORD="$value" ;;
+            esac
         done < "$props_file"
-        echo "Finished loading properties."
+        log "Finished loading properties."
     fi
 }
 
@@ -147,11 +287,11 @@ EOF
 # Check if Android device is connected
 check_adb_device() {
     if [ "$ADB_AVAILABLE" != "true" ]; then
-        echo "ADB not available; skipping device checks."
+        log "ADB not available; skipping device checks."
         return
     fi
-    if ! adb devices | grep -q "device"; then
-        echo "Warning: No Android device connected or authorized; install/launch steps will be skipped."
+    if ! adb devices -l | awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
+        warn "No Android device connected/authorized; install/launch steps will be skipped."
         ADB_AVAILABLE=false
     fi
 }
@@ -179,16 +319,17 @@ check_signing_key_difference() {
     echo "Extracting signing certificate from new APK..."
     
     # Use apksigner to verify and extract the certificate
-    local apksigner_output="/tmp/apksigner_output.txt"
+    local apksigner_output
+    apksigner_output="$(mktemp -t apksigner_output.XXXXXX)"
+    register_cleanup "$apksigner_output"
     if ! apksigner verify --print-certs "$apk_path" > "$apksigner_output" 2>/dev/null; then
         echo "Could not verify new APK signature, skipping uninstall"
-        rm -f "$apksigner_output"
         return 1  # Inconclusive; don't uninstall
     fi
     
     # Extract the SHA-256 digest from apksigner output
-    local new_sha256=$(awk '/Signer #1 certificate/ {flag=1} flag && /SHA-256 digest:/ {print $NF; exit}' "$apksigner_output" 2>/dev/null | tr -d '[:space:]')
-    rm -f "$apksigner_output"
+    local new_sha256
+    new_sha256="$(awk '/Signer #1 certificate/ {flag=1} flag && /SHA-256 digest:/ {print $NF; exit}' "$apksigner_output" 2>/dev/null | tr -d '[:space:]')"
     
     if [ -z "$new_sha256" ]; then
         echo "Could not extract SHA-256 from new APK, skipping uninstall"
@@ -201,10 +342,13 @@ check_signing_key_difference() {
     echo "Extracting signing certificate from installed app..."
     
     # Pull the APK from the device to extract its certificate
-    local device_apk_path="/tmp/device_apk.apk"
+    local device_apk_path
+    device_apk_path="$(mktemp -t device_apk.XXXXXX.apk)"
+    register_cleanup "$device_apk_path"
     
     # Try to get the APK path from the device
-    local apk_on_device=$(adb shell pm path "$package_name" | grep -o '/[^ ]*.apk' | head -1)
+    local apk_on_device
+    apk_on_device="$(adb shell pm path "$package_name" | tr -d '\r' | grep -o '/[^ ]*.apk' | head -1 || true)"
     
     if [ -z "$apk_on_device" ]; then
         echo "Could not find APK path on device, skipping uninstall"
@@ -214,22 +358,21 @@ check_signing_key_difference() {
     # Pull the APK from device
     if ! adb pull "$apk_on_device" "$device_apk_path" 2>/dev/null; then
         echo "Could not pull APK from device, skipping uninstall"
-        rm -f "$device_apk_path"
         return 1  # Inconclusive; don't uninstall
     fi
     
     # Extract certificate from the pulled APK
-    if ! apksigner verify --print-certs "$device_apk_path" > "/tmp/device_apksigner_output.txt" 2>/dev/null; then
+    local device_apksigner_output
+    device_apksigner_output="$(mktemp -t device_apksigner_output.XXXXXX)"
+    register_cleanup "$device_apksigner_output"
+    if ! apksigner verify --print-certs "$device_apk_path" > "$device_apksigner_output" 2>/dev/null; then
         echo "Could not verify pulled APK signature, skipping uninstall"
-        rm -f "$device_apk_path" "/tmp/device_apksigner_output.txt"
         return 1  # Inconclusive; don't uninstall
     fi
     
     # Extract the SHA-256 digest from device APK
-    local installed_sha256=$(awk '/Signer #1 certificate/ {flag=1} flag && /SHA-256 digest:/ {print $NF; exit}' "/tmp/device_apksigner_output.txt" 2>/dev/null | tr -d '[:space:]')
-    
-    # Clean up
-    rm -f "$device_apk_path" "/tmp/device_apksigner_output.txt"
+    local installed_sha256
+    installed_sha256="$(awk '/Signer #1 certificate/ {flag=1} flag && /SHA-256 digest:/ {print $NF; exit}' "$device_apksigner_output" 2>/dev/null | tr -d '[:space:]')"
     
     if [ -z "$installed_sha256" ]; then
         echo "Could not extract SHA-256 from installed app, skipping uninstall"
@@ -300,13 +443,13 @@ update_version_info() {
     echo "New version: $NEW_VERSION_NAME (code: $NEW_VERSION_CODE)"
     
     # Update versionCode and versionName using safe sed operations
-    if ! sed -i "s/versionCode = [0-9]\+/versionCode = $NEW_VERSION_CODE/" "$build_gradle"; then
+    if ! sedi "s/versionCode = [0-9]\\+/versionCode = $NEW_VERSION_CODE/" "$build_gradle"; then
         echo "Error: Failed to update versionCode"
         restore_backup
         exit 1
     fi
     
-    if ! sed -i "s/versionName = \"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/" "$build_gradle"; then
+    if ! sedi "s/versionName = \"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/" "$build_gradle"; then
         echo "Error: Failed to update versionName"
         restore_backup
         exit 1
@@ -330,13 +473,18 @@ update_version_info() {
 }
 
 choose_build_type() {
-    local prompt_choice
+    local prompt_choice=""
     local timeout=5
+
+    if [ "$BUILD_TYPE_LOCKED" = "true" ]; then
+        log "Selected build type: $BUILD_TYPE"
+        return 0
+    fi
     
     echo -n "Build type (debug/release) [${BUILD_TYPE}]: "
     
     # Use read with timeout if available
-    if read -t $timeout -r prompt_choice; then
+    if is_tty && read -t $timeout -r prompt_choice; then
         # User provided input
         prompt_choice=${prompt_choice,,}
         if [ "$prompt_choice" = "release" ]; then
@@ -362,16 +510,34 @@ restore_backup() {
     fi
 }
 
+# Run unit tests first (fails fast).
+run_tests() {
+    if [ "${SKIP_TESTS}" = "true" ]; then
+        log "Skipping tests (SKIP_TESTS=true)."
+        return 0
+    fi
+
+    local gradle_flags=()
+    if [ "${GRADLE_OFFLINE:-false}" = "true" ]; then
+        gradle_flags+=(--offline)
+    fi
+
+    log "Running unit tests..."
+    # Prefer variant-specific unit tests for speed; avoid requiring release signing.
+    ./gradlew "${gradle_flags[@]}" :app:testDebugUnitTest --stacktrace
+    log "Unit tests passed."
+}
+
 # Send APK to Telegram bot
 send_apk_to_telegram() {
     if [ "$TELEGRAM_ENABLED" != "true" ]; then
-        echo "Telegram integration disabled, skipping APK upload"
+        log "Telegram integration disabled."
         return 0
     fi
     
-    if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-        echo "Error: Telegram bot token or chat ID not configured"
-        return 1
+    if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+        warn "Telegram is enabled but TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID is not configured; skipping upload."
+        return 0
     fi
     
     local apk_path
@@ -411,27 +577,33 @@ send_apk_to_telegram() {
         version_info="${version_info} - DEBUG"
     fi
     
-    local message="📦 New BooxReader Build Available\n\nVersion: ${version_info}\nType: ${BUILD_TYPE}^\nSize: $(du -h "$apk_path" | cut -f1)\nBuilt: $(date)"
+    local message="📦 New BooxReader Build Available\n\nVersion: ${version_info}\nType: ${BUILD_TYPE}\nSize: $(du -h "$apk_path" | cut -f1)\nBuilt: $(date)"
     
     # Use curl to send the APK file
     if command -v curl &> /dev/null; then
         # Send the message first
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+        if ! curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
             -d text="${message}" \
-            -d parse_mode="Markdown" > /dev/null
+            -d parse_mode="Markdown" > /dev/null; then
+            warn "Failed to send Telegram message; skipping upload."
+            return 0
+        fi
         
         # Send the APK file
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+        if ! curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
             -F chat_id="${TELEGRAM_CHAT_ID}" \
             -F document=@"${apk_path}" \
-            -F caption="BooxReader APK - ${BUILD_TYPE}^ - ${version_info}" > /dev/null
+            -F caption="BooxReader APK - ${BUILD_TYPE} - ${version_info}" > /dev/null; then
+            warn "Failed to upload APK to Telegram; continuing."
+            return 0
+        fi
         
         echo "✅ APK successfully sent to Telegram"
         return 0
     else
-        echo "Error: curl not found, cannot send APK to Telegram"
-        return 1
+        warn "curl not found; cannot send APK to Telegram"
+        return 0
     fi
 }
 
@@ -442,6 +614,16 @@ git_operations() {
     # Check if there are changes to commit
     if git diff --quiet "$build_gradle"; then
         echo "No version changes to commit."
+        return 0
+    fi
+
+    if [ "$SKIP_GIT" = "true" ]; then
+        log "Skipping git operations (SKIP_GIT=true)."
+        return 0
+    fi
+
+    if ! is_tty; then
+        log "Non-interactive shell; skipping git operations."
         return 0
     fi
     
@@ -492,16 +674,26 @@ git_operations() {
 
 # Main execution
 main() {
+    parse_args "$@"
+    load_telegram_config
+
     echo "=== BooxReader Build and Install Script ==="
-    
+
     # Check dependencies
     check_dependencies
 
+    # Ensure Gradle wrapper/dist state is available without needing downloads.
+    seed_gradle_user_home_from_default
+
     # Let the user choose build type (default debug)
     choose_build_type
+
+    # Run tests first (fail fast before mutating version/building/installing).
+    run_tests
     
     # For release builds, load signing material and enforce presence
     if [ "$BUILD_TYPE" = "release" ]; then
+        load_signing_env
         load_local_secret_env
         use_local_keystore_if_present
         load_from_keystore_properties
@@ -523,11 +715,15 @@ main() {
     
     # Build the requested APK
     echo "Building the application ($BUILD_TYPE)..."
+    local gradle_flags=()
+    if [ "${GRADLE_OFFLINE:-false}" = "true" ]; then
+        gradle_flags+=(--offline)
+    fi
     if [ "$BUILD_TYPE" = "release" ]; then
         # Build both APK and Bundle for release
-        ./gradlew assembleRelease bundleRelease
+        ./gradlew "${gradle_flags[@]}" assembleRelease bundleRelease
     else
-        ./gradlew assembleDebug
+        ./gradlew "${gradle_flags[@]}" assembleDebug
     fi
     
     # Install the APK (if ADB is available)
@@ -537,7 +733,9 @@ main() {
     else
         apk_path="app/build/outputs/apk/debug/app-debug.apk"
     fi
-    if [ "$ADB_AVAILABLE" = "true" ]; then
+    if [ "$SKIP_INSTALL" = "true" ]; then
+        log "Skipping install (SKIP_INSTALL=true)."
+    elif [ "$ADB_AVAILABLE" = "true" ]; then
         echo "Installing the APK..."
         if [ ! -f "$apk_path" ]; then
             echo "Error: APK not found at $apk_path"
@@ -602,7 +800,7 @@ main() {
     
     # Send APK to Telegram (if enabled) - works for both debug and release
     echo "Sending APK to Telegram..."
-    send_apk_to_telegram
+    send_apk_to_telegram || true
     
     echo "Done."
     if [ "$BUILD_TYPE" = "release" ]; then
@@ -613,4 +811,4 @@ main() {
 }
 
 # Run main function
-main
+main "$@"

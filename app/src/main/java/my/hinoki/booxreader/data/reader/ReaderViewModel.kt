@@ -15,6 +15,7 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -57,7 +58,8 @@ class ReaderViewModel(
     private val bookmarkRepo: BookmarkRepository,
     private val aiNoteRepo: AiNoteRepository,
     private val syncRepo: UserSyncRepository,
-    private val progressPublisher: ProgressPublisher
+    private val progressPublisher: ProgressPublisher,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : AndroidViewModel(app) {
 
     private fun getBaseUrl(context: Context): String {
@@ -102,22 +104,29 @@ class ReaderViewModel(
     private var searchJob: Job? = null
 
     override fun onCleared() {
+        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.onCleared called")
         super.onCleared()
         closePublication()
     }
 
     fun closePublication() {
+        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.closePublication called")
         _publication.value?.close()
         _publication.value = null
     }
 
-    fun openBook(uri: Uri) {
-        if (_publication.value != null) return // Already loaded
+    fun openBook(uri: Uri): Job {
+        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.openBook: $uri")
+        if (_publication.value != null) {
+            // Already loaded
+            return viewModelScope.launch { }
+        }
 
-        viewModelScope.launch {
+        return viewModelScope.launch {
             _isLoading.value = true
             try {
-                val result = withContext(Dispatchers.IO) {
+                // Avoid main-thread IO; dispatcher is injectable for deterministic tests.
+                val (pub, book) = withContext(ioDispatcher) {
                     val url = AbsoluteUrl(uri.toString())
                         ?: throw IllegalArgumentException("Invalid book URI: $uri")
 
@@ -127,35 +136,31 @@ class ReaderViewModel(
                     val publication = publicationOpener.open(asset, allowUserInteraction = false)
                         .getOrElse { throw IllegalStateException("Failed to open publication: $it") }
 
-                    publication.readingOrder.forEach { link ->
-                         android.util.Log.d("ReaderDebug", "Spine Item Href: '${link.href}'")
-                    }
-
                     val book = bookRepo.getOrCreateByUri(uri.toString(), publication.metadata.title)
                     bookRepo.touchOpened(book.bookId)
+                    
                     Pair(publication, book)
                 }
 
-                val (pub, book) = result
                 val key = book.bookId
                 _currentBookKey.value = key
                 android.util.Log.d("ReaderDebug", "OpenBook Key: '$key'")
 
-                // 確保新開啟的書籍檔案立即嘗試同步到雲端 Storage
-                viewModelScope.launch(Dispatchers.IO) {
+                // Ensure new book files are synced
+                viewModelScope.launch(ioDispatcher) {
                     runCatching { syncRepo.pushBook(book, uploadFile = true) }
                 }
 
-                // Fetch cloud progress before emitting publication so UI can pick it up
-                withContext(Dispatchers.IO) {
+                // Fetch cloud progress
+                withContext(ioDispatcher) {
                     runCatching { syncRepo.pullProgress(key) }
                 }
 
                 _publication.value = pub
-
+                
                 // Trigger highlights load
                 loadHighlights()
-
+                
             } catch (e: Exception) {
                 e.printStackTrace()
                 _toastMessage.emit("Failed to open book: ${e.message}")
@@ -165,7 +170,20 @@ class ReaderViewModel(
         }
     }
 
+    suspend fun getLastSavedLocator(): Locator? {
+        val key = _currentBookKey.value ?: return null
+        return withContext(Dispatchers.IO) {
+            val book = bookRepo.getBook(key)
+            if (book?.lastLocatorJson != null) {
+                LocatorJsonHelper.fromJson(book.lastLocatorJson)
+            } else {
+                null
+            }
+        }
+    }
+
     fun saveProgress(json: String) {
+        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.saveProgress - json: $json")
         val key = _currentBookKey.value ?: return
         val uri = _publication.value?.let { /* We might need to store URI separately if needed for updateProgress */ }
         // Note: Repository updateProgress typically needs the Book ID (URI in this app's logic)
@@ -227,7 +245,7 @@ class ReaderViewModel(
                     Decoration(
                         id = note.id.toString(),
                         locator = loc,
-                        style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#40FF8C00"))
+                        style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#FF000000"))
                     )
                 }
 
@@ -360,7 +378,7 @@ class ReaderViewModel(
                                 locations = Locator.Locations(progression = progression),
                                 text = Locator.Text(highlight = match.value)
                             ),
-                            style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#40FF8C00"))
+                            style = Decoration.Style.Highlight(tint = android.graphics.Color.parseColor("#FF000000"))
                         ))
                     }
                 }

@@ -9,6 +9,9 @@ import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.testutils.TestEpubGenerator
+import my.hinoki.booxreader.data.db.BookEntity
+import org.mockito.Mockito.`when`
+import org.mockito.kotlin.any
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -16,9 +19,12 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,7 +59,15 @@ class ReaderViewModelIntegrationTest {
         app = ApplicationProvider.getApplicationContext()
         Dispatchers.setMain(testDispatcher)
         
-        viewModel = ReaderViewModel(app, bookRepo, bookmarkRepo, aiNoteRepo, syncRepo, progressPublisher)
+        viewModel = ReaderViewModel(
+            app,
+            bookRepo,
+            bookmarkRepo,
+            aiNoteRepo,
+            syncRepo,
+            progressPublisher,
+            ioDispatcher = testDispatcher
+        )
     }
 
     @After
@@ -74,20 +88,49 @@ class ReaderViewModelIntegrationTest {
         // Readium's default AssetRetriever handles file:// URIs via ContentResolver or explicit check.
         // Let's rely on Uri.fromFile
         val uri = android.net.Uri.fromFile(epubFile)
+        println("Testing with URI: $uri, File exists: ${epubFile.exists()}, Size: ${epubFile.length()}")
         
-        viewModel.openBook(uri)
+        // Stub bookRepo.getOrCreateByUri to return a valid BookEntity
+        val mockBook = BookEntity(
+            bookId = "test_book_id",
+            title = "Test Book",
+            fileUri = uri.toString(),
+            lastLocatorJson = null,
+            lastOpenedAt = System.currentTimeMillis()
+        )
+        // Use doReturn style for suspend functions to avoid calling them directly in when()
+        // Or ensure we are in a runTest block (we are)
+        `when`(bookRepo.getOrCreateByUri(any(), any())).thenReturn(mockBook)
+        `when`(bookRepo.touchOpened(any())).thenReturn(Unit)
+        `when`(aiNoteRepo.getByBook(any())).thenReturn(emptyList())
         
-        // 3. Wait for coroutine
+        // 3. Start collecting toasts first
+        val toastMessages = mutableListOf<String>()
+        val job = backgroundScope.launch {
+            viewModel.toastMessage.collect { toastMessages.add(it) }
+        }
+        
+        // 4. Open it via ViewModel
+        val openJob = viewModel.openBook(uri)
+        
+        // 5. Wait for coroutine
         advanceUntilIdle()
+        openJob.join()
+        job.cancel()
+
+        if (toastMessages.isNotEmpty()) {
+            println("Toast messages: $toastMessages")
+        }
         
         // 4. Verify state
         val publication = viewModel.publication.value
-        assertNotNull("Publication should not be null after opening valid EPUB", publication)
+        assertNotNull("Publication should not be null after opening valid EPUB. Toasts: $toastMessages", publication)
         
         // 5. Verify content from our generator
         assertEquals("Test Book", publication?.metadata?.title)
         assertEquals(1, publication?.readingOrder?.size)
-        assertEquals("chapter1.xhtml", publication?.readingOrder?.firstOrNull()?.href?.toString())
+        val firstHref = publication?.readingOrder?.firstOrNull()?.href?.toString().orEmpty()
+        assertTrue("Unexpected first readingOrder href: $firstHref", firstHref.endsWith("chapter1.xhtml"))
         
         // If we reach here, we have successfully:
         // - Generated a ZIP file

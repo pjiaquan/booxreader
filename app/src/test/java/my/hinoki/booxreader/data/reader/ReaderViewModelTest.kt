@@ -22,8 +22,13 @@ import org.mockito.MockitoAnnotations
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.junit.runner.RunWith
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], manifest = Config.NONE)
 class ReaderViewModelTest {
 
     private lateinit var viewModel: ReaderViewModel
@@ -62,30 +67,29 @@ class ReaderViewModelTest {
 
     @Test
     fun `saveProgress calls publisher, sync and local repo`() = runTest(testDispatcher) {
-        // We cannot easily set _currentBookKey without opening a book, which is complex to mock (Publication).
-        // However, we can use reflection to set private state if needed, or rely on testing methods that take arguments.
-        // Wait, saveProgress() relies on _currentBookKey. 
-        // Let's use reflection to set _currentBookKey to test saveProgress() logic.
-        
         val bookId = "test_book_id"
         val json = "{\"locations\": {\"progression\": 0.75}}"
         
-        // Reflection to set _currentBookKey
+        // Use reflection to set _currentBookKey property
         val field = ReaderViewModel::class.java.getDeclaredField("_currentBookKey")
         field.isAccessible = true
-        val stateFlow = field.get(viewModel) as kotlinx.coroutines.flow.MutableStateFlow<String?>
-        stateFlow.value = bookId
+        // In Kotlin, the backing field for a Flow property is the Flow object itself.
+        val flowObject = field.get(viewModel)
+        if (flowObject is kotlinx.coroutines.flow.MutableStateFlow<*>) {
+            @Suppress("UNCHECKED_CAST")
+            (flowObject as kotlinx.coroutines.flow.MutableStateFlow<String?>).value = bookId
+        }
 
         viewModel.saveProgress(json)
 
         // Verify ProgressPublisher is called
-        verify(progressPublisher, timeout(1000)).publishProgress(any(), any())
+        verify(progressPublisher, timeout(1000)).publishProgress(eq(bookId), eq(json))
 
         // Verify SyncRepo is called
-        verify(syncRepo, timeout(1000)).pushProgress(any(), any(), anyOrNull())
+        verify(syncRepo, timeout(1000)).pushProgress(eq(bookId), eq(json), anyOrNull())
 
         // Verify Local Repo is called
-        verify(bookRepo, timeout(1000)).updateProgress(any(), any())
+        verify(bookRepo, timeout(1000)).updateProgress(eq(bookId), eq(json))
     }
 
     @Test
@@ -95,8 +99,11 @@ class ReaderViewModelTest {
         
         val field = ReaderViewModel::class.java.getDeclaredField("_currentBookKey")
         field.isAccessible = true
-        val stateFlow = field.get(viewModel) as kotlinx.coroutines.flow.MutableStateFlow<String?>
-        stateFlow.value = bookId
+        val flowObject = field.get(viewModel)
+        if (flowObject is kotlinx.coroutines.flow.MutableStateFlow<*>) {
+            @Suppress("UNCHECKED_CAST")
+            (flowObject as kotlinx.coroutines.flow.MutableStateFlow<String?>).value = bookId
+        }
 
         // Make publisher throw exception
         org.mockito.Mockito.`when`(progressPublisher.publishProgress(any(), any())).thenThrow(RuntimeException("Network error"))
@@ -104,8 +111,7 @@ class ReaderViewModelTest {
         viewModel.saveProgress(json)
 
         // Should still try to sync to Firestore and Local DB
-        verify(syncRepo, timeout(1000)).pushProgress(any(), any(), anyOrNull())
-        verify(bookRepo, timeout(1000)).updateProgress(any(), any())
+        verify(syncRepo, timeout(1000)).pushProgress(eq(bookId), eq(json), anyOrNull())
+        verify(bookRepo, timeout(1000)).updateProgress(eq(bookId), eq(json))
     }
-
 }

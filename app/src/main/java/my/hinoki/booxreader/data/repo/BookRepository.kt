@@ -20,6 +20,10 @@ class BookRepository(
 
     private val bookDao = AppDatabase.get(context).bookDao()
 
+    suspend fun getBook(bookId: String): BookEntity? {
+        return bookDao.getByIds(listOf(bookId)).firstOrNull()
+    }
+
     /**
      * 用 fileUri 當 key，若不存在就建立一筆新的 BookEntity
      */
