@@ -128,7 +128,7 @@
     <string name="sync_result_updated_bookmarks">• 更新書籤: %1$d 個</string>
     <string name="sync_result_no_updates">• 沒有需要更新的資料</string>
     <string name="sync_start_toast">開始同步資料...</string>
-    <string name="sync_books_toast">已同步 %1$d 本書籍</string>
+    <string name="sync_books_toast">已同步書籍</string>
     <string name="sync_delete_book_title">刪除書籍</string>
     <string name="sync_delete_book_message">確定要從最近閱讀中刪除「%1$s」嗎？</string>
     <string name="sync_delete_action">刪除</string>

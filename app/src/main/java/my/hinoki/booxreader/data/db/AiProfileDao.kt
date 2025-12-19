@@ -34,4 +34,7 @@ interface AiProfileDao {
     
     @Query("DELETE FROM ai_profiles WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM ai_profiles")
+    suspend fun deleteAll()
 }

@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.data.repo
 
+import java.time.Instant
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import org.junit.Assert.*
 import org.junit.Test
@@ -43,9 +44,10 @@ class AiProfileSyncTest {
 
     @Test
     fun testRemoteAiProfileDataClassHasAllFields() {
-        // Test that RemoteAiProfile has all the required fields
-        val remoteProfile = RemoteAiProfile(
-            remoteId = "test-id",
+        // Test that SupabaseAiProfile has all the required fields
+        val now = Instant.now().toString()
+        val remoteProfile = SupabaseAiProfile(
+            id = "test-id",
             name = "Test Profile",
             modelName = "gpt-4",
             apiKey = "test-api-key",
@@ -59,12 +61,12 @@ class AiProfileSyncTest {
             frequencyPenalty = 0.1,
             presencePenalty = 0.2,
             assistantRole = "system",
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
+            createdAt = now,
+            updatedAt = now
         )
 
         // Verify all fields are present
-        assertEquals("test-id", remoteProfile.remoteId)
+        assertEquals("test-id", remoteProfile.id)
         assertEquals("Test Profile", remoteProfile.name)
         assertEquals("gpt-4", remoteProfile.modelName)
         assertEquals("test-api-key", remoteProfile.apiKey)
@@ -72,19 +74,19 @@ class AiProfileSyncTest {
         assertEquals("You are a helpful assistant", remoteProfile.systemPrompt)
         assertEquals("%s", remoteProfile.userPromptTemplate)
         assertEquals(true, remoteProfile.useStreaming)
-        assertEquals(0.8, remoteProfile.temperature, 0.001)
-        assertEquals(2048, remoteProfile.maxTokens)
-        assertEquals(0.9, remoteProfile.topP, 0.001)
-        assertEquals(0.1, remoteProfile.frequencyPenalty, 0.001)
-        assertEquals(0.2, remoteProfile.presencePenalty, 0.001)
+        assertEquals(0.8, remoteProfile.temperature ?: 0.0, 0.001)
+        assertEquals(2048, remoteProfile.maxTokens ?: 0)
+        assertEquals(0.9, remoteProfile.topP ?: 0.0, 0.001)
+        assertEquals(0.1, remoteProfile.frequencyPenalty ?: 0.0, 0.001)
+        assertEquals(0.2, remoteProfile.presencePenalty ?: 0.0, 0.001)
         assertEquals("system", remoteProfile.assistantRole)
-        assertTrue(remoteProfile.createdAt > 0)
-        assertTrue(remoteProfile.updatedAt > 0)
+        assertTrue(remoteProfile.createdAt?.isNotBlank() == true)
+        assertTrue(remoteProfile.updatedAt?.isNotBlank() == true)
     }
 
     @Test
     fun testFieldMappingBetweenEntityAndRemote() {
-        // Test that field names and types match between AiProfileEntity and RemoteAiProfile
+        // Test that field names and types match between AiProfileEntity and SupabaseAiProfile
         val entity = AiProfileEntity(
             name = "Test Profile",
             modelName = "gpt-4",
@@ -101,8 +103,8 @@ class AiProfileSyncTest {
             assistantRole = "system"
         )
 
-        val remoteProfile = RemoteAiProfile(
-            remoteId = "test-id",
+        val remoteProfile = SupabaseAiProfile(
+            id = "test-id",
             name = entity.name,
             modelName = entity.modelName,
             apiKey = entity.apiKey,
@@ -116,8 +118,8 @@ class AiProfileSyncTest {
             frequencyPenalty = entity.frequencyPenalty,
             presencePenalty = entity.presencePenalty,
             assistantRole = entity.assistantRole,
-            createdAt = entity.createdAt,
-            updatedAt = entity.updatedAt
+            createdAt = Instant.ofEpochMilli(entity.createdAt).toString(),
+            updatedAt = Instant.ofEpochMilli(entity.updatedAt).toString()
         )
 
         // Verify field mapping
@@ -128,11 +130,11 @@ class AiProfileSyncTest {
         assertEquals(entity.systemPrompt, remoteProfile.systemPrompt)
         assertEquals(entity.userPromptTemplate, remoteProfile.userPromptTemplate)
         assertEquals(entity.useStreaming, remoteProfile.useStreaming)
-        assertEquals(entity.temperature, remoteProfile.temperature, 0.001)
-        assertEquals(entity.maxTokens, remoteProfile.maxTokens)
-        assertEquals(entity.topP, remoteProfile.topP, 0.001)
-        assertEquals(entity.frequencyPenalty, remoteProfile.frequencyPenalty, 0.001)
-        assertEquals(entity.presencePenalty, remoteProfile.presencePenalty, 0.001)
+        assertEquals(entity.temperature, remoteProfile.temperature ?: 0.0, 0.001)
+        assertEquals(entity.maxTokens, remoteProfile.maxTokens ?: 0)
+        assertEquals(entity.topP, remoteProfile.topP ?: 0.0, 0.001)
+        assertEquals(entity.frequencyPenalty, remoteProfile.frequencyPenalty ?: 0.0, 0.001)
+        assertEquals(entity.presencePenalty, remoteProfile.presencePenalty ?: 0.0, 0.001)
         assertEquals(entity.assistantRole, remoteProfile.assistantRole)
     }
 

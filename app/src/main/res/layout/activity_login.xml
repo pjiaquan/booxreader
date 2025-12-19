@@ -50,7 +50,8 @@
         android:layout_height="wrap_content"
         android:text="@string/login_sign_in_google"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="16dp"
+        android:visibility="gone"/>
 
     <Button
         android:id="@+id/btnResendVerification"

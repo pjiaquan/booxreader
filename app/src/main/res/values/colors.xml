@@ -8,4 +8,12 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="ic_launcher_background">#FFFFFFFF</color>
+
+    <!-- Recent Book Item Colors (Day) -->
+    <color name="recent_book_title">#000000</color>
+    <color name="recent_book_secondary">#424242</color>
+    <color name="recent_book_progress">#212121</color>
+    <color name="recent_book_menu">#616161</color>
+    <color name="recent_book_completed_text">#1B5E20</color>
+    <color name="recent_book_completed_bg">#E0F2F1</color>
 </resources>

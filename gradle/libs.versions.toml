@@ -23,8 +23,6 @@ mockitoKotlin = "5.2.1"
 coroutinesTest = "1.7.3"
 playServicesAuth = "21.0.0"
 securityCrypto = "1.0.0"
-firebaseBom = "33.5.1"
-googleServices = "4.4.2"
 robolectric = "4.11.1"
 
 [libraries]
@@ -65,11 +63,6 @@ desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", ver
 markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
 markwon-ext-tables = { group = "io.noties.markwon", name = "ext-tables", version.ref = "markwon" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
-firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
-firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
-firebase-storage = { group = "com.google.firebase", name = "firebase-storage-ktx" }
-firebase-handler = { group = "com.google.firebase", name = "firebase-storage-ktx" }
 json = { group = "org.json", name = "json", version = "20231013" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
  
@@ -78,4 +71,3 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 jetbrains-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Recent Book Item Colors (Night) -->
+    <color name="recent_book_title">#FFFFFF</color>
+    <color name="recent_book_secondary">#BDBDBD</color>
+    <color name="recent_book_progress">#E0E0E0</color>
+    <color name="recent_book_menu">#E0E0E0</color>
+    <color name="recent_book_completed_text">#A5D6A7</color>
+    <color name="recent_book_completed_bg">#2E4B35</color>
+</resources>

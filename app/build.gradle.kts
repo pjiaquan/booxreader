@@ -3,7 +3,6 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.compose)
     alias(libs.plugins.google.devtools.ksp)
-    alias(libs.plugins.google.services)
 }
 
 import java.io.File
@@ -34,9 +33,21 @@ val storeFileFromEnv: File? = run {
     }
 }
 
+val supabaseUrl: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_URL") as String?)
+    ?: System.getenv("NEXT_PUBLIC_SUPABASE_URL")
+    ?: "https://supa.risc-v.tw"
+
+val supabaseAnonKey: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_ANON_KEY") as String?)
+    ?: System.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY2MDczNjAwLCJleHAiOjE5MjM4NDAwMDB9.JFC5hdPzUBYTxiEIYv4wBgQdxxtgL941HOB6YAa32Is"
+
 android {
     namespace = "my.hinoki.booxreader"
     compileSdk = 35
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     val releaseSigningConfig = signingConfigs.create("release") {
         keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties["keyAlias"] as String?
@@ -68,8 +79,11 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 74
-        versionName = "1.1.73"
+        versionCode = 78
+        versionName = "1.1.77"
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -120,6 +134,9 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+
+
 }
 
 configurations.all {
@@ -153,10 +170,6 @@ dependencies {
 
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.firebase.firestore)
-    implementation(libs.firebase.storage)
     implementation(libs.play.services.auth)
     
     // --- JDK Desugaring ---

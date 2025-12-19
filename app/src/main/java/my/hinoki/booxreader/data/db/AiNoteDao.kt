@@ -34,4 +34,7 @@ interface AiNoteDao {
 
     @Query("UPDATE ai_notes SET bookId = :newBookId WHERE bookId = :oldBookId")
     suspend fun migrateBookId(oldBookId: String, newBookId: String)
+
+    @Query("DELETE FROM ai_notes")
+    suspend fun deleteAll()
 }

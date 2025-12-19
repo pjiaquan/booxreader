@@ -131,7 +131,7 @@
     <string name="sync_result_updated_bookmarks">• Updated bookmarks: %1$d</string>
     <string name="sync_result_no_updates">• No updates needed</string>
     <string name="sync_start_toast">Starting data sync...</string>
-    <string name="sync_books_toast">Synced %1$d books</string>
+    <string name="sync_books_toast">Synced books</string>
     <string name="sync_delete_book_title">Delete Book</string>
     <string name="sync_delete_book_message">Are you sure you want to delete "%1$s" from recent?</string>
     <string name="sync_delete_action">Delete</string>

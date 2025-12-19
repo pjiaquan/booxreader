@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.data.repo
 
+import java.time.Instant
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import org.junit.Assert.*
 import org.junit.Test
@@ -140,8 +141,8 @@ class AiProfileSyncLogicTest {
         )
 
         // Simulate remote profile with similar timestamp (potential conflict)
-        val remoteProfile = RemoteAiProfile(
-            remoteId = "conflict-id",
+        val remoteProfile = SupabaseAiProfile(
+            id = "conflict-id",
             name = "Remote Profile",
             modelName = "remote-model",
             apiKey = "remote-key-456",
@@ -149,30 +150,32 @@ class AiProfileSyncLogicTest {
             systemPrompt = "Remote prompt",
             userPromptTemplate = "Remote: %s",
             useStreaming = false,
-            createdAt = 1000,
-            updatedAt = 5100 // Slightly newer than local
+            createdAt = Instant.ofEpochMilli(1000).toString(),
+            updatedAt = Instant.ofEpochMilli(5100).toString() // Slightly newer than local
         )
 
         // Test conflict resolution: remote is newer, so we should prefer remote
         // but preserve local API key
+        val remoteUpdatedAt =
+            Instant.parse(requireNotNull(remoteProfile.updatedAt)).toEpochMilli()
         val resolvedProfile = AiProfileEntity(
             id = localProfile.id,
             name = remoteProfile.name, // Prefer remote name
-            modelName = remoteProfile.modelName, // Prefer remote model
+            modelName = remoteProfile.modelName ?: "", // Prefer remote model
             apiKey = localProfile.apiKey, // Prefer local API key (sensitive data)
-            serverBaseUrl = remoteProfile.serverBaseUrl, // Prefer remote server
-            systemPrompt = remoteProfile.systemPrompt, // Prefer remote prompt
-            userPromptTemplate = remoteProfile.userPromptTemplate, // Prefer remote template
-            useStreaming = remoteProfile.useStreaming, // Prefer remote streaming
-            temperature = remoteProfile.temperature,
-            maxTokens = remoteProfile.maxTokens,
-            topP = remoteProfile.topP,
-            frequencyPenalty = remoteProfile.frequencyPenalty,
-            presencePenalty = remoteProfile.presencePenalty,
-            assistantRole = remoteProfile.assistantRole,
-            remoteId = remoteProfile.remoteId,
+            serverBaseUrl = remoteProfile.serverBaseUrl ?: "", // Prefer remote server
+            systemPrompt = remoteProfile.systemPrompt ?: "", // Prefer remote prompt
+            userPromptTemplate = remoteProfile.userPromptTemplate ?: "", // Prefer remote template
+            useStreaming = remoteProfile.useStreaming ?: false, // Prefer remote streaming
+            temperature = remoteProfile.temperature ?: 0.7,
+            maxTokens = remoteProfile.maxTokens ?: 4096,
+            topP = remoteProfile.topP ?: 1.0,
+            frequencyPenalty = remoteProfile.frequencyPenalty ?: 0.0,
+            presencePenalty = remoteProfile.presencePenalty ?: 0.0,
+            assistantRole = remoteProfile.assistantRole ?: "assistant",
+            remoteId = remoteProfile.id,
             createdAt = localProfile.createdAt, // Preserve original creation time
-            updatedAt = remoteProfile.updatedAt, // Use remote update time
+            updatedAt = remoteUpdatedAt, // Use remote update time
             isSynced = true
         )
 
@@ -185,7 +188,7 @@ class AiProfileSyncLogicTest {
         assertEquals(remoteProfile.userPromptTemplate, resolvedProfile.userPromptTemplate)
         assertEquals(remoteProfile.useStreaming, resolvedProfile.useStreaming)
         assertEquals(localProfile.createdAt, resolvedProfile.createdAt)
-        assertEquals(remoteProfile.updatedAt, resolvedProfile.updatedAt)
+        assertEquals(remoteUpdatedAt, resolvedProfile.updatedAt)
         assertTrue(resolvedProfile.isSynced)
     }
 
@@ -228,9 +231,9 @@ class AiProfileSyncLogicTest {
 
     @Test
     fun testRemoteAiProfileMapping() {
-        // Test that RemoteAiProfile can be created with all fields
-        val remoteProfile = RemoteAiProfile(
-            remoteId = "test-id-123",
+        // Test that SupabaseAiProfile can be created with all fields
+        val remoteProfile = SupabaseAiProfile(
+            id = "test-id-123",
             name = "Remote Test Profile",
             modelName = "gpt-4-remote",
             apiKey = "remote-key-789",
@@ -244,27 +247,27 @@ class AiProfileSyncLogicTest {
             frequencyPenalty = 0.15,
             presencePenalty = 0.25,
             assistantRole = "system",
-            createdAt = 10000,
-            updatedAt = 20000
+            createdAt = Instant.ofEpochMilli(10000).toString(),
+            updatedAt = Instant.ofEpochMilli(20000).toString()
         )
 
         // Verify all fields
-        assertEquals("test-id-123", remoteProfile.remoteId)
+        assertEquals("test-id-123", remoteProfile.id)
         assertEquals("Remote Test Profile", remoteProfile.name)
         assertEquals("gpt-4-remote", remoteProfile.modelName)
         assertEquals("remote-key-789", remoteProfile.apiKey)
         assertEquals("https://remote.api.com", remoteProfile.serverBaseUrl)
         assertEquals("Remote system prompt", remoteProfile.systemPrompt)
         assertEquals("Remote: %s", remoteProfile.userPromptTemplate)
-        assertTrue(remoteProfile.useStreaming)
-        assertEquals(0.9, remoteProfile.temperature, 0.001)
-        assertEquals(8192, remoteProfile.maxTokens)
-        assertEquals(0.95, remoteProfile.topP, 0.001)
-        assertEquals(0.15, remoteProfile.frequencyPenalty, 0.001)
-        assertEquals(0.25, remoteProfile.presencePenalty, 0.001)
+        assertTrue(remoteProfile.useStreaming == true)
+        assertEquals(0.9, remoteProfile.temperature ?: 0.0, 0.001)
+        assertEquals(8192, remoteProfile.maxTokens ?: 0)
+        assertEquals(0.95, remoteProfile.topP ?: 0.0, 0.001)
+        assertEquals(0.15, remoteProfile.frequencyPenalty ?: 0.0, 0.001)
+        assertEquals(0.25, remoteProfile.presencePenalty ?: 0.0, 0.001)
         assertEquals("system", remoteProfile.assistantRole)
-        assertEquals(10000, remoteProfile.createdAt)
-        assertEquals(20000, remoteProfile.updatedAt)
+        assertTrue(remoteProfile.createdAt?.isNotBlank() == true)
+        assertTrue(remoteProfile.updatedAt?.isNotBlank() == true)
     }
 
     @Test

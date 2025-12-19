@@ -778,7 +778,11 @@ main() {
             exit 1
         fi
         
-        echo "Installation completed successfully. Skipping app launch as requested."
+        echo "Installation completed successfully."
+        
+        # Launch the app using monkey command
+        echo "Launching the app..."
+        adb shell monkey -p my.hinoki.booxreader -c android.intent.category.LAUNCHER 1
     else
         echo "Skipping install/launch because ADB is unavailable."
     fi
