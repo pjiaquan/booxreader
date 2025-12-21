@@ -116,6 +116,7 @@ class AiNoteListActivity : BaseActivity() {
             val dataList = notes.map {
                 val time = DateFormat.format("yyyy-MM-dd HH:mm", it.createdAt).toString()
                 
+                val messagesFallback = it.messages.trim()
                 val msgs = try { org.json.JSONArray(it.messages) } catch(e: Exception) { org.json.JSONArray() }
                 val rawOriginal = msgs.optJSONObject(0)?.optString("content", "")?.trim() ?: ""
                 val rawResponse = if (msgs.length() > 1) msgs.optJSONObject(msgs.length()-1)?.optString("content", "")?.trim() ?: "" else ""
@@ -125,6 +126,8 @@ class AiNoteListActivity : BaseActivity() {
                     rawOriginal
                 } else if (rawResponse.isNotEmpty()) {
                     rawResponse
+                } else if (messagesFallback.isNotEmpty() && messagesFallback != "[]") {
+                    messagesFallback
                 } else {
                     "(No Content)"
                 }

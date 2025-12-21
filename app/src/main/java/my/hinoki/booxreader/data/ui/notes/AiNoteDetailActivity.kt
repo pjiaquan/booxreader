@@ -734,20 +734,21 @@ class AiNoteDetailActivity : BaseActivity() {
         messages.put(JSONObject().put("role", "user").put("content", finalOriginal))
         
         if (finalResponse.isNotBlank()) {
-            val segments = finalResponse.split("\n---\n")
-            segments.forEach { seg ->
-                val trimmed = seg.trim()
-                if (trimmed.isEmpty()) return@forEach
-                
-                val lines = trimmed.lines()
-                val firstLine = lines.firstOrNull() ?: ""
-                if (firstLine.startsWith("Q:")) {
-                     val q = firstLine.substringAfter("Q:").trim()
-                     val a = lines.drop(1).joinToString("\n").trim()
-                     messages.put(JSONObject().put("role", "user").put("content", q))
-                     messages.put(JSONObject().put("role", "assistant").put("content", a))
-                } else {
-                     messages.put(JSONObject().put("role", "assistant").put("content", trimmed))
+            val marker = "\n---\nQ:"
+            val segments = finalResponse.split(marker)
+            val first = segments.firstOrNull()?.trim().orEmpty()
+            if (first.isNotEmpty()) {
+                messages.put(JSONObject().put("role", "assistant").put("content", first))
+            }
+            if (segments.size > 1) {
+                for (i in 1 until segments.size) {
+                    val seg = segments[i].trimStart()
+                    if (seg.isEmpty()) continue
+                    val lines = seg.lines()
+                    val q = lines.firstOrNull()?.trim().orEmpty()
+                    val a = lines.drop(1).joinToString("\n").trim()
+                    messages.put(JSONObject().put("role", "user").put("content", q))
+                    messages.put(JSONObject().put("role", "assistant").put("content", a))
                 }
             }
         }
