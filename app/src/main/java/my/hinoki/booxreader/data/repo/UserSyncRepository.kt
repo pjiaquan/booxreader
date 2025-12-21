@@ -57,12 +57,16 @@ class UserSyncRepository(context: Context) {
                 GsonBuilder()
                         .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
                         .create()
-        private val httpClient =
-                OkHttpClient.Builder()
-                        .connectTimeout(30, TimeUnit.SECONDS)
-                        .readTimeout(30, TimeUnit.SECONDS)
-                        .writeTimeout(30, TimeUnit.SECONDS)
-                        .build()
+        private val httpClient: OkHttpClient =
+                if (appContext is my.hinoki.booxreader.BooxReaderApp) {
+                        appContext.okHttpClient
+                } else {
+                        OkHttpClient.Builder()
+                                .connectTimeout(30, TimeUnit.SECONDS)
+                                .readTimeout(60, TimeUnit.SECONDS)
+                                .writeTimeout(60, TimeUnit.SECONDS)
+                                .build()
+                }
         private val emptyJsonBody =
                 "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
         private val emptyOctetStreamBody =
@@ -265,7 +269,11 @@ class UserSyncRepository(context: Context) {
                         cacheProgress(bookId, locatorJson, now)
                 }
 
-        suspend fun pushBook(book: BookEntity, uploadFile: Boolean = false) =
+        suspend fun pushBook(
+                book: BookEntity,
+                uploadFile: Boolean = false,
+                contentResolver: android.content.ContentResolver? = null
+        ) =
                 withContext(io) {
                         android.util.Log.d(
                                 "UserSyncRepository",
@@ -287,7 +295,7 @@ class UserSyncRepository(context: Context) {
                                                 "UserSyncRepository",
                                                 "嘗試上傳EPUB文件到Supabase Storage"
                                         )
-                                        uploadBookFileIfNeeded(book, userId)
+                                        uploadBookFileIfNeeded(book, userId, contentResolver)
                                 } else {
                                         null
                                 }
@@ -481,12 +489,14 @@ class UserSyncRepository(context: Context) {
 
         private suspend fun uploadBookFileIfNeeded(
                 book: BookEntity,
-                userId: String
+                userId: String,
+                contentResolver: android.content.ContentResolver? = null
         ): UploadedBookInfo? =
                 withContext(io) {
                         val uri = Uri.parse(book.fileUri)
+                        val resolver = contentResolver ?: appContext.contentResolver
                         val localMeta =
-                                readLocalFileMeta(uri)
+                                readLocalFileMeta(uri, resolver)
                                         ?: run {
                                                 android.util.Log.w(
                                                         "UserSyncRepository",
@@ -495,6 +505,7 @@ class UserSyncRepository(context: Context) {
                                                 return@withContext null
                                         }
                         val storagePath = bookStoragePath(userId, book.bookId)
+                        android.util.Log.d("UserSyncRepository", "Target Storage Path: $storagePath")
                         if (storagePath.isBlank()) return@withContext null
 
                         val token =
@@ -502,7 +513,7 @@ class UserSyncRepository(context: Context) {
                                         cachedUserId = null
                                         return@withContext null
                                 }
-                        val resolver = appContext.contentResolver
+                        
                         val requestBody =
                                 object : RequestBody() {
                                         override fun contentType() =
@@ -527,9 +538,10 @@ class UserSyncRepository(context: Context) {
 
                         httpClient.newCall(request).execute().use { response ->
                                 if (!response.isSuccessful) {
+                                        val errorBody = response.body?.string()
                                         android.util.Log.w(
                                                 "UserSyncRepository",
-                                                "書籍檔案上傳失敗: ${response.code}"
+                                                "書籍檔案上傳失敗: ${response.code}, Body: $errorBody"
                                         )
                                         return@withContext null
                                 }
@@ -626,21 +638,28 @@ class UserSyncRepository(context: Context) {
                         null
                 }
 
-        private fun readLocalFileMeta(uri: Uri): LocalFileMeta? {
-                val resolver = appContext.contentResolver
+        private fun readLocalFileMeta(uri: Uri, contentResolver: android.content.ContentResolver): LocalFileMeta? {
                 val digest = MessageDigest.getInstance("SHA-256")
                 var size = 0L
-                resolver.openInputStream(uri)?.use { input ->
-                        val buffer = ByteArray(8_192)
-                        while (true) {
-                                val read = input.read(buffer)
-                                if (read == -1) break
-                                digest.update(buffer, 0, read)
-                                size += read
+                try {
+                        contentResolver.openInputStream(uri)?.use { input ->
+                                val buffer = ByteArray(8_192)
+                                while (true) {
+                                        val read = input.read(buffer)
+                                        if (read == -1) break
+                                        digest.update(buffer, 0, read)
+                                        size += read
+                                }
+                        } ?: run {
+                                android.util.Log.e("UserSyncRepository", "openInputStream returned null for uri: $uri")
+                                return null
                         }
+                } catch (e: Exception) {
+                        android.util.Log.e("UserSyncRepository", "Failed to read file for meta: $uri", e)
+                        return null
                 }
-                        ?: return null
                 val checksum = digest.digest().joinToString("") { "%02x".format(it) }
+                android.util.Log.d("UserSyncRepository", "readLocalFileMeta success: size=$size, checksum=$checksum")
                 return LocalFileMeta(size = size, checksum = checksum)
         }
 
@@ -754,8 +773,7 @@ class UserSyncRepository(context: Context) {
                                         userId = userId,
                                         bookId = note.bookId,
                                         bookTitle = note.bookTitle,
-                                        originalText = note.originalText,
-                                        aiResponse = note.aiResponse,
+                                        messages = parseLocatorJson(note.messages),
                                         locator = parseLocatorJson(note.locatorJson),
                                         createdAt = toIsoTimestamp(note.createdAt),
                                         updatedAt = toIsoTimestamp(now)
@@ -835,8 +853,7 @@ suspend fun pullNotes(): Int =
                                                 remoteId = remoteId,
                                                 bookId = remote.bookId,
                                                 bookTitle = remote.bookTitle,
-                                                originalText = remote.originalText,
-                                                aiResponse = remote.aiResponse,
+                                                messages = locatorToString(remote.messages) ?: "[]",
                                                 locatorJson = locatorToString(remote.locator),
                                                 createdAt = createdAt,
                                                 updatedAt = updatedAt
@@ -1397,8 +1414,7 @@ data class SupabaseAiNote(
         val userId: String? = null,
         val bookId: String? = null,
         val bookTitle: String? = null,
-        val originalText: String = "",
-        val aiResponse: String = "",
+        val messages: JsonElement? = null,
         val locator: JsonElement? = null,
         val createdAt: String? = null,
         val updatedAt: String? = null

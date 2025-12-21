@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import my.hinoki.booxreader.data.db.AiNoteEntity
+import org.json.JSONArray
+import org.json.JSONObject
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.remote.ProgressPublisher
 import my.hinoki.booxreader.data.repo.AiNoteRepository
@@ -108,7 +110,7 @@ class ReaderViewModel(
         _publication.value = null
     }
 
-    fun openBook(uri: Uri): Job {
+    fun openBook(uri: Uri, contentResolver: android.content.ContentResolver? = null): Job {
         android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.openBook: $uri")
         if (_publication.value != null) {
             // Already loaded
@@ -156,7 +158,13 @@ class ReaderViewModel(
 
                 // Ensure new book files are synced
                 viewModelScope.launch(ioDispatcher) {
-                    runCatching { syncRepo.pushBook(book, uploadFile = true) }
+                    val result = runCatching { syncRepo.pushBook(book, uploadFile = true, contentResolver = contentResolver) }
+                    result.onFailure { e ->
+                        android.util.Log.e("ReaderViewModel", "Failed to sync book with upload: ${book.title}", e)
+                    }
+                    result.onSuccess {
+                        android.util.Log.d("ReaderViewModel", "Sync book with upload requested: ${book.title}")
+                    }
                 }
 
                 // Fetch cloud progress
@@ -313,7 +321,11 @@ class ReaderViewModel(
                     val (finalText, content) = result
                     val note = withContext(Dispatchers.IO) { aiNoteRepo.getById(noteId) }
                     if (note != null) {
-                        val updated = note.copy(originalText = finalText, aiResponse = content)
+                        val messages = JSONArray().apply {
+                            put(JSONObject().put("role", "user").put("content", finalText))
+                            put(JSONObject().put("role", "assistant").put("content", content))
+                        }
+                        val updated = note.copy(messages = messages.toString())
                         withContext(Dispatchers.IO) { aiNoteRepo.update(updated) }
                     }
                     _toastMessage.emit("Finished")
@@ -440,7 +452,8 @@ class ReaderViewModel(
         val splitRegex = Regex("[\\s\\p{Punct}、，。！？；：.!?;:（）()【】「」『』《》<>]+")
 
         notes.forEach { note ->
-            val base = note.originalText.trim()
+            val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+            val base = msgs.optJSONObject(0)?.optString("content", "")?.trim() ?: ""
             if (base.isNotEmpty()) {
                 pairs.add(base to note.id)
                 splitRegex.split(base).map { it.trim() }.filter { it.isNotEmpty() }.forEach {

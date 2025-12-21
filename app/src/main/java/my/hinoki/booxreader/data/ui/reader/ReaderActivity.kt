@@ -493,14 +493,14 @@ class ReaderActivity : BaseActivity() {
         setupObservers()
 
         if (savedInstanceState == null) {
-            viewModel.openBook(bookUri)
+            viewModel.openBook(bookUri, contentResolver)
         } else {
             // Re-attach if fragment exists
             navigatorFragment =
                     supportFragmentManager.findFragmentById(R.id.readerContainer) as?
                             EpubNavigatorFragment
             if (navigatorFragment == null) {
-                viewModel.openBook(bookUri)
+                viewModel.openBook(bookUri, contentResolver)
             }
         }
     }

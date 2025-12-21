@@ -18,6 +18,8 @@ import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -221,10 +223,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 val (serverText, content) = result
                 val note = repository.getById(newNoteId)
                 if (note != null) {
-                    val updatedNote = note.copy(
-                        originalText = serverText,
-                        aiResponse = content
-                    )
+                    val updatedNote = updateNoteFromStrings(note, serverText, content)
                     repository.update(updatedNote)
                 }
                 // Open the NEW note
@@ -243,7 +242,7 @@ class AiNoteDetailActivity : BaseActivity() {
             if (note != null) {
                 currentNote = note
                 updateUI(note)
-                val shouldAutoStream = autoStreamText != null && note.aiResponse.isBlank()
+                val shouldAutoStream = autoStreamText != null && getAiResponse(note).isBlank()
                 if (shouldAutoStream) {
                     autoStreamText?.let { text ->
                         binding.btnPublish.isEnabled = false
@@ -271,9 +270,11 @@ class AiNoteDetailActivity : BaseActivity() {
             null
         }
 
-        markwon.setMarkdown(binding.tvOriginalText, note.originalText)
+        markwon.setMarkdown(binding.tvOriginalText, getOriginalText(note))
+        
+        val aiResponse = getAiResponse(note)
 
-        if (note.aiResponse.isBlank()) {
+        if (aiResponse.isBlank()) {
             binding.tvAiResponse.text = getString(R.string.ai_note_draft_status)
             binding.btnPublish.visibility = View.VISIBLE
             binding.btnPublish.isEnabled = true
@@ -281,7 +282,7 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.btnRepublishSelection.isEnabled = false
             setLoading(false)
         } else {
-            markwon.setMarkdown(binding.tvAiResponse, note.aiResponse)
+            markwon.setMarkdown(binding.tvAiResponse, aiResponse)
             binding.btnPublish.visibility = View.GONE
             binding.btnRepublishSelection.isEnabled = true
         }
@@ -337,19 +338,17 @@ class AiNoteDetailActivity : BaseActivity() {
 
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
+            val originalText = getOriginalText(note)
             if (useStreaming) {
-                startStreaming(note, note.originalText, savedScrollY)
+                startStreaming(note, originalText, savedScrollY)
                 binding.btnPublish.text = getString(R.string.ai_note_streaming)
                 return@launch
             }
 
-            val result = repository.fetchAiExplanation(note.originalText)
+            val result = repository.fetchAiExplanation(originalText)
             if (result != null) {
                 val (serverText, content) = result
-                val updatedNote = note.copy(
-                    originalText = serverText,
-                    aiResponse = content
-                )
+                val updatedNote = updateNoteFromStrings(note, serverText, content)
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
@@ -374,10 +373,11 @@ class AiNoteDetailActivity : BaseActivity() {
         lifecycleScope.launch {
             try {
                 val useStreaming = repository.isStreamingEnabled()
+                val currentAiResponse = getAiResponse(note)
                 val result = if (useStreaming) {
                     repository.continueConversationStreaming(note, question) { partial ->
-                        val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
-                        val preview = note.aiResponse +
+                        val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
+                        val preview = currentAiResponse +
                                 separator +
                                 "---\nQ: " + question + "\n\n" + partial
                         renderStreamingMarkdown(preview)
@@ -388,11 +388,11 @@ class AiNoteDetailActivity : BaseActivity() {
                 }
                 clearStreamingRenderer()
                 if (result != null) {
-                    val separator = if (note.aiResponse.isBlank()) "" else "\n\n"
-                    val newContent = note.aiResponse +
+                    val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
+                    val newContent = currentAiResponse +
                             separator +
                             "---\nQ: " + question + "\n\n" + result
-                    val updated = note.copy(aiResponse = newContent)
+                    val updated = updateNoteFromStrings(note, null, newContent)
                     repository.update(updated)
                     currentNote = updated
                     // Avoid jumping the viewport after publish to keep the reader in place.
@@ -418,19 +418,17 @@ class AiNoteDetailActivity : BaseActivity() {
         setLoading(true)
         lifecycleScope.launch {
             val useStreaming = repository.isStreamingEnabled()
+            val originalText = getOriginalText(note)
             if (useStreaming) {
-                startStreaming(note, note.originalText, savedScrollY)
+                startStreaming(note, originalText, savedScrollY)
                 binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
                 return@launch
             }
 
-            val result = repository.fetchAiExplanation(note.originalText)
+            val result = repository.fetchAiExplanation(originalText)
             if (result != null) {
                 val (serverText, content) = result
-                val updatedNote = note.copy(
-                    originalText = serverText,
-                    aiResponse = content
-                )
+                val updatedNote = updateNoteFromStrings(note, serverText, content)
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
@@ -472,10 +470,7 @@ class AiNoteDetailActivity : BaseActivity() {
             clearStreamingRenderer()
             if (result != null) {
                 val (serverText, content) = result
-                val updated = note.copy(
-                    originalText = serverText,
-                    aiResponse = content
-                )
+                val updated = updateNoteFromStrings(note, serverText, content)
                 repository.update(updated)
                 currentNote = updated
                 updateUI(updated)
@@ -695,6 +690,64 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun setLoading(active: Boolean) {
         isLoading = active
         binding.pbLoading.visibility = if (active) View.VISIBLE else View.GONE
+    }
+
+    private fun getOriginalText(note: AiNoteEntity): String {
+        val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+        return msgs.optJSONObject(0)?.optString("content", "") ?: ""
+    }
+
+    private fun getAiResponse(note: AiNoteEntity): String {
+        val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+        if (msgs.length() < 2) return ""
+        val sb = StringBuilder()
+        // First assistant response
+        val first = msgs.optJSONObject(1)
+        if (first?.optString("role") == "assistant") {
+            sb.append(first.optString("content"))
+        }
+        
+        // Subsequent turns
+        for (i in 2 until msgs.length() step 2) {
+             val user = msgs.optJSONObject(i)
+             val assistant = msgs.optJSONObject(i+1)
+             
+             if (user != null && user.optString("role") == "user") {
+                 sb.append("\n---\nQ: ").append(user.optString("content"))
+             }
+             if (assistant != null && assistant.optString("role") == "assistant") {
+                 sb.append("\n\n").append(assistant.optString("content"))
+             }
+        }
+        return sb.toString()
+    }
+
+    private fun updateNoteFromStrings(note: AiNoteEntity, original: String?, response: String?): AiNoteEntity {
+        val finalOriginal = original ?: getOriginalText(note)
+        val finalResponse = response ?: getAiResponse(note)
+        
+        val messages = JSONArray()
+        messages.put(JSONObject().put("role", "user").put("content", finalOriginal))
+        
+        if (finalResponse.isNotBlank()) {
+            val segments = finalResponse.split("\n---\n")
+            segments.forEach { seg ->
+                val trimmed = seg.trim()
+                if (trimmed.isEmpty()) return@forEach
+                
+                val lines = trimmed.lines()
+                val firstLine = lines.firstOrNull() ?: ""
+                if (firstLine.startsWith("Q:")) {
+                     val q = firstLine.substringAfter("Q:").trim()
+                     val a = lines.drop(1).joinToString("\n").trim()
+                     messages.put(JSONObject().put("role", "user").put("content", q))
+                     messages.put(JSONObject().put("role", "assistant").put("content", a))
+                } else {
+                     messages.put(JSONObject().put("role", "assistant").put("content", trimmed))
+                }
+            }
+        }
+        return note.copy(messages = messages.toString())
     }
 
     // Handle volume down button as back navigation

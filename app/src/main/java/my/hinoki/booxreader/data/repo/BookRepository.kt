@@ -12,7 +12,7 @@ import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
 
-class BookRepository(context: Context, private val syncRepo: UserSyncRepository? = null) {
+class BookRepository(private val context: Context, private val syncRepo: UserSyncRepository? = null) {
 
     private val bookDao = AppDatabase.get(context).bookDao()
 
@@ -178,10 +178,26 @@ class BookRepository(context: Context, private val syncRepo: UserSyncRepository?
         } catch (_: Exception) {}
     }
 
-    /** 生成安全的bookId，使用MD5哈希避免Firestore文檔ID中的非法字符 */
+    /** Generate safe bookId using MD5 of file content */
     private fun generateBookId(fileUri: String): String {
         val digest = MessageDigest.getInstance("MD5")
-        val hashBytes = digest.digest(fileUri.toByteArray(Charsets.UTF_8))
+        try {
+            val uri = android.net.Uri.parse(fileUri)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val buffer = ByteArray(8192)
+                var read: Int
+                while (input.read(buffer).also { read = it } != -1) {
+                    digest.update(buffer, 0, read)
+                }
+            } ?: run {
+                // Fallback to URI hash if file open failed
+                digest.update(fileUri.toByteArray(Charsets.UTF_8))
+            }
+        } catch (e: Exception) {
+            // Fallback to URI hash on error
+            digest.update(fileUri.toByteArray(Charsets.UTF_8))
+        }
+        val hashBytes = digest.digest()
         return hashBytes.joinToString("") { "%02x".format(it) }
     }
 }

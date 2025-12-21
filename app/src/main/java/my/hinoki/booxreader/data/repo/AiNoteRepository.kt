@@ -170,11 +170,17 @@ class AiNoteRepository(
             bookDao.getByIds(listOf(id)).firstOrNull()?.title
         }
 
+        val messages = JSONArray().apply {
+            put(JSONObject().put("role", "user").put("content", originalText))
+            if (aiResponse.isNotBlank()) {
+                put(JSONObject().put("role", "assistant").put("content", aiResponse))
+            }
+        }
+
         val note = AiNoteEntity(
             bookId = bookId,
             bookTitle = resolvedTitle,
-            originalText = originalText,
-            aiResponse = aiResponse,
+            messages = messages.toString(),
             locatorJson = locatorJson,
             updatedAt = System.currentTimeMillis()
         )
@@ -203,7 +209,7 @@ class AiNoteRepository(
     }
 
     suspend fun findNoteByText(text: String): AiNoteEntity? {
-        return dao.findLatestByOriginalText(text)
+        return null
     }
 
     private fun getSettings(): ReaderSettings {
@@ -467,13 +473,18 @@ class AiNoteRepository(
 
         val notesArray = JSONArray().apply {
             notes.forEach { note ->
+                val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+                val originalText = msgs.optJSONObject(0)?.optString("content") ?: ""
+                val aiResponse = if (msgs.length() > 1) msgs.optJSONObject(msgs.length()-1)?.optString("content") ?: "" else ""
+
                 put(
                     JSONObject().apply {
                         put("id", note.id)
                         put("bookId", note.bookId ?: JSONObject.NULL)
                         put("bookTitle", note.bookTitle ?: bookTitlesById[note.bookId] ?: JSONObject.NULL)
-                        put("originalText", note.originalText)
-                        put("aiResponse", note.aiResponse)
+                        put("originalText", originalText)
+                        put("aiResponse", aiResponse)
+                        put("messages", msgs)
                         put("locatorJson", note.locatorJson ?: JSONObject.NULL)
                         put("createdAt", note.createdAt)
                     }
@@ -664,7 +675,7 @@ class AiNoteRepository(
                     val requestBuilder = Request.Builder().url(url)
 
                     if (isGoogle) {
-                        val history = buildOpenAiHistory(note)
+                        val history = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
                         // Add current user message
                         val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
                         history.put(JSONObject().apply {
@@ -688,7 +699,7 @@ class AiNoteRepository(
 
                     } else {
                         // Standard OpenAI
-                        val history = buildOpenAiHistory(note)
+                        val history = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
                         val systemPrompt = settings.aiSystemPrompt
                         
                         val messages = JSONArray()
@@ -748,7 +759,7 @@ class AiNoteRepository(
                 // Legacy
                 try {
                     val payload = JSONObject().apply {
-                        put("history", buildHistoryArray(note))
+                        put("history", try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() })
                         put("text", followUpText)
                     }
 
@@ -790,7 +801,7 @@ class AiNoteRepository(
         val settings = getSettings()
         if (settings.apiKey.isNotBlank()) {
             val url = getBaseUrl() // Direct URL
-            val history = buildOpenAiHistory(note)
+            val history = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
             
             // System Prompt from Settings
             val systemPrompt = settings.aiSystemPrompt
@@ -834,15 +845,15 @@ class AiNoteRepository(
 
              val requestPayload = if (isGoogle) {
                 // History + User Input -> Google 'contents'
-                val history = buildOpenAiHistory(note)
-                val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
-                history.put(JSONObject().apply {
+                val historyGoogle = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+                val userInputWithHintGoogle = String.format(settings.safeUserPromptTemplate, followUpText)
+                historyGoogle.put(JSONObject().apply {
                     put("role", "user")
-                    put("content", userInputWithHint)
+                    put("content", userInputWithHintGoogle)
                 })
                 val googlePayload = transformToGooglePayload(
                     settings.aiModelName, 
-                    history, 
+                    historyGoogle, 
                     settings.aiSystemPrompt,
                     settings.temperature,
                     settings.maxTokens,
@@ -861,7 +872,7 @@ class AiNoteRepository(
 
         } else {
             val payload = JSONObject().apply {
-                put("history", buildHistoryArray(note))
+                put("history", try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() })
                 put("text", followUpText)
             }
             val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE_STREAM
@@ -990,156 +1001,6 @@ class AiNoteRepository(
         val delta: String,
         val done: Boolean
     )
-
-    private fun buildHistoryArray(note: AiNoteEntity): JSONArray {
-        val history = JSONArray()
-
-        // Base user message
-        history.put(
-            JSONObject().apply {
-                put("role", "user")
-                put("parts", JSONArray().put(JSONObject().put("text", String.format(getSettings().safeUserPromptTemplate, note.originalText))))
-            }
-        )
-
-        if (note.aiResponse.isBlank()) {
-            return history
-        }
-
-        // Split existing responses by separator to reconstruct turns
-        val segments = note.aiResponse.split("\n---\n").filter { it.isNotBlank() }
-        if (segments.isNotEmpty()) {
-            // First segment: original AI answer
-            val baseAnswer = segments.first().trim()
-            if (baseAnswer.isNotEmpty()) {
-                history.put(
-                    JSONObject().apply {
-                        put("role", "model")
-                        put("parts", JSONArray().put(JSONObject().put("text", baseAnswer)))
-                    }
-                )
-            }
-
-            // Subsequent segments: follow-up Q/A pairs formatted as "Q: <question>\n\n<answer>"
-            segments.drop(1).forEach { seg ->
-                val trimmed = seg.trim()
-                if (trimmed.isEmpty()) return@forEach
-                val lines = trimmed.lines()
-                val first = lines.firstOrNull()?.trim().orEmpty()
-
-                val qPrefix =
-                    first.startsWith("Q:", true) ||
-                        first.startsWith("Question:", true) ||
-                        first.startsWith("User:", true)
-
-                if (qPrefix) {
-                    val question = first.substringAfter(":").trim()
-                    val answer = lines.drop(1).joinToString("\n").trim()
-
-                    if (question.isNotEmpty()) {
-                        history.put(
-                            JSONObject().apply {
-                                put("role", "user")
-                                put("parts", JSONArray().put(JSONObject().put("text", question)))
-                            }
-                        )
-                    }
-                    if (answer.isNotEmpty()) {
-                        history.put(
-                            JSONObject().apply {
-                                put("role", "model")
-                                put("parts", JSONArray().put(JSONObject().put("text", answer)))
-                            }
-                        )
-                    }
-                } else {
-                    // No recognizable user prefix: treat whole segment as model to avoid mislabeling
-                    history.put(
-                        JSONObject().apply {
-                            put("role", "model")
-                            put("parts", JSONArray().put(JSONObject().put("text", trimmed)))
-                        }
-                    )
-                }
-            }
-        }
-
-        return history
-    }
-
-    private fun buildOpenAiHistory(note: AiNoteEntity): JSONArray {
-        val history = JSONArray()
-
-        // Base user message
-        history.put(
-            JSONObject().apply {
-                put("role", "user")
-                put("content", String.format(getSettings().safeUserPromptTemplate, note.originalText))
-            }
-        )
-
-        if (note.aiResponse.isBlank()) {
-            return history
-        }
-
-        // Split existing responses
-        val segments = note.aiResponse.split("\n---\n").filter { it.isNotBlank() }
-        if (segments.isNotEmpty()) {
-            // First segment: original AI answer
-            val baseAnswer = segments.first().trim()
-            if (baseAnswer.isNotEmpty()) {
-                history.put(
-                    JSONObject().apply {
-                        put("role", getSettings().assistantRole)
-                        put("content", baseAnswer)
-                    }
-                )
-            }
-
-            // Subsequent segments
-            segments.drop(1).forEach { seg ->
-                val trimmed = seg.trim()
-                if (trimmed.isEmpty()) return@forEach
-                val lines = trimmed.lines()
-                val first = lines.firstOrNull()?.trim().orEmpty()
-
-                val qPrefix =
-                    first.startsWith("Q:", true) ||
-                        first.startsWith("Question:", true) ||
-                        first.startsWith("User:", true)
-
-                if (qPrefix) {
-                    val question = first.substringAfter(":").trim()
-                    val answer = lines.drop(1).joinToString("\n").trim()
-
-                    if (question.isNotEmpty()) {
-                        history.put(
-                            JSONObject().apply {
-                                put("role", "user")
-                                put("content", question)
-                            }
-                        )
-                    }
-                    if (answer.isNotEmpty()) {
-                        history.put(
-                            JSONObject().apply {
-                                put("role", getSettings().assistantRole)
-                                put("content", answer)
-                            }
-                        )
-                    }
-                } else {
-                    history.put(
-                        JSONObject().apply {
-                            put("role", getSettings().assistantRole)
-                            put("content", trimmed)
-                        }
-                    )
-                }
-            }
-        }
-        return history
-    }
 }
 
 data class ExportResult(

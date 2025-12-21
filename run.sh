@@ -178,7 +178,7 @@ check_dependencies() {
     if command -v adb &> /dev/null; then
         ADB_AVAILABLE=true
     else
-        warn "adb not found; device install/launch will be skipped."
+        warn "adb not found; device install will be skipped."
         ADB_AVAILABLE=false
     fi
     
@@ -283,7 +283,7 @@ check_adb_device() {
         return
     fi
     if ! adb devices -l | awk 'NR>1 && $2=="device" {found=1} END {exit found?0:1}'; then
-        warn "No Android device connected/authorized; install/launch steps will be skipped."
+        warn "No Android device connected/authorized; install steps will be skipped."
         ADB_AVAILABLE=false
     fi
 }
@@ -780,11 +780,11 @@ main() {
         
         echo "Installation completed successfully."
         
-        # Launch the app using monkey command
-        echo "Launching the app..."
-        adb shell monkey -p my.hinoki.booxreader -c android.intent.category.LAUNCHER 1
+        # Launch the app using monkey command (commented out to prevent auto-launch)
+        # echo "Launching the app..."
+        # adb shell monkey -p my.hinoki.booxreader -c android.intent.category.LAUNCHER 1
     else
-        echo "Skipping install/launch because ADB is unavailable."
+        echo "Skipping install because ADB is unavailable."
     fi
     
     # Git operations only for release builds
