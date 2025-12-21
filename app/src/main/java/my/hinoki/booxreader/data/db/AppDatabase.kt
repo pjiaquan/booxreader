@@ -4,10 +4,11 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 
 @Database(
     entities = [BookEntity::class, BookmarkEntity::class, AiNoteEntity::class, UserEntity::class, AiProfileEntity::class],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -105,6 +106,55 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `ai_notes` ADD COLUMN `originalText` TEXT")
+                database.execSQL("ALTER TABLE `ai_notes` ADD COLUMN `aiResponse` TEXT")
+
+                val cursor =
+                    database.query(
+                        "SELECT id, messages, originalText, aiResponse FROM ai_notes"
+                    )
+                val update =
+                    database.compileStatement(
+                        "UPDATE ai_notes SET originalText = ?, aiResponse = ? WHERE id = ?"
+                    )
+                cursor.use {
+                    while (it.moveToNext()) {
+                        val id = it.getLong(0)
+                        val messages = it.getString(1)
+                        val existingOriginal =
+                            it.getString(2)?.takeIf { value -> value.isNotBlank() }
+                        val existingResponse =
+                            it.getString(3)?.takeIf { value -> value.isNotBlank() }
+
+                        val derivedOriginal =
+                            existingOriginal
+                                ?: AiNoteSerialization.originalTextFromMessages(messages)
+                        val derivedResponse =
+                            existingResponse
+                                ?: AiNoteSerialization.aiResponseFromMessages(messages)
+
+                        if (derivedOriginal != existingOriginal || derivedResponse != existingResponse) {
+                            if (derivedOriginal == null) {
+                                update.bindNull(1)
+                            } else {
+                                update.bindString(1, derivedOriginal)
+                            }
+                            if (derivedResponse == null) {
+                                update.bindNull(2)
+                            } else {
+                                update.bindString(2, derivedResponse)
+                            }
+                            update.bindLong(3, id)
+                            update.executeUpdateDelete()
+                            update.clearBindings()
+                        }
+                    }
+                }
+            }
+        }
+
         fun get(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -112,7 +162,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "boox_reader.db"
                 )
-                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                 // .fallbackToDestructiveMigration() // REMOVED: unsafe for production
                 .build().also { INSTANCE = it }
             }

@@ -11,6 +11,7 @@ import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -20,8 +21,6 @@ import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.ext.latex.JLatexMathPlugin
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
-import org.json.JSONArray
-import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -715,62 +714,20 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun getOriginalText(note: AiNoteEntity): String {
-        val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
-        return msgs.optJSONObject(0)?.optString("content", "") ?: ""
+        return note.originalText?.takeIf { it.isNotBlank() }
+            ?: AiNoteSerialization.originalTextFromMessages(note.messages).orEmpty()
     }
 
     private fun getAiResponse(note: AiNoteEntity): String {
-        val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
-        if (msgs.length() < 2) return ""
-        val sb = StringBuilder()
-        // First assistant response
-        val first = msgs.optJSONObject(1)
-        if (first?.optString("role") == "assistant") {
-            sb.append(first.optString("content"))
-        }
-        
-        // Subsequent turns
-        for (i in 2 until msgs.length() step 2) {
-             val user = msgs.optJSONObject(i)
-             val assistant = msgs.optJSONObject(i+1)
-             
-             if (user != null && user.optString("role") == "user") {
-                 sb.append("\n---\nQ: ").append(user.optString("content"))
-             }
-             if (assistant != null && assistant.optString("role") == "assistant") {
-                 sb.append("\n\n").append(assistant.optString("content"))
-             }
-        }
-        return sb.toString()
+        return note.aiResponse?.takeIf { it.isNotBlank() }
+            ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
     }
 
     private fun updateNoteFromStrings(note: AiNoteEntity, original: String?, response: String?): AiNoteEntity {
         val finalOriginal = original ?: getOriginalText(note)
         val finalResponse = response ?: getAiResponse(note)
-        
-        val messages = JSONArray()
-        messages.put(JSONObject().put("role", "user").put("content", finalOriginal))
-        
-        if (finalResponse.isNotBlank()) {
-            val marker = "\n---\nQ:"
-            val segments = finalResponse.split(marker)
-            val first = segments.firstOrNull()?.trim().orEmpty()
-            if (first.isNotEmpty()) {
-                messages.put(JSONObject().put("role", "assistant").put("content", first))
-            }
-            if (segments.size > 1) {
-                for (i in 1 until segments.size) {
-                    val seg = segments[i].trimStart()
-                    if (seg.isEmpty()) continue
-                    val lines = seg.lines()
-                    val q = lines.firstOrNull()?.trim().orEmpty()
-                    val a = lines.drop(1).joinToString("\n").trim()
-                    messages.put(JSONObject().put("role", "user").put("content", q))
-                    messages.put(JSONObject().put("role", "assistant").put("content", a))
-                }
-            }
-        }
-        return note.copy(messages = messages.toString())
+        val messages = AiNoteSerialization.messagesFromOriginalAndResponse(finalOriginal, finalResponse)
+        return note.copy(messages = messages, originalText = finalOriginal, aiResponse = finalResponse)
     }
 
     // Handle volume down button as back navigation

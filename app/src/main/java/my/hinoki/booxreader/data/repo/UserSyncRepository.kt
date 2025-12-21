@@ -23,6 +23,7 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
+import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -770,10 +771,16 @@ class UserSyncRepository(context: Context) {
                         val now = System.currentTimeMillis()
                         val payload =
                                 SupabaseAiNote(
+                                        id = note.remoteId,
                                         userId = userId,
                                         bookId = note.bookId,
                                         bookTitle = note.bookTitle,
-                                        messages = parseLocatorJson(note.messages),
+                                        originalText =
+                                                note.originalText?.takeIf { it.isNotBlank() }
+                                                        ?: AiNoteSerialization.originalTextFromMessages(note.messages),
+                                        aiResponse =
+                                                note.aiResponse?.takeIf { it.isNotBlank() }
+                                                        ?: AiNoteSerialization.aiResponseFromMessages(note.messages),
                                         locator = parseLocatorJson(note.locatorJson),
                                         createdAt = toIsoTimestamp(note.createdAt),
                                         updatedAt = toIsoTimestamp(now)
@@ -847,13 +854,20 @@ suspend fun pullNotes(): Int =
                                                 ?: (existing?.createdAt ?: System.currentTimeMillis())
                                 val updatedAt = fromIsoTimestamp(remote.updatedAt)
 
+                                val messages =
+                                        AiNoteSerialization.messagesFromOriginalAndResponse(
+                                                remote.originalText,
+                                                remote.aiResponse
+                                        )
                                 val entity =
                                         AiNoteEntity(
                                                 id = existing?.id ?: 0,
                                                 remoteId = remoteId,
                                                 bookId = remote.bookId,
                                                 bookTitle = remote.bookTitle,
-                                                messages = locatorToString(remote.messages) ?: "[]",
+                                                messages = messages,
+                                                originalText = remote.originalText,
+                                                aiResponse = remote.aiResponse,
                                                 locatorJson = locatorToString(remote.locator),
                                                 createdAt = createdAt,
                                                 updatedAt = updatedAt
@@ -1411,12 +1425,20 @@ data class SupabaseBook(
 
 data class SupabaseAiNote(
         val id: String? = null,
+        @SerializedName("user_id")
         val userId: String? = null,
+        @SerializedName("book_id")
         val bookId: String? = null,
+        @SerializedName("book_title")
         val bookTitle: String? = null,
-        val messages: JsonElement? = null,
+        @SerializedName("original_text")
+        val originalText: String? = null,
+        @SerializedName("ai_response")
+        val aiResponse: String? = null,
         val locator: JsonElement? = null,
+        @SerializedName("created_at")
         val createdAt: String? = null,
+        @SerializedName("updated_at")
         val updatedAt: String? = null
 )
 

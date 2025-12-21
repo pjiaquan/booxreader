@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
+import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.remote.HttpConfig
@@ -181,6 +182,8 @@ class AiNoteRepository(
             bookId = bookId,
             bookTitle = resolvedTitle,
             messages = messages.toString(),
+            originalText = originalText,
+            aiResponse = aiResponse,
             locatorJson = locatorJson,
             updatedAt = System.currentTimeMillis()
         )
@@ -191,25 +194,75 @@ class AiNoteRepository(
     }
 
     suspend fun update(note: AiNoteEntity) {
-        val updated = note.copy(updatedAt = System.currentTimeMillis())
+        val base =
+            note.copy(
+                originalText =
+                    note.originalText?.takeIf { it.isNotBlank() }
+                        ?: AiNoteSerialization.originalTextFromMessages(note.messages),
+                aiResponse =
+                    note.aiResponse?.takeIf { it.isNotBlank() }
+                        ?: AiNoteSerialization.aiResponseFromMessages(note.messages),
+                updatedAt = System.currentTimeMillis()
+            )
+        val hasSource = !base.originalText.isNullOrBlank() || !base.aiResponse.isNullOrBlank()
+        val messages =
+            if (hasSource) {
+                AiNoteSerialization.messagesFromOriginalAndResponse(
+                    base.originalText,
+                    base.aiResponse
+                )
+            } else {
+                base.messages
+            }
+        val updated = base.copy(messages = messages)
         dao.update(updated)
         syncRepo?.pushNote(updated)
     }
 
     suspend fun getById(id: Long): AiNoteEntity? {
-        return dao.getById(id)
+        return dao.getById(id)?.let { normalizeForRead(it) }
     }
 
     suspend fun getAll(): List<AiNoteEntity> {
-        return dao.getAll()
+        return dao.getAll().map { normalizeForRead(it) }
     }
     
     suspend fun getByBook(bookId: String): List<AiNoteEntity> {
-        return dao.getByBookId(bookId)
+        return dao.getByBookId(bookId).map { normalizeForRead(it) }
     }
 
     suspend fun findNoteByText(text: String): AiNoteEntity? {
         return null
+    }
+
+    private suspend fun normalizeForRead(note: AiNoteEntity): AiNoteEntity {
+        val hasSource =
+            !note.originalText.isNullOrBlank() || !note.aiResponse.isNullOrBlank()
+        if (!hasSource) return note
+        val messages =
+            AiNoteSerialization.messagesFromOriginalAndResponse(
+                note.originalText,
+                note.aiResponse
+            )
+        return note.copy(messages = messages)
+    }
+
+    private fun buildMessagesJson(note: AiNoteEntity): String {
+        val hasSource =
+            !note.originalText.isNullOrBlank() || !note.aiResponse.isNullOrBlank()
+        return if (hasSource) {
+            AiNoteSerialization.messagesFromOriginalAndResponse(
+                note.originalText,
+                note.aiResponse
+            )
+        } else {
+            note.messages
+        }
+    }
+
+    private fun buildMessages(note: AiNoteEntity): JSONArray {
+        val json = buildMessagesJson(note)
+        return runCatching { JSONArray(json) }.getOrDefault(JSONArray())
     }
 
     private fun getSettings(): ReaderSettings {
@@ -473,9 +526,13 @@ class AiNoteRepository(
 
         val notesArray = JSONArray().apply {
             notes.forEach { note ->
-                val msgs = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
-                val originalText = msgs.optJSONObject(0)?.optString("content") ?: ""
-                val aiResponse = if (msgs.length() > 1) msgs.optJSONObject(msgs.length()-1)?.optString("content") ?: "" else ""
+                val msgs = buildMessages(note)
+                val originalText =
+                    note.originalText?.takeIf { it.isNotBlank() }
+                        ?: AiNoteSerialization.originalTextFromMessages(msgs.toString()).orEmpty()
+                val aiResponse =
+                    note.aiResponse?.takeIf { it.isNotBlank() }
+                        ?: AiNoteSerialization.aiResponseFromMessages(msgs.toString()).orEmpty()
 
                 put(
                     JSONObject().apply {
@@ -675,7 +732,7 @@ class AiNoteRepository(
                     val requestBuilder = Request.Builder().url(url)
 
                     if (isGoogle) {
-                        val history = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+                        val history = buildMessages(note)
                         // Add current user message
                         val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
                         history.put(JSONObject().apply {
@@ -699,7 +756,7 @@ class AiNoteRepository(
 
                     } else {
                         // Standard OpenAI
-                        val history = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+                        val history = buildMessages(note)
                         val systemPrompt = settings.aiSystemPrompt
                         
                         val messages = JSONArray()
@@ -759,7 +816,7 @@ class AiNoteRepository(
                 // Legacy
                 try {
                     val payload = JSONObject().apply {
-                        put("history", try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() })
+                        put("history", buildMessages(note))
                         put("text", followUpText)
                     }
 
@@ -801,7 +858,7 @@ class AiNoteRepository(
         val settings = getSettings()
         if (settings.apiKey.isNotBlank()) {
             val url = getBaseUrl() // Direct URL
-            val history = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+            val history = buildMessages(note)
             
             // System Prompt from Settings
             val systemPrompt = settings.aiSystemPrompt
@@ -845,7 +902,7 @@ class AiNoteRepository(
 
              val requestPayload = if (isGoogle) {
                 // History + User Input -> Google 'contents'
-                val historyGoogle = try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() }
+                val historyGoogle = buildMessages(note)
                 val userInputWithHintGoogle = String.format(settings.safeUserPromptTemplate, followUpText)
                 historyGoogle.put(JSONObject().apply {
                     put("role", "user")
@@ -872,7 +929,7 @@ class AiNoteRepository(
 
         } else {
             val payload = JSONObject().apply {
-                put("history", try { JSONArray(note.messages) } catch(e: Exception) { JSONArray() })
+                put("history", buildMessages(note))
                 put("text", followUpText)
             }
             val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE_STREAM

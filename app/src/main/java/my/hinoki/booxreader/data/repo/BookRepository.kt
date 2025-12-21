@@ -178,9 +178,9 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
         } catch (_: Exception) {}
     }
 
-    /** Generate safe bookId using MD5 of file content */
+    /** Generate safe bookId using SHA-256 of file content */
     private fun generateBookId(fileUri: String): String {
-        val digest = MessageDigest.getInstance("MD5")
+        val digest = MessageDigest.getInstance("SHA-256")
         try {
             val uri = android.net.Uri.parse(fileUri)
             context.contentResolver.openInputStream(uri)?.use { input ->

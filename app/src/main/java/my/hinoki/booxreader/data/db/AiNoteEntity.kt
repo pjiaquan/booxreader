@@ -10,6 +10,8 @@ data class AiNoteEntity(
     val bookId: String?, // Optional: link to a book
     val bookTitle: String? = null,
     val messages: String, // JSON Array of conversation turns
+    val originalText: String? = null,
+    val aiResponse: String? = null,
     val locatorJson: String? = null, // For highlighting
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
