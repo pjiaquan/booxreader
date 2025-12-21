@@ -167,6 +167,8 @@ dependencies {
     implementation(libs.google.material)
     implementation(libs.markwon.core)
     implementation(libs.markwon.ext.tables)
+    implementation(libs.markwon.ext.latex)
+    implementation(libs.markwon.inline.parser)
 
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)

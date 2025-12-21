@@ -18,6 +18,8 @@ import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.ext.latex.JLatexMathPlugin
+import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +58,8 @@ class AiNoteDetailActivity : BaseActivity() {
     private val markwon by lazy {
         Markwon.builder(this)
             .usePlugin(TablePlugin.create(this))
+            .usePlugin(JLatexMathPlugin.create(binding.tvAiResponse.textSize))
+            .usePlugin(MarkwonInlineParserPlugin.create())
             .build()
     }
     private var autoStreamText: String? = null
