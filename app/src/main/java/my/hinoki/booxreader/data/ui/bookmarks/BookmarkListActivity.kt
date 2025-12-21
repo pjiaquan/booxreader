@@ -74,7 +74,7 @@ class BookmarkListActivity : BaseActivity() {
 
     private fun loadBookmarks() {
         lifecycleScope.launch {
-            // Pull latest from Firestore (best effort)
+            // Pull latest from Supabase (best effort)
             runCatching { syncRepo.pullBookmarks(bookId) }
 
             bookmarks = repo.getBookmarks(bookId)

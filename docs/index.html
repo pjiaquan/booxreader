@@ -16,14 +16,14 @@
       <div class="hero__content">
         <div class="badge">Android · EPUB · Private Sync</div>
         <h1>Private EPUB reader with resilient sync and AI-linked notes.</h1>
-        <p class="lede">Fast on e-ink, with Firestore/Storage mirroring your books, progress, and bookmarks. Improved i18n keeps the UI consistent across languages, and AI responses stay tethered to the passages you highlight.</p>
+        <p class="lede">Fast on e-ink, with Supabase Postgres/Storage mirroring your books, progress, and bookmarks. Improved i18n keeps the UI consistent across languages, and AI responses stay tethered to the passages you highlight.</p>
         <div class="cta-row">
           <a class="btn primary" href="https://play.google.com/store/apps/details?id=my.hinoki.booxreader">Get on Google Play</a>
           <a class="btn ghost" href="https://github.com/pjiaquan/booxreader/releases">Get latest APK on GitHub</a>
         </div>
         <div class="meta">
-          <span>Private sync (per-user Firestore)</span>
-          <span>Full EPUB backup to Firebase Storage</span>
+          <span>Private sync (per-user Supabase)</span>
+          <span>Full EPUB backup to Supabase Storage</span>
           <span>Optimized for Boox & Android</span>
           <span>Better language support (i18n)</span>
         </div>
@@ -34,8 +34,8 @@
           <div class="card">
             <p class="card__title">Cloud Sync</p>
             <p class="card__body">Progress, bookmarks, AI notes, and book files are backed up to your account.</p>
-            <div class="pill">Firebase Storage</div>
-            <div class="pill">Firestore</div>
+            <div class="pill">Supabase Storage</div>
+            <div class="pill">Supabase Postgres</div>
           </div>
         </div>
       </div>
@@ -55,7 +55,7 @@
           </article>
           <article class="feature">
             <h3>Progress & bookmarks</h3>
-            <p>Per-page progress and bookmarks mirror through Firestore. Open on any device and continue exactly where you left off.</p>
+            <p>Per-page progress and bookmarks mirror through Supabase. Open on any device and continue exactly where you left off.</p>
           </article>
           <article class="feature">
             <h3>AI-linked notes</h3>
@@ -71,7 +71,7 @@
           </article>
           <article class="feature">
             <h3>Secure by default</h3>
-            <p>Per-user Firestore rules, upload-size guards, and SHA-256 checks. Local data stays private to your account.</p>
+            <p>Row-level security policies, upload-size guards, and SHA-256 checks. Local data stays private to your account.</p>
           </article>
           <article class="feature">
             <h3>Open & portable</h3>
@@ -85,14 +85,14 @@
           <p class="eyebrow">How it works</p>
           <h2>Resilient sync pipeline</h2>
           <ul class="list">
-            <li><strong>Book files:</strong> On first open, the EPUB uploads to Firebase Storage with checksum metadata; repeated opens reuse the stored copy if unchanged.</li>
-            <li><strong>Progress:</strong> Locator JSON cached locally and mirrored to Firestore for instant resume on any device.</li>
-            <li><strong>Bookmarks & notes:</strong> Stored locally for offline, then pushed to Firestore; pulls on demand to keep devices aligned.</li>
+            <li><strong>Book files:</strong> On first open, the EPUB uploads to Supabase Storage with checksum metadata; repeated opens reuse the stored copy if unchanged.</li>
+            <li><strong>Progress:</strong> Locator JSON cached locally and mirrored to Supabase for instant resume on any device.</li>
+            <li><strong>Bookmarks & notes:</strong> Stored locally for offline, then pushed to Supabase; pulls on demand to keep devices aligned.</li>
           </ul>
         </div>
         <div class="callout">
           <h3>Privacy stance</h3>
-          <p>Your library and notes are scoped to your Firebase user. No sharing or public listings—just your data on your devices.</p>
+          <p>Your library and notes are scoped to your account. No sharing or public listings—just your data on your devices.</p>
           <div class="chips">
             <span>Per-user rules</span>
             <span>Checksum uploads</span>
@@ -106,7 +106,7 @@
         <h2>Install and sync in minutes</h2>
         <ol>
           <li>Install from Google Play (or sideload the latest APK).</li>
-          <li>Sign in with your account to enable Firestore and Storage sync.</li>
+          <li>Sign in with your account to enable Supabase sync.</li>
           <li>Open an EPUB and start reading—your progress and files back up automatically.</li>
         </ol>
       </section>

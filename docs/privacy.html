@@ -29,12 +29,12 @@
         <div class="section__header">
           <p class="eyebrow">What we collect</p>
           <h2>Only what is needed to sync your library and AI notes.</h2>
-          <p class="muted">All cloud data is isolated to your Firebase user. We do not show ads or run third-party analytics.</p>
+          <p class="muted">All cloud data is isolated to your account. We do not show ads or run third-party analytics.</p>
         </div>
         <div class="feature-grid">
           <article class="feature">
             <h3>Account & identity</h3>
-            <p>Firebase Authentication manages sign-in. We store your Firebase UID and the sign-in email you provide.</p>
+            <p>Supabase Authentication manages sign-in. We store your Supabase user ID and the sign-in email you provide.</p>
           </article>
           <article class="feature">
             <h3>App data you create</h3>
@@ -56,7 +56,7 @@
           <p class="eyebrow">How we use data</p>
           <h2>To sync your reading state and power AI responses.</h2>
           <ul class="list">
-            <li>Sync library files, progress, bookmarks, and notes across your devices via Firestore and Firebase Storage.</li>
+            <li>Sync library files, progress, bookmarks, and notes across your devices via Supabase Postgres and Supabase Storage.</li>
             <li>Generate AI explanations or summaries by sending your provided text to the AI provider you choose.</li>
             <li>Maintain your AI profiles and preferences so you can reuse them on all signed-in devices.</li>
             <li>Troubleshoot reliability issues using minimal diagnostic logs.</li>
@@ -65,9 +65,9 @@
         <div class="callout">
           <h3>Where data lives</h3>
           <ul class="list">
-            <li>Authentication: Firebase Authentication.</li>
-            <li>Cloud database: Firestore (per-user documents).</li>
-            <li>File storage: Firebase Storage for EPUB backups.</li>
+            <li>Authentication: Supabase Authentication.</li>
+            <li>Cloud database: Supabase Postgres (per-user rows).</li>
+            <li>File storage: Supabase Storage for EPUB backups.</li>
             <li>AI providers: Gemini (Google Generative Language API) or OpenAI-compatible endpoints you configure; optional Google Search when enabled.</li>
             <li>On-device: Local caches for offline reading; removed when you uninstall the app.</li>
           </ul>
@@ -78,7 +78,7 @@
         <div>
           <p class="eyebrow">Sharing</p>
           <h2>Your data is not sold.</h2>
-          <p class="muted">We share data only with services required to run the app (Firebase and the AI provider you select). No ads, no third-party tracking SDKs.</p>
+          <p class="muted">We share data only with services required to run the app (Supabase and the AI provider you select). No ads, no third-party tracking SDKs.</p>
         </div>
         <div>
           <p class="eyebrow">Retention & control</p>
@@ -96,7 +96,7 @@
         <h2>Transport encryption and per-user access rules.</h2>
         <ol>
           <li>All network traffic uses HTTPS/TLS.</li>
-          <li>Firestore security rules scope documents to your authenticated user.</li>
+          <li>Row-level security policies scope records to your authenticated user.</li>
           <li>We minimize stored data to what is necessary for sync and AI features.</li>
         </ol>
       </section>

@@ -1206,6 +1206,8 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
 
         private fun accessToken(): String? = tokenManager.getAccessToken()?.takeIf { it.isNotBlank() }
 
+        suspend fun getUserId(): String? = requireUserId()
+
         private suspend fun requireUserId(): String? =
                 withContext(io) {
                         val cached = cachedUserId

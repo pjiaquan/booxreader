@@ -110,7 +110,7 @@ class ReaderViewModelTest {
 
         viewModel.saveProgress(json)
 
-        // Should still try to sync to Firestore and Local DB
+        // Should still try to sync to Supabase and Local DB
         verify(syncRepo, timeout(1000)).pushProgress(eq(bookId), eq(json), anyOrNull())
         verify(bookRepo, timeout(1000)).updateProgress(eq(bookId), eq(json))
     }

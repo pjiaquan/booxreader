@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "ai_notes")
 data class AiNoteEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val remoteId: String? = null, // Firestore doc id for cross-device sync
+    val remoteId: String? = null, // Remote doc id for cross-device sync
     val bookId: String?, // Optional: link to a book
     val bookTitle: String? = null,
     val messages: String, // JSON Array of conversation turns

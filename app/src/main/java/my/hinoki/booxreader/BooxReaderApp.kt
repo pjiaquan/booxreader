@@ -11,6 +11,7 @@ import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.remote.AuthInterceptor
+import my.hinoki.booxreader.data.remote.SupabaseRealtimeBookSync
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -26,6 +27,7 @@ class BooxReaderApp : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
     private var periodicSyncRunnable: Runnable = Runnable { }
+    private var realtimeBookSync: SupabaseRealtimeBookSync? = null
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(my.hinoki.booxreader.data.ui.common.LocaleHelper.onAttach(base))
@@ -51,6 +53,9 @@ class BooxReaderApp : Application() {
         
         // Initialize automatic AI profile sync
         initializeAiProfileSync()
+
+        // Start realtime deletes if a user is already signed in
+        startRealtimeBookSync()
     }
     
     private fun initializeAiProfileSync() {
@@ -107,6 +112,23 @@ class BooxReaderApp : Application() {
         // Clean up periodic sync when app terminates
         periodicSyncHandler?.removeCallbacks(periodicSyncRunnable)
         periodicSyncHandler = null
+        stopRealtimeBookSync()
+    }
+
+    fun startRealtimeBookSync() {
+        if (realtimeBookSync == null) {
+            realtimeBookSync =
+                SupabaseRealtimeBookSync(
+                    applicationContext,
+                    okHttpClient,
+                    tokenManager,
+                    applicationScope
+                )
+        }
+        realtimeBookSync?.start()
+    }
+
+    fun stopRealtimeBookSync() {
+        realtimeBookSync?.stop()
     }
 }
-

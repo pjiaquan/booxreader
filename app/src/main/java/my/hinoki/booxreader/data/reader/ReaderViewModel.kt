@@ -215,7 +215,7 @@ class ReaderViewModel(
                 // Ignore
             }
 
-            // 2. Push to Firestore for cross-device sync (best effort)
+            // 2. Push to Supabase for cross-device sync (best effort)
             runCatching {
                 val title = _publication.value?.metadata?.title
                 syncRepo.pushProgress(key, json, bookTitle = title)

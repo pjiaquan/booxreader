@@ -79,8 +79,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 87
-        versionName = "1.1.86"
+        versionCode = 88
+        versionName = "1.1.87"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
@@ -93,7 +93,7 @@ android {
 
     buildTypes {
         debug {
-            // Use release signing config for debug to match Firebase SHA-1
+            // Use release signing config for debug to match release signing keys if needed
             // signingConfig = signingConfigs.getByName("release")
         }
         release {
@@ -173,7 +173,7 @@ dependencies {
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.auth)
-    
+
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

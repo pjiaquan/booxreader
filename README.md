@@ -9,8 +9,8 @@ Private EPUB reader for Android with resilient cloud sync and AI-linked notes, t
 ## Highlights
 
 - EPUB reading tuned for e-ink (reduced motion + refresh controls)
-- Sync progress, bookmarks, and notes via Firestore
-- Backup EPUB files via Firebase Storage (checksum-based)
+- Sync progress, bookmarks, and notes via Supabase
+- Backup EPUB files via Supabase Storage (checksum-based)
 - Improved language/i18n support across locales
 
 ## Build
@@ -34,4 +34,3 @@ export ANDROID_SDK_ROOT="$HOME/Android/Sdk"
 export PATH="$ANDROID_SDK_ROOT/build-tools/35.0.0:$PATH"
 apksigner version
 ```
-

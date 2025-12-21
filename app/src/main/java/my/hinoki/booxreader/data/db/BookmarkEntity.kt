@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "bookmarks")
 data class BookmarkEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val remoteId: String? = null, // Firestore doc id
+    val remoteId: String? = null, // Remote doc id
     val bookId: String,
     val locatorJson: String,
     val createdAt: Long,

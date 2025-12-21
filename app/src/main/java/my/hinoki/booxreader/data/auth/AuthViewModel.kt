@@ -24,6 +24,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val result = authRepo.login(email, pass)
             result.fold(
                 onSuccess = {
+                    (getApplication<Application>() as BooxReaderApp).startRealtimeBookSync()
                     _authState.value = AuthState.Success
                 },
                 onFailure = { 
@@ -57,6 +58,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val result = authRepo.googleLogin(idToken, email, name)
             result.fold(
                 onSuccess = {
+                    (getApplication<Application>() as BooxReaderApp).startRealtimeBookSync()
                     _authState.value = AuthState.Success
                 },
                 onFailure = { 
@@ -87,6 +89,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
     fun logout() {
         viewModelScope.launch {
             authRepo.logout()
+            (getApplication<Application>() as BooxReaderApp).stopRealtimeBookSync()
             _authState.value = AuthState.Idle
         }
     }

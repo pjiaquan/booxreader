@@ -28,7 +28,7 @@ data class AiProfileEntity(
     val enableGoogleSearch: Boolean = true,
     
     // Sync Metadata
-    val remoteId: String? = null, // Firebase Doc ID
+    val remoteId: String? = null, // Remote doc ID
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isSynced: Boolean = false
