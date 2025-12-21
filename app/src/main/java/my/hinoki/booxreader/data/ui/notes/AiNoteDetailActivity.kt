@@ -657,6 +657,9 @@ class AiNoteDetailActivity : BaseActivity() {
         pendingStreamingMarkdown = markdown
         streamingRenderJob?.cancel()
 
+        val priorScrollY = binding.scrollView.scrollY
+        val wasAtBottom = isAtBottom()
+
         // Delay slightly when we appear to be in the middle of a table row so the parser
         // receives a complete block, which prevents malformed table rendering during SSE.
         val delayMs = when {
@@ -669,6 +672,13 @@ class AiNoteDetailActivity : BaseActivity() {
             if (delayMs > 0) delay(delayMs)
             if (pendingStreamingMarkdown == markdown) {
                 markwon.setMarkdown(binding.tvAiResponse, markdown)
+                binding.scrollView.post {
+                    if (wasAtBottom) {
+                        scrollToBottom()
+                    } else {
+                        restoreScrollIfJumped(priorScrollY)
+                    }
+                }
             }
         }
     }
@@ -689,6 +699,14 @@ class AiNoteDetailActivity : BaseActivity() {
         // If the last non-blank line looks like part of a table and there is no blank
         // line after it yet, wait for more content before re-rendering.
         return lastLine.isNotEmpty() && (hasTablePipes || looksLikeHeaderSeparator)
+    }
+
+    private fun isAtBottom(): Boolean {
+        val scrollView = binding.scrollView
+        val child = scrollView.getChildAt(0) ?: return true
+        val visibleHeight = scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+        val contentHeight = child.height
+        return scrollView.scrollY + visibleHeight >= contentHeight - scrollView.paddingBottom - 8
     }
 
     private fun setLoading(active: Boolean) {
