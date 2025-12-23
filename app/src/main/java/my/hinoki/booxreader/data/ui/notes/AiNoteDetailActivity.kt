@@ -2,41 +2,38 @@ package my.hinoki.booxreader.data.ui.notes
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.text.Selection
+import android.text.Spannable
+import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
-import android.view.ActionMode
-import android.text.Selection
-import android.text.Spannable
 import android.widget.Toast
-import androidx.core.graphics.ColorUtils
-import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.color.MaterialColors
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import io.noties.markwon.Markwon
+import io.noties.markwon.ext.latex.JLatexMathPlugin
+import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.core.eink.EInkHelper
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
-import io.noties.markwon.Markwon
-import io.noties.markwon.ext.tables.TablePlugin
-import io.noties.markwon.ext.latex.JLatexMathPlugin
-import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import my.hinoki.booxreader.core.eink.EInkHelper
-import android.content.res.ColorStateList
-import com.google.android.material.color.MaterialColors
-import kotlin.math.roundToInt
 
 class AiNoteDetailActivity : BaseActivity() {
 
@@ -46,29 +43,30 @@ class AiNoteDetailActivity : BaseActivity() {
         private const val EXTRA_AUTO_STREAM_TEXT = "extra_auto_stream_text"
 
         fun open(context: Context, noteId: Long, autoStreamText: String? = null) {
-            val intent = Intent(context, AiNoteDetailActivity::class.java).apply {
-                putExtra(EXTRA_NOTE_ID, noteId)
-                if (autoStreamText != null) {
-                    putExtra(EXTRA_AUTO_STREAM_TEXT, autoStreamText)
-                }
-            }
+            val intent =
+                    Intent(context, AiNoteDetailActivity::class.java).apply {
+                        putExtra(EXTRA_NOTE_ID, noteId)
+                        if (autoStreamText != null) {
+                            putExtra(EXTRA_AUTO_STREAM_TEXT, autoStreamText)
+                        }
+                    }
             context.startActivity(intent)
         }
     }
 
     private lateinit var binding: ActivityAiNoteDetailBinding
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
-    private val repository by lazy { 
+    private val repository by lazy {
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
-        AiNoteRepository(app, app.okHttpClient, syncRepo) 
+        AiNoteRepository(app, app.okHttpClient, syncRepo)
     }
     private var currentNote: AiNoteEntity? = null
     private val markwon by lazy {
         Markwon.builder(this)
-            .usePlugin(TablePlugin.create(this))
-            .usePlugin(JLatexMathPlugin.create(binding.tvAiResponse.textSize))
-            .usePlugin(MarkwonInlineParserPlugin.create())
-            .build()
+                .usePlugin(TablePlugin.create(this))
+                .usePlugin(JLatexMathPlugin.create(binding.tvAiResponse.textSize))
+                .usePlugin(MarkwonInlineParserPlugin.create())
+                .build()
     }
     private var autoStreamText: String? = null
     private val selectionSanitizeRegex = Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$")
@@ -97,7 +95,6 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
         binding.tvAiResponse.customSelectionActionModeCallback = selectionActionModeCallback
 
-
         val noteId = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
         autoStreamText = intent.getStringExtra(EXTRA_AUTO_STREAM_TEXT)
         if (noteId == -1L) {
@@ -122,7 +119,12 @@ class AiNoteDetailActivity : BaseActivity() {
             val note = currentNote ?: return@setOnClickListener
             val question = binding.etFollowUp.text.toString().trim()
             if (question.isEmpty()) {
-                Toast.makeText(this, getString(R.string.ai_note_follow_up_hint_input), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this,
+                                getString(R.string.ai_note_follow_up_hint_input),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
                 return@setOnClickListener
             }
             sendFollowUp(note, question)
@@ -130,17 +132,14 @@ class AiNoteDetailActivity : BaseActivity() {
 
         // 初始化快速滾動到底按鈕
         scrollToBottomButton = findViewById(R.id.btnScrollToBottom)
-        scrollToBottomButton?.setOnClickListener {
-            scrollToBottom()
-        }
+        scrollToBottomButton?.setOnClickListener { scrollToBottom() }
         scrollToBottomButton?.setOnTouchListener { view, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     isScrollButtonPressed = true
                     updateScrollButtonAppearance()
                 }
-                android.view.MotionEvent.ACTION_UP,
-                android.view.MotionEvent.ACTION_CANCEL -> {
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                     isScrollButtonPressed = false
                     updateScrollButtonAppearance()
                 }
@@ -179,52 +178,73 @@ class AiNoteDetailActivity : BaseActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    private val selectionActionModeCallback = object : android.view.ActionMode.Callback {
-        override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean {
-            selectionActionMode = mode
-            menu?.add(android.view.Menu.NONE, 999, 0, getString(R.string.action_publish))
-            menu?.add(android.view.Menu.NONE, 1000, 1, getString(R.string.action_publish_follow_up))
-            menu?.add(android.view.Menu.NONE, 1001, 2, getString(R.string.action_map_search))
-            menu?.add(android.view.Menu.NONE, 1002, 3, getString(R.string.action_google_search))
-            return true
-        }
+    private val selectionActionModeCallback =
+            object : android.view.ActionMode.Callback {
+                override fun onCreateActionMode(
+                        mode: android.view.ActionMode?,
+                        menu: android.view.Menu?
+                ): Boolean {
+                    selectionActionMode = mode
+                    menu?.add(android.view.Menu.NONE, 999, 0, getString(R.string.action_publish))
+                    menu?.add(
+                            android.view.Menu.NONE,
+                            1000,
+                            1,
+                            getString(R.string.action_publish_follow_up)
+                    )
+                    menu?.add(
+                            android.view.Menu.NONE,
+                            1001,
+                            2,
+                            getString(R.string.action_map_search)
+                    )
+                    menu?.add(
+                            android.view.Menu.NONE,
+                            1002,
+                            3,
+                            getString(R.string.action_google_search)
+                    )
+                    return true
+                }
 
-        override fun onPrepareActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean {
-            return false
-        }
+                override fun onPrepareActionMode(
+                        mode: android.view.ActionMode?,
+                        menu: android.view.Menu?
+                ): Boolean {
+                    return false
+                }
 
-        override fun onActionItemClicked(mode: android.view.ActionMode?, item: android.view.MenuItem?): Boolean {
-            if (item?.itemId == 999) {
-                handleSelectionAction { selectedText ->
-                    createAndPublishNewNote(selectedText)
+                override fun onActionItemClicked(
+                        mode: android.view.ActionMode?,
+                        item: android.view.MenuItem?
+                ): Boolean {
+                    if (item?.itemId == 999) {
+                        handleSelectionAction { selectedText ->
+                            createAndPublishNewNote(selectedText)
+                        }
+                        return true
+                    }
+                    if (item?.itemId == 1000) {
+                        handleSelectionAction { selectedText ->
+                            promptFollowUpPublish(selectedText)
+                        }
+                        return true
+                    }
+                    if (item?.itemId == 1001) {
+                        handleSelectionAction { selectedText -> openMapSearch(selectedText) }
+                        return true
+                    }
+                    if (item?.itemId == 1002) {
+                        handleSelectionAction { selectedText -> openWebSearch(selectedText) }
+                        return true
+                    }
+                    return false
                 }
-                return true
-            }
-            if (item?.itemId == 1000) {
-                handleSelectionAction { selectedText ->
-                    promptFollowUpPublish(selectedText)
-                }
-                return true
-            }
-            if (item?.itemId == 1001) {
-                handleSelectionAction { selectedText ->
-                    openMapSearch(selectedText)
-                }
-                return true
-            }
-            if (item?.itemId == 1002) {
-                handleSelectionAction { selectedText ->
-                    openWebSearch(selectedText)
-                }
-                return true
-            }
-            return false
-        }
 
-        override fun onDestroyActionMode(mode: android.view.ActionMode?) {
-            selectionActionMode = null
-        }
-    }
+                override fun onDestroyActionMode(mode: android.view.ActionMode?) {
+                    selectionActionMode = null
+                }
+            }
 
     private fun clearTextSelection() {
         if (binding.tvOriginalText.hasSelection()) {
@@ -256,7 +276,9 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun handleSelectionAction(onSelected: (String) -> Unit) {
-        val tv = if (binding.tvOriginalText.hasSelection()) binding.tvOriginalText else binding.tvAiResponse
+        val tv =
+                if (binding.tvOriginalText.hasSelection()) binding.tvOriginalText
+                else binding.tvAiResponse
 
         if (tv.isFocused && tv.hasSelection()) {
             val min = tv.selectionStart
@@ -268,7 +290,12 @@ class AiNoteDetailActivity : BaseActivity() {
                 if (trimmedText.isNotBlank()) {
                     onSelected(trimmedText)
                 } else {
-                    Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                                    this,
+                                    getString(R.string.action_selection_empty),
+                                    Toast.LENGTH_SHORT
+                            )
+                            .show()
                 }
             }
 
@@ -279,28 +306,39 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun createAndPublishNewNote(text: String) {
-        
+
         lifecycleScope.launch {
             // 0. Check existence
             val existingNote = repository.findNoteByText(text)
             if (existingNote != null) {
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_note_found), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_note_found),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
                 AiNoteDetailActivity.open(this@AiNoteDetailActivity, existingNote.id)
                 return@launch
             }
 
-            Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_publishing_selection), Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                            this@AiNoteDetailActivity,
+                            getString(R.string.ai_note_publishing_selection),
+                            Toast.LENGTH_SHORT
+                    )
+                    .show()
 
             // 1. Save Draft
             // Use current note's bookId if available
             val bookId = currentNote?.bookId
-            val newNoteId = repository.add(
-                bookId = bookId,
-                originalText = text,
-                aiResponse = "",
-                bookTitle = currentNote?.bookTitle
-            )
-            
+            val newNoteId =
+                    repository.add(
+                            bookId = bookId,
+                            originalText = text,
+                            aiResponse = "",
+                            bookTitle = currentNote?.bookTitle
+                    )
+
             // 2. Fetch
             val useStreaming = repository.isStreamingEnabled()
             if (useStreaming) {
@@ -314,7 +352,7 @@ class AiNoteDetailActivity : BaseActivity() {
             }
 
             val result = repository.fetchAiExplanation(text)
-            
+
             if (result != null) {
                 val (serverText, content) = result
                 val note = repository.getById(newNoteId)
@@ -325,9 +363,14 @@ class AiNoteDetailActivity : BaseActivity() {
                 // Open the NEW note
                 AiNoteDetailActivity.open(this@AiNoteDetailActivity, newNoteId)
             } else {
-                 Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_saved_draft_network_error), Toast.LENGTH_SHORT).show()
-                 // Open the NEW draft
-                 AiNoteDetailActivity.open(this@AiNoteDetailActivity, newNoteId)
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_saved_draft_network_error),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+                // Open the NEW draft
+                AiNoteDetailActivity.open(this@AiNoteDetailActivity, newNoteId)
             }
         }
     }
@@ -348,26 +391,32 @@ class AiNoteDetailActivity : BaseActivity() {
                     }
                 }
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_not_found), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_not_found),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
                 finish()
             }
         }
     }
 
     private fun updateUI(
-        note: AiNoteEntity,
-        scrollToQuestionHeader: Boolean = false,
-        preserveScroll: Boolean = true
+            note: AiNoteEntity,
+            scrollToQuestionHeader: Boolean = false,
+            preserveScroll: Boolean = true
     ) {
         // Capture current scroll to avoid jumping when we re-render markdown
-        val previousScrollY = if (!scrollToQuestionHeader && preserveScroll) {
-            binding.scrollView.scrollY
-        } else {
-            null
-        }
+        val previousScrollY =
+                if (!scrollToQuestionHeader && preserveScroll) {
+                    binding.scrollView.scrollY
+                } else {
+                    null
+                }
 
         markwon.setMarkdown(binding.tvOriginalText, getOriginalText(note))
-        
+
         val aiResponse = getAiResponse(note)
 
         if (aiResponse.isBlank()) {
@@ -387,10 +436,10 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.btnGoToPage.visibility = View.VISIBLE
             binding.btnGoToPage.setOnClickListener {
                 my.hinoki.booxreader.data.ui.reader.ReaderActivity.open(
-                    this@AiNoteDetailActivity,
-                    note.bookId,
-                    note.bookTitle,
-                    note.locatorJson
+                        this@AiNoteDetailActivity,
+                        note.bookId,
+                        note.bookTitle,
+                        note.locatorJson
                 )
             }
         } else {
@@ -419,9 +468,7 @@ class AiNoteDetailActivity : BaseActivity() {
             }
         } else {
             // UI更新完成後檢查按鈕狀態
-            binding.scrollView.post {
-                checkScrollPosition()
-            }
+            binding.scrollView.post { checkScrollPosition() }
         }
     }
 
@@ -448,9 +495,19 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_published), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_published),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_publish_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_publish_failed),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             }
@@ -461,7 +518,6 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun sendFollowUp(note: AiNoteEntity, question: String) {
-        val savedScrollY = currentScrollY()
         binding.btnFollowUp.isEnabled = false
         binding.btnFollowUp.text = getString(R.string.ai_note_follow_up_publishing)
         setLoading(true)
@@ -470,33 +526,41 @@ class AiNoteDetailActivity : BaseActivity() {
             try {
                 val useStreaming = repository.isStreamingEnabled()
                 val currentAiResponse = getAiResponse(note)
-                val result = if (useStreaming) {
-                    repository.continueConversationStreaming(note, question) { partial ->
-                        val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
-                        val preview = currentAiResponse +
-                                separator +
-                                "---\nQ: " + question + "\n\n" + partial
-                        renderStreamingMarkdown(preview, isFollowUp = true)
-                        // restoreScrollIfJumped(savedScrollY)
-                    }
-                } else {
-                    repository.continueConversation(note, question)
-                }
+                val result =
+                        if (useStreaming) {
+                            repository.continueConversationStreaming(note, question) { partial ->
+                                val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
+                                val preview =
+                                        currentAiResponse +
+                                                separator +
+                                                "---\nQ: " +
+                                                question +
+                                                "\n\n" +
+                                                partial
+                                renderStreamingMarkdown(preview, isFollowUp = true)
+                                // restoreScrollIfJumped(savedScrollY)
+                            }
+                        } else {
+                            repository.continueConversation(note, question)
+                        }
                 clearStreamingRenderer()
                 if (result != null) {
                     val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
-                    val newContent = currentAiResponse +
-                            separator +
-                            "---\nQ: " + question + "\n\n" + result
+                    val newContent =
+                            currentAiResponse + separator + "---\nQ: " + question + "\n\n" + result
                     val updated = updateNoteFromStrings(note, null, newContent)
                     repository.update(updated)
                     currentNote = updated
                     // Avoid jumping the viewport after publish to keep the reader in place.
-                    updateUI(updated, scrollToQuestionHeader = false)
+                    updateUI(updated, scrollToQuestionHeader = false, preserveScroll = false)
                     binding.etFollowUp.setText("")
-                    Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_follow_up_success), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_follow_up_failed), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                                    this@AiNoteDetailActivity,
+                                    getString(R.string.ai_note_follow_up_failed),
+                                    Toast.LENGTH_SHORT
+                            )
+                            .show()
                 }
             } finally {
                 binding.btnFollowUp.isEnabled = true
@@ -528,9 +592,19 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_republish_success), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_republish_success),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_republish_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_republish_failed),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
             }
             binding.btnRepublishSelection.isEnabled = true
             binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
@@ -551,7 +625,8 @@ class AiNoteDetailActivity : BaseActivity() {
         if (question.isNotEmpty()) {
             sendFollowUp(note, question)
         } else {
-            Toast.makeText(this, getString(R.string.ai_note_follow_up_empty), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.ai_note_follow_up_empty), Toast.LENGTH_SHORT)
+                    .show()
         }
     }
 
@@ -559,9 +634,10 @@ class AiNoteDetailActivity : BaseActivity() {
         setLoading(true)
         val savedScrollY = preserveScrollY ?: currentScrollY()
         lifecycleScope.launch {
-            val result = repository.fetchAiExplanationStreaming(text) { partial ->
-                renderStreamingMarkdown(partial)
-            }
+            val result =
+                    repository.fetchAiExplanationStreaming(text) { partial ->
+                        renderStreamingMarkdown(partial)
+                    }
             clearStreamingRenderer()
             if (result != null) {
                 val (serverText, content) = result
@@ -570,7 +646,12 @@ class AiNoteDetailActivity : BaseActivity() {
                 currentNote = updated
                 updateUI(updated)
             } else {
-                Toast.makeText(this@AiNoteDetailActivity, getString(R.string.ai_note_streaming_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_streaming_failed),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             }
@@ -584,27 +665,38 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun openMapSearch(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
-            Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT)
+                    .show()
             return
         }
         val encoded = Uri.encode(trimmed)
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=$encoded"))
+        val intent =
+                Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://www.google.com/maps/search/?api=1&query=$encoded")
+                )
         intent.addCategory(Intent.CATEGORY_BROWSABLE)
-        runCatching { startActivity(intent) }
-            .onFailure { Toast.makeText(this, getString(R.string.action_map_search_failed), Toast.LENGTH_SHORT).show() }
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(this, getString(R.string.action_map_search_failed), Toast.LENGTH_SHORT)
+                    .show()
+        }
     }
 
     private fun openWebSearch(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
-            Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.action_selection_empty), Toast.LENGTH_SHORT)
+                    .show()
             return
         }
         val encoded = Uri.encode(trimmed)
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=$encoded"))
+        val intent =
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=$encoded"))
         intent.addCategory(Intent.CATEGORY_BROWSABLE)
-        runCatching { startActivity(intent) }
-            .onFailure { Toast.makeText(this, getString(R.string.action_web_search_failed), Toast.LENGTH_SHORT).show() }
+        runCatching { startActivity(intent) }.onFailure {
+            Toast.makeText(this, getString(R.string.action_web_search_failed), Toast.LENGTH_SHORT)
+                    .show()
+        }
     }
 
     // 設置滾動監聽
@@ -625,7 +717,7 @@ class AiNoteDetailActivity : BaseActivity() {
 
             if (childView != null) {
                 val visibleHeight =
-                    scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+                        scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
                 val maxScroll = (childView.height - visibleHeight).coerceAtLeast(0)
                 // 方法1: 直接設置滾動位置
 
@@ -633,25 +725,30 @@ class AiNoteDetailActivity : BaseActivity() {
                 scrollView.scrollTo(0, maxScroll)
 
                 // 延遲後再次確保滾動到底部
-                scrollView.postDelayed({
-                    // 方法2: 使用 fullScroll 作為備用
-                    scrollView.fullScroll(View.FOCUS_DOWN)
+                scrollView.postDelayed(
+                        {
+                            // 方法2: 使用 fullScroll 作為備用
+                            scrollView.fullScroll(View.FOCUS_DOWN)
 
-                    // 方法3: 再次直接設置滾動位置（最終保險）
-                    val finalVisibleHeight =
-                        scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
-                    val finalMaxScroll = (childView.height - finalVisibleHeight).coerceAtLeast(0)
-                    scrollView.scrollTo(0, finalMaxScroll)
+                            // 方法3: 再次直接設置滾動位置（最終保險）
+                            val finalVisibleHeight =
+                                    scrollView.height -
+                                            scrollView.paddingTop -
+                                            scrollView.paddingBottom
+                            val finalMaxScroll =
+                                    (childView.height - finalVisibleHeight).coerceAtLeast(0)
+                            scrollView.scrollTo(0, finalMaxScroll)
 
+                            // 滾動完成後隱藏按鈕
+                            hideScrollButton()
 
-                    // 滾動完成後隱藏按鈕
-                    hideScrollButton()
-
-                    // 觸發文石刷新以確保顯示更新
-                    if (EInkHelper.isBooxDevice()) {
-                        EInkHelper.refreshFull(scrollView)
-                    }
-                }, 100)
+                            // 觸發文石刷新以確保顯示更新
+                            if (EInkHelper.isBooxDevice()) {
+                                EInkHelper.refreshFull(scrollView)
+                            }
+                        },
+                        100
+                )
             }
         }
     }
@@ -665,9 +762,9 @@ class AiNoteDetailActivity : BaseActivity() {
             if (childView != null) {
                 // 檢查頁面內容是否超過螢幕高度（需要滾動）
                 val contentHeight = childView.height
-                val visibleHeight = scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+                val visibleHeight =
+                        scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
                 val needsScroll = contentHeight > visibleHeight
-
 
                 if (!needsScroll) {
                     // 頁面內容不夠長，不需要滾動按鈕
@@ -676,7 +773,9 @@ class AiNoteDetailActivity : BaseActivity() {
                 }
 
                 // 檢查是否已經滾動到底部
-                val isAtBottom = scrollView.scrollY + visibleHeight >= contentHeight - scrollView.paddingBottom
+                val isAtBottom =
+                        scrollView.scrollY + visibleHeight >=
+                                contentHeight - scrollView.paddingBottom
 
                 if (isAtBottom) {
                     // 在底部時隱藏按鈕
@@ -704,10 +803,7 @@ class AiNoteDetailActivity : BaseActivity() {
             if (button.visibility != View.VISIBLE) {
                 button.visibility = View.VISIBLE
                 button.alpha = 0f
-                button.animate()
-                    .alpha(1f)
-                    .setDuration(300)
-                    .start()
+                button.animate().alpha(1f).setDuration(300).start()
             }
         }
     }
@@ -717,12 +813,10 @@ class AiNoteDetailActivity : BaseActivity() {
         scrollToBottomButton?.let { button ->
             if (button.visibility == View.VISIBLE) {
                 button.animate()
-                    .alpha(0f)
-                    .setDuration(300)
-                    .withEndAction {
-                        button.visibility = View.GONE
-                    }
-                    .start()
+                        .alpha(0f)
+                        .setDuration(300)
+                        .withEndAction { button.visibility = View.GONE }
+                        .start()
             }
         }
         scrollButtonHideJob?.cancel()
@@ -737,15 +831,17 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.scrollView.post {
             val scrollView = binding.scrollView
             val child = scrollView.getChildAt(0)
-            val maxScroll = ((child?.height ?: 0) - scrollView.height + scrollView.paddingBottom)
-                .coerceAtLeast(0)
+            val maxScroll =
+                    ((child?.height ?: 0) - scrollView.height + scrollView.paddingBottom)
+                            .coerceAtLeast(0)
             val clampedTarget = targetY.coerceIn(0, maxScroll)
             val current = scrollView.scrollY
-            
+
             // Only fix if it weirdly jumped to top (common issue with text updates)
-            // We do NOT fix "jumping to bottom" because the user might have scrolled there manually to read.
+            // We do NOT fix "jumping to bottom" because the user might have scrolled there manually
+            // to read.
             val jumpedToTop = clampedTarget > 0 && current < clampedTarget - 48 && current < 64
-            
+
             if (jumpedToTop) {
                 scrollView.scrollTo(0, clampedTarget)
                 checkScrollPosition()
@@ -754,9 +850,9 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun renderStreamingMarkdown(
-        markdown: String,
-        force: Boolean = false,
-        isFollowUp: Boolean = false
+            markdown: String,
+            force: Boolean = false,
+            isFollowUp: Boolean = false
     ) {
         if (!force && markdown == lastRenderedMarkdown) return
         pendingStreamingMarkdown = markdown
@@ -765,60 +861,46 @@ class AiNoteDetailActivity : BaseActivity() {
         val priorScrollY = binding.scrollView.scrollY
         val wasAtBottom = isAtBottom()
         val nowMs = SystemClock.uptimeMillis()
-        val minIntervalMs =
-            if (EInkHelper.isBooxDevice()) {
-                if (isFollowUp) 420L else 320L
-            } else {
-                if (isFollowUp) 240L else 180L
-            }
-        val minCharDelta =
-            if (EInkHelper.isBooxDevice()) {
-                if (isFollowUp) 120 else 72
-            } else {
-                if (isFollowUp) 64 else 36
-            }
+        val minIntervalMs = if (EInkHelper.isBooxDevice()) 600L else 300L
+        val minCharDelta = if (isFollowUp) 128 else 64
+
         val lengthDelta = kotlin.math.abs(markdown.length - lastRenderedLength)
-        val midLatex = isLikelyMidLatex(markdown)
-        val midTable = isLikelyMidTable(markdown)
+        val intervalPassed = (nowMs - lastRenderAtMs) >= minIntervalMs
 
-        // Delay slightly when we appear to be in the middle of a table row so the parser
-        // receives a complete block, which prevents malformed table rendering during SSE.
-        val baseDelay = when {
-            force -> 0L
-            midLatex -> 220L
-            midTable -> 160L
-            isFollowUp -> 120L
-            else -> 40L
-        }
-        val intervalDelay = (minIntervalMs - (nowMs - lastRenderAtMs)).coerceAtLeast(0L)
-        val delayMs =
-            if (!force && intervalDelay == 0L && lengthDelta >= minCharDelta && !midTable && !midLatex) {
-                0L
-            } else {
-                maxOf(baseDelay, intervalDelay)
-            }
+        if (!force && !intervalPassed && lengthDelta < minCharDelta) return
 
-        streamingRenderJob = lifecycleScope.launch(Dispatchers.Main) {
-            if (delayMs > 0) delay(delayMs)
-            if (pendingStreamingMarkdown == markdown) {
-                if (isFollowUp) {
-                    binding.tvAiResponse.text = markdown
-                } else {
-                    markwon.setMarkdown(binding.tvAiResponse, markdown)
-                }
-                lastRenderedMarkdown = markdown
-                lastRenderedLength = markdown.length
-                lastRenderAtMs = SystemClock.uptimeMillis()
-                binding.scrollView.post {
-                    if (wasAtBottom && !userPausedAutoScroll) {
-                        scrollToBottomImmediate()
-                    } else if (!userPausedAutoScroll && !isFollowUp) {
-                        restoreScrollIfJumped(priorScrollY)
+        streamingRenderJob =
+                lifecycleScope.launch(Dispatchers.Default) {
+                    try {
+                        // Parsing is pure logic, usually safe on BG
+                        val node = markwon.parse(markdown)
+
+                        // Rendering (creating Spans) might touch UI resources/plugins, safer on
+                        // Main
+                        withContext(Dispatchers.Main) {
+                            val spanned = markwon.render(node)
+
+                            if (pendingStreamingMarkdown == markdown) {
+                                val currentAtBottom = isAtBottom()
+                                binding.tvAiResponse.text = spanned
+                                lastRenderedMarkdown = markdown
+                                lastRenderedLength = markdown.length
+                                lastRenderAtMs = SystemClock.uptimeMillis()
+
+                                binding.scrollView.post {
+                                    if (currentAtBottom && !userPausedAutoScroll) {
+                                        scrollToBottomImmediate()
+                                    } else if (!userPausedAutoScroll && !isFollowUp) {
+                                        restoreScrollIfJumped(priorScrollY)
+                                    }
+                                    checkScrollPosition()
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                    checkScrollPosition()
                 }
-            }
-        }
     }
 
     private fun clearStreamingRenderer() {
@@ -830,8 +912,7 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun scrollToBottomImmediate() {
         val scrollView = binding.scrollView
         val childView = scrollView.getChildAt(0) ?: return
-        val visibleHeight =
-            scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+        val visibleHeight = scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
         val maxScroll = (childView.height - visibleHeight).coerceAtLeast(0)
         scrollView.scrollTo(0, maxScroll)
     }
@@ -887,20 +968,26 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun scheduleScrollButtonAutoHide() {
         scrollButtonHideJob?.cancel()
         scrollButtonHideJob =
-            lifecycleScope.launch(Dispatchers.Main) {
-                delay(2_000)
-                if (!isScrollButtonPressed) {
-                    hideScrollButton()
+                lifecycleScope.launch(Dispatchers.Main) {
+                    delay(2_000)
+                    if (!isScrollButtonPressed) {
+                        hideScrollButton()
+                    }
                 }
-            }
     }
 
     private fun updateScrollButtonAppearance() {
         val button = scrollToBottomButton ?: return
         val shouldBrighten =
-            isScrollButtonPressed || isScrollButtonHovered || (isLoading && !userPausedAutoScroll)
+                isScrollButtonPressed ||
+                        isScrollButtonHovered ||
+                        (isLoading && !userPausedAutoScroll)
         val baseColor =
-            MaterialColors.getColor(button, com.google.android.material.R.attr.colorPrimary, 0xFF000000.toInt())
+                MaterialColors.getColor(
+                        button,
+                        com.google.android.material.R.attr.colorPrimary,
+                        0xFF000000.toInt()
+                )
         button.backgroundTintList = ColorStateList.valueOf(0x00000000)
         button.imageTintList = ColorStateList.valueOf(baseColor)
         val alpha = if (shouldBrighten) activeScrollIconAlpha else idleScrollIconAlpha
@@ -909,19 +996,28 @@ class AiNoteDetailActivity : BaseActivity() {
 
     private fun getOriginalText(note: AiNoteEntity): String {
         return note.originalText?.takeIf { it.isNotBlank() }
-            ?: AiNoteSerialization.originalTextFromMessages(note.messages).orEmpty()
+                ?: AiNoteSerialization.originalTextFromMessages(note.messages).orEmpty()
     }
 
     private fun getAiResponse(note: AiNoteEntity): String {
         return note.aiResponse?.takeIf { it.isNotBlank() }
-            ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
+                ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
     }
 
-    private fun updateNoteFromStrings(note: AiNoteEntity, original: String?, response: String?): AiNoteEntity {
+    private fun updateNoteFromStrings(
+            note: AiNoteEntity,
+            original: String?,
+            response: String?
+    ): AiNoteEntity {
         val finalOriginal = original ?: getOriginalText(note)
         val finalResponse = response ?: getAiResponse(note)
-        val messages = AiNoteSerialization.messagesFromOriginalAndResponse(finalOriginal, finalResponse)
-        return note.copy(messages = messages, originalText = finalOriginal, aiResponse = finalResponse)
+        val messages =
+                AiNoteSerialization.messagesFromOriginalAndResponse(finalOriginal, finalResponse)
+        return note.copy(
+                messages = messages,
+                originalText = finalOriginal,
+                aiResponse = finalResponse
+        )
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
