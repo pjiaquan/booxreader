@@ -8,6 +8,7 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.ActionMode
 import android.view.GestureDetector
 import android.view.KeyEvent
@@ -617,12 +618,16 @@ class ReaderActivity : BaseActivity() {
                 )
 
         if (useNativeReader) {
-            val nativeFrag = NativeNavigatorFragment().apply { setPublication(publication) }
+            Log.d("ReaderActivity", "Initializing NativeNavigatorFragment")
+            val nativeFrag =
+                    NativeNavigatorFragment().apply { setPublication(publication, startLocator) }
             supportFragmentManager
                     .beginTransaction()
                     .replace(R.id.readerContainer, nativeFrag)
                     .commitNow()
             nativeNavigatorFragment = nativeFrag
+            Log.d("ReaderActivity", "NativeNavigatorFragment committed: $nativeNavigatorFragment")
+            observeLocatorUpdates() // Start observing native locator
             return
         }
 
@@ -1076,10 +1081,27 @@ class ReaderActivity : BaseActivity() {
 
     @OptIn(FlowPreview::class)
     private fun observeLocatorUpdates() {
-        val navigator = navigatorFragment ?: return
+        Log.d("ReaderActivity", "observeLocatorUpdates: useNativeReader=$useNativeReader")
+        val navigator = if (useNativeReader) nativeNavigatorFragment else navigatorFragment
+        Log.d("ReaderActivity", "navigator=$navigator")
+        if (navigator == null) return
+
+        val locatorFlow =
+                when (navigator) {
+                    is EpubNavigatorFragment -> navigator.currentLocator
+                    is NativeNavigatorFragment -> navigator.currentLocator
+                    else -> {
+                        Log.e(
+                                "ReaderActivity",
+                                "Unknown navigator type: ${navigator::class.simpleName}"
+                        )
+                        return
+                    }
+                }
+        Log.d("ReaderActivity", "Starting to collect locatorFlow: $locatorFlow")
 
         lifecycleScope.launch {
-            navigator.currentLocator.sample(1500).collectLatest {
+            locatorFlow.sample(1500).collectLatest {
                 val hrefKey = it.href?.toString()
                 val wasChapterSwitch = hrefKey != null && hrefKey != lastStyledHref
 
@@ -1087,7 +1109,7 @@ class ReaderActivity : BaseActivity() {
                 val currentLocatorBeforeReflow = it
 
                 // 當切換到新的章節時，重新確保字體設定正確
-                if (wasChapterSwitch) {
+                if (wasChapterSwitch && !useNativeReader) { // Only for WebView
                     lastStyledHref = hrefKey
                     stylesDirty = true
 
@@ -1109,9 +1131,9 @@ class ReaderActivity : BaseActivity() {
 
                 // 如果發生了樣式變更（重流），強制恢復到正確的位置
                 // 解決文石設備在章節切換時字體縮放導致跳轉到章節首頁的問題
-                if (wasDirty) {
+                if (wasDirty && !useNativeReader) {
                     // 使用 go 恢復位置，確保正確的分頁
-                    navigator.go(currentLocatorBeforeReflow, pageAnimationEnabled)
+                    navigatorFragment?.go(currentLocatorBeforeReflow, pageAnimationEnabled)
                 }
 
                 // 確保進度信息正確
@@ -1192,7 +1214,9 @@ class ReaderActivity : BaseActivity() {
         super.onWindowFocusChanged(hasFocus)
 
         if (hasFocus && EInkHelper.isBooxDevice()) {
-            val currentLoc = navigatorFragment?.currentLocator?.value
+            val currentLoc =
+                    if (useNativeReader) nativeNavigatorFragment?.currentLocator?.value
+                    else navigatorFragment?.currentLocator?.value
             val progression = currentLoc?.locations?.progression ?: 0.0
 
             // 如果當前進度為0 (可能因系統Overlay導致WebView重置)，且我們確認這不是真正的新書狀態
@@ -1204,7 +1228,11 @@ class ReaderActivity : BaseActivity() {
                     ) {
                         // Small delay to ensure WebView is ready effectively
                         delay(50)
-                        navigatorFragment?.go(savedLocator, animated = false)
+                        if (useNativeReader) {
+                            nativeNavigatorFragment?.go(savedLocator, animated = false)
+                        } else {
+                            navigatorFragment?.go(savedLocator, animated = false)
+                        }
                     } else {}
                 }
             }
@@ -1249,9 +1277,11 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun saveCurrentProgressImmediate() {
-        val navigator = navigatorFragment ?: return
         val key = viewModel.currentBookKey.value ?: return
-        val locator = navigator.currentLocator.value
+        val locator =
+                if (useNativeReader) nativeNavigatorFragment?.currentLocator?.value
+                else navigatorFragment?.currentLocator?.value
+        if (locator == null) return
 
         // 確保進度信息正確
         val enhancedLocator = enhanceLocatorWithProgress(locator)

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.text.TextPaint
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,12 +16,20 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.databinding.FragmentNativeReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
+import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.util.Url
+import org.readium.r2.shared.util.mediatype.MediaType
+
+private const val TAG = "NativeNavigator"
 
 class NativeNavigatorFragment : Fragment() {
 
@@ -37,11 +46,36 @@ class NativeNavigatorFragment : Fragment() {
     private var pager: NativeReaderPager? = null
     private var resourceText: String = ""
 
+    private val _currentLocator = run {
+        Log.d(TAG, "Initializing _currentLocator")
+        val url =
+                try {
+                    Url("native://initial")
+                            ?: Url("about:blank") ?: Url("/")
+                                    ?: throw IllegalStateException("Could not create any URL")
+                } catch (e: Exception) {
+                    Log.e(TAG, "FATAL: Failed to create initial URL", e)
+                    throw e
+                }
+        Log.d(TAG, "Url for initial locator is $url")
+        MutableStateFlow<Locator>(
+                Locator(
+                        href = url,
+                        mediaType = MediaType.BINARY,
+                        locations = Locator.Locations(progression = 0.0)
+                )
+        )
+    }
+    val currentLocator: StateFlow<Locator> = _currentLocator.asStateFlow()
+
+    private var initialLocator: Locator? = null
+
     override fun onCreateView(
             inflater: LayoutInflater,
             container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View {
+        Log.d(TAG, "onCreateView")
         _binding = FragmentNativeReaderBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -166,6 +200,7 @@ class NativeNavigatorFragment : Fragment() {
     }
 
     private fun checkDimensionsAndLoad() {
+        Log.d(TAG, "checkDimensionsAndLoad")
         val width =
                 binding.nativeReaderView.width -
                         binding.nativeReaderView.paddingLeft -
@@ -174,62 +209,122 @@ class NativeNavigatorFragment : Fragment() {
                 binding.nativeReaderView.height -
                         binding.nativeReaderView.paddingTop -
                         binding.nativeReaderView.paddingBottom
+        Log.d(TAG, "Dimensions: ${width}x${height}")
 
         if (width > 0 && height > 0) {
             val paint = TextPaint().apply { textSize = 98f }
             pager = NativeReaderPager(paint, width, height)
-            loadCurrentResource()
+
+            // If we have an initial locator, use it
+            val loc = initialLocator
+            if (loc != null) {
+                val pub = publication
+                if (pub != null) {
+                    val index =
+                            pub.readingOrder.indexOfFirst {
+                                it.href.toString() == loc.href.toString()
+                            }
+                    if (index != -1) {
+                        currentResourceIndex = index
+                        // We will handle intra-resource progression after paginating
+                    }
+                }
+            }
+
+            lifecycleScope.launch { loadCurrentResource() }
         } else {
             // Retry if not yet measured
             binding.nativeReaderView.postDelayed({ checkDimensionsAndLoad() }, 100)
         }
     }
 
-    fun setPublication(pub: Publication) {
+    fun setPublication(pub: Publication, initialLocator: Locator? = null) {
         this.publication = pub
+        this.initialLocator = initialLocator
         if (isResumed && pager != null) {
-            loadCurrentResource()
+            lifecycleScope.launch { loadCurrentResource() }
         }
     }
 
-    private fun loadCurrentResource(jumpToLastPage: Boolean = false) {
+    fun go(locator: Locator, animated: Boolean = false) {
         val pub = publication ?: return
-        val link = pub.readingOrder.getOrNull(currentResourceIndex) ?: return
+        val index = pub.readingOrder.indexOfFirst { it.href.toString() == locator.href.toString() }
+        if (index != -1) {
+            lifecycleScope.launch {
+                currentResourceIndex = index
+                // We need to wait for the resource to be loaded and paginated
+                loadCurrentResource()
 
+                val p = pager
+                if (p != null) {
+                    val progression = locator.locations.progression ?: 0.0
+                    val pageCount = p.pageCount
+                    if (pageCount > 0) {
+                        currentPageInResource =
+                                (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                        displayCurrentPage()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun loadCurrentResource(jumpToLastPage: Boolean = false) {
+        val pub =
+                publication
+                        ?: run {
+                            Log.e(TAG, "loadCurrentResource: publication is null")
+                            return
+                        }
+        val link =
+                pub.readingOrder.getOrNull(currentResourceIndex)
+                        ?: run {
+                            Log.e(
+                                    TAG,
+                                    "loadCurrentResource: link not found at index $currentResourceIndex"
+                            )
+                            return
+                        }
+
+        Log.d(TAG, "loadCurrentResource: index=$currentResourceIndex, link=${link.href}")
         binding.progressBar.visibility = View.VISIBLE
 
-        lifecycleScope.launch {
-            resourceText =
-                    withContext(Dispatchers.IO) {
-                        val resource = pub.get(link)
-                        val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
-                        stripHtml(html)
-                    }
-
-            if (resourceText.isEmpty() && currentResourceIndex < pub.readingOrder.size - 1) {
-                // Skip empty resource
-                currentResourceIndex++
-                loadCurrentResource()
-                return@launch
-            }
-
-            pager?.paginate(resourceText)
-
-            val p = pager
-            // If resource is empty or too small for a page, and it's not the last one
-            if ((p?.pageCount ?: 0) == 0 && currentResourceIndex < pub.readingOrder.size - 1) {
-                currentResourceIndex++
-                currentPageInResource = 0
-                loadCurrentResource()
-            } else {
-                if (jumpToLastPage) {
-                    currentPageInResource = (p?.pageCount ?: 1) - 1
+        resourceText =
+                withContext(Dispatchers.IO) {
+                    val resource = pub.get(link)
+                    val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
+                    stripHtml(html)
                 }
-                displayCurrentPage()
-            }
 
-            binding.progressBar.visibility = View.GONE
+        if (resourceText.isEmpty() && currentResourceIndex < pub.readingOrder.size - 1) {
+            // Skip empty resource
+            currentResourceIndex++
+            loadCurrentResource()
+            return
         }
+
+        pager?.paginate(resourceText)
+
+        val p = pager
+        // If resource is empty or too small for a page, and it's not the last one
+        if ((p?.pageCount ?: 0) == 0 && currentResourceIndex < pub.readingOrder.size - 1) {
+            currentResourceIndex++
+            currentPageInResource = 0
+            loadCurrentResource()
+        } else {
+            val loc = initialLocator
+            if (loc != null && loc.href.toString() == link.href.toString()) {
+                val progression = loc.locations.progression ?: 0.0
+                val pageCount = p?.pageCount ?: 1
+                currentPageInResource = (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                initialLocator = null // Clear after use
+            } else if (jumpToLastPage) {
+                currentPageInResource = (p?.pageCount ?: 1) - 1
+            }
+            displayCurrentPage()
+        }
+
+        binding.progressBar.visibility = View.GONE
     }
 
     private fun displayCurrentPage() {
@@ -243,8 +338,10 @@ class NativeNavigatorFragment : Fragment() {
         if (currentPageInResource >= p.pageCount) {
             currentPageInResource = 0
             if (currentResourceIndex < (publication?.readingOrder?.size ?: 0) - 1) {
-                currentResourceIndex++
-                loadCurrentResource()
+                lifecycleScope.launch {
+                    currentResourceIndex++
+                    loadCurrentResource()
+                }
             }
             return
         }
@@ -252,6 +349,43 @@ class NativeNavigatorFragment : Fragment() {
         val text = p.getPageText(currentPageInResource)
         binding.nativeReaderView.setContent(text)
         updatePageIndicator()
+        updateLocator()
+    }
+
+    private fun updateLocator() {
+        try {
+            val pub = publication ?: return
+            val link = pub.readingOrder.getOrNull(currentResourceIndex) ?: return
+            val p = pager ?: return
+
+            val pageCount = p.pageCount
+            val progression =
+                    if (pageCount > 0) currentPageInResource.toDouble() / pageCount else 0.0
+
+            // Simplified total progression
+            val totalResources = pub.readingOrder.size.toDouble()
+            val totalProgression = (currentResourceIndex + progression) / totalResources
+
+            Log.d(
+                    TAG,
+                    "updateLocator: index=$currentResourceIndex, prog=$progression, total=$totalProgression"
+            )
+
+            val locator =
+                    Locator(
+                            href = Url(link.href.toString())!!,
+                            mediaType = link.mediaType ?: MediaType.BINARY,
+                            title = link.title,
+                            locations =
+                                    Locator.Locations(
+                                            progression = progression,
+                                            totalProgression = totalProgression
+                                    )
+                    )
+            _currentLocator.value = locator
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in updateLocator", e)
+        }
     }
 
     private fun updatePageIndicator() {
@@ -269,9 +403,11 @@ class NativeNavigatorFragment : Fragment() {
             currentPageInResource++
             displayCurrentPage()
         } else if (currentResourceIndex < (publication?.readingOrder?.size ?: 0) - 1) {
-            currentResourceIndex++
-            currentPageInResource = 0
-            loadCurrentResource()
+            lifecycleScope.launch {
+                currentResourceIndex++
+                currentPageInResource = 0
+                loadCurrentResource()
+            }
         }
     }
 
@@ -280,8 +416,10 @@ class NativeNavigatorFragment : Fragment() {
             currentPageInResource--
             displayCurrentPage()
         } else if (currentResourceIndex > 0) {
-            currentResourceIndex--
-            loadCurrentResource(jumpToLastPage = true)
+            lifecycleScope.launch {
+                currentResourceIndex--
+                loadCurrentResource(jumpToLastPage = true)
+            }
         }
     }
 
