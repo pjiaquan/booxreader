@@ -2,6 +2,8 @@ package my.hinoki.booxreader.data.ui.reader
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
@@ -73,6 +75,7 @@ import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
+import org.readium.r2.navigator.epub.EpubPreferences
 
 @OptIn(ExperimentalReadiumApi::class)
 class ReaderActivity : BaseActivity() {
@@ -318,7 +321,6 @@ class ReaderActivity : BaseActivity() {
             })();
         """.trimIndent()
         webView.evaluateJavascript(js) { result ->
-            android.util.Log.d("ReaderSelection", "PageEdge($label): $result")
         }
     }
 
@@ -392,36 +394,25 @@ class ReaderActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.d("BOOX-DEBUG", "onCreate - isBoox: ${EInkHelper.isBooxDevice()}")
 
         // 文石設備特定設置
         if (EInkHelper.isBooxDevice()) {
             // We now use the official Onyx SDK via EInkHelper
-            android.util.Log.d("ReaderActivity", "onCreate - Boox Device detected, using Onyx SDK")
 
             // 測試多個可能的字體值
             val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
             val detectedSize = getBooxSystemFontSize()
 
-            android.util.Log.d("ReaderActivity", "文石設備檢測到的字體大小: $detectedSize%")
 
             // 如果檢測到的值不合理，使用文石常見的標準值
             currentFontSize =
                     if (detectedSize >= 100 && detectedSize <= 200) {
                         detectedSize
                     } else {
-                        android.util.Log.w(
-                                "ReaderActivity",
-                                "檢測到的字體大小不合理($detectedSize%)，使用文石標準140%"
-                        )
                         140 // 文石設備常見的標準大小
                     }
 
             currentFontWeight = 400 // 固定預設值
-            android.util.Log.d(
-                    "ReaderActivity",
-                    "onCreate最終設定字體: 大小=${currentFontSize}%, 粗細=${currentFontWeight}"
-            )
         }
 
         binding = ActivityReaderBinding.inflate(layoutInflater)
@@ -456,31 +447,21 @@ class ReaderActivity : BaseActivity() {
 
         // 關鍵：在程式啟動時立即強制讀取文石系統字體設定
         if (EInkHelper.isBooxDevice()) {
-            android.util.Log.d("ReaderActivity", "onCreate - 立即強制讀取文石系統字體設定")
 
             // 測試多個可能的字體值
             val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
             val detectedSize = getBooxSystemFontSize()
 
-            android.util.Log.d("ReaderActivity", "文石設備檢測到的字體大小: $detectedSize%")
 
             // 如果檢測到的值不合理，使用文石常見的標準值
             currentFontSize =
                     if (detectedSize >= 100 && detectedSize <= 200) {
                         detectedSize
                     } else {
-                        android.util.Log.w(
-                                "ReaderActivity",
-                                "檢測到的字體大小不合理($detectedSize%)，使用文石標準140%"
-                        )
                         140 // 文石設備常見的標準大小
                     }
 
             currentFontWeight = 400 // 固定預設值
-            android.util.Log.d(
-                    "ReaderActivity",
-                    "onCreate最終設定字體: 大小=${currentFontSize}%, 粗細=${currentFontWeight}"
-            )
         }
 
         val bookUri = intent.data
@@ -563,10 +544,6 @@ class ReaderActivity : BaseActivity() {
                     val savedJson = key?.let { syncRepo.getCachedProgress(it) }
 
                     val initialLocator = LocatorJsonHelper.fromJson(savedJson)
-                    android.util.Log.d(
-                            "BOOX-DEBUG",
-                            "setupObservers - Publication loaded, initialLocator: ${initialLocator?.locations?.progression}"
-                    )
                     initNavigator(it, initialLocator)
                 }
             }
@@ -612,37 +589,16 @@ class ReaderActivity : BaseActivity() {
                             it.href.toString().endsWith(href) || href.endsWith(it.href.toString())
                         }
                 if (fuzzyMatch != null) {
-                    android.util.Log.d(
-                            "ReaderDebug",
-                            "Correcting locator href: '$href' -> '${fuzzyMatch.href}'"
-                    )
                     startLocator = startLocator?.copy(href = Url(fuzzyMatch.href.toString())!!)
                 } else {
-                    android.util.Log.w(
-                            "ReaderDebug",
-                            "Could not find matching spine item for href: '$href'"
-                    )
                 }
             }
         }
 
-        android.util.Log.d(
-                "BOOX-DEBUG",
-                "initNavigator - startLocator: ${startLocator?.locations?.progression}, href: ${startLocator?.href}"
-        )
-        android.util.Log.d("ReaderDebug", "Initializing navigator. Final Locator: $startLocator")
         startLocator?.let {
-            android.util.Log.d(
-                    "ReaderDebug",
-                    "Locator Details JSON: ${LocatorJsonHelper.toJson(it)}"
-            )
         }
         // Avoid re-creating if already set up
         if (navigatorFragment != null) {
-            android.util.Log.d(
-                    "BOOX-DEBUG",
-                    "initNavigator - navigatorFragment already exists, skipping re-init"
-            )
             return
         }
         lastStyledHref = null
@@ -658,7 +614,8 @@ class ReaderActivity : BaseActivity() {
                 factory.createFragmentFactory(
                         initialLocator = startLocator,
                         listener = null,
-                        configuration = config
+                        configuration = config,
+                        initialPreferences = EpubPreferences(scroll = true)
                 )
 
         if (supportFragmentManager.findFragmentById(R.id.readerContainer) == null) {
@@ -678,10 +635,8 @@ class ReaderActivity : BaseActivity() {
         applySwipeNavigationSetting(navigatorFragment?.view)
 
         // 立即強制應用字體設定（不等待延遲）
-        android.util.Log.d("ReaderActivity", "initNavigator完成，立即強制應用字體設定")
         val immediateSize = getBooxSystemFontSize()
         currentFontSize = immediateSize
-        android.util.Log.d("ReaderActivity", "立即應用字體大小: $immediateSize%")
 
         // 直接設置WebView字體
         navigatorFragment?.view?.let { view -> findAndSetWebViewTextZoom(view, immediateSize) }
@@ -785,12 +740,20 @@ class ReaderActivity : BaseActivity() {
 
     private fun applyReaderCss(view: View?) {
         if (view is android.webkit.WebView) {
+            val pageBackground =
+                    when (currentContrastMode) {
+                        ContrastMode.NORMAL -> "#ffffff"
+                        ContrastMode.DARK -> "#000000"
+                        ContrastMode.SEPIA -> "#f4ecd8"
+                        ContrastMode.HIGH_CONTRAST -> "#000000"
+                    }
             val css =
                     """
                 /* Boox 專用：統一字體大小基準 - 使用更細緻的控制 */
                 :root {
                     --boox-base-font-size: 16px;
                     --boox-line-height: 1.6;
+                    --boox-page-bg: ${pageBackground};
                 }
 
                 html, body {
@@ -798,8 +761,22 @@ class ReaderActivity : BaseActivity() {
                     line-height: var(--boox-line-height) !important;
                     max-width: 100% !important;
                     width: 100% !important;
-                    margin: 0 auto !important;
+                    margin: 0 !important;
                     padding: 0 !important;
+                    min-height: 100vh !important;
+                    background-color: var(--boox-page-bg) !important;
+                    scroll-snap-type: y proximity !important;
+                }
+
+                #readium-viewport,
+                #viewport,
+                #readium-content,
+                .readium-content,
+                .readium-page,
+                .readium-spread,
+                .readium-scroll-container,
+                iframe {
+                    background-color: var(--boox-page-bg) !important;
                 }
 
                 p, div, li, span:not([class*="font"]):not([class*="size"]), td, th,
@@ -808,6 +785,10 @@ class ReaderActivity : BaseActivity() {
                     font-size: inherit !important;
                     line-height: inherit !important;
                     font-family: inherit !important;
+                }
+
+                h1, h2, h3, h4, h5, h6, p {
+                    scroll-snap-align: start;
                 }
                 
                 /* AI Note Highlights: White text on Black background */
@@ -888,6 +869,20 @@ class ReaderActivity : BaseActivity() {
 
                   // 強制重流以確保樣式應用
                   document.body.offsetHeight;
+
+                  var pageBg = '${pageBackground}';
+                  document.documentElement.style.backgroundColor = pageBg;
+                  document.body.style.backgroundColor = pageBg;
+
+                  document.querySelectorAll('iframe').forEach(function(frame) {
+                    try {
+                      frame.style.backgroundColor = pageBg;
+                      if (frame.contentDocument) {
+                        frame.contentDocument.documentElement.style.backgroundColor = pageBg;
+                        frame.contentDocument.body.style.backgroundColor = pageBg;
+                      }
+                    } catch (e) {}
+                  });
                 })();
             """.trimIndent()
             view.evaluateJavascript(js, null)
@@ -946,10 +941,6 @@ class ReaderActivity : BaseActivity() {
         // 關鍵：每次應用時都重新讀取文石系統字體設定
         currentFontSize = getBooxSystemFontSize()
         currentFontWeight = 400 // 固定使用預設字體粗細，不使用用戶設定
-        android.util.Log.d(
-                "ReaderActivity",
-                "WebView準備完成，讀取文石系統字體設定: 大小=${currentFontSize}%, 使用預設粗細=400"
-        )
 
         // 立即應用一次
         applyFontSize(currentFontSize)
@@ -967,7 +958,6 @@ class ReaderActivity : BaseActivity() {
         // 延遲再次應用以確保文檔載入完成
         navigatorFragment?.view?.postDelayed(
                 {
-                    android.util.Log.d("ReaderActivity", "延遲重新應用字體設定")
 
                     // Capture location again before this delayed update
                     val delayedLocator = navigatorFragment?.currentLocator?.value ?: initialLocator
@@ -993,7 +983,6 @@ class ReaderActivity : BaseActivity() {
                     // 再次延遲以確保穩定
                     navigatorFragment?.view?.postDelayed(
                             {
-                                android.util.Log.d("ReaderActivity", "最終確認字體設定")
 
                                 val finalLocator =
                                         navigatorFragment?.currentLocator?.value ?: delayedLocator
@@ -1026,7 +1015,6 @@ class ReaderActivity : BaseActivity() {
 
     private fun applyFontZoomLikeNeoReader(view: View?, sizePercent: Int) {
         if (view is android.webkit.WebView) {
-            android.util.Log.d("BOOX-DEBUG", "應用字體縮放到 WebView: ${sizePercent}%")
 
             // 使用 WebView 內建的 textZoom，這是最可靠的方式
             view.settings.textZoom = sizePercent
@@ -1097,15 +1085,10 @@ class ReaderActivity : BaseActivity() {
                     stylesDirty = true
 
                     // 關鍵：章節切換時重新讀取並應用字體設定
-                    android.util.Log.d("ReaderActivity", "章節切換 ($hrefKey)，重新應用字體設定")
                     val savedFontSize = currentFontSize
                     currentFontSize = getBooxSystemFontSize()
 
                     if (currentFontSize != savedFontSize) {
-                        android.util.Log.d(
-                                "ReaderActivity",
-                                "字體大小變更: $savedFontSize% -> $currentFontSize%"
-                        )
                         // Note: applyFontSize triggers WebView reflow
                         applyFontSize(currentFontSize)
                         applyFontWeight(currentFontWeight)
@@ -1115,20 +1098,12 @@ class ReaderActivity : BaseActivity() {
 
                 val wasDirty = stylesDirty
                 if (wasDirty) {
-                    android.util.Log.d(
-                            "BOOX-DEBUG",
-                            "observeLocatorUpdates - stylesDirty detected before applyReaderStyles"
-                    )
                 }
                 applyReaderStyles()
 
                 // 如果發生了樣式變更（重流），強制恢復到正確的位置
                 // 解決文石設備在章節切換時字體縮放導致跳轉到章節首頁的問題
                 if (wasDirty) {
-                    android.util.Log.d(
-                            "BOOX-DEBUG",
-                            "observeLocatorUpdates - 樣式已更新，嘗試恢復精確位置: ${currentLocatorBeforeReflow.locations?.progression} @ ${currentLocatorBeforeReflow.href}"
-                    )
                     // 使用 go 恢復位置，確保正確的分頁
                     navigator.go(currentLocatorBeforeReflow, pageAnimationEnabled)
                 }
@@ -1139,15 +1114,6 @@ class ReaderActivity : BaseActivity() {
                 val key = viewModel.currentBookKey.value ?: return@collectLatest
 
                 // Debug: 記錄進度信息
-                android.util.Log.d(
-                        "ReaderActivity",
-                        "保存進度 - totalProgression: ${enhancedLocator.locations?.totalProgression}"
-                )
-                android.util.Log.d(
-                        "ReaderActivity",
-                        "保存進度 - progression: ${enhancedLocator.locations?.progression}"
-                )
-                android.util.Log.d("ReaderActivity", "保存進度 - href: ${enhancedLocator.href}")
 
                 // Local Prefs
                 syncRepo.cacheProgress(key, json)
@@ -1158,7 +1124,6 @@ class ReaderActivity : BaseActivity() {
                 if (hasWindowFocus()) {
                     viewModel.saveProgress(json)
                 } else {
-                    android.util.Log.w("BOOX-DEBUG", "跳過保存進度 (無焦點): $json")
                 }
 
                 requestEinkRefresh()
@@ -1171,7 +1136,6 @@ class ReaderActivity : BaseActivity() {
         val currentLocations =
                 locator.locations
                         ?: run {
-                            android.util.Log.d("ReaderActivity", "創建新的 locations 對象")
                             return locator.copy(
                                     locations =
                                             Locator.Locations(
@@ -1184,44 +1148,34 @@ class ReaderActivity : BaseActivity() {
         // 如果已經有有效的 totalProgression，直接返回
         val totalProgression = currentLocations?.totalProgression
         if (totalProgression != null && totalProgression >= 0 && totalProgression <= 1.0) {
-            android.util.Log.d("ReaderActivity", "已存在有效的 totalProgression: $totalProgression")
             return locator
         }
 
         // 如果沒有 totalProgression 但有 progression，將 progression 作為 totalProgression 的估算
         val progression = currentLocations?.progression
         if (progression != null && progression >= 0 && progression <= 1.0) {
-            android.util.Log.d("ReaderActivity", "使用 progression 作為 totalProgression: $progression")
             val enhancedLocations = currentLocations.copy(totalProgression = progression)
             return locator.copy(locations = enhancedLocations)
         }
 
         // 如果都沒有，保持原樣
-        android.util.Log.d("ReaderActivity", "保持原始 locator，無有效進度信息")
         return locator
     }
 
     override fun onStart() {
         super.onStart()
-        android.util.Log.d("BOOX-DEBUG", "onStart")
     }
 
     override fun onStop() {
         super.onStop()
-        android.util.Log.d("BOOX-DEBUG", "onStop")
     }
 
     override fun onDestroy() {
-        android.util.Log.d("BOOX-DEBUG", "onDestroy")
         super.onDestroy()
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        android.util.Log.i(
-                "BOOX-DEBUG",
-                "onConfigurationChanged: fontScale=${newConfig.fontScale}, orientation=${newConfig.orientation}"
-        )
 
         // 當系統配置（如字體大小）改變時，重新應用設定
         if (EInkHelper.isBooxDevice()) {
@@ -1231,7 +1185,6 @@ class ReaderActivity : BaseActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        android.util.Log.d("BOOX-DEBUG", "onWindowFocusChanged: $hasFocus")
 
         if (hasFocus && EInkHelper.isBooxDevice()) {
             val currentLoc = navigatorFragment?.currentLocator?.value
@@ -1244,15 +1197,10 @@ class ReaderActivity : BaseActivity() {
                     val savedLocator = viewModel.getLastSavedLocator()
                     if (savedLocator != null && (savedLocator.locations?.progression ?: 0.0) > 0.0
                     ) {
-                        android.util.Log.w(
-                                "BOOX-DEBUG",
-                                "檢測到滾動重置(0%)，從DB強制恢復位置: ${savedLocator.locations?.progression}"
-                        )
                         // Small delay to ensure WebView is ready effectively
                         delay(50)
                         navigatorFragment?.go(savedLocator, animated = false)
                     } else {
-                        android.util.Log.d("BOOX-DEBUG", "檢測到0%進度，但DB中無有效存檔或也是0%，無需恢復")
                     }
                 }
             }
@@ -1263,14 +1211,9 @@ class ReaderActivity : BaseActivity() {
         super.onResume()
         // 關鍵：每次回到Reader時都強制重新讀取並應用文石系統字體設定
         if (EInkHelper.isBooxDevice()) {
-            android.util.Log.d("BOOX-DEBUG", "onResume - 強制重新檢查文石系統字體設定")
 
             // 1. Capture current location before any layout changes
             val savedLocator = navigatorFragment?.currentLocator?.value
-            android.util.Log.d(
-                    "BOOX-DEBUG",
-                    "onResume - 保存當前位置: ${savedLocator?.locations?.progression} @ ${savedLocator?.href}"
-            )
 
             lifecycleScope.launch {
                 delay(200) // 短暫延遲確保UI準備好
@@ -1282,10 +1225,6 @@ class ReaderActivity : BaseActivity() {
                 currentFontSize = newFontSize
                 currentFontWeight = 400 // 固定預設值
 
-                android.util.Log.d(
-                        "BOOX-DEBUG",
-                        "onResume應用文石系統字體設定: 大小=${currentFontSize}%, 變更=$fontChanged"
-                )
 
                 applyFontSize(currentFontSize)
                 applyFontWeight(currentFontWeight)
@@ -1293,10 +1232,6 @@ class ReaderActivity : BaseActivity() {
 
                 // 2. Restore location if valid
                 if (savedLocator != null) {
-                    android.util.Log.d(
-                            "BOOX-DEBUG",
-                            "onResume - 嘗試恢復位置: ${savedLocator.locations?.progression}"
-                    )
                     // Small delay to let WebView apply text zoom first
                     delay(50)
                     navigatorFragment?.go(savedLocator, pageAnimationEnabled)
@@ -1320,23 +1255,12 @@ class ReaderActivity : BaseActivity() {
         val json = LocatorJsonHelper.toJson(enhancedLocator) ?: return
 
         // Debug: 記錄保存的數據
-        android.util.Log.d("ReaderActivity", "立即保存進度 - Key: $key")
-        android.util.Log.d("ReaderActivity", "立即保存進度 - JSON: $json")
-        android.util.Log.d(
-                "ReaderActivity",
-                "立即保存進度 - totalProgression: ${enhancedLocator.locations?.totalProgression}"
-        )
-        android.util.Log.d(
-                "ReaderActivity",
-                "立即保存進度 - progression: ${enhancedLocator.locations?.progression}"
-        )
 
         syncRepo.cacheProgress(key, json)
 
         if (hasWindowFocus()) {
             viewModel.saveProgress(json)
         } else {
-            android.util.Log.w("BOOX-DEBUG", "立即保存進度被跳過 (無焦點): $json")
         }
     }
 
@@ -2089,7 +2013,6 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun applyFontSize(sizePercent: Int) {
-        android.util.Log.d("BOOX-DEBUG", "applyFontSize 被調用，目標大小: $sizePercent%")
         val navigatorView = navigatorFragment?.view ?: return
         applyFontZoomLikeNeoReader(navigatorView, sizePercent)
 
@@ -2099,7 +2022,6 @@ class ReaderActivity : BaseActivity() {
         // 關鍵：立即觸發文石系統刷新，不等待任何延遲
         // 關鍵：不再強制觸發文石系統刷新，以避免破壞用戶的模式設定
         if (EInkHelper.isBooxDevice()) {
-            android.util.Log.d("BOOX-DEBUG", "字體大小變更($sizePercent%)，但跳過強制刷新序列 (User Request)")
             // 僅觸發一次普通刷新，不變更模式
             EInkHelper.refresh(binding.root, full = false)
         }
@@ -2113,7 +2035,6 @@ class ReaderActivity : BaseActivity() {
         if (view is android.webkit.WebView) {
             val oldZoom = view.settings.textZoom
             view.settings.textZoom = sizePercent
-            android.util.Log.d("ReaderActivity", "強制設置WebView textZoom: $oldZoom% -> $sizePercent%")
 
             // 使用JavaScript強制設置字體大小
             val js =
@@ -2136,10 +2057,8 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun getBooxSystemFontSize(): Int {
-        android.util.Log.d("BOOX-DEBUG", "開始讀取文石系統字體設定")
 
         return if (EInkHelper.isBooxDevice()) {
-            android.util.Log.d("BOOX-DEBUG", "檢測到文石設備: ${EInkHelper.getBooxModel()}")
 
             // 嘗試讀取，但即使失敗也使用文石系統合理的預設值
             var fontSize = 150 // 文石系統預設值
@@ -2148,7 +2067,6 @@ class ReaderActivity : BaseActivity() {
             val systemSetting = tryReadBooxSystemSetting()
             if (systemSetting > 0) {
                 fontSize = systemSetting
-                android.util.Log.d("ReaderActivity", "使用文石系統設定: $fontSize%")
             }
 
             // 方法2: 嘗試讀取Android通用設定
@@ -2156,7 +2074,6 @@ class ReaderActivity : BaseActivity() {
                 val androidSetting = tryReadAndroidSystemSetting()
                 if (androidSetting > 0) {
                     fontSize = androidSetting
-                    android.util.Log.d("ReaderActivity", "使用Android系統設定: $fontSize%")
                 }
             }
 
@@ -2165,7 +2082,6 @@ class ReaderActivity : BaseActivity() {
                 val configSetting = tryReadConfigurationFontScale()
                 if (configSetting > 0) {
                     fontSize = configSetting
-                    android.util.Log.d("ReaderActivity", "使用Configuration設定: $fontSize%")
                 }
             }
 
@@ -2174,7 +2090,6 @@ class ReaderActivity : BaseActivity() {
                 val booxSetting = tryReadBooxSpecificSettings()
                 if (booxSetting > 0) {
                     fontSize = booxSetting
-                    android.util.Log.d("ReaderActivity", "使用文石特有設定: $fontSize%")
                 }
             }
 
@@ -2183,7 +2098,6 @@ class ReaderActivity : BaseActivity() {
                 val fileSetting = tryReadBooxConfigFiles()
                 if (fileSetting > 0) {
                     fontSize = fileSetting
-                    android.util.Log.d("ReaderActivity", "使用文石配置文件設定: $fontSize%")
                 }
             }
 
@@ -2192,17 +2106,14 @@ class ReaderActivity : BaseActivity() {
                 val commandSetting = tryReadBooxSystemCommand()
                 if (commandSetting > 0) {
                     fontSize = commandSetting
-                    android.util.Log.d("ReaderActivity", "使用系統命令獲取的字體設定: $fontSize%")
                 }
             }
 
             // 強制返回合理的文石系統字體值（100-200%範圍）
             if (fontSize < 100 || fontSize > 200) {
-                android.util.Log.w("ReaderActivity", "字體大小超出合理範圍($fontSize%)，強制使用文石標準150%")
                 fontSize = 150
             }
 
-            android.util.Log.d("ReaderActivity", "最終確定文石字體大小: $fontSize%")
             fontSize
         } else {
             // 非文石設備使用Android系統字體設定
@@ -2229,16 +2140,13 @@ class ReaderActivity : BaseActivity() {
                     val fontSize =
                             android.provider.Settings.System.getFloat(contentResolver, key, -1.0f)
                     if (fontSize > 0) {
-                        android.util.Log.d("ReaderActivity", "找到系統設定 $key = $fontSize")
                         return (fontSize * 150).toInt()
                     }
                 } catch (e: Exception) {
-                    android.util.Log.d("ReaderActivity", "無法讀取設定 $key: ${e.message}")
                 }
             }
             -1
         } catch (e: Exception) {
-            android.util.Log.d("ReaderActivity", "讀取文石系統設定失敗: ${e.message}")
             -1
         }
     }
@@ -2258,7 +2166,6 @@ class ReaderActivity : BaseActivity() {
                 -1
             }
         } catch (e: Exception) {
-            android.util.Log.d("ReaderActivity", "讀取Android系統設定失敗: ${e.message}")
             -1
         }
     }
@@ -2267,14 +2174,12 @@ class ReaderActivity : BaseActivity() {
         return try {
             val config = resources.configuration
             val fontScale = config.fontScale
-            android.util.Log.d("ReaderActivity", "Configuration fontScale: $fontScale")
             if (fontScale > 0) {
                 (fontScale * 150).toInt()
             } else {
                 -1
             }
         } catch (e: Exception) {
-            android.util.Log.d("ReaderActivity", "讀取Configuration失敗: ${e.message}")
             -1
         }
     }
@@ -2297,17 +2202,14 @@ class ReaderActivity : BaseActivity() {
                     val fontSize =
                             android.provider.Settings.System.getFloat(contentResolver, key, -1.0f)
                     if (fontSize > 0) {
-                        android.util.Log.d("ReaderActivity", "找到文石設定 $key = $fontSize")
                         return (fontSize * 150).toInt()
                     }
                 } catch (e: Exception) {
-                    android.util.Log.d("ReaderActivity", "無法讀取文石設定 $key: ${e.message}")
                 }
             }
 
             -1
         } catch (e: Exception) {
-            android.util.Log.d("ReaderActivity", "讀取文石特有設定失敗: ${e.message}")
             -1
         }
     }
@@ -2327,9 +2229,7 @@ class ReaderActivity : BaseActivity() {
                 try {
                     val file = java.io.File(path)
                     if (file.exists() && file.canRead()) {
-                        android.util.Log.d("ReaderActivity", "找到配置文件: $path")
                         val content = file.readText()
-                        android.util.Log.d("ReaderActivity", "配置文件內容: $content")
 
                         // 尋找字體相關的設定
                         val fontPatterns =
@@ -2344,27 +2244,23 @@ class ReaderActivity : BaseActivity() {
                             if (match != null) {
                                 val value = match.groupValues[1].toFloatOrNull()
                                 if (value != null && value > 0) {
-                                    android.util.Log.d("ReaderActivity", "從配置文件找到字體設定: $value")
                                     return (value * 150).toInt()
                                 }
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.d("ReaderActivity", "無法讀取配置文件 $path: ${e.message}")
                 }
             }
 
             -1
         } catch (e: Exception) {
-            android.util.Log.d("ReaderActivity", "讀取文石配置文件失敗: ${e.message}")
             -1
         }
     }
 
     private fun tryReadBooxSystemCommand(): Int {
         return try {
-            android.util.Log.d("ReaderActivity", "嘗試通過系統命令獲取字體設定")
 
             // 嘗試多個可能的系統命令
             val commands =
@@ -2388,18 +2284,15 @@ class ReaderActivity : BaseActivity() {
                     if (output.isNotEmpty()) {
                         val value = output.toFloatOrNull()
                         if (value != null && value > 0) {
-                            android.util.Log.d("ReaderActivity", "系統命令 '$command' 返回: $value")
                             return (value * 150).toInt()
                         }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.d("ReaderActivity", "執行系統命令 '$command' 失敗: ${e.message}")
                 }
             }
 
             -1
         } catch (e: Exception) {
-            android.util.Log.d("ReaderActivity", "系統命令讀取失敗: ${e.message}")
             -1
         }
     }
@@ -2446,7 +2339,6 @@ class ReaderActivity : BaseActivity() {
 
             // 字體粗細變更也需要觸發文石系統深度刷新
             if (EInkHelper.isBooxDevice()) {
-                android.util.Log.d("ReaderActivity", "字體粗細變更，觸發文石系統深度刷新")
                 binding.root.postDelayed(
                         {
                             EInkHelper.enableFastMode(binding.root)
@@ -2482,21 +2374,87 @@ class ReaderActivity : BaseActivity() {
                 view.postDelayed({ EInkHelper.refreshFull(binding.root) }, 200)
             }
         }
+
+        applyReaderChromeTheme(mode)
+        applyReaderStyles(force = true)
     }
 
     private fun toggleContrastMode() {
         val newMode = EInkHelper.toggleContrastMode(navigatorFragment?.view)
-        currentContrastMode = newMode
-
-        // 保存設置
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .edit()
-                .putInt("contrast_mode", newMode.ordinal)
-                .apply()
+        applyContrastMode(newMode)
 
         // 顯示當前模式
         Toast.makeText(this, "已切換到：${EInkHelper.getContrastModeName(newMode)}", Toast.LENGTH_SHORT)
                 .show()
+    }
+
+    private fun applyReaderChromeTheme(mode: ContrastMode) {
+        val backgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.WHITE
+                    ContrastMode.DARK -> Color.BLACK
+                    ContrastMode.SEPIA -> Color.parseColor("#f4ecd8")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val textColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.WHITE
+                    ContrastMode.SEPIA -> Color.parseColor("#5c4b37")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+        val buttonColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#f2f2f2")
+                    ContrastMode.DARK -> Color.parseColor("#1a1a1a")
+                    ContrastMode.SEPIA -> Color.parseColor("#e7ddc7")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#1a1a1a")
+                }
+
+        binding.root.setBackgroundColor(backgroundColor)
+        binding.readerContainer.setBackgroundColor(backgroundColor)
+        binding.bottomBar.setBackgroundColor(backgroundColor)
+        navigatorFragment?.view?.setBackgroundColor(backgroundColor)
+        findFirstWebView(navigatorFragment?.view)?.let { webView ->
+            webView.setBackgroundColor(backgroundColor)
+            webView.overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        window.decorView.setBackgroundColor(backgroundColor)
+        applyReaderContainerBackground(binding.readerContainer, backgroundColor)
+
+        val buttonTint = ColorStateList.valueOf(buttonColor)
+        val buttons =
+                listOf(
+                        binding.btnAinote,
+                        binding.btnAddBookmark,
+                        binding.btnShowBookmarks,
+                        binding.btnChapters,
+                        binding.btnSettings
+                )
+        buttons.forEach { button ->
+            button.backgroundTintList = buttonTint
+            button.setTextColor(textColor)
+        }
+
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = backgroundColor
+            window.navigationBarColor = backgroundColor
+        }
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        insetsController.isAppearanceLightStatusBars = useLightIcons
+        insetsController.isAppearanceLightNavigationBars = useLightIcons
+    }
+
+    private fun applyReaderContainerBackground(view: View?, color: Int) {
+        if (view == null) return
+        view.setBackgroundColor(color)
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                applyReaderContainerBackground(view.getChildAt(i), color)
+            }
+        }
     }
 
     // --- Action Mode ---
@@ -2555,7 +2513,6 @@ class ReaderActivity : BaseActivity() {
                             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
 
                     // 添加調試日誌
-                    android.util.Log.d("ReaderActivity", "onPrepareActionMode called")
 
                     return true
                 }
@@ -2615,10 +2572,6 @@ class ReaderActivity : BaseActivity() {
                     if (item?.itemId == 999) {
                         lifecycleScope.launch {
                             try {
-                                android.util.Log.d(
-                                        "ReaderActivity",
-                                        "Publish action triggered from context menu"
-                                )
                                 val selection = navigatorFragment?.currentSelection()
                                 val text = selection?.locator?.text?.highlight
                                 val locatorJson = LocatorJsonHelper.toJson(selection?.locator)
@@ -2632,10 +2585,6 @@ class ReaderActivity : BaseActivity() {
                                     navigatorFragment?.clearSelection()
                                     mode?.finish()
                                 } else {
-                                    android.util.Log.e(
-                                            "ReaderActivity",
-                                            "Selection text is null or blank"
-                                    )
                                     Toast.makeText(
                                                     this@ReaderActivity,
                                                     "No text selected",
@@ -2644,11 +2593,6 @@ class ReaderActivity : BaseActivity() {
                                             .show()
                                 }
                             } catch (e: Exception) {
-                                android.util.Log.e(
-                                        "ReaderActivity",
-                                        "Error publishing selection",
-                                        e
-                                )
                             }
                         }
                         return true
@@ -2800,7 +2744,6 @@ class ReaderActivity : BaseActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        android.util.Log.d("BOOX-DEBUG", "onNewIntent")
         setIntent(intent)
         handleLocatorIntent(intent)
     }

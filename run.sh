@@ -78,6 +78,7 @@ BUILD_TYPE_LOCKED="${BUILD_TYPE_LOCKED:-false}"
 SKIP_TESTS="${SKIP_TESTS:-false}"
 SKIP_INSTALL="${SKIP_INSTALL:-false}"
 SKIP_GIT="${SKIP_GIT:-false}"
+AUTO_SELECT_DEVICE="${AUTO_SELECT_DEVICE:-false}"
 
 load_telegram_config() {
     if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -108,7 +109,15 @@ Options:
   --skip-install     Skip ADB install steps
   --skip-git         Skip git commit/tag/push steps (release only)
   --no-telegram      Disable Telegram upload
+  --auto-select      Automatically select first device (no interactive prompt)
   -h, --help         Show this help
+
+Features:
+  - Automatic device detection and selection
+  - Device compatibility checking
+  - Multiple device support with interactive selection
+  - Automatic signing key compatibility handling
+  - Detailed device information display
 
 Env vars (optional):
   BUILD_TYPE=debug|release
@@ -116,6 +125,7 @@ Env vars (optional):
   SKIP_INSTALL=true|false
   SKIP_GIT=true|false
   TELEGRAM_ENABLED=true|false
+  AUTO_SELECT_DEVICE=true|false
 EOF
 }
 
@@ -128,6 +138,7 @@ parse_args() {
             --skip-install) SKIP_INSTALL="true" ;;
             --skip-git) SKIP_GIT="true" ;;
             --no-telegram) TELEGRAM_ENABLED="false"; TELEGRAM_ENABLED_LOCKED="true" ;;
+            --auto-select) AUTO_SELECT_DEVICE="true" ;;
             -h|--help) usage; exit 0 ;;
             *) die "Unknown argument: $1 (use --help)" ;;
         esac
@@ -288,15 +299,180 @@ check_adb_device() {
     fi
 }
 
+# Get detailed device information
+get_device_info() {
+    local device_serial="$1"
+    local adb_cmd="adb"
+    if [ -n "$device_serial" ]; then
+        adb_cmd="adb -s $device_serial"
+    fi
+    
+    # Get device model
+    local model=$($adb_cmd shell getprop ro.product.model 2>/dev/null | tr -d '\r' || echo "Unknown")
+    # Get Android version
+    local version=$($adb_cmd shell getprop ro.build.version.release 2>/dev/null | tr -d '\r' || echo "Unknown")
+    # Get SDK version
+    local sdk=$($adb_cmd shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || echo "Unknown")
+    
+    echo "$model (Android $version, SDK $sdk)"
+}
+
+# List all connected devices with detailed information
+list_connected_devices() {
+    if [ "$ADB_AVAILABLE" != "true" ]; then
+        echo "ADB not available"
+        return 1
+    fi
+    
+    local devices=()
+    local device_count=0
+    
+    echo "Connected Android devices:"
+    echo "========================"
+    
+    # Get list of devices
+    while IFS= read -r line; do
+        if [[ $line =~ ^([^[:space:]]+)[[:space:]]+device$ ]]; then
+            local serial="${BASH_REMATCH[1]}"
+            local info=$(get_device_info "$serial")
+            devices+=("$serial")
+            echo "$((device_count + 1)). $serial - $info"
+            device_count=$((device_count + 1))
+        fi
+    done < <(adb devices)
+    
+    if [ $device_count -eq 0 ]; then
+        echo "No devices found"
+        return 1
+    fi
+    
+    echo ""
+    return 0
+}
+
+# Let user select a device
+select_device() {
+    local devices=("$@")
+    local device_count=${#devices[@]}
+    
+    if [ $device_count -eq 0 ]; then
+        echo "No devices available"
+        return 1
+    fi
+    
+    if [ $device_count -eq 1 ]; then
+        echo "${devices[0]}"
+        return 0
+    fi
+    
+    # Multiple devices - let user choose
+    echo "Multiple devices detected. Please select a device:"
+    for i in "${!devices[@]}"; do
+        local serial="${devices[$i]}"
+        local info=$(get_device_info "$serial")
+        echo "$((i + 1)). $serial - $info"
+    done
+    
+    local choice=""
+    while true; do
+        read -p "Enter device number (1-$device_count): " choice
+        if [[ $choice =~ ^[0-9]+$ ]] && [ $choice -ge 1 ] && [ $choice -le $device_count ]; then
+            echo "${devices[$((choice - 1))]}"
+            return 0
+        else
+            echo "Invalid choice. Please enter a number between 1 and $device_count."
+        fi
+    done
+}
+
+# Check device compatibility
+check_device_compatibility() {
+    local device_serial="$1"
+    local adb_cmd="adb -s $device_serial"
+    
+    # Check minimum SDK version (Android 6.0 Marshmallow - API 23)
+    local sdk=$($adb_cmd shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || echo "0")
+    
+    if [ "$sdk" -lt 23 ]; then
+        echo "Warning: Device has SDK $sdk, but minimum required is 23 (Android 6.0)"
+        return 1
+    fi
+    
+    # Check available storage
+    local storage=$($adb_cmd shell df /data | tail -1 | awk '{print $4}' 2>/dev/null || echo "0")
+    if [ "$storage" -lt 100000 ]; then # Less than 100MB
+        echo "Warning: Device has low storage space ($storage KB available)"
+        return 1
+    fi
+    
+    echo "Device is compatible"
+    return 0
+}
+
+# ADB install with signature fallback handling
+adb_install_with_signature_fallback() {
+    local apk_path="$1"
+    local device_serial="$2"
+    local package_name="my.hinoki.booxreader"
+
+    local adb_cmd="adb"
+    if [ -n "$device_serial" ]; then
+        adb_cmd="adb -s $device_serial"
+    fi
+
+    local install_out
+    install_out=$($adb_cmd install -r "$apk_path" 2>&1) || true
+    if echo "$install_out" | grep -q "Success"; then
+        return 0
+    fi
+
+    # Only uninstall when the install failure indicates a signature mismatch.
+    if echo "$install_out" | grep -Eq "INSTALL_FAILED_UPDATE_INCOMPATIBLE|INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES|INSTALL_FAILED_INCONSISTENT_CERTIFICATES|INSTALL_FAILED_SIGNATURE"; then
+        echo "Install failed due to signature mismatch; uninstalling and retrying..."
+        $adb_cmd uninstall "$package_name" || true
+        $adb_cmd install "$apk_path"
+        return $?
+    fi
+
+    echo "$install_out"
+    return 1
+}
+
+# Get the first connected device serial number
+get_first_device() {
+    if [ "$ADB_AVAILABLE" != "true" ]; then
+        echo "ADB not available"
+        return 1
+    fi
+    
+    # Get list of devices and select the first one
+    local devices
+    devices=$(adb devices | grep -E '^[^\s]+\s+device$' | awk '{print $1}' | head -n 1)
+    
+    if [ -n "$devices" ]; then
+        echo "$devices"
+        return 0
+    fi
+    
+    echo "No devices found"
+    return 1
+}
+
 # Check if signing keys are different between installed app and new APK.
 # Returns 0 only when keys are confirmed different (uninstall required), 1 otherwise.
 # This avoids unnecessary data loss; if verification is inconclusive we skip uninstall.
 check_signing_key_difference() {
     local apk_path="$1"
+    local device_serial="$2"
     local package_name="my.hinoki.booxreader"
     
+    local adb_cmd="adb"
+    if [ -n "$device_serial" ]; then
+        adb_cmd="adb -s $device_serial"
+    fi
+    
     # Check if app is already installed
-    if ! adb shell pm list packages | grep -q "$package_name"; then
+    if ! $adb_cmd shell pm list packages | grep -q "$package_name"; then
         echo "App not currently installed, no need to check signing keys"
         return 1  # No uninstall needed
     fi
@@ -340,7 +516,7 @@ check_signing_key_difference() {
     
     # Try to get the APK path from the device
     local apk_on_device
-    apk_on_device="$(adb shell pm path "$package_name" | tr -d '\r' | grep -o '/[^ ]*.apk' | head -1 || true)"
+    apk_on_device="$($adb_cmd shell pm path "$package_name" | tr -d '\r' | grep -o '/[^ ]*.apk' | head -1 || true)"
     
     if [ -z "$apk_on_device" ]; then
         echo "Could not find APK path on device, skipping uninstall"
@@ -348,7 +524,7 @@ check_signing_key_difference() {
     fi
     
     # Pull the APK from device
-    if ! adb pull "$apk_on_device" "$device_apk_path" 2>/dev/null; then
+    if ! $adb_cmd pull "$apk_on_device" "$device_apk_path" 2>/dev/null; then
         echo "Could not pull APK from device, skipping uninstall"
         return 1  # Inconclusive; don't uninstall
     fi
@@ -733,47 +909,66 @@ main() {
             exit 1
         fi
 
-        adb_install_with_signature_fallback() {
-            local apk_path="$1"
-            local package_name="my.hinoki.booxreader"
-
-            local install_out
-            install_out=$(adb install -r "$apk_path" 2>&1) || true
-            if echo "$install_out" | grep -q "Success"; then
-                return 0
+        # List all connected devices with detailed information
+        if ! list_connected_devices; then
+            echo "Error: No Android devices found"
+            exit 1
+        fi
+        
+        # Get all device serials
+        local devices=()
+        while IFS= read -r line; do
+            if [[ $line =~ ^([^[:space:]]+)[[:space:]]+device$ ]]; then
+                devices+=("${BASH_REMATCH[1]}")
             fi
-
-            # Only uninstall when the install failure indicates a signature mismatch.
-            if echo "$install_out" | grep -Eq "INSTALL_FAILED_UPDATE_INCOMPATIBLE|INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES|INSTALL_FAILED_INCONSISTENT_CERTIFICATES|INSTALL_FAILED_SIGNATURE"; then
-                echo "Install failed due to signature mismatch; uninstalling and retrying..."
-                adb uninstall "$package_name" || true
-                adb install "$apk_path"
-                return $?
+        done < <(adb devices)
+        
+        # Let user select a device (or auto-select if enabled)
+        local selected_device
+        if [ "$AUTO_SELECT_DEVICE" = "true" ]; then
+            # Auto-select the first device
+            selected_device="${devices[0]}"
+            echo "Auto-selected device: $selected_device"
+        else
+            # Interactive selection
+            selected_device=$(select_device "${devices[@]}")
+            if [ -z "$selected_device" ]; then
+                echo "Error: No device selected"
+                exit 1
             fi
-
-            echo "$install_out"
-            return 1
-        }
+        fi
+        
+        echo "Selected device: $selected_device"
+        
+        # Check device compatibility
+        echo "Checking device compatibility..."
+        if ! check_device_compatibility "$selected_device"; then
+            echo "Device has compatibility issues. Continuing installation anyway..."
+        fi
         
         # Check if signing keys are different - only uninstall if they are
         echo "Checking signing key compatibility..."
-        if check_signing_key_difference "$apk_path"; then
+        if check_signing_key_difference "$apk_path" "$selected_device"; then
             # Keys are different - uninstall required
             echo "Uninstalling previous version due to signing key difference..."
-            adb uninstall my.hinoki.booxreader || true
+            adb -s "$selected_device" uninstall my.hinoki.booxreader || true
         fi
         
-        # Install the new APK
-        if ! adb_install_with_signature_fallback "$apk_path"; then
-            echo "Error: Failed to install APK"
-            exit 1
+        # Install the new APK on the selected device
+        echo "Installing APK on $selected_device..."
+        if ! adb -s "$selected_device" install -r "$apk_path"; then
+            echo "Install failed, trying with signature fallback..."
+            if ! adb_install_with_signature_fallback "$apk_path" "$selected_device"; then
+                echo "Error: Failed to install APK on device $selected_device"
+                exit 1
+            fi
         fi
         
         # Wait for the app to be fully installed
         sleep 2
         
         # Check if package is installed
-        if ! adb shell pm list packages | grep -q "my.hinoki.booxreader"; then
+        if ! adb -s "$selected_device" shell pm list packages | grep -q "my.hinoki.booxreader"; then
             echo "Error: Package not installed after installation attempt"
             exit 1
         fi

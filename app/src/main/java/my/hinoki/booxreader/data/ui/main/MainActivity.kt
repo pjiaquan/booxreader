@@ -142,13 +142,10 @@ class MainActivity : BaseActivity() {
                         kotlinx.coroutines.delay(30_000)
 
                         try {
-                            android.util.Log.d("MainActivity", "執行週期性進度同步...")
                             val updated = syncRepo.pullAllProgress()
                             if (updated > 0) {
-                                android.util.Log.d("MainActivity", "週期性同步完成，更新了 $updated 筆進度")
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "週期性同步失敗", e)
                         }
                     }
                 }
@@ -162,7 +159,6 @@ class MainActivity : BaseActivity() {
     private fun performFullSync() {
         lifecycleScope.launch {
             try {
-                android.util.Log.d("MainActivity", "開始執行完整同步...")
                 Toast.makeText(
                                 this@MainActivity,
                                 getString(R.string.sync_start_toast),
@@ -174,20 +170,11 @@ class MainActivity : BaseActivity() {
                 // Sync Profiles FIRST so settings can link to them
                 val profilesResult = runCatching { syncRepo.pullProfiles() }
                 val profilesUpdated = profilesResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步Profiles: ${profilesResult.isSuccess}, 更新數量: $profilesUpdated"
-                )
 
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
-                android.util.Log.d("MainActivity", "同步設定: ${settingsResult.isSuccess}")
 
                 val booksResult = runCatching { syncRepo.pullBooks() }
                 val booksUpdated = booksResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步書籍: ${booksResult.isSuccess}, 更新數量: $booksUpdated"
-                )
                 if (booksUpdated > 0) {
                     Toast.makeText(
                                     this@MainActivity,
@@ -199,26 +186,13 @@ class MainActivity : BaseActivity() {
 
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步筆記: ${notesResult.isSuccess}, 更新數量: $notesUpdated"
-                )
 
                 val progressResult = runCatching { syncRepo.pullAllProgress() }
                 val progressUpdated = progressResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步進度: ${progressResult.isSuccess}, 更新數量: $progressUpdated"
-                )
 
                 val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
                 val bookmarksUpdated = bookmarksResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步書籤: ${bookmarksResult.isSuccess}, 更新數量: $bookmarksUpdated"
-                )
 
-                android.util.Log.d("MainActivity", "同步完成")
                 Toast.makeText(
                                 this@MainActivity,
                                 getString(R.string.sync_complete),
@@ -234,7 +208,6 @@ class MainActivity : BaseActivity() {
                     recentAdapter.submitList(recentBooks)
                 }
             } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "同步失敗", e)
                 Toast.makeText(
                                 this@MainActivity,
                                 getString(R.string.sync_failed) + ": ${e.message}",
@@ -282,19 +255,15 @@ class MainActivity : BaseActivity() {
     }
 
     private fun checkAndRequestFilePermissions() {
-        android.util.Log.d("MainActivity", "檢查檔案權限...")
         val hasPerms = hasFilePermissions()
-        android.util.Log.d("MainActivity", "檔案權限狀態: $hasPerms")
 
         if (hasPerms) {
             // Already have permissions, perform sync
-            android.util.Log.d("MainActivity", "已有檔案權限，開始同步")
             performFullSync()
             // Note: Books are now automatically observed via Flow
             // No need to manually call loadRecentBooks() here
         } else {
             // Request permissions
-            android.util.Log.d("MainActivity", "缺少檔案權限，請求權限")
             requestFilePermissions()
         }
     }
@@ -498,7 +467,6 @@ class MainActivity : BaseActivity() {
 
         lifecycleScope.launch {
             try {
-                android.util.Log.d("MainActivity", "開始手動同步...")
 
                 val totalSteps =
                         9 // 下載 + 上傳 + 再次下載校驗 + Profiles + 設定 + Notes + Progress + Bookmarks + Done
@@ -513,10 +481,6 @@ class MainActivity : BaseActivity() {
                 )
                 val pullBooksResult = runCatching { syncRepo.pullBooks() }
                 val booksDownloadedInitial = pullBooksResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "下載書籍: ${pullBooksResult.isSuccess}, 下載數量: $booksDownloadedInitial"
-                )
 
                 // 步驟2: 上傳本地書籍到雲端
                 currentStep++
@@ -527,10 +491,6 @@ class MainActivity : BaseActivity() {
                 )
                 val uploadResult = runCatching { uploadLocalBooks() }
                 val booksUploaded = uploadResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "上傳書籍: ${uploadResult.isSuccess}, 上傳數量: $booksUploaded"
-                )
 
                 // 步驟3: 再次下載，確保剛剛其它裝置上傳的書籍也同步到本機
                 currentStep++
@@ -541,10 +501,6 @@ class MainActivity : BaseActivity() {
                 )
                 val pullBooksResultAfterUpload = runCatching { syncRepo.pullBooks() }
                 val booksDownloadedFinal = pullBooksResultAfterUpload.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "再次下載書籍: ${pullBooksResultAfterUpload.isSuccess}, 下載數量: $booksDownloadedFinal"
-                )
 
                 // 步驟4: 同步AI Profiles (Critical to run before settings)
                 currentStep++
@@ -555,46 +511,29 @@ class MainActivity : BaseActivity() {
                 ) // TODO: Add string resource
                 val profilesResult = runCatching { syncRepo.pullProfiles() }
                 val profilesUpdated = profilesResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步Profiles: ${profilesResult.isSuccess}, 更新數量: $profilesUpdated"
-                )
 
                 // 步驟5: 同步設定
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_settings))
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
-                android.util.Log.d("MainActivity", "同步設定: ${settingsResult.isSuccess}")
 
                 // 步驟6: 同步AI筆記
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_ai_notes))
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步筆記: ${notesResult.isSuccess}, 更新數量: $notesUpdated"
-                )
 
                 // 步驟7: 同步閱讀進度
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_progress))
                 val progressResult = runCatching { syncRepo.pullAllProgress() }
                 val progressUpdated = progressResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步進度: ${progressResult.isSuccess}, 更新數量: $progressUpdated"
-                )
 
                 // 步驟8: 同步書籤
                 currentStep++
                 updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_bookmarks))
                 val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
                 val bookmarksUpdated = bookmarksResult.getOrNull() ?: 0
-                android.util.Log.d(
-                        "MainActivity",
-                        "同步書籤: ${bookmarksResult.isSuccess}, 更新數量: $bookmarksUpdated"
-                )
 
                 // 完成
                 updateSyncProgress(totalSteps, totalSteps, getString(R.string.sync_complete))
@@ -658,7 +597,6 @@ class MainActivity : BaseActivity() {
                         )
                         .show()
             } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "手動同步失敗", e)
                 binding.tvSyncStatus.text = getString(R.string.sync_failed)
                 binding.tvSyncDetails.text = getString(R.string.sync_failed) + ": ${e.message}"
                 binding.tvSyncProgress.text = "Error"
@@ -677,38 +615,30 @@ class MainActivity : BaseActivity() {
         binding.progressSync.progress = progress
         binding.tvSyncProgress.text = "$progress%"
         binding.tvSyncDetails.text = message
-        android.util.Log.d("MainActivity", "同步進度: $progress% - $message")
     }
 
     private suspend fun uploadLocalBooks(): Int =
             withContext(Dispatchers.IO) {
-                android.util.Log.d("MainActivity", "開始上傳本地書籍到雲端...")
 
                 val dao = AppDatabase.get(applicationContext).bookDao()
                 val bookIds = dao.getAllBookIds()
 
                 if (bookIds.isEmpty()) {
-                    android.util.Log.d("MainActivity", "沒有本地書籍需要上傳")
                     return@withContext 0
                 }
 
-                android.util.Log.d("MainActivity", "找到 ${bookIds.size} 本本地書籍，開始上傳...")
 
                 val localBooks = dao.getByIds(bookIds)
                 var uploadedCount = 0
 
                 localBooks.forEach { book ->
                     try {
-                        android.util.Log.d("MainActivity", "上傳書籍: ${book.title} (${book.bookId})")
                         syncRepo.pushBook(book = book, uploadFile = false)
                         uploadedCount++
-                        android.util.Log.d("MainActivity", "書籍上傳成功: ${book.title}")
                     } catch (e: Exception) {
-                        android.util.Log.e("MainActivity", "書籍上傳失敗: ${book.title}", e)
                     }
                 }
 
-                android.util.Log.d("MainActivity", "本地書籍上傳完成: 成功上傳 $uploadedCount 本")
                 return@withContext uploadedCount
             }
 

@@ -62,13 +62,13 @@
         <activity
             android:name="my.hinoki.booxreader.data.ui.notes.AiNoteListActivity"
             android:exported="false"
-            android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+            android:theme="@style/AppTheme.ActionBar"
             android:label="AI Notes" />
 
         <activity
             android:name="my.hinoki.booxreader.data.ui.notes.AiNoteDetailActivity"
             android:exported="false"
-            android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+            android:theme="@style/AppTheme.ActionBar"
             android:label="AI Note Details" />
 
         <activity
@@ -90,7 +90,7 @@
             android:name="my.hinoki.booxreader.data.ui.settings.AiProfileListActivity"
             android:exported="false"
             android:label="AI Profiles"
-            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+            android:theme="@style/AppTheme.ActionBar" />
 
         <activity
             android:name="my.hinoki.booxreader.data.ui.settings.AiProfileEditActivity"

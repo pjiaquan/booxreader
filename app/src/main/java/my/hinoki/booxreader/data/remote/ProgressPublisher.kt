@@ -1,7 +1,6 @@
 // data/remote/ProgressPublisher.kt
 package my.hinoki.booxreader.data.remote
 
-import android.util.Log
 import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -39,16 +38,10 @@ class ProgressPublisher(
         try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Log.w(
-                        "ProgressPublisher",
-                        "HTTP ${response.code} when publishing progress"
-                    )
                 } else {
-                    Log.d("ProgressPublisher", "Progress published successfully")
                 }
             }
         } catch (e: Exception) {
-            Log.e("ProgressPublisher", "Failed to publish progress", e)
         }
     }
 }

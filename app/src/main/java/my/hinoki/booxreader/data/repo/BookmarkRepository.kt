@@ -9,7 +9,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.readium.r2.shared.publication.Locator
 import my.hinoki.booxreader.data.remote.BookmarkPublisher
-import android.util.Log
 
 import my.hinoki.booxreader.data.remote.HttpConfig
 
@@ -64,7 +63,6 @@ class BookmarkRepository(
                 val syncedEntity = entity.copy(id = insertedId, isSynced = true)
                 dao.update(syncedEntity)
             } catch (e: Exception) {
-                Log.e("BookmarkRepository", "publishBookmark failed", e)
             }
 
             // 4. Firestore sync (best effort)

@@ -41,6 +41,7 @@
     <string name="ai_note_publish">Ask AI</string>
     <string name="ai_note_follow_up_hint">Follow-up question</string>
     <string name="ai_note_scroll_to_bottom">Scroll to Bottom</string>
+    <string name="ai_note_auto_scroll_paused">Auto-scroll paused</string>
     <string name="profile_username_placeholder">User Name</string>
     <string name="profile_email_placeholder">user@example.com</string>
     <string name="profile_logout">Logout</string>

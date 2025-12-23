@@ -1,7 +1,6 @@
 // data/remote/BookmarkPublisher.kt
 package my.hinoki.booxreader.data.remote
 
-import android.util.Log
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
@@ -40,16 +39,10 @@ class BookmarkPublisher(
         try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Log.w(
-                        "BookmarkPublisher",
-                        "HTTP ${response.code} when publishing bookmark"
-                    )
                 } else {
-                    Log.d("BookmarkPublisher", "Bookmark published successfully")
                 }
             }
         } catch (e: Exception) {
-            Log.e("BookmarkPublisher", "Failed to publish bookmark", e)
         }
     }
 }

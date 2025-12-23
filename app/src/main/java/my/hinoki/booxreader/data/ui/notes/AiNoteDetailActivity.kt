@@ -4,9 +4,15 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.KeyEvent
+import android.view.MenuItem
 import android.view.View
+import android.view.ActionMode
+import android.text.Selection
+import android.text.Spannable
 import android.widget.Toast
+import androidx.core.graphics.ColorUtils
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -28,6 +34,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import my.hinoki.booxreader.core.eink.EInkHelper
+import android.content.res.ColorStateList
+import com.google.android.material.color.MaterialColors
+import kotlin.math.roundToInt
 
 class AiNoteDetailActivity : BaseActivity() {
 
@@ -67,11 +76,22 @@ class AiNoteDetailActivity : BaseActivity() {
     private var scrollToBottomButton: FloatingActionButton? = null
     private var streamingRenderJob: Job? = null
     private var pendingStreamingMarkdown: String? = null
+    private var lastRenderAtMs: Long = 0L
+    private var lastRenderedLength: Int = 0
+    private var lastRenderedMarkdown: String? = null
+    private var userPausedAutoScroll: Boolean = false
+    private val idleScrollIconAlpha = 0.45f
+    private val activeScrollIconAlpha = 1f
+    private var isScrollButtonPressed = false
+    private var isScrollButtonHovered = false
+    private var scrollButtonHideJob: Job? = null
+    private var selectionActionMode: ActionMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityAiNoteDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
@@ -113,13 +133,55 @@ class AiNoteDetailActivity : BaseActivity() {
         scrollToBottomButton?.setOnClickListener {
             scrollToBottom()
         }
+        scrollToBottomButton?.setOnTouchListener { view, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    isScrollButtonPressed = true
+                    updateScrollButtonAppearance()
+                }
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    isScrollButtonPressed = false
+                    updateScrollButtonAppearance()
+                }
+            }
+            false
+        }
+        scrollToBottomButton?.setOnHoverListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_HOVER_ENTER -> {
+                    isScrollButtonHovered = true
+                    updateScrollButtonAppearance()
+                }
+                android.view.MotionEvent.ACTION_HOVER_EXIT -> {
+                    isScrollButtonHovered = false
+                    updateScrollButtonAppearance()
+                }
+            }
+            false
+        }
+        updateScrollButtonAppearance()
 
         // 設置滾動監聽來控制按鈕顯示/隱藏
         setupScrollListener()
     }
 
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.action == android.view.MotionEvent.ACTION_DOWN && selectionActionMode != null) {
+            val insideOriginal = isTouchInsideView(binding.tvOriginalText, ev)
+            val insideResponse = isTouchInsideView(binding.tvAiResponse, ev)
+            if (!insideOriginal && !insideResponse) {
+                clearTextSelection()
+                selectionActionMode?.finish()
+                return true
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     private val selectionActionModeCallback = object : android.view.ActionMode.Callback {
         override fun onCreateActionMode(mode: android.view.ActionMode?, menu: android.view.Menu?): Boolean {
+            selectionActionMode = mode
             menu?.add(android.view.Menu.NONE, 999, 0, getString(R.string.action_publish))
             menu?.add(android.view.Menu.NONE, 1000, 1, getString(R.string.action_publish_follow_up))
             menu?.add(android.view.Menu.NONE, 1001, 2, getString(R.string.action_map_search))
@@ -159,7 +221,38 @@ class AiNoteDetailActivity : BaseActivity() {
             return false
         }
 
-        override fun onDestroyActionMode(mode: android.view.ActionMode?) {}
+        override fun onDestroyActionMode(mode: android.view.ActionMode?) {
+            selectionActionMode = null
+        }
+    }
+
+    private fun clearTextSelection() {
+        if (binding.tvOriginalText.hasSelection()) {
+            val text = binding.tvOriginalText.text
+            if (text is Spannable) {
+                Selection.removeSelection(text)
+            }
+            binding.tvOriginalText.clearFocus()
+            binding.tvOriginalText.cancelLongPress()
+            binding.tvOriginalText.clearComposingText()
+        }
+        if (binding.tvAiResponse.hasSelection()) {
+            val text = binding.tvAiResponse.text
+            if (text is Spannable) {
+                Selection.removeSelection(text)
+            }
+            binding.tvAiResponse.clearFocus()
+            binding.tvAiResponse.cancelLongPress()
+            binding.tvAiResponse.clearComposingText()
+        }
+    }
+
+    private fun isTouchInsideView(view: View, event: android.view.MotionEvent): Boolean {
+        val rect = android.graphics.Rect()
+        view.getGlobalVisibleRect(rect)
+        val x = event.rawX.toInt()
+        val y = event.rawY.toInt()
+        return rect.contains(x, y)
     }
 
     private fun handleSelectionAction(onSelected: (String) -> Unit) {
@@ -383,7 +476,7 @@ class AiNoteDetailActivity : BaseActivity() {
                         val preview = currentAiResponse +
                                 separator +
                                 "---\nQ: " + question + "\n\n" + partial
-                        renderStreamingMarkdown(preview)
+                        renderStreamingMarkdown(preview, isFollowUp = true)
                         // restoreScrollIfJumped(savedScrollY)
                     }
                 } else {
@@ -468,7 +561,6 @@ class AiNoteDetailActivity : BaseActivity() {
         lifecycleScope.launch {
             val result = repository.fetchAiExplanationStreaming(text) { partial ->
                 renderStreamingMarkdown(partial)
-                restoreScrollIfJumped(savedScrollY)
             }
             clearStreamingRenderer()
             if (result != null) {
@@ -525,7 +617,6 @@ class AiNoteDetailActivity : BaseActivity() {
 
     // 滾動到底功能
     private fun scrollToBottom() {
-        android.util.Log.d("AiNoteDetailActivity", "執行滾動到底功能")
 
         // 使用多種方法確保滾動到底部
         binding.scrollView.post {
@@ -533,9 +624,10 @@ class AiNoteDetailActivity : BaseActivity() {
             val childView = scrollView.getChildAt(0)
 
             if (childView != null) {
+                val visibleHeight =
+                    scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+                val maxScroll = (childView.height - visibleHeight).coerceAtLeast(0)
                 // 方法1: 直接設置滾動位置
-                val maxScroll = childView.height - scrollView.height + scrollView.paddingBottom
-                android.util.Log.d("AiNoteDetailActivity", "最大滾動位置: $maxScroll, 當前位置: ${scrollView.scrollY}")
 
                 // 先嘗試直接滾動
                 scrollView.scrollTo(0, maxScroll)
@@ -546,10 +638,11 @@ class AiNoteDetailActivity : BaseActivity() {
                     scrollView.fullScroll(View.FOCUS_DOWN)
 
                     // 方法3: 再次直接設置滾動位置（最終保險）
-                    val finalMaxScroll = childView.height - scrollView.height + scrollView.paddingBottom
+                    val finalVisibleHeight =
+                        scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+                    val finalMaxScroll = (childView.height - finalVisibleHeight).coerceAtLeast(0)
                     scrollView.scrollTo(0, finalMaxScroll)
 
-                    android.util.Log.d("AiNoteDetailActivity", "最終滾動位置: ${scrollView.scrollY}, 目標位置: $finalMaxScroll")
 
                     // 滾動完成後隱藏按鈕
                     hideScrollButton()
@@ -575,7 +668,6 @@ class AiNoteDetailActivity : BaseActivity() {
                 val visibleHeight = scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
                 val needsScroll = contentHeight > visibleHeight
 
-                android.util.Log.d("AiNoteDetailActivity", "內容高度: $contentHeight, 可見高度: $visibleHeight, 需要滾動: $needsScroll")
 
                 if (!needsScroll) {
                     // 頁面內容不夠長，不需要滾動按鈕
@@ -589,10 +681,19 @@ class AiNoteDetailActivity : BaseActivity() {
                 if (isAtBottom) {
                     // 在底部時隱藏按鈕
                     hideScrollButton()
+                    if (userPausedAutoScroll) {
+                        userPausedAutoScroll = false
+                    }
                 } else {
                     // 不在底部時顯示按鈕
                     showScrollButton()
+                    scheduleScrollButtonAutoHide()
+                    if (isLoading) {
+                        userPausedAutoScroll = true
+                    }
                 }
+                updateAutoScrollHint()
+                updateScrollButtonAppearance()
             }
         }
     }
@@ -607,7 +708,6 @@ class AiNoteDetailActivity : BaseActivity() {
                     .alpha(1f)
                     .setDuration(300)
                     .start()
-                android.util.Log.d("AiNoteDetailActivity", "顯示滾動到底按鈕")
             }
         }
     }
@@ -623,9 +723,10 @@ class AiNoteDetailActivity : BaseActivity() {
                         button.visibility = View.GONE
                     }
                     .start()
-                android.util.Log.d("AiNoteDetailActivity", "隱藏滾動到底按鈕")
             }
         }
+        scrollButtonHideJob?.cancel()
+        scrollButtonHideJob = null
     }
 
     private fun currentScrollY(): Int = binding.scrollView.scrollY
@@ -652,31 +753,69 @@ class AiNoteDetailActivity : BaseActivity() {
         }
     }
 
-    private fun renderStreamingMarkdown(markdown: String, force: Boolean = false) {
+    private fun renderStreamingMarkdown(
+        markdown: String,
+        force: Boolean = false,
+        isFollowUp: Boolean = false
+    ) {
+        if (!force && markdown == lastRenderedMarkdown) return
         pendingStreamingMarkdown = markdown
         streamingRenderJob?.cancel()
 
         val priorScrollY = binding.scrollView.scrollY
         val wasAtBottom = isAtBottom()
+        val nowMs = SystemClock.uptimeMillis()
+        val minIntervalMs =
+            if (EInkHelper.isBooxDevice()) {
+                if (isFollowUp) 420L else 320L
+            } else {
+                if (isFollowUp) 240L else 180L
+            }
+        val minCharDelta =
+            if (EInkHelper.isBooxDevice()) {
+                if (isFollowUp) 120 else 72
+            } else {
+                if (isFollowUp) 64 else 36
+            }
+        val lengthDelta = kotlin.math.abs(markdown.length - lastRenderedLength)
+        val midLatex = isLikelyMidLatex(markdown)
+        val midTable = isLikelyMidTable(markdown)
 
         // Delay slightly when we appear to be in the middle of a table row so the parser
         // receives a complete block, which prevents malformed table rendering during SSE.
-        val delayMs = when {
+        val baseDelay = when {
             force -> 0L
-            isLikelyMidTable(markdown) -> 140L
-            else -> 30L
+            midLatex -> 220L
+            midTable -> 160L
+            isFollowUp -> 120L
+            else -> 40L
         }
+        val intervalDelay = (minIntervalMs - (nowMs - lastRenderAtMs)).coerceAtLeast(0L)
+        val delayMs =
+            if (!force && intervalDelay == 0L && lengthDelta >= minCharDelta && !midTable && !midLatex) {
+                0L
+            } else {
+                maxOf(baseDelay, intervalDelay)
+            }
 
         streamingRenderJob = lifecycleScope.launch(Dispatchers.Main) {
             if (delayMs > 0) delay(delayMs)
             if (pendingStreamingMarkdown == markdown) {
-                markwon.setMarkdown(binding.tvAiResponse, markdown)
+                if (isFollowUp) {
+                    binding.tvAiResponse.text = markdown
+                } else {
+                    markwon.setMarkdown(binding.tvAiResponse, markdown)
+                }
+                lastRenderedMarkdown = markdown
+                lastRenderedLength = markdown.length
+                lastRenderAtMs = SystemClock.uptimeMillis()
                 binding.scrollView.post {
-                    if (wasAtBottom) {
-                        scrollToBottom()
-                    } else {
+                    if (wasAtBottom && !userPausedAutoScroll) {
+                        scrollToBottomImmediate()
+                    } else if (!userPausedAutoScroll && !isFollowUp) {
                         restoreScrollIfJumped(priorScrollY)
                     }
+                    checkScrollPosition()
                 }
             }
         }
@@ -686,6 +825,15 @@ class AiNoteDetailActivity : BaseActivity() {
         streamingRenderJob?.cancel()
         streamingRenderJob = null
         pendingStreamingMarkdown = null
+    }
+
+    private fun scrollToBottomImmediate() {
+        val scrollView = binding.scrollView
+        val childView = scrollView.getChildAt(0) ?: return
+        val visibleHeight =
+            scrollView.height - scrollView.paddingTop - scrollView.paddingBottom
+        val maxScroll = (childView.height - visibleHeight).coerceAtLeast(0)
+        scrollView.scrollTo(0, maxScroll)
     }
 
     private fun isLikelyMidTable(markdown: String): Boolean {
@@ -700,6 +848,22 @@ class AiNoteDetailActivity : BaseActivity() {
         return lastLine.isNotEmpty() && (hasTablePipes || looksLikeHeaderSeparator)
     }
 
+    private fun isLikelyMidLatex(markdown: String): Boolean {
+        if (markdown.isEmpty()) return false
+        val blockDelimiterCount = Regex("(?<!\\\\)\\$\\$").findAll(markdown).count()
+        val dollarCount = Regex("(?<!\\\\)\\$").findAll(markdown).count()
+        val inlineDollarCount = (dollarCount - (blockDelimiterCount * 2)).coerceAtLeast(0)
+        if (blockDelimiterCount % 2 != 0 || inlineDollarCount % 2 != 0) return true
+
+        val openParenCount = Regex("\\\\\\(").findAll(markdown).count()
+        val closeParenCount = Regex("\\\\\\)").findAll(markdown).count()
+        if (openParenCount > closeParenCount) return true
+
+        val openBracketCount = Regex("\\\\\\[").findAll(markdown).count()
+        val closeBracketCount = Regex("\\\\\\]").findAll(markdown).count()
+        return openBracketCount > closeBracketCount
+    }
+
     private fun isAtBottom(): Boolean {
         val scrollView = binding.scrollView
         val child = scrollView.getChildAt(0) ?: return true
@@ -711,6 +875,36 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun setLoading(active: Boolean) {
         isLoading = active
         binding.pbLoading.visibility = if (active) View.VISIBLE else View.GONE
+        updateAutoScrollHint()
+        updateScrollButtonAppearance()
+    }
+
+    private fun updateAutoScrollHint() {
+        val shouldShow = isLoading && userPausedAutoScroll
+        binding.tvAutoScrollHint.visibility = if (shouldShow) View.VISIBLE else View.GONE
+    }
+
+    private fun scheduleScrollButtonAutoHide() {
+        scrollButtonHideJob?.cancel()
+        scrollButtonHideJob =
+            lifecycleScope.launch(Dispatchers.Main) {
+                delay(2_000)
+                if (!isScrollButtonPressed) {
+                    hideScrollButton()
+                }
+            }
+    }
+
+    private fun updateScrollButtonAppearance() {
+        val button = scrollToBottomButton ?: return
+        val shouldBrighten =
+            isScrollButtonPressed || isScrollButtonHovered || (isLoading && !userPausedAutoScroll)
+        val baseColor =
+            MaterialColors.getColor(button, com.google.android.material.R.attr.colorPrimary, 0xFF000000.toInt())
+        button.backgroundTintList = ColorStateList.valueOf(0x00000000)
+        button.imageTintList = ColorStateList.valueOf(baseColor)
+        val alpha = if (shouldBrighten) activeScrollIconAlpha else idleScrollIconAlpha
+        button.imageAlpha = (alpha * 255).roundToInt()
     }
 
     private fun getOriginalText(note: AiNoteEntity): String {
@@ -728,6 +922,16 @@ class AiNoteDetailActivity : BaseActivity() {
         val finalResponse = response ?: getAiResponse(note)
         val messages = AiNoteSerialization.messagesFromOriginalAndResponse(finalOriginal, finalResponse)
         return note.copy(messages = messages, originalText = finalOriginal, aiResponse = finalResponse)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                onBackPressedDispatcher.onBackPressed()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     // Handle volume down button as back navigation

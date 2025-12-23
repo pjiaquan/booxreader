@@ -63,7 +63,6 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
                         bookTitle = entity.title
                 )
             } catch (e: Exception) {
-                android.util.Log.e("BookRepository", "Failed to push progress: ${e.message}")
             }
         }
 
@@ -95,10 +94,6 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
             // 2. Delete locally
             bookDao.deleteById(bookId)
         } else {
-            android.util.Log.w(
-                    "BookRepository",
-                    "Cloud soft-delete failed for $bookId. Marking as deleted locally."
-            )
             // Soft delete locally
             val entity =
                     bookDao.getByIds(listOf(bookId))
@@ -164,10 +159,6 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
                 LocatorJsonHelper.toJson(locator)
                         ?: throw IllegalStateException("Failed to serialize Locator to JSON")
 
-        android.util.Log.d(
-                "BookRepository",
-                "Marking book as completed: ${entity.title}, JSON: $json"
-        )
         updateProgress(bookId, json)
     }
 

@@ -121,10 +121,6 @@ class UserSyncRepository(context: Context) {
                                 // otherwise the app will have the new ID but old cached API
                                 // key/model.
                                 if (activeProfile != null) {
-                                        android.util.Log.i(
-                                                "UserSyncRepository",
-                                                "Applying active profile settings: ${activeProfile.name}"
-                                        )
                                         mergedSettings =
                                                 mergedSettings.copy(
                                                         apiKey = activeProfile.apiKey,
@@ -197,7 +193,6 @@ class UserSyncRepository(context: Context) {
         suspend fun pullProgress(bookId: String) =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext null
-                        android.util.Log.d("ReaderDebug", "Pulling progress for bookId: '$bookId'")
                         val response =
                                 supabaseRestRequest(
                                         method = "GET",
@@ -217,19 +212,11 @@ class UserSyncRepository(context: Context) {
                                 gson.fromJson<List<SupabaseProgress>>(response, listType)
                                         .firstOrNull() ?: return@withContext null
 
-                        android.util.Log.d(
-                                "ReaderDebug",
-                                "Got remote progress: ${remote.locatorJson}"
-                        )
 
                         if (remote.locatorJson.isBlank()) return@withContext null
 
                         val localTs = prefs.getLong(progressTimestampKey(bookId), 0)
                         if (remote.updatedAt > localTs) {
-                                android.util.Log.d(
-                                        "ReaderDebug",
-                                        "Remote is newer ($remote.updatedAt > $localTs), caching."
-                                )
                                 cacheProgress(bookId, remote.locatorJson, remote.updatedAt)
                                 runCatching {
                                         db.bookDao()
@@ -240,10 +227,6 @@ class UserSyncRepository(context: Context) {
                                                 )
                                 }
                         } else {
-                                android.util.Log.d(
-                                        "ReaderDebug",
-                                        "Remote is not newer ($remote.updatedAt <= $localTs)"
-                                )
                         }
                         remote.locatorJson
                 }
@@ -276,26 +259,14 @@ class UserSyncRepository(context: Context) {
                 contentResolver: android.content.ContentResolver? = null
         ) =
                 withContext(io) {
-                        android.util.Log.d(
-                                "UserSyncRepository",
-                                "開始上傳書籍到Supabase: ${book.title} (${book.bookId})"
-                        )
 
                         val userId = requireUserId()
                         if (userId == null) {
-                                android.util.Log.w(
-                                        "UserSyncRepository",
-                                        "Supabase user not available, skip book push"
-                                )
                                 return@withContext
                         }
 
                         val uploadInfo =
                                 if (uploadFile) {
-                                        android.util.Log.d(
-                                                "UserSyncRepository",
-                                                "嘗試上傳EPUB文件到Supabase Storage"
-                                        )
                                         uploadBookFileIfNeeded(book, userId, contentResolver)
                                 } else {
                                         null
@@ -313,7 +284,6 @@ class UserSyncRepository(context: Context) {
                                         deletedAt = book.deletedAt?.let { toIsoTimestamp(it) }
                                 )
 
-                        android.util.Log.d("UserSyncRepository", "上傳書籍數據: $payload")
 
                         val existingId = findBookIdByLocalId(userId, book.bookId)
                         if (existingId == null) {
@@ -332,12 +302,7 @@ class UserSyncRepository(context: Context) {
                         }
 
                         if (uploadInfo == null && uploadFile) {
-                                android.util.Log.w(
-                                        "UserSyncRepository",
-                                        "書籍檔案上傳失敗: ${book.title}"
-                                )
                         } else {
-                                android.util.Log.d("UserSyncRepository", "書籍上傳成功: ${book.title}")
                         }
                 }
 
@@ -369,17 +334,9 @@ class UserSyncRepository(context: Context) {
                 withContext(io) {
                         val userId = requireUserId()
                         if (userId == null) {
-                                android.util.Log.w(
-                                        "UserSyncRepository",
-                                        "Supabase user not available"
-                                )
                                 return@withContext 0
                         }
 
-                        android.util.Log.d(
-                                "UserSyncRepository",
-                                "開始從Supabase拉取書籍數據，用戶: $userId"
-                        )
 
                         // Push any pending deletions first
                         pushPendingDeletes()
@@ -446,10 +403,6 @@ class UserSyncRepository(context: Context) {
                                 }
                         }
 
-                        android.util.Log.d(
-                                "UserSyncRepository",
-                                "同步書籍完成: 更新${updatedCount}筆, 下載${downloadedCount}個檔案"
-                        )
 
                         updatedCount
                 }
@@ -460,23 +413,11 @@ class UserSyncRepository(context: Context) {
                 val pending = dao.getPendingDeletes()
                 if (pending.isEmpty()) return
 
-                android.util.Log.d(
-                        "UserSyncRepository",
-                        "Found ${pending.size} pending deletions to push."
-                )
                 pending.forEach { book ->
                         val success = softDeleteBook(book.bookId)
                         if (success) {
-                                android.util.Log.d(
-                                        "UserSyncRepository",
-                                        "Pending deletion pushed successfully: ${book.bookId}"
-                                )
                                 dao.deleteById(book.bookId) // Hard delete now that cloud is updated
                         } else {
-                                android.util.Log.w(
-                                        "UserSyncRepository",
-                                        "Failed to push pending deletion for: ${book.bookId}"
-                                )
                         }
                 }
         }
@@ -499,14 +440,9 @@ class UserSyncRepository(context: Context) {
                         val localMeta =
                                 readLocalFileMeta(uri, resolver)
                                         ?: run {
-                                                android.util.Log.w(
-                                                        "UserSyncRepository",
-                                                        "讀取本地書籍檔案失敗，無法上傳: ${book.fileUri}"
-                                                )
                                                 return@withContext null
                                         }
                         val storagePath = bookStoragePath(userId, book.bookId)
-                        android.util.Log.d("UserSyncRepository", "Target Storage Path: $storagePath")
                         if (storagePath.isBlank()) return@withContext null
 
                         val token =
@@ -540,10 +476,6 @@ class UserSyncRepository(context: Context) {
                         httpClient.newCall(request).execute().use { response ->
                                 if (!response.isSuccessful) {
                                         val errorBody = response.body?.string()
-                                        android.util.Log.w(
-                                                "UserSyncRepository",
-                                                "書籍檔案上傳失敗: ${response.code}, Body: $errorBody"
-                                        )
                                         return@withContext null
                                 }
                         }
@@ -575,10 +507,6 @@ class UserSyncRepository(context: Context) {
                         val resolvedPath = storagePath ?: bookStoragePath(userId, bookId)
                         if (resolvedPath.isBlank()) return@withContext null
 
-                        android.util.Log.d(
-                                "UserSyncRepository",
-                                "開始下載書籍檔案: bookId=$bookId, storagePath=$resolvedPath"
-                        )
 
                         val response =
                                 supabaseStorageRequest(
@@ -588,10 +516,6 @@ class UserSyncRepository(context: Context) {
                                         ?: return@withContext null
                         response.use { resp ->
                                 if (!resp.isSuccessful) {
-                                        android.util.Log.w(
-                                                "UserSyncRepository",
-                                                "下載書籍失敗: ${resp.code}"
-                                        )
                                         return@withContext null
                                 }
                                 val bodyStream = resp.body?.byteStream() ?: return@withContext null
@@ -652,15 +576,12 @@ class UserSyncRepository(context: Context) {
                                         size += read
                                 }
                         } ?: run {
-                                android.util.Log.e("UserSyncRepository", "openInputStream returned null for uri: $uri")
                                 return null
                         }
                 } catch (e: Exception) {
-                        android.util.Log.e("UserSyncRepository", "Failed to read file for meta: $uri", e)
                         return null
                 }
                 val checksum = digest.digest().joinToString("") { "%02x".format(it) }
-                android.util.Log.d("UserSyncRepository", "readLocalFileMeta success: size=$size, checksum=$checksum")
                 return LocalFileMeta(size = size, checksum = checksum)
         }
 
@@ -670,10 +591,6 @@ class UserSyncRepository(context: Context) {
                 originalUri: String? = null
         ): Uri? =
                 withContext(io) {
-                        android.util.Log.d(
-                                "UserSyncRepository",
-                                "確保書籍檔案可用: bookId=$bookId, storagePath=$storagePath, originalUri=$originalUri"
-                        )
 
                         // First, check if the original URI is still accessible
                         if (!originalUri.isNullOrBlank()) {
@@ -681,17 +598,9 @@ class UserSyncRepository(context: Context) {
                                         val uri = Uri.parse(originalUri)
                                         val resolver = appContext.contentResolver
                                         resolver.openInputStream(uri)?.use { input ->
-                                                android.util.Log.d(
-                                                        "UserSyncRepository",
-                                                        "原始URI仍然可訪問: $originalUri"
-                                                )
                                                 return@withContext uri
                                         }
                                 } catch (e: Exception) {
-                                        android.util.Log.d(
-                                                "UserSyncRepository",
-                                                "原始URI無法訪問: ${e.message}"
-                                        )
                                 }
                         }
 
@@ -733,10 +642,6 @@ class UserSyncRepository(context: Context) {
                         // Check all possible locations
                         for (file in possibleLocations) {
                                 if (file.exists() && file.length() > 0) {
-                                        android.util.Log.d(
-                                                "UserSyncRepository",
-                                                "找到書籍檔案: ${file.absolutePath}, 大小: ${file.length()} bytes"
-                                        )
 
                                         // Create URI using FileProvider for security
                                         return@withContext if (Build.VERSION.SDK_INT >=
@@ -753,14 +658,11 @@ class UserSyncRepository(context: Context) {
                                 }
                         }
 
-                        android.util.Log.d("UserSyncRepository", "書籍檔案不存在於本地，開始從雲端下載...")
 
                         // Download from storage
                         val result = downloadBookFile(bookId, storagePath)
                         if (result != null) {
-                                android.util.Log.d("UserSyncRepository", "書籍下載成功: ${result}")
                         } else {
-                                android.util.Log.w("UserSyncRepository", "書籍下載失敗")
                         }
                         return@withContext result
                 }
@@ -842,7 +744,6 @@ suspend fun pullNotes(): Int =
                         val listType =
                                 object : com.google.gson.reflect.TypeToken<List<SupabaseAiNote>>() {}.type
                         val remotes = gson.fromJson<List<SupabaseAiNote>>(response, listType)
-
                         var updatedCount = 0
 
                         remotes.forEach { remote ->
@@ -1131,7 +1032,6 @@ suspend fun pullProfiles(): Int =
 suspend fun pullAllProgress(): Int =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext 0
-                        android.util.Log.d("UserSyncRepository", "開始同步閱讀進度 (pullAllProgress)")
 
                         val response =
                                 supabaseRestRequest(
@@ -1144,27 +1044,15 @@ suspend fun pullAllProgress(): Int =
                                 object : com.google.gson.reflect.TypeToken<List<SupabaseProgress>>() {}.type
                         val remotes = gson.fromJson<List<SupabaseProgress>>(response, listType)
 
-                        android.util.Log.d(
-                                "UserSyncRepository",
-                                "找到 ${remotes.size} 筆進度紀錄"
-                        )
 
                         var updated = 0
                         remotes.forEach { remote ->
                                 if (remote.bookId.isBlank() || remote.locatorJson.isBlank()) {
-                                        android.util.Log.w(
-                                                "UserSyncRepository",
-                                                "略過無效進度紀錄 (ID或JSON為空)"
-                                        )
                                         return@forEach
                                 }
 
                                 val localTs = prefs.getLong(progressTimestampKey(remote.bookId), 0)
 
-                                android.util.Log.d(
-                                        "UserSyncRepository",
-                                        "檢查書籍[${remote.bookId.take(8)}...]: 雲端時間=${remote.updatedAt}, 本地時間=$localTs"
-                                )
 
                                 if (remote.updatedAt > localTs) {
                                         cacheProgress(remote.bookId, remote.locatorJson, remote.updatedAt)
@@ -1222,14 +1110,31 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                                         .build()
                         val responseBody =
                                 httpClient.newCall(request).execute().use { response ->
-                                        if (!response.isSuccessful) {
-                                                android.util.Log.w(
-                                                        "UserSyncRepository",
-                                                        "Failed to fetch Supabase user: ${response.code}"
-                                                )
-                                                return@withContext null
+                                        val body = response.body?.string().orEmpty()
+                                        if (response.isSuccessful) {
+                                                return@use body
                                         }
-                                        response.body?.string().orEmpty()
+                                        if (response.code == 401 || response.code == 403) {
+                                                val refreshed = refreshAccessToken()
+                                                if (refreshed) {
+                                                        val retryToken = accessToken() ?: return@withContext null
+                                                        val retryRequest =
+                                                                request.newBuilder()
+                                                                        .header("Authorization", "Bearer $retryToken")
+                                                                        .build()
+                                                        return@withContext httpClient.newCall(retryRequest)
+                                                                .execute()
+                                                                .use { retryResponse ->
+                                                                        val retryBody =
+                                                                                retryResponse.body?.string().orEmpty()
+                                                                        if (!retryResponse.isSuccessful) {
+                                                                                return@withContext null
+                                                                        }
+                                                                        retryBody
+                                                                }
+                                                }
+                                        }
+                                        return@withContext null
                                 }
                         val user = gson.fromJson(responseBody, SupabaseAuthUser::class.java)
                         val previousUserId = syncPrefs.getString("last_user_id", null)
@@ -1247,6 +1152,37 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                         cachedUserId = user.id
                         user.id
                 }
+
+        private fun refreshAccessToken(): Boolean {
+                val refreshToken = tokenManager.getRefreshToken()?.takeIf { it.isNotBlank() } ?: return false
+                if (supabaseAnonKey.isBlank()) return false
+                val body = gson.toJson(mapOf("refresh_token" to refreshToken))
+                val request =
+                        Request.Builder()
+                                .url("$supabaseUrl/auth/v1/token?grant_type=refresh_token")
+                                .tag(String::class.java, "SKIP_AUTH")
+                                .header("apikey", supabaseAnonKey)
+                                .header("Authorization", "Bearer $supabaseAnonKey")
+                                .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                                .build()
+                return runCatching {
+                        httpClient.newCall(request).execute().use { response ->
+                                val responseBody = response.body?.string().orEmpty()
+                                if (!response.isSuccessful) {
+                                        return false
+                                }
+                                val payload =
+                                        gson.fromJson(responseBody, SupabaseSessionTokens::class.java)
+                                val accessToken = payload.accessToken?.takeIf { it.isNotBlank() }
+                                        ?: return false
+                                tokenManager.saveAccessToken(accessToken)
+                                payload.refreshToken
+                                        ?.takeIf { it.isNotBlank() }
+                                        ?.let { tokenManager.saveRefreshToken(it) }
+                                true
+                        }
+                }.getOrDefault(false)
+        }
 
         private fun supabaseRestRequest(
                 method: String,
@@ -1286,10 +1222,6 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                 return httpClient.newCall(requestBuilder.build()).execute().use { response ->
                         val responseBody = response.body?.string().orEmpty()
                         if (!response.isSuccessful) {
-                                android.util.Log.w(
-                                        "UserSyncRepository",
-                                        "Supabase REST failed: ${response.code} ${responseBody.take(512)}"
-                                )
                                 return null
                         }
                         responseBody
@@ -1397,6 +1329,13 @@ data class SupabaseAuthUser(
         val id: String = ""
 )
 
+private data class SupabaseSessionTokens(
+        @SerializedName("access_token")
+        val accessToken: String? = null,
+        @SerializedName("refresh_token")
+        val refreshToken: String? = null
+)
+
 data class SupabaseProgress(
         val id: Long? = null,
         val userId: String? = null,
@@ -1489,7 +1428,6 @@ private object SyncCrypto {
                         val encrypted = cipher.doFinal(input.toByteArray())
                         Base64.encodeToString(encrypted, Base64.NO_WRAP)
                 } catch (e: Exception) {
-                        android.util.Log.e("SyncCrypto", "Encryption failed", e)
                         ""
                 }
         }
@@ -1503,10 +1441,6 @@ private object SyncCrypto {
                         val decoded = Base64.decode(input, Base64.NO_WRAP)
                         String(cipher.doFinal(decoded))
                 } catch (e: Exception) {
-                        android.util.Log.w(
-                                "SyncCrypto",
-                                "Decryption failed, returning input/empty. Input: $input"
-                        )
                         ""
                 }
         }

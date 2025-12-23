@@ -3,7 +3,6 @@ package my.hinoki.booxreader.data.reader
 import android.app.Application
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.concurrent.CancellationException
@@ -99,19 +98,16 @@ class ReaderViewModel(
     private var searchJob: Job? = null
 
     override fun onCleared() {
-        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.onCleared called")
         super.onCleared()
         closePublication()
     }
 
     fun closePublication() {
-        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.closePublication called")
         _publication.value?.close()
         _publication.value = null
     }
 
     fun openBook(uri: Uri, contentResolver: android.content.ContentResolver? = null): Job {
-        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.openBook: $uri")
         if (_publication.value != null) {
             // Already loaded
             return viewModelScope.launch {}
@@ -154,16 +150,13 @@ class ReaderViewModel(
 
                 val key = book.bookId
                 _currentBookKey.value = key
-                android.util.Log.d("ReaderDebug", "OpenBook Key: '$key'")
 
                 // Ensure new book files are synced
                 viewModelScope.launch(ioDispatcher) {
                     val result = runCatching { syncRepo.pushBook(book, uploadFile = true, contentResolver = contentResolver) }
                     result.onFailure { e ->
-                        android.util.Log.e("ReaderViewModel", "Failed to sync book with upload: ${book.title}", e)
                     }
                     result.onSuccess {
-                        android.util.Log.d("ReaderViewModel", "Sync book with upload requested: ${book.title}")
                     }
                 }
 
@@ -196,7 +189,6 @@ class ReaderViewModel(
     }
 
     fun saveProgress(json: String) {
-        android.util.Log.d("BOOX-DEBUG", "ReaderViewModel.saveProgress - json: $json")
         val key = _currentBookKey.value ?: return
         val uri =
                 _publication.value

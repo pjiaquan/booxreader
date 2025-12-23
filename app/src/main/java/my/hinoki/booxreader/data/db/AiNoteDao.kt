@@ -8,10 +8,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AiNoteDao {
-    @Query("SELECT * FROM ai_notes ORDER BY createdAt DESC")
+    @Query("SELECT * FROM ai_notes ORDER BY createdAt DESC, id DESC")
     suspend fun getAll(): List<AiNoteEntity>
 
-    @Query("SELECT * FROM ai_notes WHERE bookId = :bookId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM ai_notes WHERE bookId = :bookId ORDER BY createdAt DESC, id DESC")
     suspend fun getByBookId(bookId: String): List<AiNoteEntity>
     
     @Query("SELECT * FROM ai_notes WHERE remoteId = :remoteId LIMIT 1")

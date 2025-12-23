@@ -45,13 +45,12 @@ class RecentBooksAdapter(
             onDelete: (BookEntity) -> Unit,
             onMarkCompleted: (BookEntity) -> Unit
         ) {
-            // android.util.Log.d("RecentBooksAdapter", "bind() 被調用 - 書籍: ${item.title}")
+            // 
             tvTitle.text = item.title?.takeIf { it.isNotBlank() } ?: itemView.context.getString(R.string.book_title_untitled)
             tvTime.text = android.text.format.DateFormat.format("yyyy/MM/dd HH:mm", item.lastOpenedAt)
 
             // Debug: 檢查原始數據
             if (item.lastLocatorJson != null) {
-                 android.util.Log.d("RecentBooksAdapter", "書籍: ${item.title}, JSON: ${item.lastLocatorJson?.take(50)}...")
             }
 
             val locator = LocatorJsonHelper.fromJson(item.lastLocatorJson)
@@ -61,7 +60,7 @@ class RecentBooksAdapter(
                 val totalProgression = locator.locations?.totalProgression
                 val chapterProgression = locator.locations?.progression
                 
-                // android.util.Log.d("RecentBooksAdapter", "Parsed: total=$totalProgression, chapter=$chapterProgression")
+                // 
 
                 val progression = when {
                     // 優先使用 totalProgression (全書進度)
@@ -79,11 +78,11 @@ class RecentBooksAdapter(
 
                 val percentage = (progression * 100).toInt().coerceIn(0, 100)
 
-                // android.util.Log.d("RecentBooksAdapter", "最終進度: $progression, 百分比: $percentage%")
+                // 
                 tvProgress.text = itemView.context.getString(R.string.book_progress_format, percentage)
                 tvCompleted.visibility = if (percentage >= 99) View.VISIBLE else View.GONE
             } else {
-                // android.util.Log.d("RecentBooksAdapter", "Locator 解析失敗 - 書籍: ${item.title}")
+                // 
                 tvProgress.text = itemView.context.getString(R.string.book_progress_format, 0)
                 tvCompleted.visibility = View.GONE
             }

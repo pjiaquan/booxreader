@@ -271,9 +271,7 @@ class AiNoteRepository(
 
     private fun logPayload(tag: String, payload: JSONObject) {
         try {
-            android.util.Log.d(TAG, "$tag payload=${payload.toString(2)}")
         } catch (_: Exception) {
-            android.util.Log.d(TAG, "$tag payload=${payload.toString()}")
         }
     }
 
@@ -373,7 +371,6 @@ class AiNoteRepository(
                                 null
                             }
                         } else {
-                            android.util.Log.e(TAG, "fetchAiExplanation failed: ${response.code} ${response.message}")
                             null
                         }
                      }
@@ -394,7 +391,6 @@ class AiNoteRepository(
         val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
 
         val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI
-        android.util.Log.d(TAG, "fetchAiExplanation url=$url")
         val request = Request.Builder()
             .url(url)
             .post(requestBody)
@@ -462,7 +458,6 @@ class AiNoteRepository(
                 }
             }
 
-            android.util.Log.d(TAG, "fetchAiExplanationStreaming (Direct) url=$url")
             
             val isGoogle = isGoogleNative(url)
             val finalUrl = if (isGoogle) googleStreamUrl(url) else url
@@ -498,7 +493,6 @@ class AiNoteRepository(
             // Legacy Mode
             val payload = JSONObject().apply { put("text", text) }
             val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_STREAM
-            android.util.Log.d(TAG, "fetchAiExplanationStreaming (Legacy) url=$url")
             return streamJsonPayloadSse(url, payload, text, onPartial, null)
         }
     }
@@ -895,7 +889,6 @@ class AiNoteRepository(
                 }
             }
 
-            android.util.Log.d(TAG, "continueConversationStreaming (Direct) url=$url")
             
             val isGoogle = isGoogleNative(url)
             val finalUrl = if (isGoogle) googleStreamUrl(url) else url
@@ -933,7 +926,6 @@ class AiNoteRepository(
                 put("text", followUpText)
             }
             val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE_STREAM
-            android.util.Log.d(TAG, "continueConversationStreaming url=$url")
             return streamJsonPayloadSse(url, payload, followUpText, onPartial)?.second
         }
     }
@@ -977,7 +969,6 @@ class AiNoteRepository(
                 .use { response ->
                     if (!response.isSuccessful) {
                         val errorBody = response.body?.string()
-                        android.util.Log.e("AiNoteRepository", "Streaming failed: ${response.code} $errorBody")
                         return@withContext null
                     }
                     val source = response.body?.source() ?: return@withContext null

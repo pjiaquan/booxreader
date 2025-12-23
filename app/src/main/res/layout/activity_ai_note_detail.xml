@@ -2,7 +2,8 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
     <ScrollView
         android:id="@+id/scrollView"
@@ -123,12 +124,28 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="16dp"
-        android:src="@android:drawable/ic_menu_more"
+        android:src="@android:drawable/arrow_down_float"
         android:contentDescription="@string/ai_note_scroll_to_bottom"
-        android:backgroundTint="?attr/colorPrimary"
+        android:backgroundTint="@android:color/transparent"
         android:tint="@android:color/white"
         app:fabSize="mini"
         app:elevation="6dp"
         app:borderWidth="0dp" />
+
+    <TextView
+        android:id="@+id/tvAutoScrollHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="72dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:text="@string/ai_note_auto_scroll_paused"
+        android:textSize="12sp"
+        android:textColor="#555555"
+        android:visibility="gone" />
 
 </RelativeLayout>

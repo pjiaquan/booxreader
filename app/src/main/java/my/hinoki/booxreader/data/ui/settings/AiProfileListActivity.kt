@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.MenuItem
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
@@ -40,12 +41,23 @@ class AiProfileListActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAiProfileListBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         val syncRepo = UserSyncRepository(applicationContext)
         repository = AiProfileRepository(applicationContext, syncRepo)
 
         setupUI()
         observeData()
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                onBackPressedDispatcher.onBackPressed()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     override fun onResume() {

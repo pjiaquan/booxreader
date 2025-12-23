@@ -11,9 +11,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
-import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.ExportResult
@@ -21,7 +19,6 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -68,11 +65,7 @@ class AiNoteListActivity : BaseActivity() {
 
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.topAppBar)
-
-        binding.topAppBar.setNavigationOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
-        }
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         loadNotes()
     }
@@ -85,6 +78,10 @@ class AiNoteListActivity : BaseActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            android.R.id.home -> {
+                onBackPressedDispatcher.onBackPressed()
+                true
+            }
             R.id.action_export_ai_notes -> {
                 exportAllNotes()
                 true
@@ -97,7 +94,7 @@ class AiNoteListActivity : BaseActivity() {
         binding.progressBar.visibility = if (inProgress) View.VISIBLE else View.GONE
         binding.listAiNotes.isEnabled = !inProgress
         exportMenuItem?.isEnabled = !inProgress
-        binding.topAppBar.subtitle = if (inProgress) "Exporting..." else ""
+        supportActionBar?.subtitle = if (inProgress) "Exporting..." else null
     }
 
     private fun loadNotes() {

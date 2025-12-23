@@ -1,7 +1,6 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
@@ -135,7 +134,6 @@ class AuthRepository(
         authClient.newCall(request).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                Log.e("SupabaseAuth", "Auth request failed: ${response.code} ${response.message} ${responseBody.take(512)}")
                 val message = parseErrorMessage(responseBody) ?: response.message
                 error(message)
             }

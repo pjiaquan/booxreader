@@ -1,7 +1,6 @@
 package my.hinoki.booxreader.data.remote
 
 import android.content.Context
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -73,10 +72,10 @@ class SupabaseRealtimeBookSync(
             return null
         }
         val httpUrl = runCatching { BuildConfig.SUPABASE_URL.trimEnd('/').toHttpUrl() }.getOrNull()
-            ?: return null
-        val scheme = if (httpUrl.isHttps) "wss" else "ws"
+            ?: run {
+                return null
+            }
         return httpUrl.newBuilder()
-            .scheme(scheme)
             .encodedPath("/realtime/v1/websocket")
             .addQueryParameter("apikey", BuildConfig.SUPABASE_ANON_KEY)
             .addQueryParameter("token", token)
@@ -96,12 +95,10 @@ class SupabaseRealtimeBookSync(
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            Log.w("RealtimeBookSync", "Realtime socket failed: ${t.message}")
             scheduleReconnect()
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            Log.i("RealtimeBookSync", "Realtime socket closed: $code $reason")
             scheduleReconnect()
         }
     }
