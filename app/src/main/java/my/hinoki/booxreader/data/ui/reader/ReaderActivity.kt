@@ -59,6 +59,7 @@ import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.data.ui.notes.AiNoteDetailActivity
 import my.hinoki.booxreader.data.ui.notes.AiNoteListActivity
+import my.hinoki.booxreader.data.ui.reader.nativev2.NativeNavigatorFragment
 import my.hinoki.booxreader.databinding.ActivityReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
@@ -69,13 +70,13 @@ import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.Decoration
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
-import org.readium.r2.navigator.epub.EpubPreferences
 
 @OptIn(ExperimentalReadiumApi::class)
 class ReaderActivity : BaseActivity() {
@@ -112,6 +113,8 @@ class ReaderActivity : BaseActivity() {
     }
 
     private var navigatorFragment: EpubNavigatorFragment? = null
+    private var nativeNavigatorFragment: NativeNavigatorFragment? = null
+    private val useNativeReader = true // Set to true for Silk Smooth Selection experience
     private var currentBookId: String? = null
     private var searchJob: Job? = null
     private var currentActionMode: ActionMode? = null
@@ -320,8 +323,7 @@ class ReaderActivity : BaseActivity() {
                 return JSON.stringify({ first, last, count: words.length });
             })();
         """.trimIndent()
-        webView.evaluateJavascript(js) { result ->
-        }
+        webView.evaluateJavascript(js) { result -> }
     }
 
     private fun parseJsObject(raw: String): JSONObject? {
@@ -403,7 +405,6 @@ class ReaderActivity : BaseActivity() {
             val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
             val detectedSize = getBooxSystemFontSize()
 
-
             // 如果檢測到的值不合理，使用文石常見的標準值
             currentFontSize =
                     if (detectedSize >= 100 && detectedSize <= 200) {
@@ -451,7 +452,6 @@ class ReaderActivity : BaseActivity() {
             // 測試多個可能的字體值
             val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
             val detectedSize = getBooxSystemFontSize()
-
 
             // 如果檢測到的值不合理，使用文石常見的標準值
             currentFontSize =
@@ -590,13 +590,11 @@ class ReaderActivity : BaseActivity() {
                         }
                 if (fuzzyMatch != null) {
                     startLocator = startLocator?.copy(href = Url(fuzzyMatch.href.toString())!!)
-                } else {
-                }
+                } else {}
             }
         }
 
-        startLocator?.let {
-        }
+        startLocator?.let {}
         // Avoid re-creating if already set up
         if (navigatorFragment != null) {
             return
@@ -617,6 +615,16 @@ class ReaderActivity : BaseActivity() {
                         configuration = config,
                         initialPreferences = EpubPreferences(scroll = true)
                 )
+
+        if (useNativeReader) {
+            val nativeFrag = NativeNavigatorFragment().apply { setPublication(publication) }
+            supportFragmentManager
+                    .beginTransaction()
+                    .replace(R.id.readerContainer, nativeFrag)
+                    .commitNow()
+            nativeNavigatorFragment = nativeFrag
+            return
+        }
 
         if (supportFragmentManager.findFragmentById(R.id.readerContainer) == null) {
             supportFragmentManager
@@ -983,7 +991,6 @@ class ReaderActivity : BaseActivity() {
                     // 再次延遲以確保穩定
                     navigatorFragment?.view?.postDelayed(
                             {
-
                                 val finalLocator =
                                         navigatorFragment?.currentLocator?.value ?: delayedLocator
 
@@ -1097,8 +1104,7 @@ class ReaderActivity : BaseActivity() {
                 }
 
                 val wasDirty = stylesDirty
-                if (wasDirty) {
-                }
+                if (wasDirty) {}
                 applyReaderStyles()
 
                 // 如果發生了樣式變更（重流），強制恢復到正確的位置
@@ -1123,8 +1129,7 @@ class ReaderActivity : BaseActivity() {
                 // 這是為了解決 Boox 設備喚起系統選單時會導致 WebView 滾動位置重置為 0 的問題
                 if (hasWindowFocus()) {
                     viewModel.saveProgress(json)
-                } else {
-                }
+                } else {}
 
                 requestEinkRefresh()
             }
@@ -1200,8 +1205,7 @@ class ReaderActivity : BaseActivity() {
                         // Small delay to ensure WebView is ready effectively
                         delay(50)
                         navigatorFragment?.go(savedLocator, animated = false)
-                    } else {
-                    }
+                    } else {}
                 }
             }
         }
@@ -1224,7 +1228,6 @@ class ReaderActivity : BaseActivity() {
 
                 currentFontSize = newFontSize
                 currentFontWeight = 400 // 固定預設值
-
 
                 applyFontSize(currentFontSize)
                 applyFontWeight(currentFontWeight)
@@ -1260,8 +1263,7 @@ class ReaderActivity : BaseActivity() {
 
         if (hasWindowFocus()) {
             viewModel.saveProgress(json)
-        } else {
-        }
+        } else {}
     }
 
     private fun setupDecorationListener() {
@@ -2142,8 +2144,7 @@ class ReaderActivity : BaseActivity() {
                     if (fontSize > 0) {
                         return (fontSize * 150).toInt()
                     }
-                } catch (e: Exception) {
-                }
+                } catch (e: Exception) {}
             }
             -1
         } catch (e: Exception) {
@@ -2204,8 +2205,7 @@ class ReaderActivity : BaseActivity() {
                     if (fontSize > 0) {
                         return (fontSize * 150).toInt()
                     }
-                } catch (e: Exception) {
-                }
+                } catch (e: Exception) {}
             }
 
             -1
@@ -2249,8 +2249,7 @@ class ReaderActivity : BaseActivity() {
                             }
                         }
                     }
-                } catch (e: Exception) {
-                }
+                } catch (e: Exception) {}
             }
 
             -1
@@ -2287,8 +2286,7 @@ class ReaderActivity : BaseActivity() {
                             return (value * 150).toInt()
                         }
                     }
-                } catch (e: Exception) {
-                }
+                } catch (e: Exception) {}
             }
 
             -1
@@ -2592,8 +2590,7 @@ class ReaderActivity : BaseActivity() {
                                             )
                                             .show()
                                 }
-                            } catch (e: Exception) {
-                            }
+                            } catch (e: Exception) {}
                         }
                         return true
                     }
@@ -2678,7 +2675,9 @@ class ReaderActivity : BaseActivity() {
         // Hard block swipe-to-turn when disabled.
         // Some devices/pagers intercept before the WebView sees MOVE events, so we must stop it at
         // Activity level.
-        if (!pageSwipeEnabled && currentActionMode == null) {
+        // Optimization: Disable this block if using NativeReaderView selection or if an action mode
+        // is active.
+        if (!pageSwipeEnabled && currentActionMode == null && !useNativeReader) {
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     swipeBlockActive = false

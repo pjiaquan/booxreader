@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+    <my.hinoki.booxreader.data.ui.reader.nativev2.NativeReaderView
+        android:id="@+id/nativeReaderView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="24dp" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/pageIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="8dp"
+        android:text="Page 0/0"
+        android:textColor="#888888"
+        android:textSize="12sp" />
+
+    <LinearLayout
+        android:id="@+id/selectionMenu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/bg_selection_menu"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp"
+        android:elevation="8dp"
+        android:visibility="gone">
+
+        <Button
+            android:id="@+id/btnCopy"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Copy"
+            android:textAllCaps="false"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            style="?android:attr/borderlessButtonStyle" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center_vertical"
+            android:background="#DDDDDD" />
+
+        <Button
+            android:id="@+id/btnSearch"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Search"
+            android:textAllCaps="false"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            style="?android:attr/borderlessButtonStyle" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center_vertical"
+            android:background="#DDDDDD" />
+
+        <Button
+            android:id="@+id/btnAskAi"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Ask AI"
+            android:textAllCaps="false"
+            android:textColor="#333333"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            style="?android:attr/borderlessButtonStyle" />
+            
+    </LinearLayout>
+
+</FrameLayout>

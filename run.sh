@@ -388,23 +388,26 @@ select_device() {
 # Check device compatibility
 check_device_compatibility() {
     local device_serial="$1"
-    local adb_cmd="adb -s $device_serial"
-    
+    local adb_cmd="adb"
+    if [ -n "$device_serial" ]; then
+        adb_cmd="adb -s $device_serial"
+    fi
+
     # Check minimum SDK version (Android 6.0 Marshmallow - API 23)
     local sdk=$($adb_cmd shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r' || echo "0")
-    
+
     if [ "$sdk" -lt 23 ]; then
         echo "Warning: Device has SDK $sdk, but minimum required is 23 (Android 6.0)"
         return 1
     fi
-    
+
     # Check available storage
     local storage=$($adb_cmd shell df /data | tail -1 | awk '{print $4}' 2>/dev/null || echo "0")
     if [ "$storage" -lt 100000 ]; then # Less than 100MB
         echo "Warning: Device has low storage space ($storage KB available)"
         return 1
     fi
-    
+
     echo "Device is compatible"
     return 0
 }
@@ -641,16 +644,16 @@ update_version_info() {
 }
 
 choose_build_type() {
+    if [ "$BUILD_TYPE_LOCKED" = "true" ]; then
+        log "Selected build type: $BUILD_TYPE (from command line)"
+        return 0
+    fi
+
     local prompt_choice=""
     local timeout=5
 
-    if [ "$BUILD_TYPE_LOCKED" = "true" ]; then
-        log "Selected build type: $BUILD_TYPE"
-        return 0
-    fi
-    
     echo -n "Build type (debug/release) [${BUILD_TYPE}]: "
-    
+
     # Use read with timeout if available
     if is_tty && read -t $timeout -r prompt_choice; then
         # User provided input
@@ -665,7 +668,7 @@ choose_build_type() {
         echo "debug"
         BUILD_TYPE="debug"
     fi
-    
+
     echo "Selected build type: $BUILD_TYPE"
 }
 
