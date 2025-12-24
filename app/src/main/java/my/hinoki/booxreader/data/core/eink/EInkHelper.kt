@@ -181,10 +181,10 @@ object EInkHelper {
 
     // 設置高對比模式
     fun setHighContrastMode(view: View?, mode: ContrastMode) {
-        if (view == null) return
-
         currentContrastMode = mode
-        applyContrastMode(view, mode)
+        if (view != null) {
+            applyContrastMode(view, mode)
+        }
     }
 
     // 獲取當前對比模式
@@ -249,10 +249,10 @@ object EInkHelper {
     // 生成正常模式 CSS
     private fun generateNormalCSS(): String {
         return """
-            /* Normal mode - White background, black text */
+            /* Normal mode - Soft off-white background, deep gray text */
             html, body {
-                background-color: #ffffff !important;
-                color: #000000 !important;
+                background-color: #FAF9F6 !important;
+                color: #1A1A1A !important;
             }
 
             * {
@@ -262,11 +262,11 @@ object EInkHelper {
 
             p, div, span, li, h1, h2, h3, h4, h5, h6 {
                 background-color: transparent !important;
-                color: #000000 !important;
+                color: #1A1A1A !important;
             }
 
             a {
-                color: #0000ff !important;
+                color: #0066CC !important;
             }
 
             /* 保持圖片原色 */
@@ -280,10 +280,10 @@ object EInkHelper {
     // 生成深色模式 CSS
     private fun generateDarkCSS(): String {
         return """
-            /* Dark mode - Black background, white text */
+            /* Dark mode - Deep charcoal background, soft gray text */
             html, body {
-                background-color: #000000 !important;
-                color: #ffffff !important;
+                background-color: #121212 !important;
+                color: #BDBDBD !important;
             }
 
             * {
@@ -293,7 +293,7 @@ object EInkHelper {
 
             p, div, span, li, h1, h2, h3, h4, h5, h6 {
                 background-color: transparent !important;
-                color: #ffffff !important;
+                color: #BDBDBD !important;
             }
 
             a {
@@ -325,10 +325,10 @@ object EInkHelper {
     // 生成褐色模式 CSS
     private fun generateSepiaCSS(): String {
         return """
-            /* Sepia mode - Warm brown background */
+            /* Sepia mode - Warm paper background, deep coffee text */
             html, body {
-                background-color: #f4ecd8 !important;
-                color: #5c4b37 !important;
+                background-color: #F2E7D0 !important;
+                color: #433422 !important;
             }
 
             * {
@@ -338,7 +338,7 @@ object EInkHelper {
 
             p, div, span, li, h1, h2, h3, h4, h5, h6 {
                 background-color: transparent !important;
-                color: #5c4b37 !important;
+                color: #433422 !important;
             }
 
             a {

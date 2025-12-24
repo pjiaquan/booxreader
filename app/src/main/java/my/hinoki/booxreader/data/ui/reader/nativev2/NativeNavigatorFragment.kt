@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.text.TextPaint
@@ -71,6 +72,66 @@ class NativeNavigatorFragment : Fragment() {
     val currentLocator: StateFlow<Locator> = _currentLocator.asStateFlow()
 
     private var initialLocator: Locator? = null
+    private var pendingThemeColors: Triple<Int, Int, Int>? = null
+
+    fun setThemeColors(backgroundColor: Int, textColor: Int, buttonColor: Int) {
+        Log.d(
+                TAG,
+                "setThemeColors: background=${Integer.toHexString(backgroundColor)}, textColor=${Integer.toHexString(textColor)}"
+        )
+        if (_binding != null) {
+            binding.nativeReaderView.setThemeColors(backgroundColor, textColor)
+            binding.root.setBackgroundColor(backgroundColor)
+            binding.pageIndicator.setTextColor(textColor)
+
+            // Theme the menu with modern design - create fresh drawable each time to fix theme
+            // persistence
+            val menuBg =
+                    android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        setColor(buttonColor)
+                        cornerRadius = 100f // Full pill shape
+
+                        // Add a subtle border that matches the theme
+                        val isDark = Color.luminance(backgroundColor) < 0.5
+                        val strokeColor =
+                                if (isDark) {
+                                    Color.parseColor("#444444") // Night border
+                                } else {
+                                    Color.parseColor("#DDDDDD") // Day border
+                                }
+                        setStroke(2, strokeColor)
+                    }
+            binding.selectionMenu.background = menuBg
+            binding.selectionMenu.elevation = 16f
+
+            binding.btnCopy.setTextColor(textColor)
+            binding.btnSearch.setTextColor(textColor)
+            binding.btnAskAi.setTextColor(textColor)
+
+            // Re-apply button tint for extra safety
+            val btnTint =
+                    android.content.res.ColorStateList.valueOf(
+                            Color.TRANSPARENT
+                    ) // Since they are borderless
+            binding.btnCopy.backgroundTintList = btnTint
+            binding.btnSearch.backgroundTintList = btnTint
+            binding.btnAskAi.backgroundTintList = btnTint
+
+            // Theme separators - use text color with very low alpha for a subtle look
+            val sepColor = (textColor and 0x00FFFFFF) or 0x1A000000 // ~10% opacity
+            binding.sep1.setBackgroundColor(sepColor)
+            binding.sep2.setBackgroundColor(sepColor)
+        } else {
+            pendingThemeColors = Triple(backgroundColor, textColor, buttonColor)
+        }
+    }
+
+    fun hasSelection(): Boolean = _binding?.nativeReaderView?.hasSelection() ?: false
+
+    fun clearSelection() {
+        _binding?.nativeReaderView?.clearSelection()
+    }
 
     override fun onCreateView(
             inflater: LayoutInflater,
@@ -88,14 +149,24 @@ class NativeNavigatorFragment : Fragment() {
         // Initial setup - wait for layout to get valid dimensions
         binding.nativeReaderView.post { checkDimensionsAndLoad() }
 
+        // Apply pending theme colors if any
+        pendingThemeColors?.let { (bg, text, btn) ->
+            setThemeColors(bg, text, btn)
+            pendingThemeColors = null
+        }
+
         // Selection Menu Logic
-        binding.nativeReaderView.setOnSelectionListener { active, x, y ->
+        binding.nativeReaderView.setOnSelectionListener { active, x, menuY ->
             if (active) {
-                showSelectionMenu(x, y)
+                showSelectionMenu(x, menuY)
             } else {
                 hideSelectionMenu()
             }
         }
+
+        // Dismiss menu when clicking outside (on the background or indicator)
+        binding.root.setOnClickListener { binding.nativeReaderView.clearSelection() }
+        binding.pageIndicator.setOnClickListener { binding.nativeReaderView.clearSelection() }
 
         binding.btnCopy.setOnClickListener {
             val text = binding.nativeReaderView.getSelectedText()
@@ -282,6 +353,7 @@ class NativeNavigatorFragment : Fragment() {
     }
 
     fun go(locator: Locator, animated: Boolean = false) {
+        binding.nativeReaderView.clearSelection()
         val pub = publication ?: return
         val index = pub.readingOrder.indexOfFirst { it.href.toString() == locator.href.toString() }
         if (index != -1) {
@@ -433,6 +505,7 @@ class NativeNavigatorFragment : Fragment() {
     }
 
     fun goForward() {
+        binding.nativeReaderView.clearSelection()
         val p = pager ?: return
         if (currentPageInResource < p.pageCount - 1) {
             currentPageInResource++
@@ -447,6 +520,7 @@ class NativeNavigatorFragment : Fragment() {
     }
 
     fun goBackward() {
+        binding.nativeReaderView.clearSelection()
         if (currentPageInResource > 0) {
             currentPageInResource--
             displayCurrentPage()

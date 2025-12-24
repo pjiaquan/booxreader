@@ -143,6 +143,7 @@ class ReaderActivity : BaseActivity() {
     private fun WebView.currentPageScale(): Float =
             runCatching { scale }.getOrDefault(1f).takeIf { it > 0f } ?: 1f
     private val selectionDebugLogging = false
+    private var hadNativeSelectionOnDown = false
 
     // Swipe Block variables
     private var swipeBlockActive = false
@@ -163,6 +164,8 @@ class ReaderActivity : BaseActivity() {
                 this,
                 object : android.view.GestureDetector.SimpleOnGestureListener() {
                     override fun onDown(e: MotionEvent): Boolean {
+                        hadNativeSelectionOnDown =
+                                useNativeReader && nativeNavigatorFragment?.hasSelection() == true
                         return true
                     }
 
@@ -184,6 +187,16 @@ class ReaderActivity : BaseActivity() {
                                     navigatorFragment?.clearSelection()
                                 } catch (_: Exception) {}
                             }
+                            return true
+                        }
+
+                        // Native Reader Selection Handling
+                        if (useNativeReader &&
+                                        (hadNativeSelectionOnDown ||
+                                                nativeNavigatorFragment?.hasSelection() == true)
+                        ) {
+                            nativeNavigatorFragment?.clearSelection()
+                            hadNativeSelectionOnDown = false
                             return true
                         }
 
@@ -486,11 +499,16 @@ class ReaderActivity : BaseActivity() {
             viewModel.openBook(bookUri, contentResolver)
         } else {
             // Re-attach if fragment exists
-            navigatorFragment =
-                    supportFragmentManager.findFragmentById(R.id.readerContainer) as?
-                            EpubNavigatorFragment
-            if (navigatorFragment == null) {
+            supportFragmentManager.executePendingTransactions()
+            val fragment = supportFragmentManager.findFragmentById(R.id.readerContainer)
+            navigatorFragment = fragment as? EpubNavigatorFragment
+            nativeNavigatorFragment = fragment as? NativeNavigatorFragment
+
+            if (navigatorFragment == null && nativeNavigatorFragment == null) {
                 viewModel.openBook(bookUri, contentResolver)
+            } else {
+                // Ensure the current theme is applied to the re-attached fragment
+                applyContrastMode(currentContrastMode)
             }
         }
     }
@@ -605,7 +623,7 @@ class ReaderActivity : BaseActivity() {
 
         startLocator?.let {}
         // Avoid re-creating if already set up
-        if (navigatorFragment != null) {
+        if (navigatorFragment != null || nativeNavigatorFragment != null) {
             return
         }
         lastStyledHref = null
@@ -635,6 +653,10 @@ class ReaderActivity : BaseActivity() {
                     .commitNow()
             nativeNavigatorFragment = nativeFrag
             Log.d("ReaderActivity", "NativeNavigatorFragment committed: $nativeNavigatorFragment")
+
+            // Apply current theme immediately
+            applyContrastMode(currentContrastMode)
+
             observeLocatorUpdates() // Start observing native locator
             return
         }
@@ -763,9 +785,9 @@ class ReaderActivity : BaseActivity() {
         if (view is android.webkit.WebView) {
             val pageBackground =
                     when (currentContrastMode) {
-                        ContrastMode.NORMAL -> "#ffffff"
-                        ContrastMode.DARK -> "#000000"
-                        ContrastMode.SEPIA -> "#f4ecd8"
+                        ContrastMode.NORMAL -> "#FAF9F6"
+                        ContrastMode.DARK -> "#121212"
+                        ContrastMode.SEPIA -> "#F2E7D0"
                         ContrastMode.HIGH_CONTRAST -> "#000000"
                     }
             val css =
@@ -2444,13 +2466,11 @@ class ReaderActivity : BaseActivity() {
                 .putInt("contrast_mode", mode.ordinal)
                 .apply()
 
-        navigatorFragment?.view?.let { view ->
-            EInkHelper.setHighContrastMode(view, mode)
+        EInkHelper.setHighContrastMode(navigatorFragment?.view ?: binding.root, mode)
 
-            // 對比模式變更後執行完整刷新
-            if (EInkHelper.isBooxDevice()) {
-                view.postDelayed({ EInkHelper.refreshFull(binding.root) }, 200)
-            }
+        // 對比模式變更後執行完整刷新
+        if (EInkHelper.isBooxDevice()) {
+            binding.root.postDelayed({ EInkHelper.refreshFull(binding.root) }, 200)
         }
 
         applyReaderChromeTheme(mode)
@@ -2469,24 +2489,28 @@ class ReaderActivity : BaseActivity() {
     private fun applyReaderChromeTheme(mode: ContrastMode) {
         val backgroundColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.WHITE
-                    ContrastMode.DARK -> Color.BLACK
-                    ContrastMode.SEPIA -> Color.parseColor("#f4ecd8")
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         val textColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.WHITE
-                    ContrastMode.SEPIA -> Color.parseColor("#5c4b37")
+                    ContrastMode.NORMAL -> Color.parseColor("#1A1A1A")
+                    ContrastMode.DARK -> Color.parseColor("#BDBDBD")
+                    ContrastMode.SEPIA -> Color.parseColor("#433422")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
         val buttonColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#f2f2f2")
-                    ContrastMode.DARK -> Color.parseColor("#1a1a1a")
-                    ContrastMode.SEPIA -> Color.parseColor("#e7ddc7")
-                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#1a1a1a")
+                    ContrastMode.NORMAL -> Color.parseColor("#F0EDE5") // Slightly lighter for Day
+                    ContrastMode.DARK ->
+                            Color.parseColor(
+                                    "#2C2C2C"
+                            ) // Lighter gray for better visibility in Night
+                    ContrastMode.SEPIA -> Color.parseColor("#E8DEC0") // Refined Sepia
+                    ContrastMode.HIGH_CONTRAST ->
+                            Color.parseColor("#333333") // Visible in high contrast
                 }
 
         binding.root.setBackgroundColor(backgroundColor)
@@ -2519,6 +2543,11 @@ class ReaderActivity : BaseActivity() {
             window.statusBarColor = backgroundColor
             window.navigationBarColor = backgroundColor
         }
+        Log.d(
+                "ReaderActivity",
+                "Applying theme: $mode, textColor: ${Integer.toHexString(textColor)}, buttonColor: ${Integer.toHexString(buttonColor)}"
+        )
+        nativeNavigatorFragment?.setThemeColors(backgroundColor, textColor, buttonColor)
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
         val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
         insetsController.isAppearanceLightStatusBars = useLightIcons

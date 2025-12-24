@@ -67,6 +67,25 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             }
     private val magnifierBitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
 
+    private var currentBackgroundColor: Int = Color.WHITE
+    private var currentTextColor: Int = Color.BLACK
+
+    fun setThemeColors(backgroundColor: Int, textColor: Int) {
+        currentBackgroundColor = backgroundColor
+        currentTextColor = textColor
+
+        textPaint.color = textColor
+        handlePaint.color = textColor
+
+        selectionPaint.color = textColor
+        selectionPaint.alpha = 40
+
+        magnifierPaint.color =
+                if (Color.luminance(backgroundColor) > 0.5) Color.LTGRAY else Color.DKGRAY
+
+        invalidate()
+    }
+
     fun setOnTouchTapListener(listener: (Float, Float) -> Unit) {
         this.onTouchTapListener = listener
     }
@@ -76,11 +95,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     fun getSelectedText(): String? {
-        if (selectionStart == -1 || selectionEnd == -1) return null
+        if (!hasSelection()) return null
         val start = min(selectionStart, selectionEnd)
         val end = max(selectionStart, selectionEnd)
         return content.subSequence(start, end).toString()
     }
+
+    fun hasSelection(): Boolean = selectionStart != -1 && selectionEnd != -1
 
     fun getSelectionLocator(): Locator? {
         val text = getSelectedText() ?: return null
@@ -206,7 +227,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        canvas.drawColor(Color.WHITE)
+        canvas.drawColor(currentBackgroundColor)
 
         canvas.save()
         canvas.translate(paddingLeft.toFloat(), paddingTop.toFloat())
@@ -228,8 +249,12 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 val left = if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f
                 val right =
                         if (line == endLine) l.getPrimaryHorizontal(lineEnd) else l.width.toFloat()
-                val top = l.getLineTop(line).toFloat()
-                val bottom = l.getLineBottom(line).toFloat()
+
+                // Use FontMetrics for tight vertical bounds (ignores line spacing multiplier)
+                val baseline = l.getLineBaseline(line).toFloat()
+                val fm = textPaint.fontMetrics
+                val top = baseline + fm.ascent
+                val bottom = baseline + fm.descent
 
                 canvas.drawRect(left, top, right, bottom, selectionPaint)
             }
@@ -264,7 +289,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             canvas.clipPath(path)
 
             // Draw background for magnifier
-            canvas.drawColor(Color.WHITE)
+            canvas.drawColor(currentBackgroundColor)
 
             // Scale and Translate to focus area
             canvas.translate(magnifierX, magnifierY)
@@ -286,8 +311,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 val right =
                         if (lineIdx == endLine) l.getPrimaryHorizontal(lineEnd)
                         else l.width.toFloat()
-                val top = l.getLineTop(lineIdx).toFloat()
-                val bottom = l.getLineBottom(lineIdx).toFloat()
+
+                // Use FontMetrics in magnifier too
+                val baseline = l.getLineBaseline(lineIdx).toFloat()
+                val fm = textPaint.fontMetrics
+                val top = baseline + fm.ascent
+                val bottom = baseline + fm.descent
+
                 canvas.drawRect(left, top, right, bottom, selectionPaint)
             }
             l.draw(canvas)
@@ -311,8 +341,10 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         // Start handle
         val sLine = l.getLineForOffset(minOff)
         val sX = l.getPrimaryHorizontal(minOff)
-        val sBottom = l.getLineBottom(sLine).toFloat()
-        val sTop = l.getLineTop(sLine).toFloat()
+        val sBaseline = l.getLineBaseline(sLine).toFloat()
+        val fm = textPaint.fontMetrics
+        val sTop = sBaseline + fm.ascent
+        val sBottom = sBaseline + fm.descent
 
         canvas.drawRect(sX - handleWidth / 2, sTop, sX + handleWidth / 2, sBottom, handlePaint)
         canvas.drawCircle(sX, sTop, handleBallRadius, handlePaint)
@@ -320,8 +352,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         // End handle
         val eLine = l.getLineForOffset(maxOff)
         val eX = l.getPrimaryHorizontal(maxOff)
-        val eBottom = l.getLineBottom(eLine).toFloat()
-        val eTop = l.getLineTop(eLine).toFloat()
+        val eBaseline = l.getLineBaseline(eLine).toFloat()
+        val eTop = eBaseline + fm.ascent
+        val eBottom = eBaseline + fm.descent
 
         canvas.drawRect(eX - handleWidth / 2, eTop, eX + handleWidth / 2, eBottom, handlePaint)
         canvas.drawCircle(eX, eBottom, handleBallRadius, handlePaint)
@@ -464,9 +497,11 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
         // Target the center of the balls
         val ox = l.getPrimaryHorizontal(offset) + paddingLeft
+        val baseline = l.getLineBaseline(line).toFloat()
+        val fm = textPaint.fontMetrics
         val oy =
-                if (isStart) l.getLineTop(line).toFloat() + paddingTop
-                else l.getLineBottom(line).toFloat() + paddingTop
+                if (isStart) baseline + fm.ascent + paddingTop
+                else baseline + fm.descent + paddingTop
 
         // Massive hit area for handles: 180px radius (32400 squared)
         return (x - ox) * (x - ox) + (y - oy) * (y - oy) < 32400
