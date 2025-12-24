@@ -53,6 +53,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     private var onTouchTapListener: ((Float, Float) -> Unit)? = null
     private var onSelectionListener: ((Boolean, Float, Float) -> Unit)? = null
+    private var onLinkClickListener: ((String) -> Unit)? = null
 
     // Magnifier state
     private var isMagnifying = false
@@ -69,12 +70,23 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     private var currentBackgroundColor: Int = Color.WHITE
     private var currentTextColor: Int = Color.BLACK
+    private var currentLinkColor: Int = Color.BLUE
 
     fun setThemeColors(backgroundColor: Int, textColor: Int) {
         currentBackgroundColor = backgroundColor
         currentTextColor = textColor
 
+        // Derive link color based on brightness
+        val isDark = androidx.core.graphics.ColorUtils.calculateLuminance(backgroundColor) < 0.5
+        currentLinkColor =
+                if (isDark) {
+                    Color.parseColor("#64B5F6") // Light Blue 300
+                } else {
+                    Color.parseColor("#1E88E5") // Blue 600
+                }
+
         textPaint.color = textColor
+        textPaint.linkColor = currentLinkColor
         handlePaint.color = textColor
 
         selectionPaint.color = textColor
@@ -82,6 +94,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
         magnifierPaint.color =
                 if (Color.luminance(backgroundColor) > 0.5) Color.LTGRAY else Color.DKGRAY
+
+        // Re-apply styles to current content when theme changes
+        restyleLinks()
 
         invalidate()
     }
@@ -92,6 +107,10 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     fun setOnSelectionListener(listener: (Boolean, Float, Float) -> Unit) {
         this.onSelectionListener = listener
+    }
+
+    fun setOnLinkClickListener(listener: (String) -> Unit) {
+        this.onLinkClickListener = listener
     }
 
     fun getSelectedText(): String? {
@@ -133,6 +152,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                                     return true
                                 }
                             }
+
+                            // Link detection (Fuzzy hit area for small footnotes)
+                            val linkUrl = findLinkAt(e.x, e.y)
+                            if (linkUrl != null) {
+                                onLinkClickListener?.invoke(linkUrl)
+                                return true
+                            }
+
                             onTouchTapListener?.invoke(e.x, e.y)
                             performClick()
                             return true
@@ -191,12 +218,112 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     fun setContent(text: CharSequence) {
-        this.content = text
+        this.content =
+                if (text is android.text.Spannable) text else android.text.SpannableString(text)
+        restyleLinks()
+
         // Clear selection when content changes
         selectionStart = -1
         selectionEnd = -1
         requestLayout()
         invalidate()
+    }
+
+    private fun restyleLinks() {
+        if (content !is android.text.Spannable) return
+        val spannable = content as android.text.Spannable
+
+        // 1. Remove existing styling spans created by us (to prevent accumulation and allow theme
+        // updates)
+        // We look for spans we likely added. Since we can't easily tag spans, we remove all
+        // ForegroundColorSpan
+        // and StyleSpan that perfectly overlap with URLSpans.
+        // Or simpler: just clear all MetricAffectingSpans? No, that might kill other formatting.
+        // Safe approach: Find URLSpans, then find other spans in same range.
+
+        val links = spannable.getSpans(0, spannable.length, android.text.style.URLSpan::class.java)
+        if (links.isEmpty()) return
+
+        for (link in links) {
+            val start = spannable.getSpanStart(link)
+            val end = spannable.getSpanEnd(link)
+
+            // Remove specific spans in this range
+            val oldColors =
+                    spannable.getSpans(
+                            start,
+                            end,
+                            android.text.style.ForegroundColorSpan::class.java
+                    )
+            for (span in oldColors) spannable.removeSpan(span)
+
+            val oldStyles = spannable.getSpans(start, end, android.text.style.StyleSpan::class.java)
+            for (span in oldStyles) spannable.removeSpan(span)
+
+            val oldSupers =
+                    spannable.getSpans(start, end, android.text.style.SuperscriptSpan::class.java)
+            for (span in oldSupers) spannable.removeSpan(span)
+
+            val oldSizes =
+                    spannable.getSpans(start, end, android.text.style.RelativeSizeSpan::class.java)
+            for (span in oldSizes) spannable.removeSpan(span)
+
+            // Remove old BackgroundColorSpan if any
+            val oldBackgrounds =
+                    spannable.getSpans(
+                            start,
+                            end,
+                            android.text.style.BackgroundColorSpan::class.java
+                    )
+            for (span in oldBackgrounds) spannable.removeSpan(span)
+
+            // 2. Apply new styling
+            // HIGHLIGHT: Add a subtle background to make it absolutely clear where the link is
+            val highlightColor =
+                    if (Color.luminance(currentLinkColor) > 0.5) {
+                        Color.argb(40, 0, 0, 0) // Dark highlight for light links
+                    } else {
+                        Color.argb(40, 255, 255, 255) // Light highlight for dark links
+                    }
+            spannable.setSpan(
+                    android.text.style.BackgroundColorSpan(highlightColor),
+                    start,
+                    end,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            spannable.setSpan(
+                    android.text.style.ForegroundColorSpan(currentLinkColor),
+                    start,
+                    end,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            spannable.setSpan(
+                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                    start,
+                    end,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+
+            // Flexible footnote detection: any short text sequence (1-4 chars) with digits
+            val linkText = spannable.subSequence(start, end).toString().trim()
+            val hasDigits = linkText.any { it.isDigit() }
+            if (linkText.length <= 5 && hasDigits) {
+                spannable.setSpan(
+                        android.text.style.SuperscriptSpan(),
+                        start,
+                        end,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                        android.text.style.RelativeSizeSpan(0.75f),
+                        start,
+                        end,
+                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
     }
 
     fun setTextSize(size: Float) {
@@ -525,5 +652,34 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         }
 
         return l.getOffsetForHorizontal(line, relativeX.coerceIn(0f, l.width.toFloat()))
+    }
+
+    private fun findLinkAt(x: Float, y: Float): String? {
+        if (layout == null) return null
+        val density = resources.displayMetrics.density
+        val radius = 12f * density // ~12dp radius
+
+        // Try several points around the tap to increase hit area
+        // We prioritize the center point
+        val offsets = mutableSetOf<Int>()
+        offsets.add(getOffsetForPosition(x, y))
+        offsets.add(getOffsetForPosition(x - radius, y))
+        offsets.add(getOffsetForPosition(x + radius, y))
+        offsets.add(getOffsetForPosition(x, y - radius))
+        offsets.add(getOffsetForPosition(x, y + radius))
+
+        if (content is android.text.Spanned) {
+            val spanned = content as android.text.Spanned
+            for (offset in offsets) {
+                if (offset != -1) {
+                    val spans =
+                            spanned.getSpans(offset, offset, android.text.style.URLSpan::class.java)
+                    if (spans.isNotEmpty()) {
+                        return spans[0].url
+                    }
+                }
+            }
+        }
+        return null
     }
 }

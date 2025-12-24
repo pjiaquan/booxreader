@@ -76,6 +76,7 @@ class NativeNavigatorFragment : Fragment() {
 
     private var initialLocator: Locator? = null
     private var pendingThemeColors: Triple<Int, Int, Int>? = null
+    private var currentThemeColors: Pair<Int, Int>? = null // bgColor to textColor
 
     fun setThemeColors(backgroundColor: Int, textColor: Int, buttonColor: Int) {
         Log.d(
@@ -128,6 +129,7 @@ class NativeNavigatorFragment : Fragment() {
         } else {
             pendingThemeColors = Triple(backgroundColor, textColor, buttonColor)
         }
+        currentThemeColors = backgroundColor to textColor
     }
 
     fun hasSelection(): Boolean = _binding?.nativeReaderView?.hasSelection() ?: false
@@ -180,6 +182,8 @@ class NativeNavigatorFragment : Fragment() {
                 hideSelectionMenu()
             }
         }
+
+        binding.nativeReaderView.setOnLinkClickListener { url -> handleLinkClick(url) }
 
         // Dismiss menu when clicking outside (on the background or indicator)
         binding.root.setOnClickListener { binding.nativeReaderView.clearSelection() }
@@ -276,6 +280,109 @@ class NativeNavigatorFragment : Fragment() {
         startActivity(intent)
     }
 
+    private fun handleLinkClick(url: String) {
+        Log.d(TAG, "handleLinkClick: $url")
+        val pub = publication ?: return
+
+        // 1. Handle internal links / footnotes
+        if (url.startsWith("#") || !url.contains("://")) {
+            lifecycleScope.launch {
+                try {
+                    val href =
+                            if (url.startsWith("#")) {
+                                currentResourceHref?.let { "$it$url" } ?: url
+                            } else {
+                                url
+                            }
+
+                    // Simple heuristic: if it contains a fragment, it might be a footnote
+                    if (url.contains("#")) {
+                        val parts = href.split("#")
+                        val resourceHref = parts[0]
+                        val fragmentId = parts.getOrNull(1)
+
+                        val link = pub.linkWithHref(Url(resourceHref)!!)
+                        if (link != null) {
+                            val resource = pub.get(link)
+                            val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8)
+
+                            if (html != null && fragmentId != null) {
+                                // Extract the content of the element with the ID
+                                // Use a simple regex-based extraction to avoid full JSoup if
+                                // possible
+                                // For better results, JSoup is preferred, but let's try a simple
+                                // one first
+                                val pattern =
+                                        Regex(
+                                                "<[^>]*id=\"$fragmentId\"[^>]*>(.*?)</[^>]*>",
+                                                RegexOption.DOT_MATCHES_ALL
+                                        )
+                                val match = pattern.find(html)
+                                if (match != null) {
+                                    val content = match.groupValues[1]
+                                    val parsed = parseHtml(content)
+                                    showFootnotePopup(parsed)
+                                    return@launch
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback: if not handled as popup, just jump to it
+                    go(Locator(href = Url(href)!!, mediaType = MediaType.HTML))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error handling internal link: $url", e)
+                }
+            }
+        } else {
+            // 2. Handle external links
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Could not open link", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showFootnotePopup(content: CharSequence) {
+        val context = requireContext()
+        val (popupBgColor, popupTextColor) = currentThemeColors ?: (Color.WHITE to Color.BLACK)
+
+        // Use a slightly different background for the popup to distinguish it if it's white/black
+        val isDark = Color.luminance(popupBgColor) < 0.5
+        val finalPopupBg = if (isDark) Color.parseColor("#333333") else Color.parseColor("#F5F5F5")
+
+        val padding = (16 * resources.displayMetrics.density).toInt()
+        val textView =
+                android.widget.TextView(context).apply {
+                    text = content
+                    setTextColor(popupTextColor)
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+                    setPadding(padding, padding, padding, padding)
+                    movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                }
+
+        val scrollView = android.widget.ScrollView(context).apply { addView(textView) }
+
+        val popup =
+                android.widget.PopupWindow(
+                                scrollView,
+                                (resources.displayMetrics.widthPixels * 0.85).toInt(),
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                true
+                        )
+                        .apply {
+                            elevation = 20f
+                            setBackgroundDrawable(
+                                    android.graphics.drawable.ColorDrawable(finalPopupBg)
+                            )
+                            animationStyle = android.R.style.Animation_Dialog
+                        }
+
+        popup.showAtLocation(binding.root, android.view.Gravity.CENTER, 0, 0)
+    }
+
     private fun checkDimensionsAndLoad() {
         Log.d(TAG, "checkDimensionsAndLoad")
         val width =
@@ -369,7 +476,7 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
-    fun go(locator: Locator, animated: Boolean = false) {
+    fun go(locator: Locator) {
         binding.nativeReaderView.clearSelection()
         val pub = publication ?: return
         val index = pub.readingOrder.indexOfFirst { it.href.toString() == locator.href.toString() }

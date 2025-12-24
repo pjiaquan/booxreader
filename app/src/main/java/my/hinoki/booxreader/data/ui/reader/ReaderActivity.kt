@@ -461,7 +461,7 @@ class ReaderActivity : BaseActivity() {
 
         // Restore location immediately
         if (initialLocator != null) {
-            nativeNavigatorFragment?.go(initialLocator, pageAnimationEnabled)
+            nativeNavigatorFragment?.go(initialLocator)
         }
 
         // 延遲再次應用以確保文檔載入完成
@@ -483,7 +483,7 @@ class ReaderActivity : BaseActivity() {
 
                     // Restore location
                     if (delayedLocator != null) {
-                        nativeNavigatorFragment?.go(delayedLocator, pageAnimationEnabled)
+                        nativeNavigatorFragment?.go(delayedLocator)
                     }
 
                     // 再次延遲以確保穩定
@@ -505,7 +505,7 @@ class ReaderActivity : BaseActivity() {
                                 applyContrastMode(currentContrastMode)
 
                                 if (finalLocator != null) {
-                                    nativeNavigatorFragment?.go(finalLocator, pageAnimationEnabled)
+                                    nativeNavigatorFragment?.go(finalLocator)
                                 }
                             },
                             1000
@@ -601,7 +601,7 @@ class ReaderActivity : BaseActivity() {
                     ) {
                         // Small delay to ensure Reader is ready effectively
                         delay(50)
-                        nativeNavigatorFragment?.go(savedLocator, animated = false)
+                        nativeNavigatorFragment?.go(savedLocator)
                     } else {}
                 }
             }
@@ -633,7 +633,7 @@ class ReaderActivity : BaseActivity() {
                 if (savedLocator != null) {
                     // Small delay to let Reader apply settings first
                     delay(50)
-                    nativeNavigatorFragment?.go(savedLocator, pageAnimationEnabled)
+                    nativeNavigatorFragment?.go(savedLocator)
                 }
             }
         }
@@ -666,7 +666,7 @@ class ReaderActivity : BaseActivity() {
             val json = data.getStringExtra(BookmarkListActivity.EXTRA_LOCATOR_JSON)
             val locator = LocatorJsonHelper.fromJson(json)
             if (locator != null) {
-                nativeNavigatorFragment?.go(locator, pageAnimationEnabled)
+                nativeNavigatorFragment?.go(locator)
                 requestEinkRefresh()
             }
         }
@@ -703,7 +703,7 @@ class ReaderActivity : BaseActivity() {
                     val target = chapters.getOrNull(which) ?: return@setItems
                     val locator = locatorFromLink(target.link)
                     if (locator != null) {
-                        nativeNavigatorFragment?.go(locator, pageAnimationEnabled)
+                        nativeNavigatorFragment?.go(locator)
                         requestEinkRefresh()
                     } else {
                         Toast.makeText(this, "無法開啟章節", Toast.LENGTH_SHORT).show()
@@ -1536,7 +1536,7 @@ class ReaderActivity : BaseActivity() {
         if (!locatorJson.isNullOrBlank()) {
             val locator = LocatorJsonHelper.fromJson(locatorJson)
             if (locator != null) {
-                nativeNavigatorFragment?.go(locator, animated = false)
+                nativeNavigatorFragment?.go(locator)
             }
         }
     }
