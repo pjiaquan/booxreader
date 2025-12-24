@@ -44,7 +44,7 @@ class NativeNavigatorFragment : Fragment() {
     private var currentPageInResource = 0
 
     private var pager: NativeReaderPager? = null
-    private var resourceText: String = ""
+    private var resourceText: CharSequence = ""
 
     private val _currentLocator = run {
         Log.d(TAG, "Initializing _currentLocator")
@@ -293,7 +293,7 @@ class NativeNavigatorFragment : Fragment() {
                 withContext(Dispatchers.IO) {
                     val resource = pub.get(link)
                     val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
-                    stripHtml(html)
+                    parseHtml(html)
                 }
 
         if (resourceText.isEmpty() && currentResourceIndex < pub.readingOrder.size - 1) {
@@ -423,17 +423,17 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
-    private fun stripHtml(html: String): String {
-        // More robust stripping
-        return html.replace(Regex("<style.*?>.*?</style>", RegexOption.DOT_MATCHES_ALL), "")
-                .replace(Regex("<script.*?>.*?</script>", RegexOption.DOT_MATCHES_ALL), "")
-                .replace(Regex("<.*?>", RegexOption.DOT_MATCHES_ALL), " ")
-                .replace("&nbsp;", " ")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&amp;", "&")
-                .replace(Regex("\\s+"), " ")
-                .trim()
+    private fun parseHtml(html: String): CharSequence {
+        // Clean up some basic mess before parsing
+        val cleaned =
+                html.replace(Regex("<script.*?>.*?</script>", RegexOption.DOT_MATCHES_ALL), "")
+                        .replace(Regex("<style.*?>.*?</style>", RegexOption.DOT_MATCHES_ALL), "")
+
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            android.text.Html.fromHtml(cleaned, android.text.Html.FROM_HTML_MODE_LEGACY)
+        } else {
+            @Suppress("DEPRECATION") android.text.Html.fromHtml(cleaned)
+        }
     }
 
     override fun onDestroyView() {

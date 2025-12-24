@@ -12,11 +12,11 @@ class NativeReaderPager(
 ) {
     private var fullLayout: StaticLayout? = null
     private val pages = mutableListOf<PageRange>()
-    private var currentText: String = ""
+    private var currentText: CharSequence = ""
 
     data class PageRange(val startOffset: Int, val endOffset: Int)
 
-    fun paginate(text: String): List<PageRange> {
+    fun paginate(text: CharSequence): List<PageRange> {
         this.currentText = text
         pages.clear()
 
@@ -54,9 +54,9 @@ class NativeReaderPager(
         return pages
     }
 
-    fun getPageText(pageIndex: Int): String {
+    fun getPageText(pageIndex: Int): CharSequence {
         val range = pages.getOrNull(pageIndex) ?: return ""
-        return currentText.substring(range.startOffset, range.endOffset)
+        return currentText.subSequence(range.startOffset, range.endOffset)
     }
 
     val pageCount: Int

@@ -42,7 +42,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 style = Paint.Style.FILL
             }
 
-    private var content: String = ""
+    private var content: CharSequence = ""
     private var layout: StaticLayout? = null
 
     // Selection state
@@ -79,12 +79,12 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         if (selectionStart == -1 || selectionEnd == -1) return null
         val start = min(selectionStart, selectionEnd)
         val end = max(selectionStart, selectionEnd)
-        return content.substring(start, end)
+        return content.subSequence(start, end).toString()
     }
 
     fun getSelectionLocator(): Locator? {
         val text = getSelectedText() ?: return null
-        val start = min(selectionStart, selectionEnd)
+        // start is unused in this simplified version
         return Locator(
                 href = Url("native://current")!!, // Placeholder for native view
                 mediaType = MediaType.TEXT,
@@ -149,7 +149,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private fun getWordBoundaries(offset: Int): Pair<Int, Int> {
         if (content.isEmpty()) return offset to offset
         val iterator = BreakIterator.getWordInstance()
-        iterator.setText(content)
+        iterator.setText(content.toString())
 
         var end = iterator.following(offset)
         if (end == BreakIterator.DONE) end = content.length
@@ -157,7 +157,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         if (start == BreakIterator.DONE) start = 0
 
         // If it's a space or empty punctuation, fall back to single character
-        val selected = content.substring(start, end)
+        val selected = content.subSequence(start, end).toString()
         if (selected.trim().isEmpty() && offset < content.length) {
             return offset to (offset + 1).coerceAtMost(content.length)
         }
@@ -169,7 +169,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         return super.performClick()
     }
 
-    fun setContent(text: String) {
+    fun setContent(text: CharSequence) {
         this.content = text
         // Clear selection when content changes
         selectionStart = -1
