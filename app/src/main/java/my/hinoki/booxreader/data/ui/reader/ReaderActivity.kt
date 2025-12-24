@@ -347,15 +347,23 @@ class ReaderActivity : BaseActivity() {
     // paging/selection fast on e-ink.
 
     private fun goPageForward() {
-        logPageEdgeWords("beforeForward")
-        navigatorFragment?.goForward(pageAnimationEnabled)
-        binding.root.postDelayed({ logPageEdgeWords("afterForward") }, 200)
+        if (useNativeReader) {
+            nativeNavigatorFragment?.goForward()
+        } else {
+            logPageEdgeWords("beforeForward")
+            navigatorFragment?.goForward(pageAnimationEnabled)
+            binding.root.postDelayed({ logPageEdgeWords("afterForward") }, 200)
+        }
     }
 
     private fun goPageBackward() {
-        logPageEdgeWords("beforeBackward")
-        navigatorFragment?.goBackward(pageAnimationEnabled)
-        binding.root.postDelayed({ logPageEdgeWords("afterBackward") }, 200)
+        if (useNativeReader) {
+            nativeNavigatorFragment?.goBackward()
+        } else {
+            logPageEdgeWords("beforeBackward")
+            navigatorFragment?.goBackward(pageAnimationEnabled)
+            binding.root.postDelayed({ logPageEdgeWords("afterBackward") }, 200)
+        }
     }
 
     private fun flushPendingDecorations() {
@@ -1333,7 +1341,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun openChapterPicker() {
         val publication = viewModel.publication.value
-        val navigator = navigatorFragment
+        val navigator = if (useNativeReader) nativeNavigatorFragment else navigatorFragment
         if (publication == null || navigator == null) {
             Toast.makeText(this, "尚未載入書籍", Toast.LENGTH_SHORT).show()
             return
@@ -1360,7 +1368,11 @@ class ReaderActivity : BaseActivity() {
                     val target = chapters.getOrNull(which) ?: return@setItems
                     val locator = locatorFromLink(target.link)
                     if (locator != null) {
-                        navigator.go(locator, pageAnimationEnabled)
+                        if (useNativeReader) {
+                            nativeNavigatorFragment?.go(locator, pageAnimationEnabled)
+                        } else {
+                            navigatorFragment?.go(locator, pageAnimationEnabled)
+                        }
                         requestEinkRefresh()
                     } else {
                         Toast.makeText(this, "無法開啟章節", Toast.LENGTH_SHORT).show()
@@ -1440,8 +1452,15 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun addBookmarkFromCurrentPosition() {
-        val navigator = navigatorFragment ?: return
-        viewModel.addBookmark(navigator.currentLocator.value)
+        val locator =
+                if (useNativeReader) {
+                    nativeNavigatorFragment?.currentLocator?.value
+                } else {
+                    navigatorFragment?.currentLocator?.value
+                }
+        if (locator != null) {
+            viewModel.addBookmark(locator)
+        }
     }
 
     private fun showSettingsDialog() {

@@ -88,19 +88,6 @@ class NativeNavigatorFragment : Fragment() {
         // Initial setup - wait for layout to get valid dimensions
         binding.nativeReaderView.post { checkDimensionsAndLoad() }
 
-        // Navigation Zones: Left 20% = Prev, Right 20% = Next, Middle = Toggle Menu (Next for now)
-        binding.nativeReaderView.setOnTouchTapListener { x, y ->
-            val width = binding.nativeReaderView.width
-            val leftZone = width * 0.2f
-            val rightZone = width * 0.8f
-
-            when {
-                x < leftZone -> goBackward()
-                x > rightZone -> goForward()
-                else -> goForward() // Middle tap also goes forward for now
-            }
-        }
-
         // Selection Menu Logic
         binding.nativeReaderView.setOnSelectionListener { active, x, y ->
             if (active) {
