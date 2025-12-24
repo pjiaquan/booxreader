@@ -178,6 +178,12 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         invalidate()
     }
 
+    fun setTextSize(size: Float) {
+        textPaint.textSize = size
+        requestLayout()
+        invalidate()
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val availableWidth = width - paddingLeft - paddingRight

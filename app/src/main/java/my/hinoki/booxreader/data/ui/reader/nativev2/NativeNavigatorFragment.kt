@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.reader.ReaderViewModel
+import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.data.ui.reader.ReaderActivity
 import my.hinoki.booxreader.databinding.FragmentNativeReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import org.readium.r2.shared.publication.Locator
@@ -212,7 +214,18 @@ class NativeNavigatorFragment : Fragment() {
         Log.d(TAG, "Dimensions: ${width}x${height}")
 
         if (width > 0 && height > 0) {
-            val paint = TextPaint().apply { textSize = 98f }
+            val settings =
+                    ReaderSettings.fromPrefs(
+                            requireContext()
+                                    .getSharedPreferences(
+                                            ReaderActivity.PREFS_NAME,
+                                            android.content.Context.MODE_PRIVATE
+                                    )
+                    )
+            val newTextSize = (settings.textSize.toFloat() / 100f) * 70f
+            binding.nativeReaderView.setTextSize(newTextSize)
+
+            val paint = TextPaint().apply { textSize = newTextSize }
             pager = NativeReaderPager(paint, width, height)
 
             // If we have an initial locator, use it
@@ -243,6 +256,41 @@ class NativeNavigatorFragment : Fragment() {
         this.initialLocator = initialLocator
         if (isResumed && pager != null) {
             lifecycleScope.launch { loadCurrentResource() }
+        }
+    }
+
+    fun setFontSize(sizePercent: Int) {
+        val width =
+                binding.nativeReaderView.width -
+                        binding.nativeReaderView.paddingLeft -
+                        binding.nativeReaderView.paddingRight
+        val height =
+                binding.nativeReaderView.height -
+                        binding.nativeReaderView.paddingTop -
+                        binding.nativeReaderView.paddingBottom
+
+        if (width > 0 && height > 0) {
+            val newTextSize = (sizePercent.toFloat() / 100f) * 70f
+            binding.nativeReaderView.setTextSize(newTextSize)
+
+            val paint = TextPaint().apply { textSize = newTextSize }
+            val newPager = NativeReaderPager(paint, width, height)
+            pager = newPager
+
+            lifecycleScope.launch {
+                // Save current relative progression
+                val oldLocator = _currentLocator.value
+                val progression = oldLocator.locations.progression ?: 0.0
+
+                newPager.paginate(resourceText)
+
+                val pageCount = newPager.pageCount
+                if (pageCount > 0) {
+                    currentPageInResource =
+                            (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                }
+                displayCurrentPage()
+            }
         }
     }
 

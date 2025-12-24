@@ -157,7 +157,6 @@ class ReaderActivity : BaseActivity() {
     )
 
     private val REQ_BOOKMARK = 1001
-    private val PREFS_NAME = "reader_prefs"
 
     private val gestureDetector by lazy {
         GestureDetector(
@@ -367,6 +366,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     companion object {
+        const val PREFS_NAME = "reader_prefs"
         private const val EXTRA_BOOK_KEY = "extra_book_key"
         private const val EXTRA_BOOK_TITLE = "extra_book_title"
         private const val EXTRA_LOCATOR_JSON = "extra_locator_json"
@@ -1733,6 +1733,29 @@ class ReaderActivity : BaseActivity() {
         etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
         cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
 
+        val seekBarTextSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seekBarTextSize)
+        val tvTextSizeValue = dialogView.findViewById<android.widget.TextView>(R.id.tvTextSizeValue)
+
+        seekBarTextSize.progress = readerSettings.textSize - 50
+        tvTextSizeValue.text = "${readerSettings.textSize}%"
+
+        seekBarTextSize.setOnSeekBarChangeListener(
+                object : android.widget.SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                            seekBar: android.widget.SeekBar?,
+                            progress: Int,
+                            fromUser: Boolean
+                    ) {
+                        val size = progress + 50
+                        tvTextSizeValue.text = "$size%"
+                    }
+
+                    override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+
+                    override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+                }
+        )
+
         cbCustomExport.setOnCheckedChangeListener { _, isChecked ->
             etCustomExportUrl.isEnabled = isChecked
         }
@@ -1795,6 +1818,7 @@ class ReaderActivity : BaseActivity() {
                 val useCustomExport = cbCustomExport.isChecked
                 val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
                 val exportToLocal = cbLocalExport.isChecked
+                val newTextSize = seekBarTextSize.progress + 50
 
                 val normalizedBaseUrl =
                         if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw)
@@ -1827,6 +1851,7 @@ class ReaderActivity : BaseActivity() {
                                 exportToCustomUrl = useCustomExport,
                                 exportCustomUrl = normalizedCustomUrl,
                                 exportToLocalDownloads = exportToLocal,
+                                textSize = newTextSize,
                                 language =
                                         when {
                                             rbChinese.isChecked -> "zh"
@@ -1853,6 +1878,12 @@ class ReaderActivity : BaseActivity() {
                 }
                 pageAnimationEnabled = updatedSettings.pageAnimationEnabled
                 pageSwipeEnabled = updatedSettings.pageSwipeEnabled
+
+                applyFontSize(newTextSize)
+                if (useNativeReader) {
+                    nativeNavigatorFragment?.setFontSize(newTextSize)
+                }
+
                 stylesDirty = true
                 applyReaderStyles(force = true)
                 applySwipeNavigationSetting(navigatorFragment?.view)

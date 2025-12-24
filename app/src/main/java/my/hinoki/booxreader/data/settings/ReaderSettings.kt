@@ -1,25 +1,32 @@
 package my.hinoki.booxreader.data.settings
 
 import android.content.SharedPreferences
-import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.core.eink.EInkHelper
+import my.hinoki.booxreader.data.remote.HttpConfig
 
 data class ReaderSettings(
-    // 字體大小現在使用文石系統設定，不再在此處儲存
-    // 字體粗細現在使用預設值，不再在此處儲存
-    val pageTapEnabled: Boolean = true,
-    val pageSwipeEnabled: Boolean = true,
-    val booxBatchRefresh: Boolean = true,
-    val booxFastMode: Boolean = true,
-    val contrastMode: Int = EInkHelper.ContrastMode.NORMAL.ordinal,
-    val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
-    val exportToCustomUrl: Boolean = false,
-    val exportCustomUrl: String = "",
-    val exportToLocalDownloads: Boolean = false,
-    val apiKey: String = "",
-    val aiModelName: String = "deepseek-chat",
-    // Default System Prompt
-    val aiSystemPrompt: String = """
+        // 字體大小現在使用文石系統設定，不再在此處儲存
+        // 字體粗細現在使用預設值，不再在此處儲存
+        val pageTapEnabled: Boolean = true,
+        val pageSwipeEnabled: Boolean = true,
+        val booxBatchRefresh: Boolean = true,
+        val booxFastMode: Boolean = true,
+        /**
+         * Text size as a percentage (e.g., 140 for 140%). NOTE: This is a local-only setting and is
+         * purposefully excluded from cloud sync in UserSyncRepository.kt to allow different sizes
+         * on different devices.
+         */
+        val textSize: Int = 140,
+        val contrastMode: Int = EInkHelper.ContrastMode.NORMAL.ordinal,
+        val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
+        val exportToCustomUrl: Boolean = false,
+        val exportCustomUrl: String = "",
+        val exportToLocalDownloads: Boolean = false,
+        val apiKey: String = "",
+        val aiModelName: String = "deepseek-chat",
+        // Default System Prompt
+        val aiSystemPrompt: String =
+                """
 你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
 
 ---
@@ -80,36 +87,38 @@ data class ReaderSettings(
   - 🌟 核心瞬間  
   - 📚 展開聊聊（簡版）
     """.trimIndent(),
-    // Default User Prompt Template
-    val aiUserPromptTemplate: String = """
+        // Default User Prompt Template
+        val aiUserPromptTemplate: String =
+                """
 %s
 
 [系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
     """.trimIndent(),
-    // Generation Parameters
-    val temperature: Double = 0.7,
-    val maxTokens: Int = 4096,
-    val topP: Double = 1.0,
-    val frequencyPenalty: Double = 0.0,
-    val presencePenalty: Double = 0.0,
-    val assistantRole: String = "assistant",
-    val enableGoogleSearch: Boolean = true,
-    val useStreaming: Boolean = false,
-    val pageAnimationEnabled: Boolean = false,
-    val language: String = "system", // "system", "en", "zh"
-    val updatedAt: Long = System.currentTimeMillis(),
-    val activeProfileId: Long = -1L
+        // Generation Parameters
+        val temperature: Double = 0.7,
+        val maxTokens: Int = 4096,
+        val topP: Double = 1.0,
+        val frequencyPenalty: Double = 0.0,
+        val presencePenalty: Double = 0.0,
+        val assistantRole: String = "assistant",
+        val enableGoogleSearch: Boolean = true,
+        val useStreaming: Boolean = false,
+        val pageAnimationEnabled: Boolean = false,
+        val language: String = "system", // "system", "en", "zh"
+        val updatedAt: Long = System.currentTimeMillis(),
+        val activeProfileId: Long = -1L
 ) {
 
-    fun saveTo(prefs: SharedPreferences) {
-        val timestamp = if (updatedAt > 0) updatedAt else System.currentTimeMillis()
-        prefs.edit()
+  fun saveTo(prefs: SharedPreferences) {
+    val timestamp = if (updatedAt > 0) updatedAt else System.currentTimeMillis()
+    prefs.edit()
             // 字體大小現在使用文石系統設定，不再在此處儲存
             // 字體粗細現在使用預設值，不再在此處儲存
             .putBoolean("page_tap_enabled", pageTapEnabled)
             .putBoolean("page_swipe_enabled", pageSwipeEnabled)
             .putBoolean("boox_batch_refresh", booxBatchRefresh)
             .putBoolean("boox_fast_mode", booxFastMode)
+            .putInt("text_size", textSize)
             .putInt("contrast_mode", contrastMode)
             .putString("server_base_url", serverBaseUrl)
             .putBoolean("export_to_custom_url", exportToCustomUrl)
@@ -132,14 +141,14 @@ data class ReaderSettings(
             .putLong("active_ai_profile_id", activeProfileId)
             .putLong("settings_updated_at", timestamp)
             .apply()
-    }
+  }
 
-    /**
-     * Gets the current AI settings that should be used for API calls.
-     * These settings come from the currently active AI profile.
-     */
-    fun getCurrentAiSettings(): AiSettings {
-        return AiSettings(
+  /**
+   * Gets the current AI settings that should be used for API calls. These settings come from the
+   * currently active AI profile.
+   */
+  fun getCurrentAiSettings(): AiSettings {
+    return AiSettings(
             modelName = aiModelName,
             apiKey = apiKey,
             serverBaseUrl = serverBaseUrl,
@@ -153,55 +162,57 @@ data class ReaderSettings(
             topP = topP,
             frequencyPenalty = frequencyPenalty,
             presencePenalty = presencePenalty
-        )
+    )
+  }
+
+  /**
+   * Ensures the user prompt template always contains the '%s' placeholder. If missing, '%s' is
+   * prepended to the template.
+   */
+  val safeUserPromptTemplate: String
+    get() {
+      return if (aiUserPromptTemplate.contains("%s")) {
+        aiUserPromptTemplate
+      } else {
+        "%s\n\n$aiUserPromptTemplate"
+      }
     }
 
-    /**
-     * Ensures the user prompt template always contains the '%s' placeholder.
-     * If missing, '%s' is prepended to the template.
-     */
-    val safeUserPromptTemplate: String
-        get() {
-            return if (aiUserPromptTemplate.contains("%s")) {
-                aiUserPromptTemplate
-            } else {
-                "%s\n\n$aiUserPromptTemplate"
-            }
-        }
+  /** Data class representing AI settings for API calls */
+  data class AiSettings(
+          val modelName: String,
+          val apiKey: String,
+          val serverBaseUrl: String,
+          val systemPrompt: String,
+          val userPromptTemplate: String,
+          val assistantRole: String,
+          val enableGoogleSearch: Boolean,
+          val useStreaming: Boolean,
+          val temperature: Double,
+          val maxTokens: Int,
+          val topP: Double,
+          val frequencyPenalty: Double,
+          val presencePenalty: Double
+  )
+  companion object {
+    const val PREFS_NAME = "reader_prefs"
 
-    /**
-     * Data class representing AI settings for API calls
-     */
-    data class AiSettings(
-        val modelName: String,
-        val apiKey: String,
-        val serverBaseUrl: String,
-        val systemPrompt: String,
-        val userPromptTemplate: String,
-        val assistantRole: String,
-        val enableGoogleSearch: Boolean,
-        val useStreaming: Boolean,
-        val temperature: Double,
-        val maxTokens: Int,
-        val topP: Double,
-        val frequencyPenalty: Double,
-        val presencePenalty: Double
-    )
-    companion object {
-        const val PREFS_NAME = "reader_prefs"
+    fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
+      val updatedAt = prefs.getLong("settings_updated_at", 0L)
 
-        fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
-            val updatedAt = prefs.getLong("settings_updated_at", 0L)
-            
-            // Reconstruct defaults to use if prefs are missing (to avoid duplication if possible, 
-            // but for simplicity in companion object, we might need to hardcode or instantiate default object. 
-            // Better: use the default instance's values as fallback or just duplicate the string for now to avoid circular dependency issues)
-            // Ideally we instantiate an empty ReaderSettings() to get defaults but that's slightly inefficient.
-            // Let's copy the defaults here or just use empty string and handle logic? 
-            // Standard practice: define constants for defaults.
-            // For now I'll paste the defaults to ensure robustness.
-            
-            val defaultSystemPrompt = """
+      // Reconstruct defaults to use if prefs are missing (to avoid duplication if possible,
+      // but for simplicity in companion object, we might need to hardcode or instantiate default
+      // object.
+      // Better: use the default instance's values as fallback or just duplicate the string for now
+      // to avoid circular dependency issues)
+      // Ideally we instantiate an empty ReaderSettings() to get defaults but that's slightly
+      // inefficient.
+      // Let's copy the defaults here or just use empty string and handle logic?
+      // Standard practice: define constants for defaults.
+      // For now I'll paste the defaults to ensure robustness.
+
+      val defaultSystemPrompt =
+              """
 你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
 
 ---
@@ -264,42 +275,47 @@ data class ReaderSettings(
   - 📚 展開聊聊（簡版）
             """.trimIndent()
 
-            val defaultUserPromptTemplate = """
+      val defaultUserPromptTemplate =
+              """
 %s
 
 [系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
             """.trimIndent()
 
-            return ReaderSettings(
-                // 字體大小現在使用文石系統設定，不再在此處讀取
-                // 字體粗細現在使用預設值，不再在此處讀取
-                pageTapEnabled = prefs.getBoolean("page_tap_enabled", true),
-                pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
-                booxBatchRefresh = prefs.getBoolean("boox_batch_refresh", true),
-                booxFastMode = prefs.getBoolean("boox_fast_mode", true),
-                contrastMode = prefs.getInt("contrast_mode", EInkHelper.ContrastMode.NORMAL.ordinal),
-                serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
-                    ?: HttpConfig.DEFAULT_BASE_URL,
-                exportToCustomUrl = prefs.getBoolean("export_to_custom_url", false),
-                exportCustomUrl = prefs.getString("export_custom_url", "") ?: "",
-                exportToLocalDownloads = prefs.getBoolean("export_to_local_downloads", false),
-                apiKey = prefs.getString("api_key", "") ?: "",
-                aiModelName = prefs.getString("ai_model_name", "deepseek-chat") ?: "deepseek-chat",
-                aiSystemPrompt = prefs.getString("ai_system_prompt", defaultSystemPrompt) ?: defaultSystemPrompt,
-                aiUserPromptTemplate = prefs.getString("ai_user_prompt_template", defaultUserPromptTemplate) ?: defaultUserPromptTemplate,
-                temperature = prefs.getFloat("ai_temperature", 0.7f).toDouble(),
-                maxTokens = prefs.getInt("ai_max_tokens", 4096),
-                topP = prefs.getFloat("ai_top_p", 1.0f).toDouble(),
-                frequencyPenalty = prefs.getFloat("ai_frequency_penalty", 0.0f).toDouble(),
-                presencePenalty = prefs.getFloat("ai_presence_penalty", 0.0f).toDouble(),
-                assistantRole = prefs.getString("ai_assistant_role", "assistant") ?: "assistant",
-                enableGoogleSearch = prefs.getBoolean("ai_enable_google_search", true),
-                useStreaming = prefs.getBoolean("use_streaming", false),
-                pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
-                language = prefs.getString("app_language", "system") ?: "system",
-                updatedAt = updatedAt,
-                activeProfileId = prefs.getLong("active_ai_profile_id", -1L)
-            )
-        }
+      return ReaderSettings(
+              // 字體大小現在使用文石系統設定，不再在此處讀取
+              // 字體粗細現在使用預設值，不再在此處讀取
+              pageTapEnabled = prefs.getBoolean("page_tap_enabled", true),
+              pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
+              booxBatchRefresh = prefs.getBoolean("boox_batch_refresh", true),
+              booxFastMode = prefs.getBoolean("boox_fast_mode", true),
+              textSize = prefs.getInt("text_size", 140),
+              contrastMode = prefs.getInt("contrast_mode", EInkHelper.ContrastMode.NORMAL.ordinal),
+              serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
+                              ?: HttpConfig.DEFAULT_BASE_URL,
+              exportToCustomUrl = prefs.getBoolean("export_to_custom_url", false),
+              exportCustomUrl = prefs.getString("export_custom_url", "") ?: "",
+              exportToLocalDownloads = prefs.getBoolean("export_to_local_downloads", false),
+              apiKey = prefs.getString("api_key", "") ?: "",
+              aiModelName = prefs.getString("ai_model_name", "deepseek-chat") ?: "deepseek-chat",
+              aiSystemPrompt = prefs.getString("ai_system_prompt", defaultSystemPrompt)
+                              ?: defaultSystemPrompt,
+              aiUserPromptTemplate =
+                      prefs.getString("ai_user_prompt_template", defaultUserPromptTemplate)
+                              ?: defaultUserPromptTemplate,
+              temperature = prefs.getFloat("ai_temperature", 0.7f).toDouble(),
+              maxTokens = prefs.getInt("ai_max_tokens", 4096),
+              topP = prefs.getFloat("ai_top_p", 1.0f).toDouble(),
+              frequencyPenalty = prefs.getFloat("ai_frequency_penalty", 0.0f).toDouble(),
+              presencePenalty = prefs.getFloat("ai_presence_penalty", 0.0f).toDouble(),
+              assistantRole = prefs.getString("ai_assistant_role", "assistant") ?: "assistant",
+              enableGoogleSearch = prefs.getBoolean("ai_enable_google_search", true),
+              useStreaming = prefs.getBoolean("use_streaming", false),
+              pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
+              language = prefs.getString("app_language", "system") ?: "system",
+              updatedAt = updatedAt,
+              activeProfileId = prefs.getLong("active_ai_profile_id", -1L)
+      )
     }
+  }
 }
