@@ -81,7 +81,7 @@ object EInkHelper {
     // 智能刷新
     fun smartRefresh(
             view: View,
-            hasTextChanges: Boolean = false,
+            @Suppress("UNUSED_PARAMETER") hasTextChanges: Boolean = false,
             hasImageChanges: Boolean = false
     ) {
         if (hasImageChanges) {
@@ -123,11 +123,11 @@ object EInkHelper {
     // 為特定區域設置刷新
     fun refreshRegion(view: View, left: Int, top: Int, right: Int, bottom: Int) {
         if (!isBoox()) {
-            view.invalidate(left, top, right, bottom)
+            view.invalidate()
             return
         }
         if (preserveSystemEngine) {
-            view.invalidate(left, top, right, bottom)
+            view.invalidate()
             return
         }
         // Onyx EpdController handles view-based updates well.
@@ -153,12 +153,12 @@ object EInkHelper {
     }
 
     // 等待刷新完成 - NO-OP
-    fun waitForRefresh(view: View) {
+    fun waitForRefresh(@Suppress("UNUSED_PARAMETER") view: View) {
         // SDK doesn't expose synchronous wait easily.
     }
 
     // 獲取當前刷新模式
-    fun getCurrentRefreshMode(view: View): String? {
+    fun getCurrentRefreshMode(@Suppress("UNUSED_PARAMETER") view: View): String? {
         // Since we are using SDK requests, we don't hold state here.
         return "Onyx SDK Controlled"
     }

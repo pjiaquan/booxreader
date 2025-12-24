@@ -58,6 +58,31 @@
             android:textSize="24sp"
             android:textIsSelectable="true"/>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvAiModelInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="#888888"
+                android:text="Model: --" />
+
+            <TextView
+                android:id="@+id/tvAiDisclaimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="#888888"
+                android:text="@string/ai_note_model_disclaimer"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnPublish"
             android:layout_width="match_parent"

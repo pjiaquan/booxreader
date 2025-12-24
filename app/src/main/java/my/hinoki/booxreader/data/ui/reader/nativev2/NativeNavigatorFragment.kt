@@ -46,6 +46,9 @@ class NativeNavigatorFragment : Fragment() {
     private var currentResourceIndex = 0
     private var currentPageInResource = 0
 
+    private val currentResourceHref: String?
+        get() = publication?.readingOrder?.getOrNull(currentResourceIndex)?.href?.toString()
+
     private var pager: NativeReaderPager? = null
     private var resourceText: CharSequence = ""
 
@@ -131,6 +134,20 @@ class NativeNavigatorFragment : Fragment() {
 
     fun clearSelection() {
         _binding?.nativeReaderView?.clearSelection()
+    }
+
+    data class Selection(val locator: Locator)
+
+    fun currentSelection(): Selection? {
+        val text = _binding?.nativeReaderView?.getSelectedText() ?: return null
+        val href = currentResourceHref ?: return null
+        return Selection(
+                Locator(
+                        href = Url(href)!!,
+                        mediaType = MediaType.HTML,
+                        text = Locator.Text(highlight = text)
+                )
+        )
     }
 
     override fun onCreateView(

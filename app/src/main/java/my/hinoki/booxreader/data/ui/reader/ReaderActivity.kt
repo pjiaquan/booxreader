@@ -7,23 +7,19 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
-import android.os.SystemClock
 import android.util.Log
-import android.view.ActionMode
 import android.view.GestureDetector
 import android.view.KeyEvent
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
-import android.webkit.WebView
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -36,9 +32,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import java.util.zip.ZipInputStream
 import kotlin.OptIn
-import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -65,13 +59,6 @@ import my.hinoki.booxreader.databinding.ActivityReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import org.json.JSONObject
-import org.json.JSONTokener
-import org.readium.r2.navigator.DecorableNavigator
-import org.readium.r2.navigator.Decoration
-import org.readium.r2.navigator.epub.EpubNavigatorFactory
-import org.readium.r2.navigator.epub.EpubNavigatorFragment
-import org.readium.r2.navigator.epub.EpubPreferences
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -113,17 +100,14 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    private var navigatorFragment: EpubNavigatorFragment? = null
     private var nativeNavigatorFragment: NativeNavigatorFragment? = null
-    private val useNativeReader = true // Set to true for Silk Smooth Selection experience
     private var currentBookId: String? = null
     private var searchJob: Job? = null
-    private var currentActionMode: ActionMode? = null
 
     // Activity local state for UI interaction
     private var pageTapEnabled: Boolean = true
     private var pageSwipeEnabled: Boolean = true
-    private val touchSlop: Int by lazy { ViewConfiguration.get(this).scaledTouchSlop }
+    private var touchSlop: Int = 0
     private var currentFontSize: Int = 150 // 從文石系統讀取
     private var currentFontWeight: Int = 400
     private var booxBatchRefreshEnabled: Boolean = true
@@ -132,16 +116,16 @@ class ReaderActivity : BaseActivity() {
     private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
     private var refreshJob: Job? = null
     private val booxRefreshDelayMs = if (EInkHelper.isModernBoox()) 150L else 250L
-    private var pendingDecorations: List<Decoration>? = null
-    private var lastStyledHref: String? = null
-    private var stylesDirty: Boolean = true
     private val pageNavigationRefreshDelayMs = 300L // 頁面導航專用延遲
+    private val buttonColor: Int
+        get() =
+                when (currentContrastMode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#E0E0E0")
+                    ContrastMode.DARK -> Color.parseColor("#333333")
+                    ContrastMode.SEPIA -> Color.parseColor("#D9C5A3")
+                    ContrastMode.HIGH_CONTRAST -> Color.DKGRAY
+                }
 
-    private val pageDebugLogging = false
-    // WebView.getScale() is deprecated; cache it via this helper to avoid compiler warnings
-    @Suppress("DEPRECATION")
-    private fun WebView.currentPageScale(): Float =
-            runCatching { scale }.getOrDefault(1f).takeIf { it > 0f } ?: 1f
     private val selectionDebugLogging = false
     private var hadNativeSelectionOnDown = false
 
@@ -151,11 +135,7 @@ class ReaderActivity : BaseActivity() {
     private var swipeBlockStartY = 0f
     private var swipeBlockStartAtMs = 0L
 
-    private data class ChapterItem(
-            val title: String,
-            val link: org.readium.r2.shared.publication.Link,
-            val depth: Int
-    )
+    private data class ChapterItem(val title: String, val link: Link, val depth: Int)
 
     private val REQ_BOOKMARK = 1001
 
@@ -164,51 +144,23 @@ class ReaderActivity : BaseActivity() {
                 this,
                 object : android.view.GestureDetector.SimpleOnGestureListener() {
                     override fun onDown(e: MotionEvent): Boolean {
-                        hadNativeSelectionOnDown =
-                                useNativeReader && nativeNavigatorFragment?.hasSelection() == true
                         return true
                     }
 
-                    override fun onScroll(
-                            e1: MotionEvent?,
-                            e2: MotionEvent,
-                            distanceX: Float,
-                            distanceY: Float
-                    ): Boolean {
-                        return false
-                    }
-
                     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                        // 優先處理選擇相關的點擊 - 如果選擇菜單已打開，優先關閉它
-                        if (currentActionMode != null) {
-                            currentActionMode?.finish()
-                            lifecycleScope.launch {
-                                try {
-                                    navigatorFragment?.clearSelection()
-                                } catch (_: Exception) {}
-                            }
-                            return true
-                        }
-
-                        // Native Reader Selection Handling
-                        if (useNativeReader &&
-                                        (hadNativeSelectionOnDown ||
-                                                nativeNavigatorFragment?.hasSelection() == true)
-                        ) {
+                        // Native Reader Selection Handling - if selector has selection, clear it
+                        if (nativeNavigatorFragment?.hasSelection() == true) {
                             nativeNavigatorFragment?.clearSelection()
-                            hadNativeSelectionOnDown = false
                             return true
                         }
 
-                        // 3. 頁面導航（僅在沒有選擇活動時）- 這裡只處理真正的單擊
+                        // Page navigation
                         if (pageTapEnabled) {
                             val width = binding.root.width
                             val x = e.x
                             if (width > 0) {
-                                // 30-40-30 規則 - 只有真正的單擊（無拖動）才觸發頁面導航
                                 if (x < width * 0.3f) {
                                     goPageBackward()
-                                    // 延遲刷新以確保頁面切換完成
                                     if (EInkHelper.isBooxDevice()) {
                                         binding.root.postDelayed(
                                                 { EInkHelper.refreshPartial(binding.root) },
@@ -218,7 +170,6 @@ class ReaderActivity : BaseActivity() {
                                     return true
                                 } else if (x > width * 0.7f) {
                                     goPageForward()
-                                    // 延遲刷新以確保頁面切換完成
                                     if (EInkHelper.isBooxDevice()) {
                                         binding.root.postDelayed(
                                                 { EInkHelper.refreshPartial(binding.root) },
@@ -235,155 +186,17 @@ class ReaderActivity : BaseActivity() {
         )
     }
 
-    private fun findFirstWebView(view: View?): WebView? {
-        if (view is WebView) return view
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                val found = findFirstWebView(view.getChildAt(i))
-                if (found != null) return found
-            }
-        }
-        return null
-    }
-
-    private fun applySwipeNavigationSetting(view: View?) {
-        if (view == null) return
-        // Disable pager swipes without blocking child touches (selection/taps) whenever possible.
-        // Use reflection to avoid hard dependency on Readium internals.
-        val className = view.javaClass.name
-        if (className.contains("ViewPager", ignoreCase = true)) {
-            val enabled = pageSwipeEnabled
-            val ok =
-                    runCatching {
-                                view.javaClass
-                                        .getMethod(
-                                                "setUserInputEnabled",
-                                                Boolean::class.javaPrimitiveType
-                                        )
-                                        .invoke(view, enabled)
-                                true
-                            }
-                            .getOrNull() == true ||
-                            runCatching {
-                                        view.javaClass
-                                                .getMethod(
-                                                        "setPagingEnabled",
-                                                        Boolean::class.javaPrimitiveType
-                                                )
-                                                .invoke(view, enabled)
-                                        true
-                                    }
-                                    .getOrNull() == true ||
-                            runCatching {
-                                        view.javaClass
-                                                .getMethod(
-                                                        "setSwipeEnabled",
-                                                        Boolean::class.javaPrimitiveType
-                                                )
-                                                .invoke(view, enabled)
-                                        true
-                                    }
-                                    .getOrNull() == true
-            if (ok) return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applySwipeNavigationSetting(view.getChildAt(i))
-            }
-        }
-    }
-
-    private fun logPageEdgeWords(label: String) {
-        if (!pageDebugLogging) return
-        val webView = findFirstWebView(navigatorFragment?.view) ?: return
-        val js =
-                """
-            (function() {
-                const vw = Math.max(2, (window.innerWidth || document.documentElement.clientWidth || 0));
-                const vh = Math.max(2, (window.innerHeight || document.documentElement.clientHeight || 0));
-                const startX = 8, startY = 8;
-                const endX = Math.max(2, vw - 8);
-                const endY = Math.max(2, vh - 8);
-                function caretAt(x, y) {
-                    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
-                    if (document.caretPositionFromPoint) {
-                        const pos = document.caretPositionFromPoint(x, y);
-                        if (!pos) return null;
-                        const r = document.createRange();
-                        r.setStart(pos.offsetNode, pos.offset);
-                        return r;
-                    }
-                    return null;
-                }
-                function fallbackRange(x, y) {
-                    const el = document.elementFromPoint(x, y);
-                    if (!el) return null;
-                    const r = document.createRange();
-                    r.selectNodeContents(el);
-                    r.collapse(true);
-                    return r;
-                }
-                const s = caretAt(startX, startY) || fallbackRange(startX, startY);
-                const e = caretAt(endX, endY) || fallbackRange(endX, endY);
-                if (!s || !e) return "";
-                const range = document.createRange();
-                range.setStart(s.startContainer, s.startOffset);
-                range.setEnd(e.startContainer, e.startOffset);
-                const text = range.toString().replace(/\s+/g, " ").trim();
-                const words = text ? text.split(" ").filter(Boolean) : [];
-                const first = words.slice(0, 10).join(" ");
-                const last = words.slice(-10).join(" ");
-                return JSON.stringify({ first, last, count: words.length });
-            })();
-        """.trimIndent()
-        webView.evaluateJavascript(js) { result -> }
-    }
-
-    private fun parseJsObject(raw: String): JSONObject? {
-        // WebView.evaluateJavascript returns a JSON value encoded as a String.
-        // Sometimes this is:
-        // - an object: { ... }
-        // - a quoted JSON string: "{\"top\":1}" (value is a String)
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty() || trimmed == "null") return null
-        return runCatching {
-                    when (val value = JSONTokener(trimmed).nextValue()) {
-                        is JSONObject -> value
-                        is String -> runCatching { JSONObject(value) }.getOrNull()
-                        else -> null
-                    }
-                }
-                .getOrNull()
-    }
+    // --- Selection & Navigation ---
 
     // Selection uses the system ActionMode menu. Avoid adding extra overlay UI here to keep
     // paging/selection fast on e-ink.
 
     private fun goPageForward() {
-        if (useNativeReader) {
-            nativeNavigatorFragment?.goForward()
-        } else {
-            logPageEdgeWords("beforeForward")
-            navigatorFragment?.goForward(pageAnimationEnabled)
-            binding.root.postDelayed({ logPageEdgeWords("afterForward") }, 200)
-        }
+        nativeNavigatorFragment?.goForward()
     }
 
     private fun goPageBackward() {
-        if (useNativeReader) {
-            nativeNavigatorFragment?.goBackward()
-        } else {
-            logPageEdgeWords("beforeBackward")
-            navigatorFragment?.goBackward(pageAnimationEnabled)
-            binding.root.postDelayed({ logPageEdgeWords("afterBackward") }, 200)
-        }
-    }
-
-    private fun flushPendingDecorations() {
-        pendingDecorations?.let { pending ->
-            lifecycleScope.launch { navigatorFragment?.applyDecorations(pending, "ai_notes") }
-        }
-        pendingDecorations = null
+        nativeNavigatorFragment?.goBackward()
     }
 
     companion object {
@@ -423,25 +236,11 @@ class ReaderActivity : BaseActivity() {
         if (EInkHelper.isBooxDevice()) {
             // We now use the official Onyx SDK via EInkHelper
 
-            // 測試多個可能的字體值
-            val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
-            val detectedSize = getBooxSystemFontSize()
-
-            // 如果檢測到的值不合理，使用文石常見的標準值
-            currentFontSize =
-                    if (detectedSize >= 100 && detectedSize <= 200) {
-                        detectedSize
-                    } else {
-                        140 // 文石設備常見的標準大小
-                    }
-
             currentFontWeight = 400 // 固定預設值
         }
 
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        val app = application as my.hinoki.booxreader.BooxReaderApp
 
         // Reset overlays
         // Reset overlays
@@ -451,6 +250,7 @@ class ReaderActivity : BaseActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
+        touchSlop = ViewConfiguration.get(this).scaledTouchSlop
 
         val key = intent.getStringExtra(EXTRA_BOOK_KEY)
         val title = intent.getStringExtra(EXTRA_BOOK_TITLE)
@@ -461,18 +261,12 @@ class ReaderActivity : BaseActivity() {
         currentBookId = key
 
         setupUI()
-        setupViewModel(key, title)
 
         // Handle initial locator if present
         handleLocatorIntent(intent)
 
-        binding.tapOverlay.bringToFront()
-
         // 關鍵：在程式啟動時立即強制讀取文石系統字體設定
         if (EInkHelper.isBooxDevice()) {
-
-            // 測試多個可能的字體值
-            val testSizes = listOf(120, 130, 140, 150, 160, 170, 180, 200)
             val detectedSize = getBooxSystemFontSize()
 
             // 如果檢測到的值不合理，使用文石常見的標準值
@@ -501,10 +295,9 @@ class ReaderActivity : BaseActivity() {
             // Re-attach if fragment exists
             supportFragmentManager.executePendingTransactions()
             val fragment = supportFragmentManager.findFragmentById(R.id.readerContainer)
-            navigatorFragment = fragment as? EpubNavigatorFragment
             nativeNavigatorFragment = fragment as? NativeNavigatorFragment
 
-            if (navigatorFragment == null && nativeNavigatorFragment == null) {
+            if (nativeNavigatorFragment == null) {
                 viewModel.openBook(bookUri, contentResolver)
             } else {
                 // Ensure the current theme is applied to the re-attached fragment
@@ -551,15 +344,9 @@ class ReaderActivity : BaseActivity() {
 
         binding.btnAddBookmark.visibility = android.view.View.GONE
 
-        binding.btnShowBookmarks.setOnClickListener { publishCurrentSelection() }
-
         binding.btnChapters.setOnClickListener { openChapterPicker() }
 
         binding.btnSettings.setOnClickListener { showSettingsDialog() }
-
-        binding.tapOverlay.visibility = android.view.View.GONE
-        // 移除 tapOverlay，讓 WebView 完全接管觸摸事件以支持全域文字選取
-        // 頁面導航將通過 GestureDetector 在 dispatchTouchEvent 中處理
     }
 
     private fun setupObservers() {
@@ -573,13 +360,6 @@ class ReaderActivity : BaseActivity() {
                     val initialLocator = LocatorJsonHelper.fromJson(savedJson)
                     initNavigator(it, initialLocator)
                 }
-            }
-        }
-
-        lifecycleScope.launch {
-            viewModel.decorations.collectLatest {
-                pendingDecorations = null
-                navigatorFragment?.applyDecorations(it, "ai_notes")
             }
         }
 
@@ -603,339 +383,28 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun initNavigator(publication: Publication, initialLocator: Locator?) {
-        var startLocator = initialLocator
-
-        // Fix Href mismatch (e.g. Web "text.html" vs Android "OEBPS/text.html")
-        if (startLocator != null) {
-            val href = startLocator.href.toString()
-            val exactMatch = publication.readingOrder.any { it.href.toString() == href }
-            if (!exactMatch) {
-                // Try fuzzy match (suffix)
-                val fuzzyMatch =
-                        publication.readingOrder.find {
-                            it.href.toString().endsWith(href) || href.endsWith(it.href.toString())
-                        }
-                if (fuzzyMatch != null) {
-                    startLocator = startLocator?.copy(href = Url(fuzzyMatch.href.toString())!!)
-                } else {}
-            }
-        }
-
-        startLocator?.let {}
         // Avoid re-creating if already set up
-        if (navigatorFragment != null || nativeNavigatorFragment != null) {
-            return
-        }
-        lastStyledHref = null
-        stylesDirty = true
-
-        val factory = EpubNavigatorFactory(publication)
-        val config =
-                EpubNavigatorFragment.Configuration {
-                    selectionActionModeCallback = this@ReaderActivity.selectionActionModeCallback
-                }
-
-        supportFragmentManager.fragmentFactory =
-                factory.createFragmentFactory(
-                        initialLocator = startLocator,
-                        listener = null,
-                        configuration = config,
-                        initialPreferences = EpubPreferences(scroll = true)
-                )
-
-        if (useNativeReader) {
-            Log.d("ReaderActivity", "Initializing NativeNavigatorFragment")
-            val nativeFrag =
-                    NativeNavigatorFragment().apply { setPublication(publication, startLocator) }
-            supportFragmentManager
-                    .beginTransaction()
-                    .replace(R.id.readerContainer, nativeFrag)
-                    .commitNow()
-            nativeNavigatorFragment = nativeFrag
-            Log.d("ReaderActivity", "NativeNavigatorFragment committed: $nativeNavigatorFragment")
-
-            // Apply current theme immediately
-            applyContrastMode(currentContrastMode)
-
-            observeLocatorUpdates() // Start observing native locator
+        if (nativeNavigatorFragment != null) {
             return
         }
 
-        if (supportFragmentManager.findFragmentById(R.id.readerContainer) == null) {
-            supportFragmentManager
-                    .beginTransaction()
-                    .replace(R.id.readerContainer, EpubNavigatorFragment::class.java, null)
-                    .commitNow()
-        }
+        Log.d("ReaderActivity", "Initializing NativeNavigatorFragment")
+        val nativeFrag =
+                NativeNavigatorFragment().apply { setPublication(publication, initialLocator) }
+        supportFragmentManager
+                .beginTransaction()
+                .replace(R.id.readerContainer, nativeFrag)
+                .commitNow()
+        nativeNavigatorFragment = nativeFrag
+        Log.d("ReaderActivity", "NativeNavigatorFragment committed: $nativeNavigatorFragment")
 
-        // 確保 tapOverlay 保持隱藏，讓 WebView 完全處理觸摸
-        binding.tapOverlay.visibility = android.view.View.GONE
-        navigatorFragment =
-                supportFragmentManager.findFragmentById(R.id.readerContainer) as?
-                        EpubNavigatorFragment
+        // Apply current theme immediately
+        applyContrastMode(currentContrastMode)
 
-        // Optimize WebView: Disable overscroll and apply e-ink tuning
-        applySwipeNavigationSetting(navigatorFragment?.view)
-
-        // 立即強制應用字體設定（不等待延遲）
-        val immediateSize = getBooxSystemFontSize()
-        currentFontSize = immediateSize
-
-        // 直接設置WebView字體
-        navigatorFragment?.view?.let { view -> findAndSetWebViewTextZoom(view, immediateSize) }
-        findAndSetWebViewTextZoom(binding.root, immediateSize)
-
-        // 然後使用完整的重試機制
-        applyAllSettingsWithRetry()
-        observeLocatorUpdates()
-        setupDecorationListener()
+        observeLocatorUpdates() // Start observing native locator
 
         // Standard E-Ink refresh request only
         binding.root.post { requestEinkRefresh() }
-    }
-
-    private fun applyFontWeightViaWebView(view: View?, weight: Int) {
-        if (view is android.webkit.WebView) {
-            val safeWeight = weight.coerceIn(300, 900)
-            val js =
-                    """
-                (function() {
-                  const w = ${safeWeight};
-                  let style = document.getElementById('boox-font-weight-style');
-                  if (!style) {
-                    style = document.createElement('style');
-                    style.id = 'boox-font-weight-style';
-                    document.head.appendChild(style);
-                  }
-                  style.textContent = 'body, p, span, div { font-weight: ' + w + ' !important; }';
-                })();
-            """.trimIndent()
-            view.evaluateJavascript(js, null)
-            return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyFontWeightViaWebView(view.getChildAt(i), weight)
-            }
-        }
-    }
-
-    private fun applyReaderStyles(force: Boolean = false) {
-        val navigatorView = navigatorFragment?.view ?: return
-        if (!force && !stylesDirty) return
-        applyFontZoomLikeNeoReader(navigatorView, currentFontSize)
-        applyFontWeightViaWebView(navigatorView, currentFontWeight)
-        applyReaderCss(navigatorView)
-        applyPageAnimationCss(navigatorView)
-        applyPageAnimationCss(navigatorView)
-        stylesDirty = false
-        stylesDirty = false
-    }
-
-    private fun applyPageAnimationCss(view: View?) {
-        if (view is android.webkit.WebView) {
-            val css =
-                    if (pageAnimationEnabled) {
-                        ""
-                    } else {
-                        """
-                    * {
-                        -webkit-transition: none !important;
-                        transition: none !important;
-                        -webkit-animation: none !important;
-                        animation: none !important;
-                        scroll-behavior: auto !important;
-                    }
-                    html, body {
-                        scroll-behavior: auto !important;
-                    }
-                """.trimIndent()
-                    }
-
-            val js =
-                    """
-                (function() {
-                    const id = 'boox-page-animation-style';
-                    const existing = document.getElementById(id);
-                    const cssText = `${css}`;
-                    if (!cssText) {
-                        if (existing) existing.remove();
-                        return;
-                    }
-                    let style = existing;
-                    if (!style) {
-                        style = document.createElement('style');
-                        style.id = id;
-                        document.head.appendChild(style);
-                    }
-                    style.textContent = cssText;
-                })();
-            """.trimIndent()
-            view.evaluateJavascript(js, null)
-            return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyPageAnimationCss(view.getChildAt(i))
-            }
-        }
-    }
-
-    private fun applyReaderCss(view: View?) {
-        if (view is android.webkit.WebView) {
-            val pageBackground =
-                    when (currentContrastMode) {
-                        ContrastMode.NORMAL -> "#FAF9F6"
-                        ContrastMode.DARK -> "#121212"
-                        ContrastMode.SEPIA -> "#F2E7D0"
-                        ContrastMode.HIGH_CONTRAST -> "#000000"
-                    }
-            val css =
-                    """
-                /* Boox 專用：統一字體大小基準 - 使用更細緻的控制 */
-                :root {
-                    --boox-base-font-size: 16px;
-                    --boox-line-height: 1.6;
-                    --boox-page-bg: ${pageBackground};
-                }
-
-                html, body {
-                    font-size: var(--boox-base-font-size) !important;
-                    line-height: var(--boox-line-height) !important;
-                    max-width: 100% !important;
-                    width: 100% !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    min-height: 100vh !important;
-                    background-color: var(--boox-page-bg) !important;
-                    scroll-snap-type: y proximity !important;
-                }
-
-                #readium-viewport,
-                #viewport,
-                #readium-content,
-                .readium-content,
-                .readium-page,
-                .readium-spread,
-                .readium-scroll-container,
-                iframe {
-                    background-color: var(--boox-page-bg) !important;
-                }
-
-                p, div, li, span:not([class*="font"]):not([class*="size"]), td, th,
-                blockquote, q, cite, em, strong, b, i, u, mark, dfn, abbr, samp, kbd, var,
-                time, small, big, address, summary, details {
-                    font-size: inherit !important;
-                    line-height: inherit !important;
-                    font-family: inherit !important;
-                }
-
-                h1, h2, h3, h4, h5, h6, p {
-                    scroll-snap-align: start;
-                }
-                
-                /* AI Note Highlights: White text on Black background */
-                .readium-decoration-ai_notes {
-                    color: #FFFFFF !important;
-                    background-color: #000000 !important;
-                    mix-blend-mode: normal !important;
-                }
-
-                h1 {
-                    font-size: 2em !important;
-                    margin: 0.67em 0 !important;
-                }
-
-                h2 {
-                    font-size: 1.5em !important;
-                    margin: 0.75em 0 !important;
-                }
-
-                h3 {
-                    font-size: 1.17em !important;
-                    margin: 0.83em 0 !important;
-                }
-
-                h4 {
-                    font-size: 1em !important;
-                    margin: 1em 0 !important;
-                }
-
-                h5 {
-                    font-size: 0.83em !important;
-                    margin: 1.17em 0 !important;
-                }
-
-                h6 {
-                    font-size: 0.67em !important;
-                    margin: 1.5em 0 !important;
-                }
-
-                pre, code, tt {
-                    font-size: 0.9em !important;
-                    font-family: monospace !important;
-                }
-
-                aside[epub\\:type~="footnote"],
-                section[epub\\:type~="footnote"],
-                nav[epub\\:type~="footnotes"],
-                .footnote, .note {
-                    font-size: 0.875em !important;
-                    line-height: 1.5 !important;
-                }
-
-                a[epub\\:type~="noteref"], sup, sub {
-                    font-size: 0.75em !important;
-                    line-height: 1.2 !important;
-                }
-
-                /* 防止 epub 內部 CSS 干擾 */
-                [style*="font-size"] {
-                    font-size: inherit !important;
-                }
-
-                [style*="line-height"] {
-                    line-height: inherit !important;
-                }
-
-            """.trimIndent()
-            val js =
-                    """
-                (function() {
-                  let style = document.getElementById('boox-reader-style');
-                  if (!style) {
-                    style = document.createElement('style');
-                    style.id = 'boox-reader-style';
-                    document.head.appendChild(style);
-                  }
-                  style.textContent = `${css}`;
-
-                  // 強制重流以確保樣式應用
-                  document.body.offsetHeight;
-
-                  var pageBg = '${pageBackground}';
-                  document.documentElement.style.backgroundColor = pageBg;
-                  document.body.style.backgroundColor = pageBg;
-
-                  document.querySelectorAll('iframe').forEach(function(frame) {
-                    try {
-                      frame.style.backgroundColor = pageBg;
-                      if (frame.contentDocument) {
-                        frame.contentDocument.documentElement.style.backgroundColor = pageBg;
-                        frame.contentDocument.body.style.backgroundColor = pageBg;
-                      }
-                    } catch (e) {}
-                  });
-                })();
-            """.trimIndent()
-            view.evaluateJavascript(js, null)
-            return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyReaderCss(view.getChildAt(i))
-            }
-        }
     }
 
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
@@ -979,7 +448,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun applyAllSettingsWithRetry() {
         // Capture initial location if possible
-        val initialLocator = navigatorFragment?.currentLocator?.value
+        val initialLocator = nativeNavigatorFragment?.currentLocator?.value
 
         // 關鍵：每次應用時都重新讀取文石系統字體設定
         currentFontSize = getBooxSystemFontSize()
@@ -990,24 +459,21 @@ class ReaderActivity : BaseActivity() {
         applyFontWeight(currentFontWeight)
         applyContrastMode(currentContrastMode)
 
-        stylesDirty = true
-        applyReaderStyles(force = true)
-
         // Restore location immediately
         if (initialLocator != null) {
-            navigatorFragment?.go(initialLocator, pageAnimationEnabled)
+            nativeNavigatorFragment?.go(initialLocator, pageAnimationEnabled)
         }
 
         // 延遲再次應用以確保文檔載入完成
-        navigatorFragment?.view?.postDelayed(
+        nativeNavigatorFragment?.view?.postDelayed(
                 {
 
                     // Capture location again before this delayed update
-                    val delayedLocator = navigatorFragment?.currentLocator?.value ?: initialLocator
+                    val delayedLocator =
+                            nativeNavigatorFragment?.currentLocator?.value ?: initialLocator
 
                     // 重新讀取文石系統字體設定
                     val newFontSize = getBooxSystemFontSize()
-                    val fontChanged = newFontSize != currentFontSize
                     currentFontSize = newFontSize
                     currentFontWeight = 400 // 固定預設值
 
@@ -1015,23 +481,20 @@ class ReaderActivity : BaseActivity() {
                     applyFontWeight(currentFontWeight)
                     applyContrastMode(currentContrastMode)
 
-                    stylesDirty = true
-                    applyReaderStyles(force = true)
-
                     // Restore location
                     if (delayedLocator != null) {
-                        navigatorFragment?.go(delayedLocator, pageAnimationEnabled)
+                        nativeNavigatorFragment?.go(delayedLocator, pageAnimationEnabled)
                     }
 
                     // 再次延遲以確保穩定
-                    navigatorFragment?.view?.postDelayed(
+                    nativeNavigatorFragment?.view?.postDelayed(
                             {
                                 val finalLocator =
-                                        navigatorFragment?.currentLocator?.value ?: delayedLocator
+                                        nativeNavigatorFragment?.currentLocator?.value
+                                                ?: delayedLocator
 
                                 // 最終確認時也重新讀取文石系統設定
                                 val finalFontSize = getBooxSystemFontSize()
-                                val finalFontChanged = finalFontSize != currentFontSize
 
                                 currentFontSize = finalFontSize
                                 currentFontWeight = 400 // 固定預設值
@@ -1041,11 +504,8 @@ class ReaderActivity : BaseActivity() {
                                 applyFontWeight(currentFontWeight)
                                 applyContrastMode(currentContrastMode)
 
-                                stylesDirty = true
-                                applyReaderStyles(force = true)
-
                                 if (finalLocator != null) {
-                                    navigatorFragment?.go(finalLocator, pageAnimationEnabled)
+                                    nativeNavigatorFragment?.go(finalLocator, pageAnimationEnabled)
                                 }
                             },
                             1000
@@ -1055,134 +515,19 @@ class ReaderActivity : BaseActivity() {
         ) // 0.5秒後重新應用
     }
 
-    private fun applyFontZoomLikeNeoReader(view: View?, sizePercent: Int) {
-        if (view is android.webkit.WebView) {
-
-            // 使用 WebView 內建的 textZoom，這是最可靠的方式
-            view.settings.textZoom = sizePercent
-
-            // 同時使用 CSS 變量來確保一致性
-            val css =
-                    """
-                :root {
-                    --boox-font-scale: ${sizePercent / 100.0};
-                }
-
-                html {
-                    font-size: calc(var(--boox-base-font-size, 16px) * var(--boox-font-scale)) !important;
-                }
-            """.trimIndent()
-
-            val js =
-                    """
-                (function() {
-                    console.log('開始應用字體縮放: ${sizePercent}%');
-
-                    // 移除任何可能干擾的縮放樣式
-                    document.documentElement.style.zoom = '';
-                    document.body.style.zoom = '';
-                    document.body.style.webkitTextSizeAdjust = '100%';
-
-                    // 應用 CSS 變量
-                    let zoomStyle = document.getElementById('boox-zoom-style');
-                    if (!zoomStyle) {
-                        zoomStyle = document.createElement('style');
-                        zoomStyle.id = 'boox-zoom-style';
-                        document.head.appendChild(zoomStyle);
-                    }
-                    zoomStyle.textContent = `${css}`;
-
-                    // 強制重流
-                    document.body.offsetHeight;
-
-                    console.log('Boox 字體縮放已應用: ${sizePercent}%');
-                })();
-            """.trimIndent()
-
-            view.evaluateJavascript(js, null)
-            return
-        }
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                applyFontZoomLikeNeoReader(view.getChildAt(i), sizePercent)
-            }
-        }
-    }
-
     @OptIn(FlowPreview::class)
     private fun observeLocatorUpdates() {
-        Log.d("ReaderActivity", "observeLocatorUpdates: useNativeReader=$useNativeReader")
-        val navigator = if (useNativeReader) nativeNavigatorFragment else navigatorFragment
-        Log.d("ReaderActivity", "navigator=$navigator")
-        if (navigator == null) return
-
-        val locatorFlow =
-                when (navigator) {
-                    is EpubNavigatorFragment -> navigator.currentLocator
-                    is NativeNavigatorFragment -> navigator.currentLocator
-                    else -> {
-                        Log.e(
-                                "ReaderActivity",
-                                "Unknown navigator type: ${navigator::class.simpleName}"
-                        )
-                        return
-                    }
-                }
-        Log.d("ReaderActivity", "Starting to collect locatorFlow: $locatorFlow")
+        val nativeNavigator = nativeNavigatorFragment ?: return
+        Log.d("ReaderActivity", "observeLocatorUpdates")
 
         lifecycleScope.launch {
-            locatorFlow.sample(1500).collectLatest {
-                val hrefKey = it.href?.toString()
-                val wasChapterSwitch = hrefKey != null && hrefKey != lastStyledHref
-
-                // 記錄當前位置以便重流後恢復
-                val currentLocatorBeforeReflow = it
-
-                // 當切換到新的章節時，重新確保字體設定正確
-                if (wasChapterSwitch && !useNativeReader) { // Only for WebView
-                    lastStyledHref = hrefKey
-                    stylesDirty = true
-
-                    // 關鍵：章節切換時重新讀取並應用字體設定
-                    val savedFontSize = currentFontSize
-                    currentFontSize = getBooxSystemFontSize()
-
-                    if (currentFontSize != savedFontSize) {
-                        // Note: applyFontSize triggers WebView reflow
-                        applyFontSize(currentFontSize)
-                        applyFontWeight(currentFontWeight)
-                        applyContrastMode(currentContrastMode)
-                    }
-                }
-
-                val wasDirty = stylesDirty
-                if (wasDirty) {}
-                applyReaderStyles()
-
-                // 如果發生了樣式變更（重流），強制恢復到正確的位置
-                // 解決文石設備在章節切換時字體縮放導致跳轉到章節首頁的問題
-                if (wasDirty && !useNativeReader) {
-                    // 使用 go 恢復位置，確保正確的分頁
-                    navigatorFragment?.go(currentLocatorBeforeReflow, pageAnimationEnabled)
-                }
-
-                // 確保進度信息正確
-                val enhancedLocator = enhanceLocatorWithProgress(it)
+            nativeNavigator.currentLocator.sample(1500).collectLatest { locator ->
+                val enhancedLocator = enhanceLocatorWithProgress(locator)
                 val json = LocatorJsonHelper.toJson(enhancedLocator) ?: return@collectLatest
                 val key = viewModel.currentBookKey.value ?: return@collectLatest
 
-                // Debug: 記錄進度信息
-
-                // Local Prefs
                 syncRepo.cacheProgress(key, json)
-
-                // ViewModel (Server/DB)
-                // 關鍵修正：只在擁有視窗焦點時保存進度
-                // 這是為了解決 Boox 設備喚起系統選單時會導致 WebView 滾動位置重置為 0 的問題
-                if (hasWindowFocus()) {
-                    viewModel.saveProgress(json)
-                } else {}
-
+                viewModel.saveProgress(json)
                 requestEinkRefresh()
             }
         }
@@ -1244,25 +589,19 @@ class ReaderActivity : BaseActivity() {
         super.onWindowFocusChanged(hasFocus)
 
         if (hasFocus && EInkHelper.isBooxDevice()) {
-            val currentLoc =
-                    if (useNativeReader) nativeNavigatorFragment?.currentLocator?.value
-                    else navigatorFragment?.currentLocator?.value
+            val currentLoc = nativeNavigatorFragment?.currentLocator?.value
             val progression = currentLoc?.locations?.progression ?: 0.0
 
-            // 如果當前進度為0 (可能因系統Overlay導致WebView重置)，且我們確認這不是真正的新書狀態
+            // 如果當前進度為0 (可能因系統Overlay導致Reader重置)，且我們確認這不是真正的新書狀態
             // 嘗試從DB恢復進度
             if (progression == 0.0) {
                 lifecycleScope.launch {
                     val savedLocator = viewModel.getLastSavedLocator()
                     if (savedLocator != null && (savedLocator.locations?.progression ?: 0.0) > 0.0
                     ) {
-                        // Small delay to ensure WebView is ready effectively
+                        // Small delay to ensure Reader is ready effectively
                         delay(50)
-                        if (useNativeReader) {
-                            nativeNavigatorFragment?.go(savedLocator, animated = false)
-                        } else {
-                            navigatorFragment?.go(savedLocator, animated = false)
-                        }
+                        nativeNavigatorFragment?.go(savedLocator, animated = false)
                     } else {}
                 }
             }
@@ -1275,14 +614,13 @@ class ReaderActivity : BaseActivity() {
         if (EInkHelper.isBooxDevice()) {
 
             // 1. Capture current location before any layout changes
-            val savedLocator = navigatorFragment?.currentLocator?.value
+            val savedLocator = nativeNavigatorFragment?.currentLocator?.value
 
             lifecycleScope.launch {
                 delay(200) // 短暫延遲確保UI準備好
 
                 // 每次都重新讀取文石系統字體設定
                 val newFontSize = getBooxSystemFontSize()
-                val fontChanged = newFontSize != currentFontSize
 
                 currentFontSize = newFontSize
                 currentFontWeight = 400 // 固定預設值
@@ -1293,9 +631,9 @@ class ReaderActivity : BaseActivity() {
 
                 // 2. Restore location if valid
                 if (savedLocator != null) {
-                    // Small delay to let WebView apply text zoom first
+                    // Small delay to let Reader apply settings first
                     delay(50)
-                    navigatorFragment?.go(savedLocator, pageAnimationEnabled)
+                    nativeNavigatorFragment?.go(savedLocator, pageAnimationEnabled)
                 }
             }
         }
@@ -1308,9 +646,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun saveCurrentProgressImmediate() {
         val key = viewModel.currentBookKey.value ?: return
-        val locator =
-                if (useNativeReader) nativeNavigatorFragment?.currentLocator?.value
-                else navigatorFragment?.currentLocator?.value
+        val locator = nativeNavigatorFragment?.currentLocator?.value
         if (locator == null) return
 
         // 確保進度信息正確
@@ -1321,30 +657,7 @@ class ReaderActivity : BaseActivity() {
 
         syncRepo.cacheProgress(key, json)
 
-        if (hasWindowFocus()) {
-            viewModel.saveProgress(json)
-        } else {}
-    }
-
-    private fun setupDecorationListener() {
-        navigatorFragment?.addDecorationListener(
-                "ai_notes",
-                object : DecorableNavigator.Listener {
-                    override fun onDecorationActivated(
-                            event: DecorableNavigator.OnActivatedEvent
-                    ): Boolean {
-                        val noteId =
-                                my.hinoki.booxreader.data.reader.DecorationHandler
-                                        .extractNoteIdFromDecorationId(event.decoration.id)
-                        return if (noteId != null) {
-                            AiNoteDetailActivity.open(this@ReaderActivity, noteId)
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                }
-        )
+        viewModel.saveProgress(json)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -1353,7 +666,7 @@ class ReaderActivity : BaseActivity() {
             val json = data.getStringExtra(BookmarkListActivity.EXTRA_LOCATOR_JSON)
             val locator = LocatorJsonHelper.fromJson(json)
             if (locator != null) {
-                navigatorFragment?.go(locator, pageAnimationEnabled)
+                nativeNavigatorFragment?.go(locator, pageAnimationEnabled)
                 requestEinkRefresh()
             }
         }
@@ -1363,7 +676,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun openChapterPicker() {
         val publication = viewModel.publication.value
-        val navigator = if (useNativeReader) nativeNavigatorFragment else navigatorFragment
+        val navigator = nativeNavigatorFragment
         if (publication == null || navigator == null) {
             Toast.makeText(this, "尚未載入書籍", Toast.LENGTH_SHORT).show()
             return
@@ -1390,11 +703,7 @@ class ReaderActivity : BaseActivity() {
                     val target = chapters.getOrNull(which) ?: return@setItems
                     val locator = locatorFromLink(target.link)
                     if (locator != null) {
-                        if (useNativeReader) {
-                            nativeNavigatorFragment?.go(locator, pageAnimationEnabled)
-                        } else {
-                            navigatorFragment?.go(locator, pageAnimationEnabled)
-                        }
+                        nativeNavigatorFragment?.go(locator, pageAnimationEnabled)
                         requestEinkRefresh()
                     } else {
                         Toast.makeText(this, "無法開啟章節", Toast.LENGTH_SHORT).show()
@@ -1442,7 +751,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun publishCurrentSelection() {
         lifecycleScope.launch {
-            val selection = navigatorFragment?.currentSelection()
+            val selection = nativeNavigatorFragment?.currentSelection()
             val text = selection?.locator?.text?.highlight
             val locatorJson = LocatorJsonHelper.toJson(selection?.locator)
 
@@ -1452,16 +761,14 @@ class ReaderActivity : BaseActivity() {
             }
 
             try {
-                navigatorFragment?.clearSelection()
+                nativeNavigatorFragment?.clearSelection()
             } catch (_: Exception) {}
 
             val sanitized =
                     withContext(Dispatchers.Default) {
                         text.replace(Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$"), "")
                                 .replace(Regex("\\s+"), " ")
-                                .take(4000)
                     }
-
             if (sanitized.isNotBlank()) {
                 viewModel.postTextToServer(sanitized, locatorJson)
             }
@@ -1474,12 +781,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun addBookmarkFromCurrentPosition() {
-        val locator =
-                if (useNativeReader) {
-                    nativeNavigatorFragment?.currentLocator?.value
-                } else {
-                    navigatorFragment?.currentLocator?.value
-                }
+        val locator = nativeNavigatorFragment?.currentLocator?.value
         if (locator != null) {
             viewModel.addBookmark(locator)
         }
@@ -1514,13 +816,6 @@ class ReaderActivity : BaseActivity() {
                     Button(this).apply {
                         text = "Verify File Hash"
                         setOnClickListener { showFileInfo() }
-                    }
-
-            // Safety Scan Button
-            val btnScan =
-                    Button(this).apply {
-                        text = "Run Safety Scan (Scripts)"
-                        setOnClickListener { runSafetyScan() }
                     }
 
             val booxTitle =
@@ -1628,7 +923,6 @@ class ReaderActivity : BaseActivity() {
                     }
 
             layout.addView(btnVerify, layout.childCount - 2)
-            layout.addView(btnScan, layout.childCount - 2)
             layout.addView(booxTitle, layout.childCount - 2)
             layout.addView(switchBatch, layout.childCount - 2)
             layout.addView(switchFast, layout.childCount - 2)
@@ -1921,13 +1215,7 @@ class ReaderActivity : BaseActivity() {
                 pageSwipeEnabled = updatedSettings.pageSwipeEnabled
 
                 applyFontSize(newTextSize)
-                if (useNativeReader) {
-                    nativeNavigatorFragment?.setFontSize(newTextSize)
-                }
-
-                stylesDirty = true
-                applyReaderStyles(force = true)
-                applySwipeNavigationSetting(navigatorFragment?.view)
+                nativeNavigatorFragment?.setFontSize(newTextSize)
 
                 if (normalizedBaseUrl != readerSettings.serverBaseUrl) {
                     Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
@@ -1953,112 +1241,12 @@ class ReaderActivity : BaseActivity() {
 
         // Switch listeners update UI state but save happens on Close
         switchPageTap.setOnCheckedChangeListener { _, isChecked -> pageTapEnabled = isChecked }
-        switchPageSwipe.setOnCheckedChangeListener { _, isChecked ->
-            pageSwipeEnabled = isChecked
-            applySwipeNavigationSetting(navigatorFragment?.view)
-        }
+        switchPageSwipe.setOnCheckedChangeListener { _, isChecked -> pageSwipeEnabled = isChecked }
         switchPageAnimation.setOnCheckedChangeListener { _, isChecked ->
             pageAnimationEnabled = isChecked
-            stylesDirty = true
-            applyReaderStyles(force = true)
         }
 
         dialog.show()
-    }
-
-    private fun runSafetyScan() {
-        val uri = intent.data ?: return
-        val progressDialog =
-                AlertDialog.Builder(this)
-                        .setTitle("Scanning...")
-                        .setMessage("Checking for scripts and executable content.")
-                        .setCancelable(false)
-                        .create()
-        progressDialog.show()
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                var threatsFound = mutableListOf<String>()
-                val inputStream = contentResolver.openInputStream(uri)
-
-                if (inputStream != null) {
-                    ZipInputStream(inputStream).use {
-                        var entry = it.nextEntry
-                        while (entry != null) {
-                            val name = entry.name.lowercase()
-
-                            // 1. Check extensions
-                            if (name.endsWith(".js") ||
-                                            name.endsWith(".exe") ||
-                                            name.endsWith(".bat") ||
-                                            name.endsWith(".sh")
-                            ) {
-                                threatsFound.add("Suspicious file type: ${entry.name}")
-                            }
-
-                            // 2. Check content for <script> tags (basic check for HTML/XHTML)
-                            if (!entry.isDirectory &&
-                                            (name.endsWith(".html") ||
-                                                    name.endsWith(".xhtml") ||
-                                                    name.endsWith(".htm"))
-                            ) {
-                                // Read first 4KB or enough to find tags.
-                                // Note: Deep scanning entire files is slow. We'll scan reasonable
-                                // chunks.
-                                val buffer = ByteArray(8192)
-                                val len = it.read(buffer)
-                                if (len > 0) {
-                                    val content = String(buffer, 0, len)
-                                    if (content.contains("<script", ignoreCase = true) ||
-                                                    content.contains(
-                                                            "javascript:",
-                                                            ignoreCase = true
-                                                    )
-                                    ) {
-                                        threatsFound.add("Script tag/link found in: ${entry.name}")
-                                    }
-                                }
-                            }
-
-                            it.closeEntry()
-                            entry = it.nextEntry
-                        }
-                    }
-                }
-
-                withContext(Dispatchers.Main) {
-                    progressDialog.dismiss()
-                    if (threatsFound.isEmpty()) {
-                        AlertDialog.Builder(this@ReaderActivity)
-                                .setTitle("Scan Complete")
-                                .setMessage(
-                                        "✅ No obvious threats found.\n\nChecked for:\n- .js/.exe files\n- <script> tags in HTML"
-                                )
-                                .setPositiveButton("OK", null)
-                                .show()
-                    } else {
-                        val message =
-                                "⚠️ Potential Threats Detected:\n\n" +
-                                        threatsFound.joinToString("\n")
-                        AlertDialog.Builder(this@ReaderActivity)
-                                .setTitle("Security Warning")
-                                .setMessage(message)
-                                .setPositiveButton("OK", null)
-                                .show()
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    progressDialog.dismiss()
-                    Toast.makeText(
-                                    this@ReaderActivity,
-                                    "Scan failed: ${e.message}",
-                                    Toast.LENGTH_SHORT
-                            )
-                            .show()
-                }
-            }
-        }
     }
 
     private fun showFileInfo() {
@@ -2116,248 +1304,9 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    private fun applyFontSize(sizePercent: Int) {
-        val navigatorView = navigatorFragment?.view ?: return
-        applyFontZoomLikeNeoReader(navigatorView, sizePercent)
-
-        // 也嘗試設置root下的WebView
-        findAndSetWebViewTextZoom(binding.root, sizePercent)
-
-        // 關鍵：立即觸發文石系統刷新，不等待任何延遲
-        // 關鍵：不再強制觸發文石系統刷新，以避免破壞用戶的模式設定
-        if (EInkHelper.isBooxDevice()) {
-            // 僅觸發一次普通刷新，不變更模式
-            EInkHelper.refresh(binding.root, full = false)
-        }
-
-        stylesDirty = true
-        navigatorFragment?.view?.post { applyReaderStyles(force = true) }
-    }
-
-    // 新增：強制查找並設置所有WebView的字體大小
-    private fun findAndSetWebViewTextZoom(view: View, sizePercent: Int) {
-        if (view is android.webkit.WebView) {
-            val oldZoom = view.settings.textZoom
-            view.settings.textZoom = sizePercent
-
-            // 使用JavaScript強制設置字體大小
-            val js =
-                    """
-                document.documentElement.style.webkitTextSizeAdjust = '$sizePercent%';
-                document.body.style.webkitTextSizeAdjust = '$sizePercent%';
-                document.body.style.fontSize = 'calc(16px * $sizePercent / 100)';
-                console.log('強制字體大小設置為: $sizePercent%');
-            """
-            view.evaluateJavascript(js, null)
-
-            return
-        }
-
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                findAndSetWebViewTextZoom(view.getChildAt(i), sizePercent)
-            }
-        }
-    }
-
     private fun getBooxSystemFontSize(): Int {
-
-        return if (EInkHelper.isBooxDevice()) {
-
-            // 嘗試讀取，但即使失敗也使用文石系統合理的預設值
-            var fontSize = 150 // 文石系統預設值
-
-            // 方法1: 嘗試讀取文石系統設定
-            val systemSetting = tryReadBooxSystemSetting()
-            if (systemSetting > 0) {
-                fontSize = systemSetting
-            }
-
-            // 方法2: 嘗試讀取Android通用設定
-            if (fontSize == 150) {
-                val androidSetting = tryReadAndroidSystemSetting()
-                if (androidSetting > 0) {
-                    fontSize = androidSetting
-                }
-            }
-
-            // 方法3: 嘗試從Configuration讀取
-            if (fontSize == 150) {
-                val configSetting = tryReadConfigurationFontScale()
-                if (configSetting > 0) {
-                    fontSize = configSetting
-                }
-            }
-
-            // 方法4: 嘗試讀取文石特有的設定
-            if (fontSize == 150) {
-                val booxSetting = tryReadBooxSpecificSettings()
-                if (booxSetting > 0) {
-                    fontSize = booxSetting
-                }
-            }
-
-            // 方法5: 嘗試讀取文石配置文件
-            if (fontSize == 150) {
-                val fileSetting = tryReadBooxConfigFiles()
-                if (fileSetting > 0) {
-                    fontSize = fileSetting
-                }
-            }
-
-            // 方法6: 嘗試通過系統命令獲取
-            if (fontSize == 150) {
-                val commandSetting = tryReadBooxSystemCommand()
-                if (commandSetting > 0) {
-                    fontSize = commandSetting
-                }
-            }
-
-            // 強制返回合理的文石系統字體值（100-200%範圍）
-            if (fontSize < 100 || fontSize > 200) {
-                fontSize = 150
-            }
-
-            fontSize
-        } else {
-            // 非文石設備使用Android系統字體設定
-            tryReadConfigurationFontScale()
-        }
-    }
-
-    private fun tryReadBooxSystemSetting(): Int {
-        return try {
-            val contentResolver = contentResolver
-
-            // 嘗試多個可能的系統設定鍵
-            val possibleKeys =
-                    listOf(
-                            "font_scale",
-                            "system_font_scale",
-                            "display_font_scale",
-                            "boox_font_scale",
-                            "epd_font_size"
-                    )
-
-            for (key in possibleKeys) {
-                try {
-                    val fontSize =
-                            android.provider.Settings.System.getFloat(contentResolver, key, -1.0f)
-                    if (fontSize > 0) {
-                        return (fontSize * 150).toInt()
-                    }
-                } catch (e: Exception) {}
-            }
-            -1
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    private fun tryReadAndroidSystemSetting(): Int {
-        return try {
-            val contentResolver = contentResolver
-            val fontSize =
-                    android.provider.Settings.System.getFloat(
-                            contentResolver,
-                            android.provider.Settings.System.FONT_SCALE,
-                            -1.0f
-                    )
-            if (fontSize > 0) {
-                (fontSize * 150).toInt()
-            } else {
-                -1
-            }
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    private fun tryReadConfigurationFontScale(): Int {
-        return try {
-            val config = resources.configuration
-            val fontScale = config.fontScale
-            if (fontScale > 0) {
-                (fontScale * 150).toInt()
-            } else {
-                -1
-            }
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    private fun tryReadBooxSpecificSettings(): Int {
-        return try {
-            val contentResolver = contentResolver
-
-            // 嘗試文石特有的設定路徑
-            val booxKeys =
-                    listOf(
-                            "com.onyx.android.sdk.font_scale",
-                            "com.onyx.epd.font_scale",
-                            "com.boox.reader.font_size",
-                            "eink_font_scale"
-                    )
-
-            for (key in booxKeys) {
-                try {
-                    val fontSize =
-                            android.provider.Settings.System.getFloat(contentResolver, key, -1.0f)
-                    if (fontSize > 0) {
-                        return (fontSize * 150).toInt()
-                    }
-                } catch (e: Exception) {}
-            }
-
-            -1
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
-    private fun tryReadBooxConfigFiles(): Int {
-        return try {
-            // 嘗試讀取文石系統配置文件
-            val configPaths =
-                    listOf(
-                            "/data/data/com.onyx.android.sdk/config/preferences.xml",
-                            "/data/data/com.onyx.reader/preferences.xml",
-                            "/system/etc/onyx_config.xml",
-                            "/proc/onyx/display/font_scale"
-                    )
-
-            for (path in configPaths) {
-                try {
-                    val file = java.io.File(path)
-                    if (file.exists() && file.canRead()) {
-                        val content = file.readText()
-
-                        // 尋找字體相關的設定
-                        val fontPatterns =
-                                listOf(
-                                        Regex("font_scale[=:]\\s*([0-9.]+)"),
-                                        Regex("font_size[=:]\\s*([0-9.]+)"),
-                                        Regex("display_scale[=:]\\s*([0-9.]+)")
-                                )
-
-                        for (pattern in fontPatterns) {
-                            val match = pattern.find(content)
-                            if (match != null) {
-                                val value = match.groupValues[1].toFloatOrNull()
-                                if (value != null && value > 0) {
-                                    return (value * 150).toInt()
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {}
-            }
-
-            -1
-        } catch (e: Exception) {
-            -1
-        }
+        val config = resources.configuration
+        return (config.fontScale * 100).toInt()
     }
 
     private fun tryReadBooxSystemCommand(): Int {
@@ -2419,9 +1368,6 @@ class ReaderActivity : BaseActivity() {
         applyFontSize(currentFontSize)
         applyFontWeight(currentFontWeight)
         applyContrastMode(currentContrastMode)
-        stylesDirty = true
-        applyReaderStyles(force = true)
-        applySwipeNavigationSetting(navigatorFragment?.view)
     }
 
     private fun pushSettingsToCloud() {
@@ -2429,14 +1375,15 @@ class ReaderActivity : BaseActivity() {
         lifecycleScope.launch { syncRepo.pushSettings(ReaderSettings.fromPrefs(prefs)) }
     }
 
+    private fun applyFontSize(sizePercent: Int) {
+        nativeNavigatorFragment?.setFontSize(sizePercent)
+    }
+
     private fun applyFontWeight(weight: Int) {
         currentFontWeight = weight.coerceIn(300, 900)
         // 移除SharedPreferences保存，不再保存字體粗細設定
 
-        stylesDirty = true
-        navigatorFragment?.view?.post {
-            applyReaderStyles(force = true)
-
+        nativeNavigatorFragment?.view?.post {
             // 字體粗細變更也需要觸發文石系統深度刷新
             if (EInkHelper.isBooxDevice()) {
                 binding.root.postDelayed(
@@ -2466,27 +1413,6 @@ class ReaderActivity : BaseActivity() {
                 .putInt("contrast_mode", mode.ordinal)
                 .apply()
 
-        EInkHelper.setHighContrastMode(navigatorFragment?.view ?: binding.root, mode)
-
-        // 對比模式變更後執行完整刷新
-        if (EInkHelper.isBooxDevice()) {
-            binding.root.postDelayed({ EInkHelper.refreshFull(binding.root) }, 200)
-        }
-
-        applyReaderChromeTheme(mode)
-        applyReaderStyles(force = true)
-    }
-
-    private fun toggleContrastMode() {
-        val newMode = EInkHelper.toggleContrastMode(navigatorFragment?.view)
-        applyContrastMode(newMode)
-
-        // 顯示當前模式
-        Toast.makeText(this, "已切換到：${EInkHelper.getContrastModeName(newMode)}", Toast.LENGTH_SHORT)
-                .show()
-    }
-
-    private fun applyReaderChromeTheme(mode: ContrastMode) {
         val backgroundColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
@@ -2496,31 +1422,16 @@ class ReaderActivity : BaseActivity() {
                 }
         val textColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#1A1A1A")
-                    ContrastMode.DARK -> Color.parseColor("#BDBDBD")
-                    ContrastMode.SEPIA -> Color.parseColor("#433422")
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
-                }
-        val buttonColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F0EDE5") // Slightly lighter for Day
-                    ContrastMode.DARK ->
-                            Color.parseColor(
-                                    "#2C2C2C"
-                            ) // Lighter gray for better visibility in Night
-                    ContrastMode.SEPIA -> Color.parseColor("#E8DEC0") // Refined Sepia
-                    ContrastMode.HIGH_CONTRAST ->
-                            Color.parseColor("#333333") // Visible in high contrast
                 }
 
         binding.root.setBackgroundColor(backgroundColor)
         binding.readerContainer.setBackgroundColor(backgroundColor)
         binding.bottomBar.setBackgroundColor(backgroundColor)
-        navigatorFragment?.view?.setBackgroundColor(backgroundColor)
-        findFirstWebView(navigatorFragment?.view)?.let { webView ->
-            webView.setBackgroundColor(backgroundColor)
-            webView.overScrollMode = View.OVER_SCROLL_NEVER
-        }
+        nativeNavigatorFragment?.view?.setBackgroundColor(backgroundColor)
         window.decorView.setBackgroundColor(backgroundColor)
         applyReaderContainerBackground(binding.readerContainer, backgroundColor)
 
@@ -2564,199 +1475,8 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    // --- Action Mode ---
-    // --- Action Mode ---
-    private val selectionActionModeCallback =
-            object : ActionMode.Callback2() {
-                override fun onCreateActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-                    currentActionMode = mode
-
-                    // 觸覺反饋
-                    binding.root.performHapticFeedback(
-                            android.view.HapticFeedbackConstants.LONG_PRESS
-                    )
-
-                    // Some devices (esp. e-ink) may not refresh the floating ActionMode promptly.
-                    binding.root.postDelayed(
-                            {
-                                mode?.invalidate()
-                                binding.root.invalidate()
-                                if (EInkHelper.isBooxDevice()) {
-                                    EInkHelper.refreshPartial(binding.root)
-                                }
-                            },
-                            80
-                    )
-
-                    return true
-                }
-
-                override fun onGetContentRect(mode: ActionMode?, view: View?, outRect: Rect?) {
-                    // Default behavior is usually fine, but if we need to ensure visibility:
-                    super.onGetContentRect(mode, view, outRect)
-                }
-
-                override fun onPrepareActionMode(mode: ActionMode?, menu: Menu?): Boolean {
-                    if (mode == null || menu == null) return false
-
-                    // 清除並重新添加菜單項
-                    menu.clear()
-
-                    // 添加菜單項，確保有圖標和正確的顯示方式
-                    menu.add(Menu.NONE, 998, 1, "複製")
-                            .setIcon(android.R.drawable.ic_menu_edit)
-                            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
-
-                    menu.add(Menu.NONE, 1001, 2, "分享")
-                            .setIcon(android.R.drawable.ic_menu_share)
-                            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
-
-                    menu.add(Menu.NONE, 1000, 2, "Google Maps")
-                            .setIcon(android.R.drawable.ic_menu_mapmode)
-                            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
-
-                    menu.add(Menu.NONE, 999, 3, "發佈")
-                            .setIcon(android.R.drawable.ic_menu_share)
-                            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
-
-                    // 添加調試日誌
-
-                    return true
-                }
-
-                override fun onActionItemClicked(mode: ActionMode?, item: MenuItem?): Boolean {
-                    if (item?.itemId == 998) {
-                        lifecycleScope.launch {
-                            val selection = navigatorFragment?.currentSelection()
-                            val text = selection?.locator?.text?.highlight
-                            if (!text.isNullOrBlank()) {
-                                val clipboard =
-                                        getSystemService(Context.CLIPBOARD_SERVICE) as
-                                                android.content.ClipboardManager
-                                val clip = android.content.ClipData.newPlainText("Book Text", text)
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(this@ReaderActivity, "已複製", Toast.LENGTH_SHORT)
-                                        .show()
-                                navigatorFragment?.clearSelection()
-                                mode?.finish()
-                            } else {
-                                Toast.makeText(
-                                                this@ReaderActivity,
-                                                "No text selected",
-                                                Toast.LENGTH_SHORT
-                                        )
-                                        .show()
-                            }
-                        }
-                        return true
-                    }
-
-                    if (item?.itemId == 1001) {
-                        lifecycleScope.launch {
-                            val selection = navigatorFragment?.currentSelection()
-                            val text = selection?.locator?.text?.highlight
-                            if (!text.isNullOrBlank()) {
-                                val shareIntent =
-                                        Intent(Intent.ACTION_SEND).apply {
-                                            type = "text/plain"
-                                            putExtra(Intent.EXTRA_TEXT, text)
-                                        }
-                                startActivity(Intent.createChooser(shareIntent, "分享選取文字"))
-                                navigatorFragment?.clearSelection()
-                                mode?.finish()
-                            } else {
-                                Toast.makeText(
-                                                this@ReaderActivity,
-                                                "No text selected",
-                                                Toast.LENGTH_SHORT
-                                        )
-                                        .show()
-                            }
-                        }
-                        return true
-                    }
-
-                    if (item?.itemId == 999) {
-                        lifecycleScope.launch {
-                            try {
-                                val selection = navigatorFragment?.currentSelection()
-                                val text = selection?.locator?.text?.highlight
-                                val locatorJson = LocatorJsonHelper.toJson(selection?.locator)
-
-                                if (!text.isNullOrBlank()) {
-                                    val trimmed =
-                                            text.replace(Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$"), "")
-                                    viewModel.postTextToServer(trimmed, locatorJson)
-
-                                    // Clear selection and dismiss menu
-                                    navigatorFragment?.clearSelection()
-                                    mode?.finish()
-                                } else {
-                                    Toast.makeText(
-                                                    this@ReaderActivity,
-                                                    "No text selected",
-                                                    Toast.LENGTH_SHORT
-                                            )
-                                            .show()
-                                }
-                            } catch (e: Exception) {}
-                        }
-                        return true
-                    }
-
-                    if (item?.itemId == 1000) {
-                        lifecycleScope.launch {
-                            val selection = navigatorFragment?.currentSelection()
-                            val text = selection?.locator?.text?.highlight
-
-                            if (!text.isNullOrBlank()) {
-                                val trimmed = text.replace(Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$"), "")
-                                val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(trimmed)}")
-                                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                                mapIntent.setPackage("com.google.android.apps.maps")
-
-                                try {
-                                    startActivity(mapIntent)
-                                } catch (e: Exception) {
-                                    // Fallback to browser or other map apps if Google Maps is not
-                                    // installed
-                                    val fallbackUri =
-                                            Uri.parse(
-                                                    "https://www.google.com/maps/search/?api=1&query=${Uri.encode(trimmed)}"
-                                            )
-                                    val fallbackIntent = Intent(Intent.ACTION_VIEW, fallbackUri)
-                                    try {
-                                        startActivity(fallbackIntent)
-                                    } catch (e2: Exception) {
-                                        Toast.makeText(
-                                                        this@ReaderActivity,
-                                                        "無法開啟地圖: ${e2.message}",
-                                                        Toast.LENGTH_SHORT
-                                                )
-                                                .show()
-                                    }
-                                }
-
-                                navigatorFragment?.clearSelection()
-                                mode?.finish()
-                            } else {
-                                Toast.makeText(
-                                                this@ReaderActivity,
-                                                "No text selected",
-                                                Toast.LENGTH_SHORT
-                                        )
-                                        .show()
-                            }
-                        }
-                        return true
-                    }
-                    return false
-                }
-                override fun onDestroyActionMode(mode: ActionMode?) {
-                    currentActionMode = null
-                    flushPendingDecorations()
-                }
-            }
+    // --- Selection Handling ---
+    // Native reader handles selection internally.
 
     // --- Touch Handling ---
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -2781,52 +1501,7 @@ class ReaderActivity : BaseActivity() {
             return super.dispatchTouchEvent(ev)
         }
 
-        // Hard block swipe-to-turn when disabled.
-        // Some devices/pagers intercept before the WebView sees MOVE events, so we must stop it at
-        // Activity level.
-        // Optimization: Disable this block if using NativeReaderView selection or if an action mode
-        // is active.
-        if (!pageSwipeEnabled && currentActionMode == null && !useNativeReader) {
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    swipeBlockActive = false
-                    swipeBlockStartX = ev.x
-                    swipeBlockStartY = ev.y
-                    swipeBlockStartAtMs = SystemClock.uptimeMillis()
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (!swipeBlockActive) {
-                        val dx = abs(ev.x - swipeBlockStartX)
-                        val dy = abs(ev.y - swipeBlockStartY)
-                        // Use a low threshold because Readium may flip pages on short, fast flicks.
-                        val threshold = (touchSlop * 0.25f).coerceAtLeast(2f)
-                        val isHorizontalSwipe = dx > threshold && dx > dy * 1.1f
-                        if (isHorizontalSwipe) {
-                            swipeBlockActive = true
-                        }
-                    }
-                    if (swipeBlockActive) return true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    // Block short horizontal flicks even if we didn't mark active in MOVE (e.g.
-                    // very fast gestures).
-                    val dt = (SystemClock.uptimeMillis() - swipeBlockStartAtMs).coerceAtLeast(0L)
-                    val dx = abs(ev.x - swipeBlockStartX)
-                    val dy = abs(ev.y - swipeBlockStartY)
-                    val threshold = (touchSlop * 0.25f).coerceAtLeast(2f)
-                    val isQuickHorizontal = dt < 350 && dx > threshold && dx > dy * 1.1f
-                    if (isQuickHorizontal) {
-                        swipeBlockActive = false
-                        return true
-                    }
-                    if (swipeBlockActive) {
-                        swipeBlockActive = false
-                        return true
-                    }
-                    swipeBlockActive = false
-                }
-            }
-        }
+        // Dispatch to child views
 
         // 處理全局觸摸事件，優先文字選取
         when (ev.actionMasked) {
@@ -2861,12 +1536,8 @@ class ReaderActivity : BaseActivity() {
         if (!locatorJson.isNullOrBlank()) {
             val locator = LocatorJsonHelper.fromJson(locatorJson)
             if (locator != null) {
-                navigatorFragment?.go(locator, animated = false)
+                nativeNavigatorFragment?.go(locator, animated = false)
             }
         }
-    }
-
-    private fun setupViewModel(bookId: String, bookTitle: String?) {
-        // Implementation restored
     }
 }

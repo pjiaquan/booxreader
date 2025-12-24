@@ -432,6 +432,18 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.btnRepublishSelection.isEnabled = true
         }
 
+        // Update AI model info and disclaimer
+        val settings =
+                my.hinoki.booxreader.data.settings.ReaderSettings.fromPrefs(
+                        getSharedPreferences(
+                                my.hinoki.booxreader.data.settings.ReaderSettings.PREFS_NAME,
+                                Context.MODE_PRIVATE
+                        )
+                )
+        binding.tvAiModelInfo.text =
+                getString(R.string.ai_note_model_info_format, settings.aiModelName)
+        binding.tvAiDisclaimer.text = getString(R.string.ai_note_model_disclaimer)
+
         if (!note.locatorJson.isNullOrBlank() && !note.bookId.isNullOrBlank()) {
             binding.btnGoToPage.visibility = View.VISIBLE
             binding.btnGoToPage.setOnClickListener {

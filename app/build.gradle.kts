@@ -147,7 +147,6 @@ dependencies {
     // --- Readium Kotlin Toolkit ---
     implementation(libs.readium.shared)
     implementation(libs.readium.streamer)
-    implementation(libs.readium.navigator)
 
     // --- Room ---
     implementation(libs.androidx.room.runtime)

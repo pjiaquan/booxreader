@@ -158,4 +158,6 @@
     <string name="action_delete">Delete</string>
     <string name="action_export_all">Export All</string>
     <string name="ai_note_go_to_page">Go to Page</string>
+    <string name="ai_note_model_info_format">Model: %1$s</string>
+    <string name="ai_note_model_disclaimer">AI can make mistakes. Check important info.</string>
 </resources>
