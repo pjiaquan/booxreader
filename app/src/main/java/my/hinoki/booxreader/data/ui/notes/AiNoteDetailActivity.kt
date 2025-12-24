@@ -27,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
-import my.hinoki.booxreader.core.eink.EInkHelper
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
@@ -754,10 +753,7 @@ class AiNoteDetailActivity : BaseActivity() {
                             // 滾動完成後隱藏按鈕
                             hideScrollButton()
 
-                            // 觸發文石刷新以確保顯示更新
-                            if (EInkHelper.isBooxDevice()) {
-                                EInkHelper.refreshFull(scrollView)
-                            }
+                            scrollView.postInvalidateOnAnimation()
                         },
                         100
                 )
@@ -873,7 +869,7 @@ class AiNoteDetailActivity : BaseActivity() {
         val priorScrollY = binding.scrollView.scrollY
         val wasAtBottom = isAtBottom()
         val nowMs = SystemClock.uptimeMillis()
-        val minIntervalMs = if (EInkHelper.isBooxDevice()) 600L else 300L
+        val minIntervalMs = 300L
         val minCharDelta = if (isFollowUp) 128 else 64
 
         val lengthDelta = kotlin.math.abs(markdown.length - lastRenderedLength)

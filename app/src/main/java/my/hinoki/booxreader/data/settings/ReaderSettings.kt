@@ -1,23 +1,27 @@
 package my.hinoki.booxreader.data.settings
 
 import android.content.SharedPreferences
-import my.hinoki.booxreader.core.eink.EInkHelper
 import my.hinoki.booxreader.data.remote.HttpConfig
 
+enum class ContrastMode {
+  NORMAL,
+  DARK,
+  SEPIA,
+  HIGH_CONTRAST
+}
+
 data class ReaderSettings(
-        // 字體大小現在使用文石系統設定，不再在此處儲存
-        // 字體粗細現在使用預設值，不再在此處儲存
+        // 字體大小使用本地設定
+        // 字體粗細使用預設值，不在此處儲存
         val pageTapEnabled: Boolean = true,
         val pageSwipeEnabled: Boolean = true,
-        val booxBatchRefresh: Boolean = true,
-        val booxFastMode: Boolean = true,
         /**
          * Text size as a percentage (e.g., 140 for 140%). NOTE: This is a local-only setting and is
          * purposefully excluded from cloud sync in UserSyncRepository.kt to allow different sizes
          * on different devices.
          */
         val textSize: Int = 140,
-        val contrastMode: Int = EInkHelper.ContrastMode.NORMAL.ordinal,
+        val contrastMode: Int = ContrastMode.NORMAL.ordinal,
         val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
         val exportToCustomUrl: Boolean = false,
         val exportCustomUrl: String = "",
@@ -112,12 +116,10 @@ data class ReaderSettings(
   fun saveTo(prefs: SharedPreferences) {
     val timestamp = if (updatedAt > 0) updatedAt else System.currentTimeMillis()
     prefs.edit()
-            // 字體大小現在使用文石系統設定，不再在此處儲存
-            // 字體粗細現在使用預設值，不再在此處儲存
+            // 字體大小使用本地設定
+            // 字體粗細使用預設值，不在此處儲存
             .putBoolean("page_tap_enabled", pageTapEnabled)
             .putBoolean("page_swipe_enabled", pageSwipeEnabled)
-            .putBoolean("boox_batch_refresh", booxBatchRefresh)
-            .putBoolean("boox_fast_mode", booxFastMode)
             .putInt("text_size", textSize)
             .putInt("contrast_mode", contrastMode)
             .putString("server_base_url", serverBaseUrl)
@@ -283,14 +285,12 @@ data class ReaderSettings(
             """.trimIndent()
 
       return ReaderSettings(
-              // 字體大小現在使用文石系統設定，不再在此處讀取
-              // 字體粗細現在使用預設值，不再在此處讀取
+              // 字體大小使用本地設定
+              // 字體粗細使用預設值，不在此處讀取
               pageTapEnabled = prefs.getBoolean("page_tap_enabled", true),
               pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
-              booxBatchRefresh = prefs.getBoolean("boox_batch_refresh", true),
-              booxFastMode = prefs.getBoolean("boox_fast_mode", true),
               textSize = prefs.getInt("text_size", 140),
-              contrastMode = prefs.getInt("contrast_mode", EInkHelper.ContrastMode.NORMAL.ordinal),
+              contrastMode = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal),
               serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                               ?: HttpConfig.DEFAULT_BASE_URL,
               exportToCustomUrl = prefs.getBoolean("export_to_custom_url", false),

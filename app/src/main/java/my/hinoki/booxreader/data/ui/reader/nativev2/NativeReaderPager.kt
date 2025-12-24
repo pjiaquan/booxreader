@@ -2,7 +2,10 @@ package my.hinoki.booxreader.data.ui.reader.nativev2
 
 import android.text.Layout
 import android.text.StaticLayout
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextPaint
+import android.text.TextUtils
 
 /** Manages pagination for native text content. */
 class NativeReaderPager(
@@ -56,7 +59,21 @@ class NativeReaderPager(
 
     fun getPageText(pageIndex: Int): CharSequence {
         val range = pages.getOrNull(pageIndex) ?: return ""
-        return currentText.subSequence(range.startOffset, range.endOffset)
+        val slice = currentText.subSequence(range.startOffset, range.endOffset)
+        if (currentText is Spanned) {
+            val spanned = currentText as Spanned
+            val out = SpannableStringBuilder(slice)
+            TextUtils.copySpansFrom(
+                    spanned,
+                    range.startOffset,
+                    range.endOffset,
+                    Any::class.java,
+                    out,
+                    0
+            )
+            return out
+        }
+        return slice
     }
 
     val pageCount: Int

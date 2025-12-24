@@ -206,17 +206,4 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // --- Onyx E-Ink SDK ---
-    implementation("com.onyx.android.sdk:onyxsdk-device:1.1.11") {
-        exclude(group = "org.apache.commons.io", module = "commonsIO")
-        exclude(group = "com.tencent", module = "mmkv")
-    }
-    implementation("com.onyx.android.sdk:onyxsdk-pen:1.2.1") {
-        exclude(group = "org.apache.commons.io", module = "commonsIO")
-        exclude(group = "com.tencent", module = "mmkv")
-    }
-
-    // --- Transitive fix ---
-    implementation("commons-io:commons-io:2.6") // Standard replacement
-    implementation("com.tencent:mmkv:1.3.5")    // Modern replacement on Maven Central
 }

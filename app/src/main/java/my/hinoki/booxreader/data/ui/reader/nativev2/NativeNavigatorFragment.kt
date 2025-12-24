@@ -661,6 +661,17 @@ class NativeNavigatorFragment : Fragment() {
         val cleaned =
                 html.replace(Regex("<script.*?>.*?</script>", RegexOption.DOT_MATCHES_ALL), "")
                         .replace(Regex("<style.*?>.*?</style>", RegexOption.DOT_MATCHES_ALL), "")
+                        .replace(
+                                Regex(
+                                        "<span\\s+class=[\"']super[\"']\\s*>",
+                                        RegexOption.IGNORE_CASE
+                                ),
+                                "<sup>"
+                        )
+                        .replace(
+                                Regex("</span>", RegexOption.IGNORE_CASE),
+                                "</sup>"
+                        )
 
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
             android.text.Html.fromHtml(cleaned, android.text.Html.FROM_HTML_MODE_LEGACY)

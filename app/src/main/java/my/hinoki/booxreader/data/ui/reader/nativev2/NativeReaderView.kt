@@ -13,7 +13,6 @@ import android.view.View
 import java.text.BreakIterator
 import kotlin.math.max
 import kotlin.math.min
-import my.hinoki.booxreader.core.eink.EInkHelper
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
@@ -185,9 +184,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 
                                 invalidate()
-                                if (EInkHelper.isBooxDevice()) {
-                                    EInkHelper.enableDUMode(this@NativeReaderView)
-                                }
+                                postInvalidateOnAnimation()
                                 parent?.requestDisallowInterceptTouchEvent(true)
                             }
                         }
@@ -311,13 +308,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             val hasDigits = linkText.any { it.isDigit() }
             if (linkText.length <= 5 && hasDigits) {
                 spannable.setSpan(
-                        android.text.style.SuperscriptSpan(),
+                        FootnoteSuperscriptSpan(0.7f),
                         start,
                         end,
                         android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
                 spannable.setSpan(
-                        android.text.style.RelativeSizeSpan(0.75f),
+                        android.text.style.RelativeSizeSpan(0.6f),
                         start,
                         end,
                         android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -457,6 +454,21 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         }
     }
 
+    private class FootnoteSuperscriptSpan(private val shiftMultiplier: Float) :
+            android.text.style.MetricAffectingSpan() {
+        override fun updateDrawState(tp: TextPaint) {
+            applyShift(tp)
+        }
+
+        override fun updateMeasureState(tp: TextPaint) {
+            applyShift(tp)
+        }
+
+        private fun applyShift(tp: TextPaint) {
+            tp.baselineShift += (tp.ascent() * shiftMultiplier).toInt()
+        }
+    }
+
     private fun drawHandles(canvas: Canvas, start: Int, end: Int) {
         val l = layout ?: return
         val handleWidth = 4f
@@ -560,9 +572,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         }
 
                         invalidate()
-                        if (EInkHelper.isBooxDevice()) {
-                            EInkHelper.enableDUMode(this)
-                        }
+                        postInvalidateOnAnimation()
                     }
                     return true
                 }
@@ -572,9 +582,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     isSelecting = false
                     activeHandle = 0
                     isMagnifying = false
-                    if (EInkHelper.isBooxDevice()) {
-                        EInkHelper.refreshFull(this)
-                    }
+                    postInvalidateOnAnimation()
 
                     // Normalize selection after dragging for consistent state
                     val s = min(selectionStart, selectionEnd)
@@ -655,7 +663,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     private fun findLinkAt(x: Float, y: Float): String? {
-        if (layout == null) return null
+        val l = layout ?: return null
         val density = resources.displayMetrics.density
         val radius = 12f * density // ~12dp radius
 
@@ -678,6 +686,43 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         return spans[0].url
                     }
                 }
+            }
+            return findLinkByBounds(x, y, spanned, l)
+        }
+        return null
+    }
+
+    private fun findLinkByBounds(
+            x: Float,
+            y: Float,
+            spanned: android.text.Spanned,
+            l: Layout
+    ): String? {
+        val density = resources.displayMetrics.density
+        val xPad = 14f * density
+        val relX = x - paddingLeft
+        val relY = y - paddingTop
+        if (relY < 0 || relX < 0) return null
+
+        val line = l.getLineForVertical(relY.toInt())
+        val lineStart = l.getLineStart(line)
+        val lineEnd = l.getLineEnd(line)
+        val spans = spanned.getSpans(lineStart, lineEnd, android.text.style.URLSpan::class.java)
+        if (spans.isEmpty()) return null
+
+        for (span in spans) {
+            val spanStart = max(spanned.getSpanStart(span), lineStart)
+            val spanEnd = min(spanned.getSpanEnd(span), lineEnd)
+            if (spanStart >= spanEnd) continue
+            var left = l.getPrimaryHorizontal(spanStart)
+            var right = l.getPrimaryHorizontal(spanEnd)
+            if (left > right) {
+                val tmp = left
+                left = right
+                right = tmp
+            }
+            if (relX + xPad >= left && relX - xPad <= right) {
+                return span.url
             }
         }
         return null

@@ -1450,8 +1450,6 @@ data class SupabaseReaderSettings(
         val userId: String? = null,
         val pageTapEnabled: Boolean = true,
         val pageSwipeEnabled: Boolean = true,
-        val booxBatchRefresh: Boolean = true,
-        val booxFastMode: Boolean = true,
         val contrastMode: Int = 0,
         val language: String = "system",
         val serverBaseUrl: String = "",
@@ -1475,8 +1473,6 @@ data class SupabaseReaderSettings(
                 return local.copy(
                         pageTapEnabled = pageTapEnabled,
                         pageSwipeEnabled = pageSwipeEnabled,
-                        booxBatchRefresh = booxBatchRefresh,
-                        booxFastMode = booxFastMode,
                         contrastMode = contrastMode,
                         serverBaseUrl = serverBaseUrl,
                         apiKey = apiKey ?: local.apiKey,
@@ -1506,8 +1502,6 @@ data class SupabaseReaderSettings(
                         return SupabaseReaderSettings(
                                 pageTapEnabled = local.pageTapEnabled,
                                 pageSwipeEnabled = local.pageSwipeEnabled,
-                                booxBatchRefresh = local.booxBatchRefresh,
-                                booxFastMode = local.booxFastMode,
                                 contrastMode = local.contrastMode,
                                 language = local.language,
                                 serverBaseUrl = local.serverBaseUrl,

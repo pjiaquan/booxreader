@@ -42,8 +42,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
-import my.hinoki.booxreader.core.eink.EInkHelper
-import my.hinoki.booxreader.core.eink.EInkHelper.ContrastMode
+import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
@@ -108,14 +107,12 @@ class ReaderActivity : BaseActivity() {
     private var pageTapEnabled: Boolean = true
     private var pageSwipeEnabled: Boolean = true
     private var touchSlop: Int = 0
-    private var currentFontSize: Int = 150 // 從文石系統讀取
+    private var currentFontSize: Int = 150
     private var currentFontWeight: Int = 400
-    private var booxBatchRefreshEnabled: Boolean = true
-    private var booxFastModeEnabled: Boolean = true
     private var pageAnimationEnabled: Boolean = false
     private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
     private var refreshJob: Job? = null
-    private val booxRefreshDelayMs = if (EInkHelper.isModernBoox()) 150L else 250L
+    private val refreshDelayMs = 250L
     private val pageNavigationRefreshDelayMs = 300L // 頁面導航專用延遲
     private val buttonColor: Int
         get() =
@@ -161,21 +158,17 @@ class ReaderActivity : BaseActivity() {
                             if (width > 0) {
                                 if (x < width * 0.3f) {
                                     goPageBackward()
-                                    if (EInkHelper.isBooxDevice()) {
-                                        binding.root.postDelayed(
-                                                { EInkHelper.refreshPartial(binding.root) },
-                                                pageNavigationRefreshDelayMs
-                                        )
-                                    }
+                                    binding.root.postDelayed(
+                                            { binding.root.postInvalidateOnAnimation() },
+                                            pageNavigationRefreshDelayMs
+                                    )
                                     return true
                                 } else if (x > width * 0.7f) {
                                     goPageForward()
-                                    if (EInkHelper.isBooxDevice()) {
-                                        binding.root.postDelayed(
-                                                { EInkHelper.refreshPartial(binding.root) },
-                                                pageNavigationRefreshDelayMs
-                                        )
-                                    }
+                                    binding.root.postDelayed(
+                                            { binding.root.postInvalidateOnAnimation() },
+                                            pageNavigationRefreshDelayMs
+                                    )
                                     return true
                                 }
                             }
@@ -232,13 +225,6 @@ class ReaderActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 文石設備特定設置
-        if (EInkHelper.isBooxDevice()) {
-            // We now use the official Onyx SDK via EInkHelper
-
-            currentFontWeight = 400 // 固定預設值
-        }
-
         binding = ActivityReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -264,21 +250,6 @@ class ReaderActivity : BaseActivity() {
 
         // Handle initial locator if present
         handleLocatorIntent(intent)
-
-        // 關鍵：在程式啟動時立即強制讀取文石系統字體設定
-        if (EInkHelper.isBooxDevice()) {
-            val detectedSize = getBooxSystemFontSize()
-
-            // 如果檢測到的值不合理，使用文石常見的標準值
-            currentFontSize =
-                    if (detectedSize >= 100 && detectedSize <= 200) {
-                        detectedSize
-                    } else {
-                        140 // 文石設備常見的標準大小
-                    }
-
-            currentFontWeight = 400 // 固定預設值
-        }
 
         val bookUri = intent.data
         if (bookUri == null) {
@@ -310,10 +281,9 @@ class ReaderActivity : BaseActivity() {
         // Load prefs (不包含字體大小和字體粗細)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         currentFontWeight = 400 // 使用預設字體粗細，不從SharedPreferences讀取
+        currentFontSize = prefs.getInt("text_size", 140)
         pageTapEnabled = prefs.getBoolean("page_tap_enabled", true)
         pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true)
-        booxBatchRefreshEnabled = prefs.getBoolean("boox_batch_refresh", true)
-        booxFastModeEnabled = prefs.getBoolean("boox_fast_mode", true)
         pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false)
 
         // 載入本地設置（包括對比模式）
@@ -329,9 +299,7 @@ class ReaderActivity : BaseActivity() {
                 // 如果沒有雲端設置，應用本地設置
                 applyFontSize(currentFontSize)
                 applyFontWeight(currentFontWeight)
-                if (EInkHelper.supportsHighContrast()) {
-                    applyContrastMode(currentContrastMode)
-                }
+                applyContrastMode(currentContrastMode)
             }
         }
 
@@ -408,111 +376,18 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun requestEinkRefresh(full: Boolean = false, immediate: Boolean = false) {
-        if (!EInkHelper.isBooxDevice()) return
-
         refreshJob?.cancel()
 
-        if (immediate || !booxBatchRefreshEnabled) {
-            // 立即刷新
-            if (full) {
-                EInkHelper.refreshFull(binding.root)
-            } else {
-                EInkHelper.refreshPartial(binding.root)
-            }
+        if (immediate) {
+            binding.root.postInvalidateOnAnimation()
             return
         }
 
-        // 批量刷新 - 智能延遲
         refreshJob =
                 lifecycleScope.launch {
-                    delay(booxRefreshDelayMs)
-
-                    // 根據設備型號選擇刷新策略
-                    if (EInkHelper.isModernBoox()) {
-                        // 新型號使用智能刷新
-                        EInkHelper.smartRefresh(
-                                binding.root,
-                                hasTextChanges = full,
-                                hasImageChanges = false
-                        )
-                    } else {
-                        // 舊型號使用傳統刷新
-                        if (full) {
-                            EInkHelper.refreshFull(binding.root)
-                        } else {
-                            EInkHelper.refreshPartial(binding.root)
-                        }
-                    }
+                    delay(refreshDelayMs)
+                    binding.root.postInvalidateOnAnimation()
                 }
-    }
-
-    private fun applyAllSettingsWithRetry() {
-        // Capture initial location if possible
-        val initialLocator = nativeNavigatorFragment?.currentLocator?.value
-
-        // 關鍵：每次應用時都重新讀取文石系統字體設定
-        currentFontSize = getBooxSystemFontSize()
-        currentFontWeight = 400 // 固定使用預設字體粗細，不使用用戶設定
-
-        // 立即應用一次
-        applyFontSize(currentFontSize)
-        applyFontWeight(currentFontWeight)
-        applyContrastMode(currentContrastMode)
-
-        // Restore location immediately
-        if (initialLocator != null) {
-            nativeNavigatorFragment?.go(initialLocator)
-        }
-
-        // 延遲再次應用以確保文檔載入完成
-        nativeNavigatorFragment?.view?.postDelayed(
-                {
-
-                    // Capture location again before this delayed update
-                    val delayedLocator =
-                            nativeNavigatorFragment?.currentLocator?.value ?: initialLocator
-
-                    // 重新讀取文石系統字體設定
-                    val newFontSize = getBooxSystemFontSize()
-                    currentFontSize = newFontSize
-                    currentFontWeight = 400 // 固定預設值
-
-                    applyFontSize(currentFontSize)
-                    applyFontWeight(currentFontWeight)
-                    applyContrastMode(currentContrastMode)
-
-                    // Restore location
-                    if (delayedLocator != null) {
-                        nativeNavigatorFragment?.go(delayedLocator)
-                    }
-
-                    // 再次延遲以確保穩定
-                    nativeNavigatorFragment?.view?.postDelayed(
-                            {
-                                val finalLocator =
-                                        nativeNavigatorFragment?.currentLocator?.value
-                                                ?: delayedLocator
-
-                                // 最終確認時也重新讀取文石系統設定
-                                val finalFontSize = getBooxSystemFontSize()
-
-                                currentFontSize = finalFontSize
-                                currentFontWeight = 400 // 固定預設值
-
-                                // 如果字體沒有變化，可以跳過重應用以避免閃爍/重排，但為了保險起見還是應用，只是加上位置恢復
-                                applyFontSize(currentFontSize)
-                                applyFontWeight(currentFontWeight)
-                                applyContrastMode(currentContrastMode)
-
-                                if (finalLocator != null) {
-                                    nativeNavigatorFragment?.go(finalLocator)
-                                }
-                            },
-                            1000
-                    ) // 1秒後最終確認
-                },
-                500
-        ) // 0.5秒後重新應用
     }
 
     @OptIn(FlowPreview::class)
@@ -578,65 +453,12 @@ class ReaderActivity : BaseActivity() {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-
-        // 當系統配置（如字體大小）改變時，重新應用設定
-        if (EInkHelper.isBooxDevice()) {
-            applyAllSettingsWithRetry()
-        }
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-
-        if (hasFocus && EInkHelper.isBooxDevice()) {
-            val currentLoc = nativeNavigatorFragment?.currentLocator?.value
-            val progression = currentLoc?.locations?.progression ?: 0.0
-
-            // 如果當前進度為0 (可能因系統Overlay導致Reader重置)，且我們確認這不是真正的新書狀態
-            // 嘗試從DB恢復進度
-            if (progression == 0.0) {
-                lifecycleScope.launch {
-                    val savedLocator = viewModel.getLastSavedLocator()
-                    if (savedLocator != null && (savedLocator.locations?.progression ?: 0.0) > 0.0
-                    ) {
-                        // Small delay to ensure Reader is ready effectively
-                        delay(50)
-                        nativeNavigatorFragment?.go(savedLocator)
-                    } else {}
-                }
-            }
-        }
+        applyFontSize(currentFontSize)
+        applyContrastMode(currentContrastMode)
     }
 
     override fun onResume() {
         super.onResume()
-        // 關鍵：每次回到Reader時都強制重新讀取並應用文石系統字體設定
-        if (EInkHelper.isBooxDevice()) {
-
-            // 1. Capture current location before any layout changes
-            val savedLocator = nativeNavigatorFragment?.currentLocator?.value
-
-            lifecycleScope.launch {
-                delay(200) // 短暫延遲確保UI準備好
-
-                // 每次都重新讀取文石系統字體設定
-                val newFontSize = getBooxSystemFontSize()
-
-                currentFontSize = newFontSize
-                currentFontWeight = 400 // 固定預設值
-
-                applyFontSize(currentFontSize)
-                applyFontWeight(currentFontWeight)
-                applyContrastMode(currentContrastMode)
-
-                // 2. Restore location if valid
-                if (savedLocator != null) {
-                    // Small delay to let Reader apply settings first
-                    delay(50)
-                    nativeNavigatorFragment?.go(savedLocator)
-                }
-            }
-        }
     }
 
     override fun onPause() {
@@ -716,8 +538,17 @@ class ReaderActivity : BaseActivity() {
     private fun collectChapters(publication: Publication): List<ChapterItem> {
         val result = mutableListOf<ChapterItem>()
 
+        fun isFootnoteLike(link: Link): Boolean {
+            val href = link.href.toString()
+            if (!href.contains("#")) return false
+            val title = link.title?.trim().orEmpty()
+            if (title.isEmpty()) return true
+            return title.all { it.isDigit() }
+        }
+
         fun walk(links: List<Link>, depth: Int) {
             links.forEach { link ->
+                if (isFootnoteLike(link)) return@forEach
                 val href = link.href.toString()
                 val title =
                         link.title?.takeIf { it.isNotBlank() }
@@ -805,134 +636,10 @@ class ReaderActivity : BaseActivity() {
         val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
         val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
 
-        // Add Security Buttons and Boox-specific settings
         // dialogView is a ScrollView, so we need to get its child LinearLayout
         val layout =
                 (dialogView as? android.view.ViewGroup)?.getChildAt(0) as?
                         android.widget.LinearLayout
-        if (layout != null && EInkHelper.isBooxDevice()) {
-            // Verify Hash Button
-            val btnVerify =
-                    Button(this).apply {
-                        text = "Verify File Hash"
-                        setOnClickListener { showFileInfo() }
-                    }
-
-            val booxTitle =
-                    TextView(this).apply {
-                        text =
-                                if (EInkHelper.isModernBoox()) {
-                                    "文石設備優化 (${EInkHelper.getBooxModel()})"
-                                } else {
-                                    "文石 E-Ink 設置"
-                                }
-                        textSize = 18f
-                        setTypeface(null, android.graphics.Typeface.BOLD)
-                        setPadding(0, 16, 0, 8)
-                    }
-
-            val switchBatch =
-                    androidx.appcompat.widget.SwitchCompat(this).apply {
-                        text = "批量刷新 (減少閃爍)"
-                        isChecked = booxBatchRefreshEnabled
-                        setOnCheckedChangeListener { _, checked ->
-                            booxBatchRefreshEnabled = checked
-                            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                                    .edit()
-                                    .putBoolean("boox_batch_refresh", checked)
-                                    .apply()
-                        }
-                    }
-
-            val switchFast =
-                    androidx.appcompat.widget.SwitchCompat(this).apply {
-                        text = "交互時快速模式"
-                        isChecked = booxFastModeEnabled
-                        setOnCheckedChangeListener { _, checked ->
-                            booxFastModeEnabled = checked
-                            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                                    .edit()
-                                    .putBoolean("boox_fast_mode", checked)
-                                    .apply()
-                        }
-                    }
-
-            val btnFullRefresh =
-                    Button(this).apply {
-                        text = "立即全屏刷新"
-                        setOnClickListener {
-                            EInkHelper.refreshFull(binding.root)
-                            Toast.makeText(this@ReaderActivity, "已執行全屏刷新", Toast.LENGTH_SHORT)
-                                    .show()
-                        }
-                    }
-
-            val btnSmartRefresh =
-                    Button(this).apply {
-                        text = "智能刷新測試"
-                        setOnClickListener {
-                            EInkHelper.smartRefresh(
-                                    binding.root,
-                                    hasTextChanges = false,
-                                    hasImageChanges = false
-                            )
-                            Toast.makeText(this@ReaderActivity, "已執行智能刷新", Toast.LENGTH_SHORT)
-                                    .show()
-                        }
-                    }
-
-            // 新型號專用選項
-            if (EInkHelper.isModernBoox()) {
-                val btnOptimizeMode =
-                        Button(this).apply {
-                            text = "切換自動模式"
-                            setOnClickListener {
-                                EInkHelper.enableAutoMode(binding.root)
-                                Toast.makeText(
-                                                this@ReaderActivity,
-                                                "已切換到自動刷新模式",
-                                                Toast.LENGTH_SHORT
-                                        )
-                                        .show()
-                            }
-                        }
-                layout.addView(btnOptimizeMode, layout.childCount - 2)
-            }
-
-            val btnDeviceInfo =
-                    Button(this).apply {
-                        text = "設備信息"
-                        setOnClickListener {
-                            val info =
-                                    """
-                        設備型號: ${EInkHelper.getBooxModel()}
-                        是否新型號: ${if (EInkHelper.isModernBoox()) "是" else "否"}
-                        支援高對比: ${if (EInkHelper.supportsHighContrast()) "是" else "否"}
-                        當前主題: ${EInkHelper.getContrastModeName(currentContrastMode)}
-                        當前刷新模式: ${EInkHelper.getCurrentRefreshMode(binding.root) ?: "未知"}
-                        批量刷新: ${if (booxBatchRefreshEnabled) "開啟" else "關閉"}
-                        快速模式: ${if (booxFastModeEnabled) "開啟" else "關閉"}
-                    """.trimIndent()
-
-                            AlertDialog.Builder(this@ReaderActivity)
-                                    .setTitle("文石設備信息")
-                                    .setMessage(info)
-                                    .setPositiveButton("確定", null)
-                                    .show()
-                        }
-                    }
-
-            layout.addView(btnVerify, layout.childCount - 2)
-            layout.addView(booxTitle, layout.childCount - 2)
-            layout.addView(switchBatch, layout.childCount - 2)
-            layout.addView(switchFast, layout.childCount - 2)
-            layout.addView(btnFullRefresh, layout.childCount - 2)
-            layout.addView(btnSmartRefresh, layout.childCount - 2)
-
-            // Moved Theme settings to be available for all devices
-
-            layout.addView(btnDeviceInfo, layout.childCount - 2)
-        }
 
         val btnAiProfiles = Button(this).apply { text = "AI Profiles (Switch Model/API)" }
 
@@ -971,7 +678,7 @@ class ReaderActivity : BaseActivity() {
                             )
                     setOnClickListener {
                         applyContrastMode(
-                                my.hinoki.booxreader.core.eink.EInkHelper.ContrastMode.NORMAL
+                                ContrastMode.NORMAL
                         )
                         Toast.makeText(this@ReaderActivity, "Normal Mode", Toast.LENGTH_SHORT)
                                 .show()
@@ -988,7 +695,7 @@ class ReaderActivity : BaseActivity() {
                             )
                     setOnClickListener {
                         applyContrastMode(
-                                my.hinoki.booxreader.core.eink.EInkHelper.ContrastMode.DARK
+                                ContrastMode.DARK
                         )
                         Toast.makeText(this@ReaderActivity, "Dark Mode", Toast.LENGTH_SHORT).show()
                     }
@@ -1003,7 +710,7 @@ class ReaderActivity : BaseActivity() {
                                     1f
                             )
                     setOnClickListener {
-                        applyContrastMode(EInkHelper.ContrastMode.SEPIA)
+                        applyContrastMode(ContrastMode.SEPIA)
                         Toast.makeText(this@ReaderActivity, "Sepia Mode", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -1304,67 +1011,19 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    private fun getBooxSystemFontSize(): Int {
-        val config = resources.configuration
-        return (config.fontScale * 100).toInt()
-    }
-
-    private fun tryReadBooxSystemCommand(): Int {
-        return try {
-
-            // 嘗試多個可能的系統命令
-            val commands =
-                    listOf(
-                            "getprop persist.sys.font_scale",
-                            "getprop ro.font.scale",
-                            "cat /proc/onyx/display/font_scale",
-                            "settings get system font_scale",
-                            "settings get global font_scale"
-                    )
-
-            for (command in commands) {
-                try {
-                    val process = Runtime.getRuntime().exec(command)
-                    val reader =
-                            java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
-                    val output = reader.readText().trim()
-                    reader.close()
-                    process.waitFor()
-
-                    if (output.isNotEmpty()) {
-                        val value = output.toFloatOrNull()
-                        if (value != null && value > 0) {
-                            return (value * 150).toInt()
-                        }
-                    }
-                } catch (e: Exception) {}
-            }
-
-            -1
-        } catch (e: Exception) {
-            -1
-        }
-    }
-
     private fun applyReaderSettings(settings: ReaderSettings) {
         pageTapEnabled = settings.pageTapEnabled
         pageSwipeEnabled = settings.pageSwipeEnabled
-        booxBatchRefreshEnabled = settings.booxBatchRefresh
-        booxFastModeEnabled = settings.booxFastMode
         pageAnimationEnabled = settings.pageAnimationEnabled
 
         // 載入對比模式
         val contrastMode =
-                EInkHelper.ContrastMode.values().getOrNull(settings.contrastMode)
-                        ?: EInkHelper.ContrastMode.NORMAL
+                ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
         currentContrastMode = contrastMode
 
-        // 字體大小使用文石系統設定
-        currentFontSize = getBooxSystemFontSize()
-        // 字體粗細使用預設值
+        currentFontSize = settings.textSize
         currentFontWeight = 400
 
-        // 應用設定（字體大小從系統讀取，字體粗細使用預設）
         applyFontSize(currentFontSize)
         applyFontWeight(currentFontWeight)
         applyContrastMode(currentContrastMode)
@@ -1384,25 +1043,7 @@ class ReaderActivity : BaseActivity() {
         // 移除SharedPreferences保存，不再保存字體粗細設定
 
         nativeNavigatorFragment?.view?.post {
-            // 字體粗細變更也需要觸發文石系統深度刷新
-            if (EInkHelper.isBooxDevice()) {
-                binding.root.postDelayed(
-                        {
-                            EInkHelper.enableFastMode(binding.root)
-                            binding.root.postDelayed(
-                                    {
-                                        if (EInkHelper.isModernBoox()) {
-                                            EInkHelper.enableAutoMode(binding.root)
-                                        } else {
-                                            EInkHelper.restoreQualityMode(binding.root)
-                                        }
-                                    },
-                                    30
-                            )
-                        },
-                        20
-                )
-            }
+            binding.root.postInvalidateOnAnimation()
         }
     }
 
@@ -1507,16 +1148,8 @@ class ReaderActivity : BaseActivity() {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 refreshJob?.cancel()
-                // 啟用快速模式以確保流暢的交互
-                if (booxFastModeEnabled) {
-                    EInkHelper.enableFastMode(window.decorView)
-                }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                // 觸摸結束時恢復高質量模式
-                if (booxFastModeEnabled) {
-                    EInkHelper.restoreQualityMode(window.decorView)
-                }
             }
         }
 
