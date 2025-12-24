@@ -765,11 +765,17 @@ class ReaderActivity : BaseActivity() {
                         R.id.switchPageAnimation
                 )
 
+        val switchConvertChinese =
+                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+                        R.id.switchConvertChinese
+                )
+
         etServerUrl.setText(readerSettings.serverBaseUrl)
         etApiKey.setText(readerSettings.apiKey)
         switchPageTap.isChecked = readerSettings.pageTapEnabled
         switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
         switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
+        switchConvertChinese.isChecked = readerSettings.convertToTraditionalChinese
         cbCustomExport.isChecked = readerSettings.exportToCustomUrl
         etCustomExportUrl.setText(readerSettings.exportCustomUrl)
         etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
@@ -857,6 +863,7 @@ class ReaderActivity : BaseActivity() {
                 val newPageTap = switchPageTap.isChecked
                 val newPageSwipe = switchPageSwipe.isChecked
                 val newPageAnimation = switchPageAnimation.isChecked
+                val newConvertChinese = switchConvertChinese.isChecked
                 val useCustomExport = cbCustomExport.isChecked
                 val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
                 val exportToLocal = cbLocalExport.isChecked
@@ -882,6 +889,9 @@ class ReaderActivity : BaseActivity() {
                     return@setOnClickListener
                 }
 
+                // Check if Chinese conversion setting changed
+                val conversionChanged = newConvertChinese != readerSettings.convertToTraditionalChinese
+
                 // Update settings object
                 val updatedSettings =
                         readerSettings.copy(
@@ -890,6 +900,7 @@ class ReaderActivity : BaseActivity() {
                                 pageTapEnabled = newPageTap,
                                 pageSwipeEnabled = newPageSwipe,
                                 pageAnimationEnabled = newPageAnimation,
+                                convertToTraditionalChinese = newConvertChinese,
                                 exportToCustomUrl = useCustomExport,
                                 exportCustomUrl = normalizedCustomUrl,
                                 exportToLocalDownloads = exportToLocal,
@@ -923,6 +934,14 @@ class ReaderActivity : BaseActivity() {
 
                 applyFontSize(newTextSize)
                 nativeNavigatorFragment?.setFontSize(newTextSize)
+
+                // Reload content if Chinese conversion setting changed
+                if (conversionChanged) {
+                    nativeNavigatorFragment?.setChineseConversionEnabled(newConvertChinese)
+                    val message =
+                            if (newConvertChinese) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
+                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+                }
 
                 if (normalizedBaseUrl != readerSettings.serverBaseUrl) {
                     Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()

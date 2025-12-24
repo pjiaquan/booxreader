@@ -19,10 +19,10 @@ class BooxReaderApp : Application() {
 
     lateinit var tokenManager: TokenManager
         private set
-    
+
     lateinit var okHttpClient: OkHttpClient
         private set
-    
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
     private var periodicSyncRunnable: Runnable = Runnable { }

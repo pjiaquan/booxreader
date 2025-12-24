@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.ui.reader.ReaderActivity
+import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.databinding.FragmentNativeReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import org.readium.r2.shared.publication.Locator
@@ -284,6 +285,16 @@ class NativeNavigatorFragment : Fragment() {
         Log.d(TAG, "handleLinkClick: $url")
         val pub = publication ?: return
 
+        // Get current settings to check if conversion is enabled
+        val settings =
+                ReaderSettings.fromPrefs(
+                        requireContext()
+                                .getSharedPreferences(
+                                        ReaderActivity.PREFS_NAME,
+                                        android.content.Context.MODE_PRIVATE
+                                )
+                )
+
         // 1. Handle internal links / footnotes
         if (url.startsWith("#") || !url.contains("://")) {
             lifecycleScope.launch {
@@ -320,7 +331,13 @@ class NativeNavigatorFragment : Fragment() {
                                 val match = pattern.find(html)
                                 if (match != null) {
                                     val content = match.groupValues[1]
-                                    val parsed = parseHtml(content)
+                                    var parsed = parseHtml(content)
+
+                                    // Apply Chinese conversion if enabled
+                                    if (settings.convertToTraditionalChinese) {
+                                        parsed = ChineseConverter.toTraditional(parsed)
+                                    }
+
                                     showFootnotePopup(parsed)
                                     return@launch
                                 }
@@ -476,6 +493,13 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
+    fun setChineseConversionEnabled(enabled: Boolean) {
+        // Reload current resource with new conversion setting
+        lifecycleScope.launch {
+            loadCurrentResource()
+        }
+    }
+
     fun go(locator: Locator) {
         binding.nativeReaderView.clearSelection()
         val pub = publication ?: return
@@ -520,11 +544,28 @@ class NativeNavigatorFragment : Fragment() {
         Log.d(TAG, "loadCurrentResource: index=$currentResourceIndex, link=${link.href}")
         binding.progressBar.visibility = View.VISIBLE
 
+        // Get current settings to check if conversion is enabled
+        val settings =
+                ReaderSettings.fromPrefs(
+                        requireContext()
+                                .getSharedPreferences(
+                                        ReaderActivity.PREFS_NAME,
+                                        android.content.Context.MODE_PRIVATE
+                                )
+                )
+
         resourceText =
                 withContext(Dispatchers.IO) {
                     val resource = pub.get(link)
                     val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
-                    parseHtml(html)
+                    var parsed = parseHtml(html)
+
+                    // Apply Chinese conversion if enabled
+                    if (settings.convertToTraditionalChinese) {
+                        parsed = ChineseConverter.toTraditional(parsed)
+                    }
+
+                    parsed
                 }
 
         if (resourceText.isEmpty() && currentResourceIndex < pub.readingOrder.size - 1) {

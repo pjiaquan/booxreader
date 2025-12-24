@@ -174,6 +174,9 @@ dependencies {
     implementation(libs.markwon.ext.latex)
     implementation(libs.markwon.inline.parser)
 
+    // --- Chinese Conversion ---
+    implementation("com.github.houbb:opencc4j:1.8.1")
+
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.auth)

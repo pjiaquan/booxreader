@@ -155,4 +155,6 @@
     <string name="action_export_all">匯出全部</string>
     <string name="ai_note_model_info_format">模型：%1$s</string>
     <string name="ai_note_model_disclaimer">AI 可能會出錯，請務必核實重要資訊。</string>
+    <string name="reader_settings_convert_chinese">簡體轉繁體</string>
+    <string name="reader_settings_convert_chinese_description">將簡體中文內容轉換為繁體中文顯示</string>
 </resources>
