@@ -41,7 +41,11 @@ import okio.source
  * Syncs user-specific data (settings, reading progress, AI notes) to Supabase so it can
  * roam across devices. Falls back to no-ops when the user is not signed in.
  */
-class UserSyncRepository(context: Context) {
+class UserSyncRepository(
+    context: Context,
+    baseUrl: String? = null,
+    tokenManager: TokenManager? = null
+) {
         private val appContext = context.applicationContext
         private val prefs: SharedPreferences =
                 context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
@@ -49,8 +53,8 @@ class UserSyncRepository(context: Context) {
                 context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
         private val db = AppDatabase.get(context)
         private val io = Dispatchers.IO
-        private val tokenManager = TokenManager(appContext)
-        private val supabaseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        private val tokenManager = tokenManager ?: TokenManager(appContext)
+        private val supabaseUrl = (baseUrl ?: BuildConfig.SUPABASE_URL).trimEnd('/')
         private val supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY
         private val supabaseRestUrl = "$supabaseUrl/rest/v1"
         private val supabaseStorageUrl = "$supabaseUrl/storage/v1"
