@@ -802,9 +802,22 @@ generate_ai_commit_message() {
     local escaped_diff
     escaped_diff=$(echo "$diff_content" | jq -sRr @json)
     
-    local prompt="Generate a concise and conventional git commit message (e.g., 'feat: ...', 'fix: ...') for the following changes. Return ONLY the message, no quotes or markdown. If the changes are only version bumps, use 'chore(release): ...'.\\n\\nChanges:\\n"
+    local system_content="You are a senior software engineer. Generate a single, concise git commit message following Conventional Commits (e.g., 'feat: add login', 'fix: crash on startup'). Output ONLY the raw commit message string. Do not use markdown blocks, quotes, or explanations."
+    local user_content="Generate a commit message for these changes:\\n"
     
-    local json_body="{\"messages\": [{\"role\": \"user\", \"content\": \"$prompt\" + $escaped_diff}], \"model\": \"llama3-70b-8192\"}"
+    local json_body
+    json_body=$(jq -n \
+                  --arg sys "$system_content" \
+                  --arg usr "$user_content" \
+                  --arg diff "$escaped_diff" \
+                  --arg model "llama3-70b-8192" \
+                  '{
+                    model: $model,
+                    messages: [
+                      {role: "system", content: $sys},
+                      {role: "user", content: ($usr + ($diff | fromjson))}
+                    ]
+                  }')
 
     echo "Generating commit message with AI..." >&2
     local response
@@ -815,6 +828,9 @@ generate_ai_commit_message() {
         
     local message
     message=$(echo "$response" | jq -r '.choices[0].message.content // empty')
+    
+    # Clean up message (remove surrounding quotes if present, whitespace)
+    message=$(echo "$message" | sed -e 's/^["`]*//' -e 's/["`]*$//' | xargs)
     
     if [ -n "$message" ]; then
         echo "$message"
