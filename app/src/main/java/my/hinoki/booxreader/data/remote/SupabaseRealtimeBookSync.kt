@@ -187,12 +187,20 @@ class SupabaseRealtimeBookSync(
             deleteLocalBook(bookId)
         } else if (eventType == "DELETE") {
             deleteLocalBook(bookId)
+        } else if (eventType == "INSERT" || eventType == "UPDATE") {
+            fetchRemoteBook(bookId)
         }
     }
 
     private fun deleteLocalBook(bookId: String) {
         scope.launch(Dispatchers.IO) {
             runCatching { AppDatabase.get(context).bookDao().deleteById(bookId) }
+        }
+    }
+
+    private fun fetchRemoteBook(bookId: String) {
+        scope.launch(Dispatchers.IO) {
+            syncRepo.pullBook(bookId)
         }
     }
 

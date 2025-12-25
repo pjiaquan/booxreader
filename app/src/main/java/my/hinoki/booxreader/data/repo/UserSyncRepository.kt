@@ -403,8 +403,70 @@ class UserSyncRepository(context: Context) {
                                 }
                         }
 
-
                         updatedCount
+                }
+
+        suspend fun pullBook(bookId: String): Boolean =
+                withContext(io) {
+                        val userId = requireUserId() ?: return@withContext false
+                        val dao = db.bookDao()
+
+                        val response =
+                                supabaseRestRequest(
+                                        method = "GET",
+                                        path = "books",
+                                        query =
+                                                mapOf(
+                                                        "select" to "*",
+                                                        "user_id" to "eq.$userId",
+                                                        "book_id_local" to "eq.$bookId",
+                                                        "limit" to "1"
+                                                )
+                                )
+                                        ?: return@withContext false
+                        val listType = object : TypeToken<List<SupabaseBook>>() {}.type
+                        val remotes = gson.fromJson<List<SupabaseBook>>(response, listType)
+                        val remote = remotes.firstOrNull() ?: return@withContext false
+
+                        val existing = dao.getByIds(listOf(bookId)).firstOrNull()
+                        val remoteLastOpened = fromIsoTimestamp(remote.lastOpenedAt)
+
+                        if (remote.isDeleted) {
+                                dao.deleteById(bookId)
+                                return@withContext true
+                        }
+
+                        var fileUri = remote.fileUri ?: ""
+                        val localUri = ensureBookFileAvailable(bookId, null)
+                        if (localUri != null) {
+                                fileUri = localUri.toString()
+                        }
+
+                        if (existing == null) {
+                                dao.insert(
+                                        BookEntity(
+                                                bookId = bookId,
+                                                title = remote.title,
+                                                fileUri = fileUri,
+                                                lastLocatorJson = remote.lastLocator,
+                                                lastOpenedAt = remoteLastOpened,
+                                                deleted = false,
+                                                deletedAt = null
+                                        )
+                                )
+                        } else if (remoteLastOpened > existing.lastOpenedAt) {
+                                dao.update(
+                                        existing.copy(
+                                                title = remote.title,
+                                                fileUri = fileUri,
+                                                lastLocatorJson = remote.lastLocator,
+                                                lastOpenedAt = remoteLastOpened
+                                        )
+                                )
+                        } else if (localUri != null && fileUri != existing.fileUri) {
+                                dao.update(existing.copy(fileUri = fileUri))
+                        }
+                        true
                 }
 
 
