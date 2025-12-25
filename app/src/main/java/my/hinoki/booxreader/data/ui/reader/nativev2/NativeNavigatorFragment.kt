@@ -78,6 +78,8 @@ class NativeNavigatorFragment : Fragment() {
     private var initialLocator: Locator? = null
     private var pendingThemeColors: Triple<Int, Int, Int>? = null
     private var currentThemeColors: Pair<Int, Int>? = null // bgColor to textColor
+    private var pageAnimationEnabled: Boolean = false
+    private var isAnimating: Boolean = false
 
     fun setThemeColors(backgroundColor: Int, textColor: Int, buttonColor: Int) {
         Log.d(
@@ -86,6 +88,7 @@ class NativeNavigatorFragment : Fragment() {
         )
         if (_binding != null) {
             binding.nativeReaderView.setThemeColors(backgroundColor, textColor)
+            binding.nativeReaderViewSecondary.setThemeColors(backgroundColor, textColor)
             binding.root.setBackgroundColor(backgroundColor)
             binding.pageIndicator.setTextColor(textColor)
 
@@ -134,6 +137,17 @@ class NativeNavigatorFragment : Fragment() {
     }
 
     fun hasSelection(): Boolean = _binding?.nativeReaderView?.hasSelection() ?: false
+
+    fun isSelectionMenuVisible(): Boolean =
+        _binding?.selectionMenu?.visibility == View.VISIBLE
+
+    fun isPointInSelectionMenu(x: Float, y: Float): Boolean {
+        val menu = _binding?.selectionMenu ?: return false
+        if (menu.visibility != View.VISIBLE) return false
+        val rect = android.graphics.Rect()
+        menu.getGlobalVisibleRect(rect)
+        return rect.contains(x.toInt(), y.toInt())
+    }
 
     fun clearSelection() {
         _binding?.nativeReaderView?.clearSelection()
@@ -185,6 +199,9 @@ class NativeNavigatorFragment : Fragment() {
         }
 
         binding.nativeReaderView.setOnLinkClickListener { url -> handleLinkClick(url) }
+
+        // Intercept touches on selection menu to prevent page navigation underneath
+        binding.selectionMenu.setOnTouchListener { _, _ -> true }
 
         // Dismiss menu when clicking outside (on the background or indicator)
         binding.root.setOnClickListener { binding.nativeReaderView.clearSelection() }
@@ -260,7 +277,7 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
-    private fun hideSelectionMenu() {
+    fun hideSelectionMenu() {
         binding.selectionMenu.visibility = View.GONE
         binding.selectionMenu.alpha = 0f
     }
@@ -669,30 +686,153 @@ class NativeNavigatorFragment : Fragment() {
         binding.pageIndicator.text = "$resourceTitle | $pageInfo"
     }
 
+    fun setPageAnimationEnabled(enabled: Boolean) {
+        pageAnimationEnabled = enabled
+    }
+
     fun goForward() {
+        if (isAnimating) return
         binding.nativeReaderView.clearSelection()
         val p = pager ?: return
         if (currentPageInResource < p.pageCount - 1) {
-            currentPageInResource++
-            displayCurrentPage()
+            // Same resource, next page
+            if (pageAnimationEnabled) {
+                animatePageForward(sameResource = true)
+            } else {
+                currentPageInResource++
+                displayCurrentPage()
+            }
         } else if (currentResourceIndex < (publication?.readingOrder?.size ?: 0) - 1) {
-            lifecycleScope.launch {
-                currentResourceIndex++
-                currentPageInResource = 0
-                loadCurrentResource()
+            // Next resource
+            if (pageAnimationEnabled) {
+                animatePageForward(sameResource = false)
+            } else {
+                lifecycleScope.launch {
+                    currentResourceIndex++
+                    currentPageInResource = 0
+                    loadCurrentResource()
+                }
             }
         }
     }
 
     fun goBackward() {
+        if (isAnimating) return
         binding.nativeReaderView.clearSelection()
         if (currentPageInResource > 0) {
-            currentPageInResource--
-            displayCurrentPage()
+            // Same resource, previous page
+            if (pageAnimationEnabled) {
+                animatePageBackward(sameResource = true)
+            } else {
+                currentPageInResource--
+                displayCurrentPage()
+            }
         } else if (currentResourceIndex > 0) {
+            // Previous resource
+            if (pageAnimationEnabled) {
+                animatePageBackward(sameResource = false)
+            } else {
+                lifecycleScope.launch {
+                    currentResourceIndex--
+                    loadCurrentResource(jumpToLastPage = true)
+                }
+            }
+        }
+    }
+
+    private fun animatePageForward(sameResource: Boolean) {
+        isAnimating = true
+        val p = pager ?: return
+
+        // Prepare secondary view with next page content
+        val nextText = if (sameResource) {
+            if (currentPageInResource < p.pageCount - 1) {
+                p.getPageText(currentPageInResource + 1)
+            } else null
+        } else null
+
+        if (sameResource && nextText != null) {
+            // Simple slide animation within same resource
+            binding.nativeReaderViewSecondary.setContent(nextText)
+            binding.nativeReaderViewSecondary.visibility = View.VISIBLE
+            binding.nativeReaderViewSecondary.translationX = binding.root.width.toFloat()
+
+            // Animate
+            binding.nativeReaderViewSecondary.animate()
+                .translationX(0f)
+                .setDuration(300)
+                .start()
+            binding.nativeReaderView.animate()
+                .translationX(-binding.root.width.toFloat())
+                .setDuration(300)
+                .withEndAction {
+                    currentPageInResource++
+                    binding.nativeReaderView.translationX = 0f
+                    binding.nativeReaderViewSecondary.visibility = View.GONE
+                    displayCurrentPage()
+                    isAnimating = false
+                }
+                .start()
+        } else {
+            // Cross-resource navigation
             lifecycleScope.launch {
+                val savedIndex = currentResourceIndex
+                currentResourceIndex++
+                currentPageInResource = 0
+                loadCurrentResource()
+
+                // Fade transition for resource change
+                binding.nativeReaderView.alpha = 0f
+                binding.nativeReaderView.animate()
+                    .alpha(1f)
+                    .setDuration(250)
+                    .start()
+                isAnimating = false
+            }
+        }
+    }
+
+    private fun animatePageBackward(sameResource: Boolean) {
+        isAnimating = true
+        val p = pager ?: return
+
+        if (sameResource && currentPageInResource > 0) {
+            // Simple slide animation within same resource
+            val prevText = p.getPageText(currentPageInResource - 1)
+            binding.nativeReaderViewSecondary.setContent(prevText)
+            binding.nativeReaderViewSecondary.visibility = View.VISIBLE
+            binding.nativeReaderViewSecondary.translationX = -binding.root.width.toFloat()
+
+            // Animate
+            binding.nativeReaderViewSecondary.animate()
+                .translationX(0f)
+                .setDuration(300)
+                .start()
+            binding.nativeReaderView.animate()
+                .translationX(binding.root.width.toFloat())
+                .setDuration(300)
+                .withEndAction {
+                    currentPageInResource--
+                    binding.nativeReaderView.translationX = 0f
+                    binding.nativeReaderViewSecondary.visibility = View.GONE
+                    displayCurrentPage()
+                    isAnimating = false
+                }
+                .start()
+        } else {
+            // Cross-resource navigation
+            lifecycleScope.launch {
+                val savedIndex = currentResourceIndex
                 currentResourceIndex--
                 loadCurrentResource(jumpToLastPage = true)
+
+                // Fade transition for resource change
+                binding.nativeReaderView.alpha = 0f
+                binding.nativeReaderView.animate()
+                    .alpha(1f)
+                    .setDuration(250)
+                    .start()
+                isAnimating = false
             }
         }
     }

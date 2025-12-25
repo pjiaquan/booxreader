@@ -4,11 +4,27 @@
     android:layout_height="match_parent"
     android:background="#FFFFFF">
 
-    <my.hinoki.booxreader.data.ui.reader.nativev2.NativeReaderView
-        android:id="@+id/nativeReaderView"
+    <!-- Animation container for page transitions -->
+    <FrameLayout
+        android:id="@+id/animationContainer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="24dp" />
+        android:layout_height="match_parent">
+
+        <my.hinoki.booxreader.data.ui.reader.nativev2.NativeReaderView
+            android:id="@+id/nativeReaderView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="24dp" />
+
+        <!-- Secondary view for page curl animation -->
+        <my.hinoki.booxreader.data.ui.reader.nativev2.NativeReaderView
+            android:id="@+id/nativeReaderViewSecondary"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="24dp"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"

@@ -145,9 +145,11 @@ class ReaderActivity : BaseActivity() {
                     }
 
                     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                        // Native Reader Selection Handling - if selector has selection, clear it
-                        if (nativeNavigatorFragment?.hasSelection() == true) {
+                        // Native Reader Selection Handling - if selector has selection or menu is visible, clear it
+                        if (nativeNavigatorFragment?.hasSelection() == true ||
+                            nativeNavigatorFragment?.isSelectionMenuVisible() == true) {
                             nativeNavigatorFragment?.clearSelection()
+                            nativeNavigatorFragment?.hideSelectionMenu()
                             return true
                         }
 
@@ -171,6 +173,35 @@ class ReaderActivity : BaseActivity() {
                                     )
                                     return true
                                 }
+                            }
+                        }
+                        return false
+                    }
+
+                    override fun onFling(
+                            e1: MotionEvent?,
+                            e2: MotionEvent,
+                            velocityX: Float,
+                            velocityY: Float
+                    ): Boolean {
+                        if (!pageSwipeEnabled) return false
+
+                        // Only handle horizontal swipes
+                        if (kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY)) {
+                            val minVelocity = 100f // Minimum velocity for a swipe
+                            if (kotlin.math.abs(velocityX) > minVelocity) {
+                                if (velocityX > 0) {
+                                    // Swipe right -> go backward
+                                    goPageBackward()
+                                } else {
+                                    // Swipe left -> go forward
+                                    goPageForward()
+                                }
+                                binding.root.postDelayed(
+                                        { binding.root.postInvalidateOnAnimation() },
+                                        pageNavigationRefreshDelayMs
+                                )
+                                return true
                             }
                         }
                         return false
@@ -970,6 +1001,7 @@ class ReaderActivity : BaseActivity() {
         switchPageSwipe.setOnCheckedChangeListener { _, isChecked -> pageSwipeEnabled = isChecked }
         switchPageAnimation.setOnCheckedChangeListener { _, isChecked ->
             pageAnimationEnabled = isChecked
+            nativeNavigatorFragment?.setPageAnimationEnabled(isChecked)
         }
 
         dialog.show()
@@ -1034,6 +1066,9 @@ class ReaderActivity : BaseActivity() {
         pageTapEnabled = settings.pageTapEnabled
         pageSwipeEnabled = settings.pageSwipeEnabled
         pageAnimationEnabled = settings.pageAnimationEnabled
+
+        // Apply page animation setting to fragment
+        nativeNavigatorFragment?.setPageAnimationEnabled(pageAnimationEnabled)
 
         // 載入對比模式
         val contrastMode =
@@ -1158,6 +1193,12 @@ class ReaderActivity : BaseActivity() {
         val bottomBarRect = android.graphics.Rect()
         binding.bottomBar.getGlobalVisibleRect(bottomBarRect)
         if (bottomBarRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+            return super.dispatchTouchEvent(ev)
+        }
+
+        // Check if touch is within selection menu bounds - if so, don't process for page navigation
+        if (nativeNavigatorFragment?.isPointInSelectionMenu(ev.rawX, ev.rawY) == true) {
+            // Let the menu handle the touch, but don't process for gestures
             return super.dispatchTouchEvent(ev)
         }
 

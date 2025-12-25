@@ -11,6 +11,10 @@ is_tty() { [[ -t 0 && -t 1 ]]; }
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 cd "$SCRIPT_DIR"
 
+if [ -f ".groq_env" ]; then
+    source ".groq_env"
+fi
+
 is_writable_dir() {
     local dir="$1"
     mkdir -p "$dir" 2>/dev/null || return 1
@@ -79,6 +83,7 @@ SKIP_TESTS="${SKIP_TESTS:-false}"
 SKIP_INSTALL="${SKIP_INSTALL:-false}"
 SKIP_GIT="${SKIP_GIT:-false}"
 AUTO_SELECT_DEVICE="${AUTO_SELECT_DEVICE:-false}"
+TARGET_DEVICE_SERIAL=""
 
 load_telegram_config() {
     if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -110,6 +115,7 @@ Options:
   --skip-git         Skip git commit/tag/push steps (release only)
   --no-telegram      Disable Telegram upload
   --auto-select      Automatically select first device (no interactive prompt)
+  -s, --device       Specify target device serial (e.g., -s emulator-5554)
   -h, --help         Show this help
 
 Features:
@@ -139,6 +145,7 @@ parse_args() {
             --skip-git) SKIP_GIT="true" ;;
             --no-telegram) TELEGRAM_ENABLED="false"; TELEGRAM_ENABLED_LOCKED="true" ;;
             --auto-select) AUTO_SELECT_DEVICE="true" ;;
+            -s|--device) TARGET_DEVICE_SERIAL="$2"; shift ;;
             -h|--help) usage; exit 0 ;;
             *) die "Unknown argument: $1 (use --help)" ;;
         esac
@@ -778,14 +785,59 @@ send_apk_to_telegram() {
     fi
 }
 
+# Generate AI commit message using Groq
+generate_ai_commit_message() {
+    local diff_content="$1"
+    if [ -z "${GROQ_API_KEY:-}" ]; then
+        return 1
+    fi
+    
+    # Check if jq is available
+    if ! command -v jq &> /dev/null; then
+        warn "jq not found; cannot generate AI commit message"
+        return 1
+    fi
+    
+    # Escape diff content for JSON
+    local escaped_diff
+    escaped_diff=$(echo "$diff_content" | jq -sRr @json)
+    
+    local prompt="Generate a concise and conventional git commit message (e.g., 'feat: ...', 'fix: ...') for the following changes. Return ONLY the message, no quotes or markdown. If the changes are only version bumps, use 'chore(release): ...'.\\n\\nChanges:\\n"
+    
+    local json_body="{\"messages\": [{\"role\": \"user\", \"content\": \"$prompt\" + $escaped_diff}], \"model\": \"llama3-70b-8192\"}"
+
+    echo "Generating commit message with AI..." >&2
+    local response
+    response=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+        -H "Authorization: Bearer $GROQ_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$json_body")
+        
+    local message
+    message=$(echo "$response" | jq -r '.choices[0].message.content // empty')
+    
+    if [ -n "$message" ]; then
+        echo "$message"
+        return 0
+    fi
+    return 1
+}
+
 # Git operations with safety checks
 git_operations() {
     local build_gradle="app/build.gradle.kts"
     
     # Check if there are changes to commit
-    if git diff --quiet "$build_gradle"; then
-        echo "No version changes to commit."
-        return 0
+    if [ "$BUILD_TYPE" = "release" ]; then
+        if git diff --quiet "$build_gradle"; then
+            echo "No version changes to commit."
+            return 0
+        fi
+    else
+        # In debug/other modes, check for any changes (staged or unstaged)
+        if git diff --quiet && git diff --cached --quiet; then
+            return 0
+        fi
     fi
 
     if [ "$SKIP_GIT" = "true" ]; then
@@ -799,7 +851,12 @@ git_operations() {
     fi
     
     # Ask for confirmation before committing and pushing
-    read -p "Version has been updated. Do you want to commit and push these changes? (y/n): " -n 1 -r
+    local prompt_msg="Version has been updated. Do you want to commit and push these changes? (y/n): "
+    if [ "$BUILD_TYPE" != "release" ]; then
+        prompt_msg="Do you want to commit and push changes? (y/n): "
+    fi
+    
+    read -p "$prompt_msg" -n 1 -r
     echo
     
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -810,25 +867,62 @@ git_operations() {
     # Stage all changes (code + version bump)
     git add .
     
-    # Generate a default commit message based on changed files
-    # Get top 3 changed files (excluding build.gradle.kts which is always changed)
-    CHANGED_FILES=$(git diff --cached --name-only | grep -v "build.gradle.kts" | head -n 3 | xargs)
-    FILE_COUNT=$(git diff --cached --name-only | grep -v "build.gradle.kts" | wc -l)
+    local AI_SUCCESS="false"
+    local DEFAULT_MSG=""
     
-    if [ -z "$CHANGED_FILES" ]; then
-        DEFAULT_MSG="chore(release): Bump version to $NEW_VERSION_NAME"
-    else
-        if [ "$FILE_COUNT" -gt 3 ]; then
-            DEFAULT_MSG="feat: Update $CHANGED_FILES and others (v$NEW_VERSION_NAME)"
-        else
-            DEFAULT_MSG="feat: Update $CHANGED_FILES (v$NEW_VERSION_NAME)"
+    # Try to generate AI commit message
+    if [ -n "${GROQ_API_KEY:-}" ]; then
+        # Get staged changes
+        local STAGED_DIFF
+        STAGED_DIFF=$(git diff --cached)
+        
+        # Don't send too much data (limit to first 1000 lines/chars to be safe, though 70b handles 8k context easily)
+        if [ ${#STAGED_DIFF} -gt 20000 ]; then
+             STAGED_DIFF=${STAGED_DIFF:0:20000}
+             STAGED_DIFF+="\n... (truncated)"
+        fi
+        
+        local AI_MSG
+        if AI_MSG=$(generate_ai_commit_message "$STAGED_DIFF"); then
+             DEFAULT_MSG="$AI_MSG"
+             AI_SUCCESS="true"
         fi
     fi
     
-    echo "Default commit message: $DEFAULT_MSG"
-    read -p "Enter custom commit message (or press Enter to use default): " USER_MSG
+    # Fallback if AI failed or no key
+    if [ -z "$DEFAULT_MSG" ]; then
+        # Generate a default commit message based on changed files
+        # Get top 3 changed files (excluding build.gradle.kts which is always changed)
+        CHANGED_FILES=$(git diff --cached --name-only | grep -v "build.gradle.kts" | head -n 3 | xargs)
+        FILE_COUNT=$(git diff --cached --name-only | grep -v "build.gradle.kts" | wc -l)
+        
+        local V_NAME="${NEW_VERSION_NAME:-}"
+        if [ -z "$V_NAME" ]; then
+             # Try to extract if not set (debug mode)
+             local v_line
+             v_line=$(grep -E 'versionName = "[^"]*"' "$build_gradle" || echo "")
+             V_NAME=$(echo "$v_line" | grep -o '"[^"]*"' | tr -d '"' || echo "unknown")
+        fi
+        
+        if [ -z "$CHANGED_FILES" ]; then
+            DEFAULT_MSG="chore(release): Bump version to $V_NAME"
+        else
+            if [ "$FILE_COUNT" -gt 3 ]; then
+                DEFAULT_MSG="feat: Update $CHANGED_FILES and others (v$V_NAME)"
+            else
+                DEFAULT_MSG="feat: Update $CHANGED_FILES (v$V_NAME)"
+            fi
+        fi
+    fi
     
-    COMMIT_MESSAGE=${USER_MSG:-$DEFAULT_MSG}
+    if [ "$AI_SUCCESS" = "true" ]; then
+        echo "AI Commit Message: $DEFAULT_MSG"
+        COMMIT_MESSAGE="$DEFAULT_MSG"
+    else
+        echo "Proposed commit message: $DEFAULT_MSG"
+        read -p "Enter custom commit message (or press Enter to use proposed): " USER_MSG
+        COMMIT_MESSAGE=${USER_MSG:-$DEFAULT_MSG}
+    fi
     
     git commit -m "$COMMIT_MESSAGE"
     
@@ -836,11 +930,13 @@ git_operations() {
     echo "Pushing to remote..."
     git push
     
-    # Create and push tag
-    TAG_NAME="v$NEW_VERSION_NAME"
-    echo "Creating and pushing tag: $TAG_NAME"
-    git tag -a "$TAG_NAME" -m "Release $NEW_VERSION_NAME"
-    git push origin "$TAG_NAME"
+    # Create and push tag only for release
+    if [ "$BUILD_TYPE" = "release" ]; then
+        TAG_NAME="v$NEW_VERSION_NAME"
+        echo "Creating and pushing tag: $TAG_NAME"
+        git tag -a "$TAG_NAME" -m "Release $NEW_VERSION_NAME"
+        git push origin "$TAG_NAME"
+    fi
 }
 
 # Main execution
@@ -912,32 +1008,41 @@ main() {
             exit 1
         fi
 
-        # List all connected devices with detailed information
-        if ! list_connected_devices; then
-            echo "Error: No Android devices found"
-            exit 1
-        fi
+        local selected_device=""
         
-        # Get all device serials
-        local devices=()
-        while IFS= read -r line; do
-            if [[ $line =~ ^([^[:space:]]+)[[:space:]]+device$ ]]; then
-                devices+=("${BASH_REMATCH[1]}")
+        if [ -n "$TARGET_DEVICE_SERIAL" ]; then
+            echo "Target device specified: $TARGET_DEVICE_SERIAL"
+            if ! adb devices | grep -q "^$TARGET_DEVICE_SERIAL[[:space:]]"; then
+                warn "Device $TARGET_DEVICE_SERIAL not found in connected devices list."
             fi
-        done < <(adb devices)
-        
-        # Let user select a device (or auto-select if enabled)
-        local selected_device
-        if [ "$AUTO_SELECT_DEVICE" = "true" ]; then
-            # Auto-select the first device
-            selected_device="${devices[0]}"
-            echo "Auto-selected device: $selected_device"
+            selected_device="$TARGET_DEVICE_SERIAL"
         else
-            # Interactive selection
-            selected_device=$(select_device "${devices[@]}")
-            if [ -z "$selected_device" ]; then
-                echo "Error: No device selected"
+            # List all connected devices with detailed information
+            if ! list_connected_devices; then
+                echo "Error: No Android devices found"
                 exit 1
+            fi
+            
+            # Get all device serials
+            local devices=()
+            while IFS= read -r line; do
+                if [[ $line =~ ^([^[:space:]]+)[[:space:]]+device$ ]]; then
+                    devices+=("${BASH_REMATCH[1]}")
+                fi
+            done < <(adb devices)
+            
+            # Let user select a device (or auto-select if enabled)
+            if [ "$AUTO_SELECT_DEVICE" = "true" ]; then
+                # Auto-select the first device
+                selected_device="${devices[0]}"
+                echo "Auto-selected device: $selected_device"
+            else
+                # Interactive selection
+                selected_device=$(select_device "${devices[@]}")
+                if [ -z "$selected_device" ]; then
+                    echo "Error: No device selected"
+                    exit 1
+                fi
             fi
         fi
         
@@ -985,9 +1090,9 @@ main() {
         echo "Skipping install because ADB is unavailable."
     fi
     
-    # Git operations only for release builds
-    if [ "$BUILD_TYPE" = "release" ]; then
-        echo "Performing Git operations..."
+    # Git operations (for release or if changes exist in debug)
+    if [ "$SKIP_GIT" != "true" ]; then
+        echo "Checking for Git operations..."
         git_operations
     fi
     

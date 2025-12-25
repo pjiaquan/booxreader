@@ -78,6 +78,8 @@ class AiProfileListActivity : BaseActivity() {
     private fun setupUI() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        // Disable item animator to prevent automatic reordering animations
+        binding.recyclerView.itemAnimator = null
         
         binding.btnSync.setOnClickListener {
             syncProfiles()

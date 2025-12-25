@@ -83,3 +83,4 @@ scripts/set-release-env.sh
 deepseek.json
 gemini_profile.json
 *_profile.json
+.groq_env
