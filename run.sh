@@ -802,8 +802,8 @@ generate_ai_commit_message() {
     local escaped_diff
     escaped_diff=$(echo "$diff_content" | jq -sRr @json)
     
-    local system_content="You are a senior software engineer. Generate a single, concise git commit message following Conventional Commits (e.g., 'feat: add login', 'fix: crash on startup'). Output ONLY the raw commit message string. Do not use markdown blocks, quotes, or explanations."
-    local user_content="Generate a commit message for these changes:\\n"
+    local system_content="You are a senior software engineer. Generate a git commit message following Conventional Commits. The subject line must be concise (under 72 chars) but descriptive. FOLLOW with a blank line and then a bulleted list of the specific changes (what and why). Output ONLY the raw commit message. Do not use markdown blocks, quotes, or explanations."
+    local user_content="Generate a descriptive commit message for these changes:\\n"
     
     local json_body
     json_body=$(jq -n \
@@ -829,8 +829,9 @@ generate_ai_commit_message() {
     local message
     message=$(echo "$response" | jq -r '.choices[0].message.content // empty')
     
-    # Clean up message (remove surrounding quotes if present, whitespace)
-    message=$(echo "$message" | sed -e 's/^["`]*//' -e 's/["`]*$//' | xargs)
+    # Clean up message (remove surrounding quotes if present, trim leading/trailing whitespace)
+    # Using sed to avoid flattening newlines (xargs would flatten)
+    message=$(echo "$message" | sed -e 's/^["`]*//' -e 's/["`]*$//' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
     
     if [ -n "$message" ]; then
         echo "$message"
