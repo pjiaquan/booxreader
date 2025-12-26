@@ -513,6 +513,20 @@ class UserSyncRepository(
                         val storagePath = bookStoragePath(userId, book.bookId)
                         if (storagePath.isBlank()) return@withContext null
 
+                        // Check if file exists and size matches to avoid redundant upload
+                        val headResponse = supabaseStorageRequest(method = "HEAD", path = "object/$storagePath")
+                        val remoteSize = headResponse?.use {
+                            if (it.isSuccessful) {
+                                it.header("Content-Length")?.toLongOrNull() ?: -1L
+                            } else {
+                                -1L
+                            }
+                        } ?: -1L
+
+                        if (remoteSize == localMeta.size) {
+                             return@withContext UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
+                        }
+
                         val token =
                                 accessToken() ?: run {
                                         cachedUserId = null
