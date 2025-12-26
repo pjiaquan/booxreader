@@ -38,18 +38,24 @@
 # Gson
 -keepattributes Signature
 -keepattributes *Annotation*
--keep class my.hinoki.booxreader.data.remote.** { *; }
--keep class my.hinoki.booxreader.data.db.** { *; }
-# my.hinoki.booxreader.data.model package does not exist in source, but keeping rule is harmless
--keep class my.hinoki.booxreader.data.model.** { *; }
--keep class my.hinoki.booxreader.data.settings.** { *; }
--keep class my.hinoki.booxreader.data.repo.** { *; }
-# Fix: The package is data.reader, not reader. Also keep reader for LocatorJsonHelper which has weird package.
--keep class my.hinoki.booxreader.data.reader.** { *; }
+
+# Protect all data classes, repositories, ViewModels, and Utilities
+# This covers: data.auth, data.db, data.remote, data.repo, data.settings, data.util, data.prefs, data.core
+-keep class my.hinoki.booxreader.data.** { *; }
+
+# Protect UI classes (Activities, Fragments, Adapters)
+# Some files might have package my.hinoki.booxreader.ui despite being in data/ui directory
+-keep class my.hinoki.booxreader.ui.** { *; }
+
+# Protect legacy/mismatched reader package (e.g. LocatorJsonHelper)
 -keep class my.hinoki.booxreader.reader.** { *; }
--keep class my.hinoki.booxreader.data.core.** { *; }
-# Keep UI classes to ensure Activities/Adapters/ViewModels work correctly
--keep class my.hinoki.booxreader.data.ui.** { *; }
+-keep class my.hinoki.booxreader.core.** { *; }
+
+# Keep specific Android components if needed (usually covered by default rules, but good for safety)
+-keep class * extends android.app.Activity
+-keep class * extends androidx.fragment.app.Fragment
+-keep class * extends android.view.View
+-keep class * extends androidx.lifecycle.ViewModel
 
 # Room
 -keep class * extends androidx.room.RoomDatabase
