@@ -882,21 +882,21 @@ git_operations() {
         return 0
     fi
 
-    if ! is_tty; then
-        log "Non-interactive shell; skipping git operations."
-        return 0
-    fi
-    
-    # Ask for confirmation before committing and pushing
-    local prompt_msg="Version has been updated. Do you want to commit and push these changes? [Y/n]: "
-    if [ "$BUILD_TYPE" != "release" ]; then
-        prompt_msg="Do you want to commit and push changes? [Y/n]: "
-    fi
-    
     if [ "$CI_RELEASE_ONLY" = "true" ]; then
         log "CI release mode: Automatically proceeding with git operations."
         REPLY="y"
     else
+        if ! is_tty; then
+            log "Non-interactive shell; skipping git operations."
+            return 0
+        fi
+        
+        # Ask for confirmation before committing and pushing
+        local prompt_msg="Version has been updated. Do you want to commit and push these changes? [Y/n]: "
+        if [ "$BUILD_TYPE" != "release" ]; then
+            prompt_msg="Do you want to commit and push changes? [Y/n]: "
+        fi
+        
         read -p "$prompt_msg" -n 1 -r
         echo
         # Default to 'y' if Enter is pressed (REPLY is empty)
@@ -932,7 +932,9 @@ git_operations() {
              AI_SUCCESS="true"
         fi
     else
-        echo "Tip: Set GROQ_API_KEY to enable AI-powered commit summaries."
+        if [ "$CI_RELEASE_ONLY" != "true" ]; then
+            echo "Tip: Set GROQ_API_KEY to enable AI-powered commit summaries."
+        fi
     fi
     
     # Fallback if AI failed or no key
@@ -961,9 +963,17 @@ git_operations() {
         fi
     fi
     
-    if [ "$AI_SUCCESS" = "true" ]; then
+    COMMIT_MESSAGE="$DEFAULT_MSG"
+    if [ "$CI_RELEASE_ONLY" = "true" ]; then
+        echo "Using automated commit message: $COMMIT_MESSAGE"
+    elif [ "$AI_SUCCESS" = "true" ]; then
         echo "AI Commit Message: $DEFAULT_MSG"
-        COMMIT_MESSAGE="$DEFAULT_MSG"
+        read -p "Use this AI message? [Y/n]: " AI_REPLY
+        AI_REPLY=${AI_REPLY:-y}
+        if [[ ! $AI_REPLY =~ ^[Yy]$ ]]; then
+            read -p "Enter custom commit message: " USER_MSG
+            COMMIT_MESSAGE="$USER_MSG"
+        fi
     else
         echo "Proposed commit message: $DEFAULT_MSG"
         read -p "Enter custom commit message (or press Enter to use proposed): " USER_MSG
