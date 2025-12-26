@@ -84,6 +84,7 @@ SKIP_INSTALL="${SKIP_INSTALL:-false}"
 SKIP_GIT="${SKIP_GIT:-false}"
 AUTO_SELECT_DEVICE="${AUTO_SELECT_DEVICE:-false}"
 TARGET_DEVICE_SERIAL=""
+CI_RELEASE_ONLY="${CI_RELEASE_ONLY:-false}"
 
 load_telegram_config() {
     if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -110,6 +111,7 @@ Usage: ./run.sh [options]
 Options:
   --debug            Build debug (default)
   --release          Build release
+  --ci-release       Bump version and tag only (skip local build/install), let CI build
   --skip-tests       Skip running unit tests first
   --skip-install     Skip ADB install steps
   --skip-git         Skip git commit/tag/push steps (release only)
@@ -132,6 +134,7 @@ Env vars (optional):
   SKIP_GIT=true|false
   TELEGRAM_ENABLED=true|false
   AUTO_SELECT_DEVICE=true|false
+  CI_RELEASE_ONLY=true|false
 EOF
 }
 
@@ -140,6 +143,12 @@ parse_args() {
         case "$1" in
             --debug) BUILD_TYPE="debug"; BUILD_TYPE_LOCKED="true" ;;
             --release) BUILD_TYPE="release"; BUILD_TYPE_LOCKED="true" ;;
+            --ci-release) 
+                BUILD_TYPE="release"
+                BUILD_TYPE_LOCKED="true"
+                CI_RELEASE_ONLY="true"
+                SKIP_INSTALL="true"
+                ;;
             --skip-tests) SKIP_TESTS="true" ;;
             --skip-install) SKIP_INSTALL="true" ;;
             --skip-git) SKIP_GIT="true" ;;
@@ -999,16 +1008,20 @@ main() {
     fi
     
     # Build the requested APK
-    echo "Building the application ($BUILD_TYPE)..."
-    local gradle_flags=()
-    if [ "${GRADLE_OFFLINE:-false}" = "true" ]; then
-        gradle_flags+=(--offline)
-    fi
-    if [ "$BUILD_TYPE" = "release" ]; then
-        # Build both APK and Bundle for release
-        ./gradlew "${gradle_flags[@]}" assembleRelease bundleRelease
+    if [ "$CI_RELEASE_ONLY" = "true" ]; then
+        echo "Skipping local build (CI release mode)..."
     else
-        ./gradlew "${gradle_flags[@]}" assembleDebug
+        echo "Building the application ($BUILD_TYPE)..."
+        local gradle_flags=()
+        if [ "${GRADLE_OFFLINE:-false}" = "true" ]; then
+            gradle_flags+=(--offline)
+        fi
+        if [ "$BUILD_TYPE" = "release" ]; then
+            # Build both APK and Bundle for release
+            ./gradlew "${gradle_flags[@]}" assembleRelease bundleRelease
+        else
+            ./gradlew "${gradle_flags[@]}" assembleDebug
+        fi
     fi
     
     # Install the APK (if ADB is available)
@@ -1120,7 +1133,9 @@ main() {
     send_apk_to_telegram || true
     
     echo "Done."
-    if [ "$BUILD_TYPE" = "release" ]; then
+    if [ "$CI_RELEASE_ONLY" = "true" ]; then
+        echo "Version updated to $NEW_VERSION_NAME and pushed to remote. CI should handle the build."
+    elif [ "$BUILD_TYPE" = "release" ]; then
         echo "Application has been built, installed, and version updated to $NEW_VERSION_NAME"
     else
         echo "Application has been built and installed (debug build)."
