@@ -111,7 +111,7 @@ Usage: ./run.sh [options]
 Options:
   --debug            Build debug (default)
   --release          Build release
-  --ci-release       Bump version and tag only (skip local build/install), let CI build
+  --ci-release       Bump version and tag only (skip local tests/build/install), let CI build
   --skip-tests       Skip running unit tests first
   --skip-install     Skip ADB install steps
   --skip-git         Skip git commit/tag/push steps (release only)
@@ -147,6 +147,7 @@ parse_args() {
                 BUILD_TYPE="release"
                 BUILD_TYPE_LOCKED="true"
                 CI_RELEASE_ONLY="true"
+                SKIP_TESTS="true"
                 SKIP_INSTALL="true"
                 ;;
             --skip-tests) SKIP_TESTS="true" ;;

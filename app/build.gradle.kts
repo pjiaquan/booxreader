@@ -79,8 +79,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 103
-        versionName = "1.1.102"
+        versionCode = 104
+        versionName = "1.1.103"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
