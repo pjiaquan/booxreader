@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -17,8 +16,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import my.hinoki.booxreader.R
 import my.hinoki.booxreader.BooxReaderApp
+import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.auth.LoginActivity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
@@ -54,22 +53,9 @@ class MainActivity : BaseActivity() {
                     permissions ->
                 val allGranted = permissions.all { it.value }
                 if (allGranted) {
-                    Toast.makeText(
-                                    this,
-                                    getString(R.string.permission_granted_toast),
-                                    Toast.LENGTH_SHORT
-                            )
-                            .show()
                     // 權限授予後執行同步
                     performFullSync()
                 } else {
-                    val deniedCount = permissions.count { !it.value }
-                    Toast.makeText(
-                                    this,
-                                    getString(R.string.permission_denied_toast, deniedCount),
-                                    Toast.LENGTH_LONG
-                            )
-                            .show()
                     showPermissionRationale()
                 }
             }
@@ -143,10 +129,8 @@ class MainActivity : BaseActivity() {
 
                         try {
                             val updated = syncRepo.pullAllProgress()
-                            if (updated > 0) {
-                            }
-                        } catch (e: Exception) {
-                        }
+                            if (updated > 0) {}
+                        } catch (e: Exception) {}
                     }
                 }
     }
@@ -159,13 +143,6 @@ class MainActivity : BaseActivity() {
     private fun performFullSync() {
         lifecycleScope.launch {
             try {
-                Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.sync_start_toast),
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
-
                 // Sync all user data
                 // Sync Profiles FIRST so settings can link to them
                 val profilesResult = runCatching { syncRepo.pullProfiles() }
@@ -175,14 +152,6 @@ class MainActivity : BaseActivity() {
 
                 val booksResult = runCatching { syncRepo.pullBooks() }
                 val booksUpdated = booksResult.getOrNull() ?: 0
-                if (booksUpdated > 0) {
-                    Toast.makeText(
-                                    this@MainActivity,
-                                    getString(R.string.sync_books_toast),
-                                    Toast.LENGTH_SHORT
-                            )
-                            .show()
-                }
 
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
@@ -193,13 +162,6 @@ class MainActivity : BaseActivity() {
                 val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
                 val bookmarksUpdated = bookmarksResult.getOrNull() ?: 0
 
-                Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.sync_complete),
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
-
                 // Force refresh recent books after sync to ensure UI updates
                 // This ensures progress updates are reflected even if Flow doesn't emit
                 // automatically
@@ -208,12 +170,7 @@ class MainActivity : BaseActivity() {
                     recentAdapter.submitList(recentBooks)
                 }
             } catch (e: Exception) {
-                Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.sync_failed) + ": ${e.message}",
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
+                // Silently fail
             }
         }
     }
@@ -318,12 +275,6 @@ class MainActivity : BaseActivity() {
                     requestFilePermissions()
                 }
                 .setNegativeButton(getString(R.string.welcome_skip_button)) { _, _ ->
-                    Toast.makeText(
-                                    this,
-                                    getString(R.string.permission_later_toast),
-                                    Toast.LENGTH_LONG
-                            )
-                            .show()
                     // 即使沒有權限，仍然嘗試載入本地書籍
                     loadRecentBooks()
                 }
@@ -365,33 +316,14 @@ class MainActivity : BaseActivity() {
         try {
             ReaderActivity.open(this, uri)
         } catch (e: Exception) {
-            Toast.makeText(this, getString(R.string.open_book_error, e.message), Toast.LENGTH_LONG)
-                    .show()
+            // Silently fail
         }
     }
 
     private fun markBookCompleted(entity: BookEntity) {
         val title =
                 entity.title?.takeIf { it.isNotBlank() } ?: getString(R.string.book_title_untitled)
-        lifecycleScope.launch {
-            runCatching { bookRepository.markCompleted(entity.bookId) }
-                    .onSuccess {
-                        Toast.makeText(
-                                        this@MainActivity,
-                                        getString(R.string.book_mark_completed, title),
-                                        Toast.LENGTH_SHORT
-                                )
-                                .show()
-                    }
-                    .onFailure {
-                        Toast.makeText(
-                                        this@MainActivity,
-                                        getString(R.string.book_mark_failed, it.message),
-                                        Toast.LENGTH_LONG
-                                )
-                                .show()
-                    }
-        }
+        lifecycleScope.launch { runCatching { bookRepository.markCompleted(entity.bookId) } }
     }
 
     private fun confirmDeleteBook(entity: BookEntity) {
@@ -401,15 +333,7 @@ class MainActivity : BaseActivity() {
                 .setTitle(getString(R.string.sync_delete_book_title))
                 .setMessage(getString(R.string.sync_delete_book_message, title))
                 .setPositiveButton(getString(R.string.sync_delete_action)) { _, _ ->
-                    lifecycleScope.launch {
-                        bookRepository.deleteBook(entity.bookId)
-                        Toast.makeText(
-                                        this@MainActivity,
-                                        getString(R.string.sync_delete_success, title),
-                                        Toast.LENGTH_SHORT
-                                )
-                                .show()
-                    }
+                    lifecycleScope.launch { bookRepository.deleteBook(entity.bookId) }
                 }
                 .setNegativeButton(getString(R.string.sync_cancel_action), null)
                 .show()
@@ -432,22 +356,10 @@ class MainActivity : BaseActivity() {
                             )
                     if (localUri != null) {
                         ReaderActivity.open(this@MainActivity, localUri)
-                    } else {
-                        Toast.makeText(
-                                        this@MainActivity,
-                                        getString(R.string.book_file_not_found),
-                                        Toast.LENGTH_LONG
-                                )
-                                .show()
                     }
                 }
             } catch (e: Exception) {
-                Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.open_book_error, e.message),
-                                Toast.LENGTH_LONG
-                        )
-                        .show()
+                // Silently fail
             }
         }
     }
@@ -589,23 +501,10 @@ class MainActivity : BaseActivity() {
                 binding.tvSyncDetails.text = summary
                 binding.tvSyncProgress.text = "100%"
                 binding.progressSync.progress = 100
-
-                Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.sync_complete),
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
             } catch (e: Exception) {
                 binding.tvSyncStatus.text = getString(R.string.sync_failed)
                 binding.tvSyncDetails.text = getString(R.string.sync_failed) + ": ${e.message}"
                 binding.tvSyncProgress.text = "Error"
-                Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.sync_failed) + ": ${e.message}",
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
             }
         }
     }
@@ -619,14 +518,12 @@ class MainActivity : BaseActivity() {
 
     private suspend fun uploadLocalBooks(): Int =
             withContext(Dispatchers.IO) {
-
                 val dao = AppDatabase.get(applicationContext).bookDao()
                 val bookIds = dao.getAllBookIds()
 
                 if (bookIds.isEmpty()) {
                     return@withContext 0
                 }
-
 
                 val localBooks = dao.getByIds(bookIds)
                 var uploadedCount = 0
@@ -635,8 +532,7 @@ class MainActivity : BaseActivity() {
                     try {
                         syncRepo.pushBook(book = book, uploadFile = true)
                         uploadedCount++
-                    } catch (e: Exception) {
-                    }
+                    } catch (e: Exception) {}
                 }
 
                 return@withContext uploadedCount

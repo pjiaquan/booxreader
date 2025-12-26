@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.MainThread
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import my.hinoki.booxreader.data.ui.common.BaseActivity
@@ -21,42 +20,53 @@ class WelcomeActivity : BaseActivity() {
 
     private lateinit var binding: ActivityWelcomeBinding
     private lateinit var prefs: SharedPreferences
-    
+
     companion object {
         private const val PREFS_NAME = "app_prefs"
         private const val KEY_FIRST_RUN = "first_run"
     }
 
     private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val allGranted = permissions.all { it.value }
-            if (allGranted) {
-                navigateToMain()
-            } else {
-                // Determine if we should show rationale or if "Don't ask again" was checked
-                 val deniedCount = permissions.count { !it.value }
-                 if (deniedCount > 0) {
-                     // Check if we need to show manual setting instructions (if "Don't ask again" was likely formatted)
-                      val shouldShowRationale = permissions.keys.any { permission ->
-                        ActivityCompat.shouldShowRequestPermissionRationale(this, permission)
+            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+                    permissions ->
+                val allGranted = permissions.all { it.value }
+                if (allGranted) {
+                    navigateToMain()
+                } else {
+                    // Determine if we should show rationale or if "Don't ask again" was checked
+                    val deniedCount = permissions.count { !it.value }
+                    if (deniedCount > 0) {
+                        // Check if we need to show manual setting instructions (if "Don't ask
+                        // again" was likely formatted)
+                        val shouldShowRationale =
+                                permissions.keys.any { permission ->
+                                    ActivityCompat.shouldShowRequestPermissionRationale(
+                                            this,
+                                            permission
+                                    )
+                                }
+
+                        if (!shouldShowRationale) {
+                            // User likely checked "Don't ask again", prompt to open settings
+                            androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("Permission Required")
+                                    .setMessage(
+                                            "Permissions are needed to read books. Please grant them in Settings."
+                                    )
+                                    .setPositiveButton("Settings") { _, _ -> openAppSettings() }
+                                    .setNegativeButton("Cancel", null)
+                                    .show()
+                        } else {
+                            Toast.makeText(
+                                            this,
+                                            "Permissions are required to access books.",
+                                            Toast.LENGTH_SHORT
+                                    )
+                                    .show()
+                        }
                     }
-                    
-                    if (!shouldShowRationale) {
-                        // User likely checked "Don't ask again", prompt to open settings
-                         androidx.appcompat.app.AlertDialog.Builder(this)
-                            .setTitle("Permission Required")
-                            .setMessage("Permissions are needed to read books. Please grant them in Settings.")
-                             .setPositiveButton("Settings") { _, _ ->
-                                openAppSettings()
-                            }
-                            .setNegativeButton("Cancel", null)
-                            .show()
-                    } else {
-                        Toast.makeText(this, "Permissions are required to access books.", Toast.LENGTH_SHORT).show()
-                    }
-                 }
+                }
             }
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,16 +83,17 @@ class WelcomeActivity : BaseActivity() {
         setContentView(binding.root)
 
         setupListeners()
+
+        // Automatically request permissions on first run
+        checkAndRequestPermissions()
     }
-    
+
     private fun isFirstRun(): Boolean {
         return prefs.getBoolean(KEY_FIRST_RUN, true)
     }
 
     private fun setupListeners() {
-        binding.btnGrant.setOnClickListener {
-            checkAndRequestPermissions()
-        }
+        binding.btnGrant.setOnClickListener { checkAndRequestPermissions() }
 
         binding.btnSkip.setOnClickListener {
             // User chose to skip, we still mark first run as complete but maybe without permissions
@@ -101,17 +112,27 @@ class WelcomeActivity : BaseActivity() {
 
     private fun hasPermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) ==
+                    PackageManager.PERMISSION_GRANTED
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                    PackageManager.PERMISSION_GRANTED
         } else {
-             val hasRead = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-             val hasWrite = if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                 ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-             } else {
-                 true
-             }
-             hasRead && hasWrite
+            val hasRead =
+                    ContextCompat.checkSelfPermission(
+                            this,
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                    ) == PackageManager.PERMISSION_GRANTED
+            val hasWrite =
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                        ContextCompat.checkSelfPermission(
+                                this,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        ) == PackageManager.PERMISSION_GRANTED
+                    } else {
+                        true
+                    }
+            hasRead && hasWrite
         }
     }
 
@@ -128,7 +149,7 @@ class WelcomeActivity : BaseActivity() {
                 permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
-        
+
         requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
     }
 
@@ -144,7 +165,7 @@ class WelcomeActivity : BaseActivity() {
         startActivity(intent)
         finish()
     }
-    
+
     private fun openAppSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
         val uri = Uri.fromParts("package", packageName, null)
