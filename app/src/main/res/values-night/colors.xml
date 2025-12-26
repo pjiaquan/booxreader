@@ -7,4 +7,9 @@
     <color name="recent_book_menu">#E0E0E0</color>
     <color name="recent_book_completed_text">#A5D6A7</color>
     <color name="recent_book_completed_bg">#2E4B35</color>
+
+    <!-- Main Activity Card Colors (Night) -->
+    <color name="main_card_bg">#1E1E1E</color>
+    <color name="main_card_title">#FFFFFF</color>
+    <color name="main_card_subtitle">#BDBDBD</color>
 </resources>

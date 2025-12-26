@@ -111,7 +111,7 @@
             android:layout_marginBottom="12dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="6dp"
-            app:cardBackgroundColor="#FFFFFFFF"
+            app:cardBackgroundColor="@color/main_card_bg"
             android:visibility="gone">
 
             <LinearLayout
@@ -127,7 +127,7 @@
                     android:text="@string/main_sync_status"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="#222222" />
+                    android:textColor="@color/main_card_title" />
 
                 <TextView
                     android:id="@+id/tvSyncStatus"
@@ -135,7 +135,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/main_sync_hint"
                     android:textSize="14sp"
-                    android:textColor="#7A7A7A"
+                    android:textColor="@color/main_card_subtitle"
                     android:layout_marginTop="4dp" />
 
                 <ProgressBar
@@ -175,7 +175,7 @@
             android:layout_marginBottom="12dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="6dp"
-            app:cardBackgroundColor="#FFFFFFFF">
+            app:cardBackgroundColor="@color/main_card_bg">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -190,7 +190,7 @@
                     android:text="@string/main_recent_title"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:textColor="#222222" />
+                    android:textColor="@color/main_card_title" />
 
                 <TextView
                     android:id="@+id/tvRecentSubtitle"
@@ -198,7 +198,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/main_recent_hint"
                     android:textSize="14sp"
-                    android:textColor="#7A7A7A"
+                    android:textColor="@color/main_card_subtitle"
                     android:layout_marginBottom="8dp" />
 
                 <androidx.recyclerview.widget.RecyclerView
@@ -212,7 +212,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/main_empty_state"
-                    android:textColor="#7A7A7A"
+                    android:textColor="@color/main_card_subtitle"
                     android:textSize="14sp"
                     android:visibility="gone"
                     android:layout_marginTop="8dp" />
