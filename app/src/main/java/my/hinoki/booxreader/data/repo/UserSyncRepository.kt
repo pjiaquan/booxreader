@@ -374,7 +374,7 @@ class UserSyncRepository(
                                 }
 
                                 var fileUri = remote.fileUri ?: ""
-                                val localUri = ensureBookFileAvailable(bookId, null)
+                                val localUri = ensureBookFileAvailable(bookId, null, null, false)
                                 if (localUri != null) {
                                         fileUri = localUri.toString()
                                         downloadedCount++
@@ -443,7 +443,7 @@ class UserSyncRepository(
                         }
 
                         var fileUri = remote.fileUri ?: ""
-                        val localUri = ensureBookFileAvailable(bookId, null)
+                        val localUri = ensureBookFileAvailable(bookId, null, null, false)
                         if (localUri != null) {
                                 fileUri = localUri.toString()
                         }
@@ -670,7 +670,8 @@ class UserSyncRepository(
         suspend fun ensureBookFileAvailable(
                 bookId: String,
                 storagePath: String? = null,
-                originalUri: String? = null
+                originalUri: String? = null,
+                downloadIfNeeded: Boolean = true
         ): Uri? =
                 withContext(io) {
 
@@ -740,6 +741,7 @@ class UserSyncRepository(
                                 }
                         }
 
+                        if (!downloadIfNeeded) return@withContext null
 
                         // Download from storage
                         val result = downloadBookFile(bookId, storagePath)
