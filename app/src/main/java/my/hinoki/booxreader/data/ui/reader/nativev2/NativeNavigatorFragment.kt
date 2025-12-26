@@ -138,8 +138,7 @@ class NativeNavigatorFragment : Fragment() {
 
     fun hasSelection(): Boolean = _binding?.nativeReaderView?.hasSelection() ?: false
 
-    fun isSelectionMenuVisible(): Boolean =
-        _binding?.selectionMenu?.visibility == View.VISIBLE
+    fun isSelectionMenuVisible(): Boolean = _binding?.selectionMenu?.visibility == View.VISIBLE
 
     fun isPointInSelectionMenu(x: Float, y: Float): Boolean {
         val menu = _binding?.selectionMenu ?: return false
@@ -512,9 +511,7 @@ class NativeNavigatorFragment : Fragment() {
 
     fun setChineseConversionEnabled(enabled: Boolean) {
         // Reload current resource with new conversion setting
-        lifecycleScope.launch {
-            loadCurrentResource()
-        }
+        lifecycleScope.launch { loadCurrentResource() }
     }
 
     fun go(locator: Locator) {
@@ -745,11 +742,12 @@ class NativeNavigatorFragment : Fragment() {
         val p = pager ?: return
 
         // Prepare secondary view with next page content
-        val nextText = if (sameResource) {
-            if (currentPageInResource < p.pageCount - 1) {
-                p.getPageText(currentPageInResource + 1)
-            } else null
-        } else null
+        val nextText =
+                if (sameResource) {
+                    if (currentPageInResource < p.pageCount - 1) {
+                        p.getPageText(currentPageInResource + 1)
+                    } else null
+                } else null
 
         if (sameResource && nextText != null) {
             // Simple slide animation within same resource
@@ -758,21 +756,19 @@ class NativeNavigatorFragment : Fragment() {
             binding.nativeReaderViewSecondary.translationX = binding.root.width.toFloat()
 
             // Animate
-            binding.nativeReaderViewSecondary.animate()
-                .translationX(0f)
-                .setDuration(300)
-                .start()
-            binding.nativeReaderView.animate()
-                .translationX(-binding.root.width.toFloat())
-                .setDuration(300)
-                .withEndAction {
-                    currentPageInResource++
-                    binding.nativeReaderView.translationX = 0f
-                    binding.nativeReaderViewSecondary.visibility = View.GONE
-                    displayCurrentPage()
-                    isAnimating = false
-                }
-                .start()
+            binding.nativeReaderViewSecondary.animate().translationX(0f).setDuration(300).start()
+            binding.nativeReaderView
+                    .animate()
+                    .translationX(-binding.root.width.toFloat())
+                    .setDuration(300)
+                    .withEndAction {
+                        currentPageInResource++
+                        binding.nativeReaderView.translationX = 0f
+                        binding.nativeReaderViewSecondary.visibility = View.GONE
+                        displayCurrentPage()
+                        isAnimating = false
+                    }
+                    .start()
         } else {
             // Cross-resource navigation
             lifecycleScope.launch {
@@ -783,10 +779,7 @@ class NativeNavigatorFragment : Fragment() {
 
                 // Fade transition for resource change
                 binding.nativeReaderView.alpha = 0f
-                binding.nativeReaderView.animate()
-                    .alpha(1f)
-                    .setDuration(250)
-                    .start()
+                binding.nativeReaderView.animate().alpha(1f).setDuration(250).start()
                 isAnimating = false
             }
         }
@@ -804,21 +797,19 @@ class NativeNavigatorFragment : Fragment() {
             binding.nativeReaderViewSecondary.translationX = -binding.root.width.toFloat()
 
             // Animate
-            binding.nativeReaderViewSecondary.animate()
-                .translationX(0f)
-                .setDuration(300)
-                .start()
-            binding.nativeReaderView.animate()
-                .translationX(binding.root.width.toFloat())
-                .setDuration(300)
-                .withEndAction {
-                    currentPageInResource--
-                    binding.nativeReaderView.translationX = 0f
-                    binding.nativeReaderViewSecondary.visibility = View.GONE
-                    displayCurrentPage()
-                    isAnimating = false
-                }
-                .start()
+            binding.nativeReaderViewSecondary.animate().translationX(0f).setDuration(300).start()
+            binding.nativeReaderView
+                    .animate()
+                    .translationX(binding.root.width.toFloat())
+                    .setDuration(300)
+                    .withEndAction {
+                        currentPageInResource--
+                        binding.nativeReaderView.translationX = 0f
+                        binding.nativeReaderViewSecondary.visibility = View.GONE
+                        displayCurrentPage()
+                        isAnimating = false
+                    }
+                    .start()
         } else {
             // Cross-resource navigation
             lifecycleScope.launch {
@@ -828,16 +819,143 @@ class NativeNavigatorFragment : Fragment() {
 
                 // Fade transition for resource change
                 binding.nativeReaderView.alpha = 0f
-                binding.nativeReaderView.animate()
-                    .alpha(1f)
-                    .setDuration(250)
-                    .start()
+                binding.nativeReaderView.animate().alpha(1f).setDuration(250).start()
                 isAnimating = false
             }
         }
     }
 
+    /** Modern quote span with accent bar, background, and padding */
+    private class ModernQuoteSpan(private val textColor: Int) :
+            android.text.style.LeadingMarginSpan, android.text.style.LineBackgroundSpan {
+
+        private val density = android.content.res.Resources.getSystem().displayMetrics.density
+        private val stripeWidth = (4 * density).toInt()
+        private val gapWidth = (16 * density).toInt()
+        private val topPadding = (12 * density).toInt()
+        private val bottomPadding = (12 * density).toInt()
+
+        // Calculate colors based on text color
+        private val stripeColor: Int
+            get() = (textColor and 0x00FFFFFF) or 0xB3000000.toInt() // 70% opacity
+
+        private val backgroundColor: Int
+            get() = (textColor and 0x00FFFFFF) or 0x0D000000.toInt() // 5% opacity
+
+        override fun getLeadingMargin(first: Boolean): Int {
+            return stripeWidth + gapWidth
+        }
+
+        override fun drawLeadingMargin(
+                canvas: android.graphics.Canvas,
+                paint: android.graphics.Paint,
+                x: Int,
+                dir: Int,
+                top: Int,
+                baseline: Int,
+                bottom: Int,
+                text: CharSequence,
+                start: Int,
+                end: Int,
+                first: Boolean,
+                layout: android.text.Layout
+        ) {
+            val style = paint.style
+            val color = paint.color
+
+            paint.style = android.graphics.Paint.Style.FILL
+            paint.color = stripeColor
+
+            // Draw the accent stripe on the left
+            canvas.drawRect(
+                    x.toFloat(),
+                    top.toFloat(),
+                    (x + dir * stripeWidth).toFloat(),
+                    bottom.toFloat(),
+                    paint
+            )
+
+            paint.style = style
+            paint.color = color
+        }
+
+        override fun drawBackground(
+                canvas: android.graphics.Canvas,
+                paint: android.graphics.Paint,
+                left: Int,
+                right: Int,
+                top: Int,
+                baseline: Int,
+                bottom: Int,
+                text: CharSequence,
+                start: Int,
+                end: Int,
+                lineNumber: Int
+        ) {
+            val color = paint.color
+            paint.color = backgroundColor
+
+            // Draw background for the entire quote block
+            canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), paint)
+
+            paint.color = color
+        }
+    }
+
+    /** Mark class to track quote start position during HTML parsing */
+    private class Mark
+
+    /** Custom tag handler for blockquote with modern styling */
+    private inner class QuoteTagHandler(private val textColor: Int) : android.text.Html.TagHandler {
+
+        override fun handleTag(
+                opening: Boolean,
+                tag: String,
+                output: android.text.Editable,
+                xmlReader: org.xml.sax.XMLReader
+        ) {
+            if (tag.equals("blockquote", ignoreCase = true)) {
+                if (opening) {
+                    // Add newline before quote for spacing
+                    if (output.isNotEmpty() && output.last() != '\n') {
+                        output.append("\n")
+                    }
+                    // Mark the start of quote
+                    output.setSpan(
+                            Mark(),
+                            output.length,
+                            output.length,
+                            android.text.Spanned.SPAN_MARK_MARK
+                    )
+                } else {
+                    // Find the start mark
+                    val len = output.length
+                    val marks = output.getSpans(0, len, Mark::class.java)
+                    if (marks.isNotEmpty()) {
+                        val start = output.getSpanStart(marks.last())
+                        output.removeSpan(marks.last())
+
+                        if (start != len) {
+                            // Apply the modern quote span
+                            output.setSpan(
+                                    ModernQuoteSpan(textColor),
+                                    start,
+                                    len,
+                                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                            )
+                        }
+                    }
+                    // Add newline after quote for spacing
+                    if (output.isNotEmpty() && output.last() != '\n') {
+                        output.append("\n")
+                    }
+                }
+            }
+        }
+    }
+
     private fun parseHtml(html: String): CharSequence {
+
         // Clean up some basic mess before parsing
         val cleaned =
                 html.replace(Regex("<script.*?>.*?</script>", RegexOption.DOT_MATCHES_ALL), "")
@@ -849,15 +967,32 @@ class NativeNavigatorFragment : Fragment() {
                                 ),
                                 "<sup>"
                         )
-                        .replace(
-                                Regex("</span>", RegexOption.IGNORE_CASE),
-                                "</sup>"
-                        )
+                        .replace(Regex("</span>", RegexOption.IGNORE_CASE), "</sup>")
+
+        // Create an ImageGetter to load images from EPUB resources
+        // Note: ImageGetter is synchronous, but resource.read() is suspending
+        // For now, we return null to avoid compilation errors
+        // TODO: Implement proper async image loading
+        val imageGetter =
+                android.text.Html.ImageGetter { source ->
+                    // Cannot load images synchronously from async resources
+                    null
+                }
 
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            android.text.Html.fromHtml(cleaned, android.text.Html.FROM_HTML_MODE_LEGACY)
+            android.text.Html.fromHtml(
+                    cleaned,
+                    android.text.Html.FROM_HTML_MODE_LEGACY,
+                    imageGetter,
+                    QuoteTagHandler(currentThemeColors?.second ?: Color.BLACK)
+            )
         } else {
-            @Suppress("DEPRECATION") android.text.Html.fromHtml(cleaned)
+            @Suppress("DEPRECATION")
+            android.text.Html.fromHtml(
+                    cleaned,
+                    imageGetter,
+                    QuoteTagHandler(currentThemeColors?.second ?: Color.BLACK)
+            )
         }
     }
 
