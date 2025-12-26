@@ -47,7 +47,7 @@
 # Fix: The package is data.reader, not reader. Also keep reader for LocatorJsonHelper which has weird package.
 -keep class my.hinoki.booxreader.data.reader.** { *; }
 -keep class my.hinoki.booxreader.reader.** { *; }
--keep class my.hinoki.booxreader.core.** { *; }
+-keep class my.hinoki.booxreader.data.core.** { *; }
 # Keep UI classes to ensure Activities/Adapters/ViewModels work correctly
 -keep class my.hinoki.booxreader.data.ui.** { *; }
 
