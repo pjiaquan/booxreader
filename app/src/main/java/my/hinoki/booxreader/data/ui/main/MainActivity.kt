@@ -633,7 +633,7 @@ class MainActivity : BaseActivity() {
 
                 localBooks.forEach { book ->
                     try {
-                        syncRepo.pushBook(book = book, uploadFile = false)
+                        syncRepo.pushBook(book = book, uploadFile = true)
                         uploadedCount++
                     } catch (e: Exception) {
                     }
