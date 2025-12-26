@@ -19,17 +19,23 @@ platform :android do
   end
 
   desc "Upload release bundle to Google Play Internal track"
-  lane :play_internal do
+  lane :play_internal do |options|
     json_key = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_JSON_KEY"] || ENV["GOOGLE_APPLICATION_CREDENTIALS"]
     UI.user_error!("Set SUPPLY_JSON_KEY (or GOOGLE_PLAY_JSON_KEY / GOOGLE_APPLICATION_CREDENTIALS) to your Play service account JSON") if json_key.to_s.empty?
 
-    gradle(task: "bundleRelease")
+    aab_path = options[:aab] || "app/build/outputs/bundle/release/app-release.aab"
+    
+    # Only build if the AAB doesn't exist at the specified path (CI usually downloads it)
+    unless File.exist?(aab_path)
+      gradle(task: "bundleRelease")
+      aab_path = "app/build/outputs/bundle/release/app-release.aab"
+    end
 
     supply(
       json_key: json_key,
       package_name: "my.hinoki.booxreader",
       track: "internal",
-      aab: "app/build/outputs/bundle/release/app-release.aab",
+      aab: aab_path,
       skip_upload_screenshots: true,
       skip_upload_images: true,
       skip_upload_metadata: true,

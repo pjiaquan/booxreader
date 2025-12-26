@@ -93,3 +93,64 @@ jobs:
             Automated release build from CI.
           artifacts: "dist/*.apk,dist/*.aab"
           allowUpdates: true
+
+      - name: Send APK to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Telegram secrets not configured, skipping notification."
+            exit 0
+          fi
+          
+          # Find the signed APK in the downloaded artifacts
+          APK_PATH=$(find dist -name "*-release.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find dist -name "*.apk" | head -n 1)
+          fi
+          
+          TAG_NAME="${{ github.ref_name }}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          
+          MESSAGE=$(printf "📦 *New BooxReader Release*\n\nTag: \`%s\`\n\n[View on GitHub](%s)" "$TAG_NAME" "$RELEASE_URL")
+          
+          echo "Sending message to Telegram..."
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d text="${MESSAGE}" \
+            -d parse_mode="Markdown" \
+            -d disable_web_page_preview=false
+          
+          if [ -f "$APK_PATH" ]; then
+            echo "Uploading APK: $APK_PATH"
+            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F chat_id="${TELEGRAM_CHAT_ID}" \
+              -F document=@"${APK_PATH}" \
+              -F caption="BooxReader ${TAG_NAME} APK"
+          else
+            echo "Warning: APK file not found in dist/ directory."
+          fi
+
+  publish_play_store:
+    name: Push to Google Play
+    needs: build
+    runs-on: ubuntu-latest
+    if: success() && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-release-artifacts
+          path: dist
+
+      - name: Deploy to Google Play
+        uses: maierj/fastlane-action@v3
+        with:
+          lane: "android play_internal"
+          options: '{"aab": "dist/Boox Reader-${{ github.ref_name }}-release.aab"}'
+        env:
+          SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}

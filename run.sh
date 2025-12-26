@@ -1140,8 +1140,14 @@ main() {
     fi
     
     # Send APK to Telegram (if enabled) - works for both debug and release
-    echo "Sending APK to Telegram..."
-    send_apk_to_telegram || true
+    if [ "$CI_RELEASE_ONLY" = "true" ]; then
+        if [ "$TELEGRAM_ENABLED" = "true" ]; then
+            log "CI release mode: Telegram upload will be handled by GitHub Actions."
+        fi
+    else
+        echo "Sending APK to Telegram..."
+        send_apk_to_telegram || true
+    fi
     
     echo "Done."
     if [ "$CI_RELEASE_ONLY" = "true" ]; then
