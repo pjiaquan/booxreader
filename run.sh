@@ -888,13 +888,20 @@ git_operations() {
     fi
     
     # Ask for confirmation before committing and pushing
-    local prompt_msg="Version has been updated. Do you want to commit and push these changes? (y/n): "
+    local prompt_msg="Version has been updated. Do you want to commit and push these changes? [Y/n]: "
     if [ "$BUILD_TYPE" != "release" ]; then
-        prompt_msg="Do you want to commit and push changes? (y/n): "
+        prompt_msg="Do you want to commit and push changes? [Y/n]: "
     fi
     
-    read -p "$prompt_msg" -n 1 -r
-    echo
+    if [ "$CI_RELEASE_ONLY" = "true" ]; then
+        log "CI release mode: Automatically proceeding with git operations."
+        REPLY="y"
+    else
+        read -p "$prompt_msg" -n 1 -r
+        echo
+        # Default to 'y' if Enter is pressed (REPLY is empty)
+        REPLY=${REPLY:-y}
+    fi
     
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo "Skipping git operations."
