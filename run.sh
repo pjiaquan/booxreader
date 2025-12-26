@@ -812,7 +812,17 @@ generate_ai_commit_message() {
     local escaped_diff
     escaped_diff=$(echo "$diff_content" | jq -sRr @json)
     
-    local system_content="You are a senior software engineer. Analyze the git diff to identify the core functional changes. Focus on WHAT the code is doing (e.g., 'Fix user login', 'Optimize background sync') rather than which files changed. Generate a Conventional Commit message. Subject line: concise summary of the main behavioral change. Body: bullet points explaining the logic and intent of the changes. Output ONLY the raw commit message. Do not use markdown blocks, quotes, or explanations."
+    local system_content="You are a senior software engineer. Carefully analyze the git diff to identify core functional changes. Focus on explaining WHAT the code accomplishes, WHAT bugs were fixed, and WHAT features were added - not just listing file names.
+
+Generate a Conventional Commit message with:
+- Subject line: Concise summary of the main functional change (e.g., 'Fix user login issue', 'Add AI note feature', 'Optimize background sync')
+- Body: Detailed bullet points explaining:
+  * What bugs were fixed (specific issue description)
+  * What features were added (specific functionality)
+  * What was optimized (specific improvements)
+  * Code logic and implementation intent
+
+Output ONLY the raw commit message in plain text. Do not use markdown code blocks, quotes, or extra explanations."
     local user_content="Generate a descriptive commit message for these changes:\\n"
     
     local json_body
