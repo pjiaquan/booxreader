@@ -16,6 +16,8 @@ import java.security.MessageDigest
 import java.time.Instant
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.GCMParameterSpec
+import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
@@ -1480,33 +1482,78 @@ data class SupabaseAiProfile(
 )
 
 private object SyncCrypto {
-        private const val ALGORITHM = "AES"
-        private const val TRANSFORMATION = "AES/ECB/PKCS5Padding"
+        private const val ALGORITHM_AES = "AES"
+        private const val TRANSFORMATION_ECB = "AES/ECB/PKCS5Padding" // Legacy
+        private const val TRANSFORMATION_GCM = "AES/GCM/NoPadding"    // New (Secure)
+        private const val GCM_IV_LENGTH = 12
+        private const val GCM_TAG_LENGTH = 128
+        
         // Use a fixed key for simplicity in this context.
         private const val KEY_STR = "BooxReaderAiKeysSyncSecret2024!!"
+
+        private val secretKeySpec = SecretKeySpec(KEY_STR.toByteArray(Charsets.UTF_8), ALGORITHM_AES)
 
         fun encrypt(input: String): String {
                 if (input.isBlank()) return ""
                 return try {
-                        val key = SecretKeySpec(KEY_STR.toByteArray(), ALGORITHM)
-                        val cipher = Cipher.getInstance(TRANSFORMATION)
-                        cipher.init(Cipher.ENCRYPT_MODE, key)
-                        val encrypted = cipher.doFinal(input.toByteArray())
-                        Base64.encodeToString(encrypted, Base64.NO_WRAP)
+                        // Generate random IV
+                        val iv = ByteArray(GCM_IV_LENGTH)
+                        SecureRandom().nextBytes(iv)
+                        
+                        val cipher = Cipher.getInstance(TRANSFORMATION_GCM)
+                        val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
+                        cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, spec)
+                        
+                        val encrypted = cipher.doFinal(input.toByteArray(Charsets.UTF_8))
+                        
+                        // Combine IV + Encrypted Data
+                        val combined = ByteArray(iv.size + encrypted.size)
+                        System.arraycopy(iv, 0, combined, 0, iv.size)
+                        System.arraycopy(encrypted, 0, combined, iv.size, encrypted.size)
+                        
+                        Base64.encodeToString(combined, Base64.NO_WRAP)
                 } catch (e: Exception) {
+                        e.printStackTrace()
                         ""
                 }
         }
 
         fun decrypt(input: String): String {
                 if (input.isBlank()) return ""
-                return try {
-                        val key = SecretKeySpec(KEY_STR.toByteArray(), ALGORITHM)
-                        val cipher = Cipher.getInstance(TRANSFORMATION)
-                        cipher.init(Cipher.DECRYPT_MODE, key)
-                        val decoded = Base64.decode(input, Base64.NO_WRAP)
-                        String(cipher.doFinal(decoded))
+                val decoded = try {
+                        Base64.decode(input, Base64.NO_WRAP)
                 } catch (e: Exception) {
+                        return ""
+                }
+
+                // 1. Try GCM (New Format)
+                try {
+                        if (decoded.size > GCM_IV_LENGTH) {
+                                val cipher = Cipher.getInstance(TRANSFORMATION_GCM)
+                                // Extract IV
+                                val iv = ByteArray(GCM_IV_LENGTH)
+                                System.arraycopy(decoded, 0, iv, 0, GCM_IV_LENGTH)
+                                
+                                val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
+                                cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, spec)
+                                
+                                // Decrypt only the ciphertext part
+                                return String(
+                                        cipher.doFinal(decoded, GCM_IV_LENGTH, decoded.size - GCM_IV_LENGTH),
+                                        Charsets.UTF_8
+                                )
+                        }
+                } catch (e: Exception) {
+                        // Failed to decrypt with GCM (likely old format or wrong key), fall through to ECB
+                }
+
+                // 2. Fallback to ECB (Old Format)
+                return try {
+                        val cipher = Cipher.getInstance(TRANSFORMATION_ECB)
+                        cipher.init(Cipher.DECRYPT_MODE, secretKeySpec)
+                        String(cipher.doFinal(decoded), Charsets.UTF_8)
+                } catch (e: Exception) {
+                        e.printStackTrace()
                         ""
                 }
         }
