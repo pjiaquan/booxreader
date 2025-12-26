@@ -979,21 +979,35 @@ class NativeNavigatorFragment : Fragment() {
                     null
                 }
 
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            android.text.Html.fromHtml(
-                    cleaned,
-                    android.text.Html.FROM_HTML_MODE_LEGACY,
-                    imageGetter,
-                    QuoteTagHandler(currentThemeColors?.second ?: Color.BLACK)
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            android.text.Html.fromHtml(
-                    cleaned,
-                    imageGetter,
-                    QuoteTagHandler(currentThemeColors?.second ?: Color.BLACK)
-            )
-        }
+        val parsed =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    android.text.Html.fromHtml(
+                            cleaned,
+                            android.text.Html.FROM_HTML_MODE_LEGACY,
+                            imageGetter,
+                            QuoteTagHandler(currentThemeColors?.second ?: Color.BLACK)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    android.text.Html.fromHtml(
+                            cleaned,
+                            imageGetter,
+                            QuoteTagHandler(currentThemeColors?.second ?: Color.BLACK)
+                    )
+                }
+
+        // Filter out placeholder characters that Html.fromHtml inserts for unsupported tags
+        // Common placeholders: "□" (U+25A1), "OBJ" (object replacement), "未知" (unknown)
+        val filteredText =
+                parsed.toString()
+                        .replace("□", "") // Box placeholder
+                        .replace("\uFFFC", "") // Object replacement character
+                        .replace("OBJ", "") // Literal "OBJ" text
+                        .replace("未知", "") // Chinese "unknown"
+                        .replace(Regex("\\s{3,}"), "  ") // Collapse excessive whitespace
+                        .trim()
+
+        return filteredText
     }
 
     override fun onDestroyView() {
