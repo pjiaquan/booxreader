@@ -35,4 +35,13 @@
         android:layout_height="wrap_content"
         android:text="@string/profile_logout"/>
 
+    <TextView
+        android:id="@+id/tvVersion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:text="Version: 1.0.0"/>
+
 </LinearLayout>

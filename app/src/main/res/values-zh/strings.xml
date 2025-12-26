@@ -155,4 +155,5 @@
     <string name="action_export_all">匯出全部</string>
     <string name="ai_note_model_info_format">模型：%1$s</string>
     <string name="ai_note_model_disclaimer">AI 可能會出錯，請務必核實重要資訊。</string>
+    <string name="profile_version_format">版本：%1$s</string>
 </resources>
