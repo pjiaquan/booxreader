@@ -1331,6 +1331,7 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                         )
                 when (method.uppercase()) {
                         "GET" -> requestBuilder.get()
+                        "HEAD" -> requestBuilder.head()
                         "POST" -> requestBuilder.post(requestBody ?: emptyOctetStreamBody)
                         "PUT" -> requestBuilder.put(requestBody ?: emptyOctetStreamBody)
                         "DELETE" -> requestBuilder.delete()
