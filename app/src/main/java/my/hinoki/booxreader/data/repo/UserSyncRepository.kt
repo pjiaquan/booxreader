@@ -19,6 +19,7 @@ import javax.crypto.spec.SecretKeySpec
 import javax.crypto.spec.GCMParameterSpec
 import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.db.AiNoteEntity
@@ -527,12 +528,6 @@ class UserSyncRepository(
                              return@withContext UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
                         }
 
-                        val token =
-                                accessToken() ?: run {
-                                        cachedUserId = null
-                                        return@withContext null
-                                }
-                        
                         val requestBody =
                                 object : RequestBody() {
                                         override fun contentType() =
@@ -546,23 +541,53 @@ class UserSyncRepository(
                                                 } ?: throw IllegalStateException("Unable to read local file")
                                         }
                                 }
-                        val request =
-                                Request.Builder()
-                                        .url("$supabaseStorageUrl/object/$storagePath")
-                                        .header("apikey", supabaseAnonKey)
-                                        .header("Authorization", "Bearer $token")
-                                        .header("x-upsert", "true")
-                                        .put(requestBody)
-                                        .build()
 
-                        httpClient.newCall(request).execute().use { response ->
-                                if (!response.isSuccessful) {
-                                        val errorBody = response.body?.string()
-                                        return@withContext null
+                        val maxAttempts = 3
+                        var attempt = 0
+                        var backoffMs = 500L
+                        while (true) {
+                                val token =
+                                        accessToken() ?: run {
+                                                cachedUserId = null
+                                                return@withContext null
+                                        }
+                                val request =
+                                        Request.Builder()
+                                                .url("$supabaseStorageUrl/object/$storagePath")
+                                                .header("apikey", supabaseAnonKey)
+                                                .header("Authorization", "Bearer $token")
+                                                .header("x-upsert", "true")
+                                                .put(requestBody)
+                                                .build()
+
+                                val response =
+                                        runCatching { httpClient.newCall(request).execute() }
+                                                .getOrNull()
+                                if (response == null) {
+                                        if (attempt >= maxAttempts - 1) return@withContext null
+                                } else {
+                                        response.use { resp ->
+                                                if (resp.isSuccessful) {
+                                                        return@withContext
+                                                                UploadedBookInfo(
+                                                                        storagePath,
+                                                                        localMeta.size,
+                                                                        localMeta.checksum
+                                                                )
+                                                }
+                                                val code = resp.code
+                                                val shouldRetry =
+                                                        code == 408 || code == 429 || code >= 500
+                                                if (!shouldRetry || attempt >= maxAttempts - 1) {
+                                                        return@withContext null
+                                                }
+                                        }
                                 }
-                        }
 
-                        UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
+                                delay(backoffMs)
+                                backoffMs = (backoffMs * 2).coerceAtMost(2_000L)
+                                attempt++
+                        }
                 }
 
         private fun bookStoragePath(userId: String, bookId: String): String {
