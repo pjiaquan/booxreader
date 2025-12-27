@@ -798,6 +798,7 @@ send_apk_to_telegram() {
 # Generate AI commit message using Groq
 generate_ai_commit_message() {
     local diff_content="$1"
+    local extra_system="${2:-}"
     if [ -z "${GROQ_API_KEY:-}" ]; then
         return 1
     fi
@@ -812,7 +813,7 @@ generate_ai_commit_message() {
     local escaped_diff
     escaped_diff=$(echo "$diff_content" | jq -sRr @json)
     
-    local system_content="You are a senior software engineer. Carefully analyze the git diff to identify core functional changes. Focus on explaining WHAT the code accomplishes, WHAT bugs were fixed, and WHAT features were added - not just listing file names.
+    local system_content="You are a senior software engineer. Carefully analyze the git diff to identify core functional changes. Focus on explaining WHAT the code accomplishes, WHAT bugs were fixed, and WHAT features were added. Do NOT mention file names, paths, or line numbers.
 
 Generate a Conventional Commit message with:
 - Subject line: Concise summary of the main functional change (e.g., 'Fix user login issue', 'Add AI note feature', 'Optimize background sync')
@@ -822,7 +823,12 @@ Generate a Conventional Commit message with:
   * What was optimized (specific improvements)
   * Code logic and implementation intent
 
+If you cannot infer the functional change from the diff, return an empty response.
+
 Output ONLY the raw commit message in plain text. Do not use markdown code blocks, quotes, or extra explanations."
+    if [ -n "$extra_system" ]; then
+        system_content="${system_content}"$'\n\n'"${extra_system}"
+    fi
     local user_content="Generate a descriptive commit message for these changes:\\n"
     
     local json_body
@@ -855,6 +861,21 @@ Output ONLY the raw commit message in plain text. Do not use markdown code block
     
     if [ -n "$message" ]; then
         echo "$message"
+        return 0
+    fi
+    return 1
+}
+
+is_low_quality_ai_message() {
+    local msg="$1"
+    local subject="${msg%%$'\n'*}"
+    if [[ "$subject" =~ [[:alnum:]]+/.+ ]]; then
+        return 0
+    fi
+    if [[ "$subject" =~ \.(kt|java|xml|gradle|kts|md|txt|json|yml|yaml|png|jpg|jpeg|gif|svg) ]]; then
+        return 0
+    fi
+    if [[ "$subject" =~ ^(feat|fix|chore|refactor|docs|test|style|perf|build|ci|revert)(\(.+\))?:[[:space:]]*(Update|Change|Modify|Refactor)[[:space:]] ]]; then
         return 0
     fi
     return 1
@@ -945,8 +966,25 @@ git_operations() {
         
         local AI_MSG
         if AI_MSG=$(generate_ai_commit_message "$STAGED_DIFF"); then
-             DEFAULT_MSG="$AI_MSG"
-             AI_SUCCESS="true"
+            if is_low_quality_ai_message "$AI_MSG"; then
+                warn "AI message looks like a file list; output was:"
+                warn "${AI_MSG:0:4096}"
+                warn "Retrying with stricter prompt."
+                if AI_MSG=$(generate_ai_commit_message "$STAGED_DIFF" \
+                    "Retry: previous output listed files or generic 'update'. Describe behavior changes only; avoid file names and vague 'update' wording."); then
+                    if is_low_quality_ai_message "$AI_MSG"; then
+                        warn "AI message still low quality; output was:"
+                        warn "${AI_MSG:0:4096}"
+                        warn "Falling back to manual/automatic message."
+                    else
+                        DEFAULT_MSG="$AI_MSG"
+                        AI_SUCCESS="true"
+                    fi
+                fi
+            else
+                DEFAULT_MSG="$AI_MSG"
+                AI_SUCCESS="true"
+            fi
         fi
     else
         if [ "$CI_RELEASE_ONLY" != "true" ]; then
@@ -972,11 +1010,11 @@ git_operations() {
         if [ -z "$CHANGED_FILES" ]; then
             DEFAULT_MSG="chore(release): Bump version to $V_NAME"
         else
-            if [ "$FILE_COUNT" -gt 3 ]; then
-                DEFAULT_MSG="feat: Update $CHANGED_FILES and others (v$V_NAME)"
-            else
-                DEFAULT_MSG="feat: Update $CHANGED_FILES (v$V_NAME)"
+            local v_suffix=""
+            if [ -n "$V_NAME" ]; then
+                v_suffix=" (v$V_NAME)"
             fi
+            DEFAULT_MSG="chore: update app behavior$v_suffix"
         fi
     fi
     
