@@ -147,10 +147,21 @@ jobs:
           name: app-release-artifacts
           path: dist
 
+      - name: Locate AAB file
+        id: locate_aab
+        run: |
+          AAB_PATH=$(find dist -name "*.aab" | head -n 1)
+          if [ -z "$AAB_PATH" ]; then
+            echo "Error: No AAB file found in dist/"
+            exit 1
+          fi
+          echo "Found AAB: $AAB_PATH"
+          echo "aab_path=$AAB_PATH" >> $GITHUB_OUTPUT
+
       - name: Deploy to Google Play
         uses: maierj/fastlane-action@v3
         with:
           lane: "android play_internal"
-          options: '{"aab": "dist/Boox Reader-${{ github.ref_name }}-release.aab"}'
+          options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
         env:
           SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
