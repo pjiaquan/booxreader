@@ -916,15 +916,32 @@ git_operations() {
     
     # Try to generate AI commit message
     if [ -n "${GROQ_API_KEY:-}" ]; then
-        # Get staged changes
-        local STAGED_DIFF
-        STAGED_DIFF=$(git diff --cached)
+        # Get staged changes per file to ensure we don't miss files due to truncation
+        local STAGED_DIFF=""
+        local total_chars=0
+        local max_total_chars=25000
         
-        # Don't send too much data (limit to first 1000 lines/chars to be safe, though 70b handles 8k context easily)
-        if [ ${#STAGED_DIFF} -gt 20000 ]; then
-             STAGED_DIFF=${STAGED_DIFF:0:20000}
-             STAGED_DIFF+="\n... (truncated)"
-        fi
+        while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            
+            local file_diff
+            file_diff=$(git diff --cached -- "$file")
+            local diff_len=${#file_diff}
+            
+            # Truncate large single-file diffs to leave room for others
+            if [ $diff_len -gt 6000 ]; then
+                file_diff="${file_diff:0:6000}\n... (file $file truncated)\n"
+                diff_len=${#file_diff}
+            fi
+            
+            if [ $((total_chars + diff_len)) -gt $max_total_chars ]; then
+                STAGED_DIFF+="${file_diff:0:$((max_total_chars - total_chars))}\n... (global limit reached)"
+                break
+            fi
+            
+            STAGED_DIFF+="$file_diff\n"
+            total_chars=$((total_chars + diff_len))
+        done < <(git diff --cached --name-only)
         
         local AI_MSG
         if AI_MSG=$(generate_ai_commit_message "$STAGED_DIFF"); then

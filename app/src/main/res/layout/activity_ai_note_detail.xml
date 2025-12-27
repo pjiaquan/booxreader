@@ -101,12 +101,38 @@
             android:backgroundTint="#D84315"
             android:textColor="#FFFFFF"/>
 
+        <!-- Disclaimer -->
+        <TextView
+            android:id="@+id/tvAiInputDisclaimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/ai_note_input_disclaimer"
+            android:textSize="12sp"
+            android:textColor="#FF9800"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="4dp"/>
+
+        <!-- Magic Tags -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/cgMagicTags"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleLine="true" />
+
+        </HorizontalScrollView>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginTop="24dp">
+            android:layout_marginTop="0dp">
 
             <EditText
                 android:id="@+id/etFollowUp"

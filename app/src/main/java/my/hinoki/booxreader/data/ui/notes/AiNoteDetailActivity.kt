@@ -34,6 +34,10 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 
+import com.google.android.material.chip.Chip
+import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.data.settings.MagicTag
+
 class AiNoteDetailActivity : BaseActivity() {
 
     companion object {
@@ -103,6 +107,7 @@ class AiNoteDetailActivity : BaseActivity() {
         }
 
         loadNote(noteId)
+        setupMagicTags()
 
         binding.btnPublish.setOnClickListener {
             val note = currentNote ?: return@setOnClickListener
@@ -1026,6 +1031,92 @@ class AiNoteDetailActivity : BaseActivity() {
                 originalText = finalOriginal,
                 aiResponse = finalResponse
         )
+    }
+
+    private fun setupMagicTags() {
+        val settings = ReaderSettings.fromPrefs(getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE))
+        val magicTags = settings.magicTags
+
+        binding.cgMagicTags.removeAllViews()
+
+        if (magicTags.isEmpty()) {
+            binding.cgMagicTags.visibility = View.GONE
+            return
+        }
+
+        binding.cgMagicTags.visibility = View.VISIBLE
+
+        for (tag in magicTags) {
+            val chip = Chip(this).apply {
+                text = tag.label
+                setOnClickListener {
+                    handleMagicTagClick(tag)
+                }
+                setOnLongClickListener {
+                    Toast.makeText(context, tag.description, Toast.LENGTH_LONG).show()
+                    true
+                }
+            }
+            binding.cgMagicTags.addView(chip)
+        }
+    }
+
+    private fun handleMagicTagClick(tag: MagicTag) {
+        val note = currentNote ?: return
+        val currentInput = binding.etFollowUp.text.toString().trim()
+
+        if (currentInput.isNotEmpty()) {
+            val prompt = "${tag.label} $currentInput"
+            binding.etFollowUp.setText("")
+            sendFollowUp(note, prompt)
+        } else {
+            val originalText = getOriginalText(note)
+            val prompt = "${tag.label} $originalText"
+            rePublishWithPrompt(note, prompt)
+        }
+    }
+
+    private fun rePublishWithPrompt(note: AiNoteEntity, promptText: String) {
+        val savedScrollY = currentScrollY()
+        binding.btnRepublishSelection.isEnabled = false
+        binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_progress)
+        setLoading(true)
+
+        lifecycleScope.launch {
+            val useStreaming = repository.isStreamingEnabled()
+
+            if (useStreaming) {
+                startStreaming(note, promptText, savedScrollY)
+                binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
+                return@launch
+            }
+
+            val result = repository.fetchAiExplanation(promptText)
+            if (result != null) {
+                val (serverText, content) = result
+                val updatedNote = updateNoteFromStrings(note, serverText, content)
+                repository.update(updatedNote)
+                currentNote = updatedNote
+                updateUI(updatedNote)
+                Toast.makeText(
+                    this@AiNoteDetailActivity,
+                    getString(R.string.ai_note_republish_success),
+                    Toast.LENGTH_SHORT
+                )
+                    .show()
+            } else {
+                Toast.makeText(
+                    this@AiNoteDetailActivity,
+                    getString(R.string.ai_note_republish_failed),
+                    Toast.LENGTH_SHORT
+                )
+                    .show()
+            }
+            binding.btnRepublishSelection.isEnabled = true
+            binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
+            setLoading(false)
+            restoreScrollIfJumped(savedScrollY)
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

@@ -1,6 +1,8 @@
 package my.hinoki.booxreader.data.settings
 
 import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import my.hinoki.booxreader.data.remote.HttpConfig
 
 enum class ContrastMode {
@@ -111,11 +113,15 @@ data class ReaderSettings(
         val pageAnimationEnabled: Boolean = false,
         val language: String = "system", // "system", "en", "zh"
         val updatedAt: Long = System.currentTimeMillis(),
-        val activeProfileId: Long = -1L
+        val activeProfileId: Long = -1L,
+        val magicTags: List<MagicTag> = defaultMagicTags
 ) {
 
   fun saveTo(prefs: SharedPreferences) {
     val timestamp = if (updatedAt > 0) updatedAt else System.currentTimeMillis()
+    val gson = Gson()
+    val magicTagsJson = gson.toJson(magicTags)
+
     prefs.edit()
             // 字體大小使用本地設定
             // 字體粗細使用預設值，不在此處儲存
@@ -144,6 +150,7 @@ data class ReaderSettings(
             .putString("app_language", language)
             .putLong("active_ai_profile_id", activeProfileId)
             .putLong("settings_updated_at", timestamp)
+            .putString("magic_tags", magicTagsJson)
             .apply()
   }
 
@@ -200,6 +207,13 @@ data class ReaderSettings(
   )
   companion object {
     const val PREFS_NAME = "reader_prefs"
+
+    val defaultMagicTags = listOf(
+        MagicTag("story-mode", "[請講故事]", "強力觸發「歷史現場」與「文化深淵」模式，AI會優先挖掘概念背後的故事與神話。"),
+        MagicTag("cross-domain", "[跨界聯想]", "強力觸發「跨界回響」，要求AI將概念與一個意想不到的領域進行類比。"),
+        MagicTag("no-formula", "[無公式，純故事]", "極致的人文體驗，關閉所有技術備忘，完全聚焦於歷史敘事、文化比喻與費曼解釋。"),
+        MagicTag("museum-guide", "[像導覽博物館一樣]", "AI將以沉浸式導覽口吻，帶領您漫步於概念發展的歷史長廊中。")
+    )
 
     fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
       val updatedAt = prefs.getLong("settings_updated_at", 0L)
@@ -286,6 +300,18 @@ data class ReaderSettings(
 [系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
             """.trimIndent()
 
+      val magicTagsJson = prefs.getString("magic_tags", null)
+      val magicTags = if (magicTagsJson != null) {
+          try {
+              val type = object : TypeToken<List<MagicTag>>() {}.type
+              Gson().fromJson<List<MagicTag>>(magicTagsJson, type) ?: defaultMagicTags
+          } catch (e: Exception) {
+              defaultMagicTags
+          }
+      } else {
+          defaultMagicTags
+      }
+
       return ReaderSettings(
               // 字體大小使用本地設定
               // 字體粗細使用預設值，不在此處讀取
@@ -317,7 +343,8 @@ data class ReaderSettings(
               pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
               language = prefs.getString("app_language", "system") ?: "system",
               updatedAt = updatedAt,
-              activeProfileId = prefs.getLong("active_ai_profile_id", -1L)
+              activeProfileId = prefs.getLong("active_ai_profile_id", -1L),
+              magicTags = magicTags
       )
     }
   }
