@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
+import android.util.Log
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
@@ -370,8 +371,12 @@ class AiNoteRepository(
                             put("max_tokens", settings.maxTokens)
                             put("top_p", settings.topP)
                             if (!isGoogleHost(url)) {
-                                put("frequency_penalty", settings.frequencyPenalty)
-                                put("presence_penalty", settings.presencePenalty)
+                                if (settings.frequencyPenalty != 0.0) {
+                                    put("frequency_penalty", settings.frequencyPenalty)
+                                }
+                                if (settings.presencePenalty != 0.0) {
+                                    put("presence_penalty", settings.presencePenalty)
+                                }
                             }
                         }
                         applyExtraParams(payload, extraParams)
@@ -385,6 +390,8 @@ class AiNoteRepository(
                         .tag(String::class.java, "SKIP_AUTH") // Skip internal auth interceptor/authenticator
                         .build()
 
+                    Log.d(TAG, "Fetching AI Explanation from: $url")
+                    
                     client.newCall(request).execute().use { response ->
                         if (response.isSuccessful) {
                             val respBody = response.body?.string()
@@ -406,10 +413,13 @@ class AiNoteRepository(
                                 null
                             }
                         } else {
+                            val errorBody = response.body?.string()
+                            Log.e(TAG, "AI Request Failed: Code=${response.code}, Body=$errorBody")
                             null
                         }
                      }
                 } catch (e: Exception) {
+                    Log.e(TAG, "Exception in fetchAiExplanation", e)
                     e.printStackTrace()
                     null
                 }
@@ -484,13 +494,16 @@ class AiNoteRepository(
                 put("model", settings.aiModelName)
                 put("messages", messages)
                 put("stream", true)
-                put("stream", true)
                 put("temperature", settings.temperature)
                 put("max_tokens", settings.maxTokens)
                 put("top_p", settings.topP)
                 if (!isGoogleHost(url)) {
-                    put("frequency_penalty", settings.frequencyPenalty)
-                    put("presence_penalty", settings.presencePenalty)
+                    if (settings.frequencyPenalty != 0.0) {
+                        put("frequency_penalty", settings.frequencyPenalty)
+                    }
+                    if (settings.presencePenalty != 0.0) {
+                        put("presence_penalty", settings.presencePenalty)
+                    }
                 }
             }
             applyExtraParams(payload, extraParams)
@@ -815,8 +828,12 @@ class AiNoteRepository(
                             put("max_tokens", settings.maxTokens)
                             put("top_p", settings.topP)
                             if (!isGoogleHost(url)) {
-                                put("frequency_penalty", settings.frequencyPenalty)
-                                put("presence_penalty", settings.presencePenalty)
+                                if (settings.frequencyPenalty != 0.0) {
+                                    put("frequency_penalty", settings.frequencyPenalty)
+                                }
+                                if (settings.presencePenalty != 0.0) {
+                                    put("presence_penalty", settings.presencePenalty)
+                                }
                             }
                         }
                         applyExtraParams(payload, extraParams)
@@ -928,8 +945,12 @@ class AiNoteRepository(
                 put("max_tokens", settings.maxTokens)
                 put("top_p", settings.topP)
                 if (!isGoogleHost(url)) {
-                    put("frequency_penalty", settings.frequencyPenalty)
-                    put("presence_penalty", settings.presencePenalty)
+                    if (settings.frequencyPenalty != 0.0) {
+                        put("frequency_penalty", settings.frequencyPenalty)
+                    }
+                    if (settings.presencePenalty != 0.0) {
+                        put("presence_penalty", settings.presencePenalty)
+                    }
                 }
             }
             applyExtraParams(payload, extraParams)
@@ -987,6 +1008,8 @@ class AiNoteRepository(
         apiKey: String? = null
     ): Pair<String, String>? = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "Streaming SSE from: $url")
+
             val requestBody =
                 payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
@@ -1016,6 +1039,7 @@ class AiNoteRepository(
                 .use { response ->
                     if (!response.isSuccessful) {
                         val errorBody = response.body?.string()
+                        Log.e(TAG, "Streaming Request Failed: Code=${response.code}, Body=$errorBody")
                         return@withContext null
                     }
                     val source = response.body?.source() ?: return@withContext null
