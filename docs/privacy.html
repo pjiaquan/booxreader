@@ -56,7 +56,7 @@
           <p class="eyebrow">How we use data</p>
           <h2>To sync your reading state and power AI responses.</h2>
           <ul class="list">
-            <li>Sync library files, progress, bookmarks, and notes across your devices via Supabase Postgres and Supabase Storage.</li>
+            <li>Sync library files, progress, bookmarks, and notes across your devices via Supabase Postgres and Cloudflare R2.</li>
             <li>Generate AI explanations or summaries by sending your provided text to the AI provider you choose.</li>
             <li>Maintain your AI profiles and preferences so you can reuse them on all signed-in devices.</li>
             <li>Troubleshoot reliability issues using minimal diagnostic logs.</li>
@@ -67,7 +67,7 @@
           <ul class="list">
             <li>Authentication: Supabase Authentication.</li>
             <li>Cloud database: Supabase Postgres (per-user rows).</li>
-            <li>File storage: Supabase Storage for EPUB backups.</li>
+            <li>File storage: Cloudflare R2 for EPUB backups.</li>
             <li>AI providers: Gemini (Google Generative Language API) or OpenAI-compatible endpoints you configure; optional Google Search when enabled.</li>
             <li>On-device: Local caches for offline reading; removed when you uninstall the app.</li>
           </ul>

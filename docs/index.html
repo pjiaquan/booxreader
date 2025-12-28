@@ -23,8 +23,7 @@
         </div>
         <div class="meta">
           <span>Private sync (per-user Supabase)</span>
-          <span>Full EPUB backup to Supabase Storage</span>
-          <span>Optimized for Boox & Android</span>
+                      <span>Full EPUB backup to Cloudflare R2</span>          <span>Optimized for Boox & Android</span>
           <span>Better language support (i18n)</span>
         </div>
       </div>
@@ -34,7 +33,7 @@
           <div class="card">
             <p class="card__title">Cloud Sync</p>
             <p class="card__body">Progress, bookmarks, AI notes, and book files are backed up to your account.</p>
-            <div class="pill">Supabase Storage</div>
+            <div class="pill">Cloudflare R2</div>
             <div class="pill">Supabase Postgres</div>
           </div>
         </div>
@@ -85,8 +84,7 @@
           <p class="eyebrow">How it works</p>
           <h2>Resilient sync pipeline</h2>
           <ul class="list">
-            <li><strong>Book files:</strong> On first open, the EPUB uploads to Supabase Storage with checksum metadata; repeated opens reuse the stored copy if unchanged.</li>
-            <li><strong>Progress:</strong> Locator JSON cached locally and mirrored to Supabase for instant resume on any device.</li>
+                            <li><strong>Book files:</strong> On first open, the EPUB uploads to Cloudflare R2 with checksum metadata; repeated opens reuse the stored copy if unchanged.</li>            <li><strong>Progress:</strong> Locator JSON cached locally and mirrored to Supabase for instant resume on any device.</li>
             <li><strong>Bookmarks & notes:</strong> Stored locally for offline, then pushed to Supabase; pulls on demand to keep devices aligned.</li>
           </ul>
         </div>

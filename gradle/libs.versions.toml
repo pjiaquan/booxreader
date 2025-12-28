@@ -1,8 +1,8 @@
 [versions]
 agp = "8.13.1"
 androidxTestCore = "1.5.0"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
+kotlin = "2.1.10"
+ksp = "2.1.10-1.0.30"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -24,8 +24,10 @@ coroutinesTest = "1.7.3"
 playServicesAuth = "21.0.0"
 securityCrypto = "1.0.0"
 robolectric = "4.11.1"
+awsSdkKotlin = "1.5.109"
 
 [libraries]
+aws-sdk-s3 = { group = "aws.sdk.kotlin", name = "s3", version.ref = "awsSdkKotlin" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
@@ -67,6 +69,7 @@ markwon-inline-parser = { group = "io.noties.markwon", name = "inline-parser", v
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 json = { group = "org.json", name = "json", version = "20231013" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version = "0.6.1" }
  
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

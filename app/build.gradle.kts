@@ -41,6 +41,22 @@ val supabaseAnonKey: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_ANON_K
     ?: System.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
     ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY2MDczNjAwLCJleHAiOjE5MjM4NDAwMDB9.JFC5hdPzUBYTxiEIYv4wBgQdxxtgL941HOB6YAa32Is"
 
+val r2Endpoint: String = (project.findProperty("R2_ENDPOINT") as String?)
+    ?: System.getenv("R2_ENDPOINT")
+    ?: "https://ce0369afcd76de7fb2f8c866d743552e.r2.cloudflarestorage.com"
+
+val r2Bucket: String = (project.findProperty("R2_BUCKET") as String?)
+    ?: System.getenv("R2_BUCKET")
+    ?: "booxreader"
+
+val r2AccessKey: String = (project.findProperty("R2_ACCESS_KEY") as String?)
+    ?: System.getenv("R2_ACCESS_KEY")
+    ?: ""
+
+val r2SecretKey: String = (project.findProperty("R2_SECRET_KEY") as String?)
+    ?: System.getenv("R2_SECRET_KEY")
+    ?: ""
+
 android {
     namespace = "my.hinoki.booxreader"
     compileSdk = 35
@@ -79,11 +95,15 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 120
-        versionName = "1.1.119"
+        versionCode = 121
+        versionName = "1.1.120"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "R2_ENDPOINT", "\"$r2Endpoint\"")
+        buildConfigField("String", "R2_BUCKET", "\"$r2Bucket\"")
+        buildConfigField("String", "R2_ACCESS_KEY", "\"$r2AccessKey\"")
+        buildConfigField("String", "R2_SECRET_KEY", "\"$r2SecretKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -182,6 +202,10 @@ dependencies {
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.auth)
+
+    // --- Cloudflare R2 (S3) ---
+    implementation(libs.aws.sdk.s3)
+    implementation(libs.kotlinx.datetime)
 
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)

@@ -10,7 +10,7 @@ Private EPUB reader for Android with resilient cloud sync and AI-linked notes, t
 
 - EPUB reading tuned for e-ink (reduced motion + refresh controls)
 - Sync progress, bookmarks, and notes via Supabase
-- Backup EPUB files via Supabase Storage (checksum-based)
+- Backup EPUB files via Cloudflare R2 (checksum-based)
 - Improved language/i18n support across locales
 
 ## Build
