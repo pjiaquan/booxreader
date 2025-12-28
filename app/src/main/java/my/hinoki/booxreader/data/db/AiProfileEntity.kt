@@ -26,6 +26,7 @@ data class AiProfileEntity(
     val presencePenalty: Double = 0.0,
     val assistantRole: String = "assistant",
     val enableGoogleSearch: Boolean = true,
+    val extraParamsJson: String? = null,
     
     // Sync Metadata
     val remoteId: String? = null, // Remote doc ID

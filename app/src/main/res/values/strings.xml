@@ -18,7 +18,9 @@
     <string name="top_p_hint">Top P (0-1)</string>
     <string name="frequency_penalty_hint">Freq Pen (0-2)</string>
     <string name="presence_penalty_hint">Pres Pen (0-2)</string>
+    <string name="ai_profile_extra_params_hint">Extra Params (JSON)</string>
     <string name="ai_profile_required_fields">Name and Model Name are required</string>
+    <string name="ai_profile_invalid_extra_params">Extra params must be valid JSON</string>
     <string name="ai_profile_sync_completed_count">Sync completed: %1$d profiles updated</string>
     <string name="ai_profile_sync_completed_up_to_date">Sync completed: All profiles are up to date</string>
     <string name="ai_profile_sync_failed">Sync failed: %1$s</string>

@@ -44,6 +44,13 @@ class AiProfileRepository(
             val userPromptTemplate = profileMap["userPromptTemplate"] as? String ?: "%s"
             val useStreaming = profileMap["useStreaming"] as? Boolean ?: false
             val enableGoogleSearch = profileMap["enableGoogleSearch"] as? Boolean ?: true
+            val extraParamsJson =
+                profileMap["extraParamsJson"]?.let { value ->
+                    when (value) {
+                        is String -> value
+                        else -> gson.toJson(value)
+                    }
+                }
 
             val entity = AiProfileEntity(
                 name = name,
@@ -60,7 +67,8 @@ class AiProfileRepository(
                 maxTokens = (profileMap["maxTokens"] as? Double)?.toInt() ?: 4096,
                 topP = (profileMap["topP"] as? Double) ?: 1.0,
                 frequencyPenalty = (profileMap["frequencyPenalty"] as? Double) ?: 0.0,
-                presencePenalty = (profileMap["presencePenalty"] as? Double) ?: 0.0
+                presencePenalty = (profileMap["presencePenalty"] as? Double) ?: 0.0,
+                extraParamsJson = extraParamsJson
             )
             
             // Add the profile (this will also trigger an initial push)
@@ -120,6 +128,11 @@ class AiProfileRepository(
             assistantRole = profile.assistantRole,
             enableGoogleSearch = profile.enableGoogleSearch,
             useStreaming = profile.useStreaming,
+            temperature = profile.temperature,
+            maxTokens = profile.maxTokens,
+            topP = profile.topP,
+            frequencyPenalty = profile.frequencyPenalty,
+            presencePenalty = profile.presencePenalty,
             updatedAt = System.currentTimeMillis(),
             activeProfileId = profile.id
         )

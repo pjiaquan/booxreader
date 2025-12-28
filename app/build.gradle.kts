@@ -35,7 +35,7 @@ val storeFileFromEnv: File? = run {
 
 val supabaseUrl: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_URL") as String?)
     ?: System.getenv("NEXT_PUBLIC_SUPABASE_URL")
-    ?: "https://supa.risc-v.tw"
+    ?: "https://app.hinoki.my"
 
 val supabaseAnonKey: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_ANON_KEY") as String?)
     ?: System.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
@@ -79,8 +79,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 117
-        versionName = "1.1.116"
+        versionCode = 118
+        versionName = "1.1.117"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")

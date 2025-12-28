@@ -10,6 +10,7 @@ import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiProfileEditBinding
+import org.json.JSONObject
 
 class AiProfileEditActivity : BaseActivity() {
 
@@ -58,6 +59,7 @@ class AiProfileEditActivity : BaseActivity() {
                 binding.etFrequencyPenalty.setText(p.frequencyPenalty.toString())
                 binding.etPresencePenalty.setText(p.presencePenalty.toString())
                 binding.etAssistantRole.setText(p.assistantRole)
+                binding.etExtraParams.setText(p.extraParamsJson.orEmpty())
             }
         }
     }
@@ -78,6 +80,18 @@ class AiProfileEditActivity : BaseActivity() {
         val frequencyPenalty = binding.etFrequencyPenalty.text.toString().toDoubleOrNull() ?: 0.0
         val presencePenalty = binding.etPresencePenalty.text.toString().toDoubleOrNull() ?: 0.0
         val assistantRole = binding.etAssistantRole.text.toString().takeIf { it.isNotBlank() } ?: "assistant"
+        val extraParamsRaw = binding.etExtraParams.text.toString().trim()
+        val extraParamsJson =
+            if (extraParamsRaw.isNotBlank()) {
+                val parsed = runCatching { JSONObject(extraParamsRaw) }.getOrNull()
+                if (parsed == null) {
+                    Toast.makeText(this, getString(R.string.ai_profile_invalid_extra_params), Toast.LENGTH_SHORT).show()
+                    return
+                }
+                extraParamsRaw
+            } else {
+                null
+            }
 
         if (name.isBlank() || modelName.isBlank()) {
             Toast.makeText(this, getString(R.string.ai_profile_required_fields), Toast.LENGTH_SHORT).show()
@@ -106,7 +120,9 @@ class AiProfileEditActivity : BaseActivity() {
                     maxTokens = maxTokens,
                     topP = topP,
                     frequencyPenalty = frequencyPenalty,
-                    presencePenalty = presencePenalty
+                    presencePenalty = presencePenalty,
+                    assistantRole = assistantRole,
+                    extraParamsJson = extraParamsJson
                 )
                 repository.updateProfile(updated)
             } else {
@@ -119,7 +135,14 @@ class AiProfileEditActivity : BaseActivity() {
                     systemPrompt = systemPrompt,
                     userPromptTemplate = userPromptTemplate,
                     useStreaming = useStreaming,
-                    enableGoogleSearch = enableGoogleSearch
+                    enableGoogleSearch = enableGoogleSearch,
+                    temperature = temperature,
+                    maxTokens = maxTokens,
+                    topP = topP,
+                    frequencyPenalty = frequencyPenalty,
+                    presencePenalty = presencePenalty,
+                    assistantRole = assistantRole,
+                    extraParamsJson = extraParamsJson
                 )
                 repository.addProfile(newProfile)
             }

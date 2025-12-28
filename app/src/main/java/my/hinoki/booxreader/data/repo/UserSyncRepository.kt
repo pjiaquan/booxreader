@@ -1118,6 +1118,7 @@ suspend fun pullProfiles(): Int =
                                                 presencePenalty = remote.presencePenalty ?: 0.0,
                                                 assistantRole = remote.assistantRole ?: "assistant",
                                                 enableGoogleSearch = remote.enableGoogleSearch ?: true,
+                                                extraParamsJson = existing?.extraParamsJson,
                                                 remoteId = remoteId,
                                                 createdAt = createdAt,
                                                 updatedAt = remoteUpdatedAt,

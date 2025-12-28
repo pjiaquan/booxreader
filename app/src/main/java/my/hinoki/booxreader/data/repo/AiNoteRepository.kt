@@ -269,6 +269,37 @@ class AiNoteRepository(
         return ReaderSettings.fromPrefs(prefs())
     }
 
+    private fun parseExtraParamsJson(raw: String?): JSONObject? {
+        if (raw.isNullOrBlank()) return null
+        return runCatching { JSONObject(raw) }.getOrNull()
+    }
+
+    private suspend fun loadExtraParams(): JSONObject? = withContext(Dispatchers.IO) {
+        val activeProfileId = prefs().getLong("active_ai_profile_id", -1L)
+        if (activeProfileId <= 0L) return@withContext null
+        val profile = AppDatabase.get(context).aiProfileDao().getById(activeProfileId)
+        return@withContext parseExtraParamsJson(profile?.extraParamsJson)
+    }
+
+    private fun mergeJson(target: JSONObject, extra: JSONObject) {
+        val keys = extra.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val extraValue = extra.get(key)
+            val targetValue = target.opt(key)
+            if (extraValue is JSONObject && targetValue is JSONObject) {
+                mergeJson(targetValue, extraValue)
+            } else {
+                target.put(key, extraValue)
+            }
+        }
+    }
+
+    private fun applyExtraParams(target: JSONObject, extra: JSONObject?) {
+        if (extra == null) return
+        mergeJson(target, extra)
+    }
+
     private fun logPayload(tag: String, payload: JSONObject) {
         try {
         } catch (_: Exception) {
@@ -282,6 +313,7 @@ class AiNoteRepository(
                 try {
                     val url = getBaseUrl()
                     val isGoogle = isGoogleNative(url)
+                    val extraParams = loadExtraParams()
                     
                     val requestBody: okhttp3.RequestBody
                     val requestBuilder = Request.Builder()
@@ -311,6 +343,7 @@ class AiNoteRepository(
                             settings.presencePenalty,
                             includeGoogleSearch = settings.enableGoogleSearch
                         )
+                        applyExtraParams(googlePayload, extraParams)
                         logPayload("fetchAiExplanation_google", googlePayload)
                         requestBody = googlePayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                         
@@ -341,6 +374,8 @@ class AiNoteRepository(
                                 put("presence_penalty", settings.presencePenalty)
                             }
                         }
+                        applyExtraParams(payload, extraParams)
+                        payload.put("stream", false)
                         requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                         requestBuilder.header("Authorization", "Bearer ${settings.apiKey}")
                     }
@@ -432,6 +467,7 @@ class AiNoteRepository(
         if (settings.apiKey.isNotBlank()) {
             // Direct DeepSeek API call
             val url = getBaseUrl() // Use base URL directly without appending path
+            val extraParams = loadExtraParams()
             
             val messages = JSONArray().apply {
                 put(JSONObject().apply {
@@ -457,6 +493,8 @@ class AiNoteRepository(
                     put("presence_penalty", settings.presencePenalty)
                 }
             }
+            applyExtraParams(payload, extraParams)
+            payload.put("stream", true)
 
             
             val isGoogle = isGoogleNative(url)
@@ -481,10 +519,11 @@ class AiNoteRepository(
                     settings.presencePenalty,
                     includeGoogleSearch = settings.enableGoogleSearch
                 )
+                applyExtraParams(googlePayload, extraParams)
                 logPayload("fetchAiExplanationStreaming_google", googlePayload)
                 googlePayload
             } else {
-                 payload
+                payload
             }
 
             return streamJsonPayloadSse(finalUrl, requestPayload, text, onPartial, settings.apiKey)
@@ -721,6 +760,7 @@ class AiNoteRepository(
                  try {
                     val url = getBaseUrl()
                     val isGoogle = isGoogleNative(url)
+                    val extraParams = loadExtraParams()
                     
                     val requestBody: okhttp3.RequestBody
                     val requestBuilder = Request.Builder().url(url)
@@ -745,6 +785,7 @@ class AiNoteRepository(
                             settings.presencePenalty,
                             includeGoogleSearch = settings.enableGoogleSearch
                         )
+                        applyExtraParams(googlePayload, extraParams)
                         requestBody = googlePayload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                          requestBuilder.header("x-goog-api-key", settings.apiKey)
 
@@ -778,6 +819,8 @@ class AiNoteRepository(
                                 put("presence_penalty", settings.presencePenalty)
                             }
                         }
+                        applyExtraParams(payload, extraParams)
+                        payload.put("stream", false)
                         requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
                         requestBuilder.header("Authorization", "Bearer ${settings.apiKey}")
                     }
@@ -852,6 +895,7 @@ class AiNoteRepository(
         val settings = getSettings()
         if (settings.apiKey.isNotBlank()) {
             val url = getBaseUrl() // Direct URL
+            val extraParams = loadExtraParams()
             val history = buildMessages(note)
             
             // System Prompt from Settings
@@ -888,6 +932,8 @@ class AiNoteRepository(
                     put("presence_penalty", settings.presencePenalty)
                 }
             }
+            applyExtraParams(payload, extraParams)
+            payload.put("stream", true)
 
             
             val isGoogle = isGoogleNative(url)
@@ -912,6 +958,7 @@ class AiNoteRepository(
                     settings.presencePenalty,
                     includeGoogleSearch = settings.enableGoogleSearch
                 )
+                applyExtraParams(googlePayload, extraParams)
                 logPayload("continueConversationStreaming_google", googlePayload)
                 googlePayload
             } else {
