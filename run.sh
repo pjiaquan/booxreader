@@ -862,8 +862,17 @@ Output ONLY the raw commit message in plain text. Do not use markdown code block
     if [ -n "$message" ]; then
         echo "$message"
         return 0
+    else
+        # Print error details to stderr
+        local error_msg=$(echo "$response" | jq -r '.error.message // empty')
+        if [ -n "$error_msg" ]; then
+             warn "Groq API Error: $error_msg"
+        else
+             warn "Groq API returned empty response or invalid format."
+             # warn "Raw response: ${response:0:200}..."
+        fi
+        return 1
     fi
-    return 1
 }
 
 is_low_quality_ai_message() {
@@ -1014,7 +1023,16 @@ git_operations() {
             if [ -n "$V_NAME" ]; then
                 v_suffix=" (v$V_NAME)"
             fi
-            DEFAULT_MSG="chore: update app behavior$v_suffix"
+            
+            # Create a more descriptive fallback message
+            local file_list=$(echo "$CHANGED_FILES" | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
+            if [ "$FILE_COUNT" -eq 1 ]; then
+                 DEFAULT_MSG="fix: update $file_list$v_suffix"
+            elif [ "$FILE_COUNT" -le 3 ]; then
+                 DEFAULT_MSG="fix: update $file_list$v_suffix"
+            else
+                 DEFAULT_MSG="chore: update app behavior ($FILE_COUNT files changed)$v_suffix"
+            fi
         fi
     fi
     
