@@ -34,6 +34,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 color = Color.BLACK
                 alpha = 40 // Light grey on E-ink
             }
+    
+    private val selectionPath = Path()
 
     private val handlePaint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -369,6 +371,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             val startLine = l.getLineForOffset(start)
             val endLine = l.getLineForOffset(end)
 
+            selectionPath.reset()
             for (line in startLine..endLine) {
                 val lineStart = if (line == startLine) start else l.getLineStart(line)
                 val lineEnd = if (line == endLine) end else l.getLineEnd(line)
@@ -383,8 +386,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 val top = baseline + fm.ascent - selectionPadding
                 val bottom = baseline + fm.descent + selectionPadding
 
-                canvas.drawRect(left, top, right, bottom, selectionPaint)
+                selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
             }
+            canvas.drawPath(selectionPath, selectionPaint)
 
             // 2. Draw Handles (Premium Pill Style)
             drawHandles(canvas, start, end)
@@ -431,6 +435,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             val end = max(selectionStart, selectionEnd)
             val startLine = l.getLineForOffset(start)
             val endLine = l.getLineForOffset(end)
+            
+            selectionPath.reset()
             for (lineIdx in startLine..endLine) {
                 val lineStart = if (lineIdx == startLine) start else l.getLineStart(lineIdx)
                 val lineEnd = if (lineIdx == endLine) end else l.getLineEnd(lineIdx)
@@ -445,8 +451,10 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 val top = baseline + fm.ascent - selectionPadding
                 val bottom = baseline + fm.descent + selectionPadding
 
-                canvas.drawRect(left, top, right, bottom, selectionPaint)
+                selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
             }
+            canvas.drawPath(selectionPath, selectionPaint)
+            
             l.draw(canvas)
             canvas.restore()
 
