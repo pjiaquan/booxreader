@@ -503,7 +503,7 @@ class UserSyncRepository(
                 userId: String,
                 contentResolver: android.content.ContentResolver? = null
         ): UploadedBookInfo? =
-                withContext(io) {
+                withContext<UploadedBookInfo?>(io) {
                         val uri = Uri.parse(book.fileUri)
                         val resolver = contentResolver ?: appContext.contentResolver
                         val localMeta =
@@ -568,8 +568,7 @@ class UserSyncRepository(
                                 } else {
                                         response.use { resp ->
                                                 if (resp.isSuccessful) {
-                                                        return@withContext
-                                                                UploadedBookInfo(
+                                                        return@withContext UploadedBookInfo(
                                                                         storagePath,
                                                                         localMeta.size,
                                                                         localMeta.checksum
@@ -588,6 +587,7 @@ class UserSyncRepository(
                                 backoffMs = (backoffMs * 2).coerceAtMost(2_000L)
                                 attempt++
                         }
+                        null
                 }
 
         private fun bookStoragePath(userId: String, bookId: String): String {
