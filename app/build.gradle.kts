@@ -95,8 +95,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 121
-        versionName = "1.1.120"
+        versionCode = 122
+        versionName = "1.1.121"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
@@ -205,7 +205,7 @@ dependencies {
 
     // --- Cloudflare R2 (S3) ---
     implementation(libs.aws.sdk.s3)
-    implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlinx.datetime.jvm)
 
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)
