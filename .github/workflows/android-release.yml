@@ -28,6 +28,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Debug network
+        run: |
+          env | rg -i "proxy|gradle|maven|java_tool_options|http" || true
+          curl -I https://repo.maven.apache.org/maven2/
+
       - name: Compute artifact names
         id: names
         run: |
@@ -57,6 +62,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
           STORE_FILE: dist/release.keystore
+          HTTP_PROXY:
+          HTTPS_PROXY:
+          NO_PROXY: repo.maven.apache.org,plugins.gradle.org,*.gradle.org
         run: ./gradlew assembleRelease bundleRelease
 
       - name: Prepare artifacts folder
