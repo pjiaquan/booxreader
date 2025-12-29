@@ -44,7 +44,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             }
 
     // Use context from constructor to ensure safe access to resources during initialization
-    private val selectionPadding = 8f * context.resources.displayMetrics.density
+    private val selectionPaddingHorizontal = 2f * context.resources.displayMetrics.density
+    private val selectionPaddingVertical = 8f * context.resources.displayMetrics.density
 
     private var content: CharSequence = ""
     private var layout: StaticLayout? = null
@@ -376,15 +377,15 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 val lineStart = if (line == startLine) start else l.getLineStart(line)
                 val lineEnd = if (line == endLine) end else l.getLineEnd(line)
 
-                val left = (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) - selectionPadding
+                val left = (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) - selectionPaddingHorizontal
                 val right =
-                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd) else l.width.toFloat()) + selectionPadding
+                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd) else l.width.toFloat()) + selectionPaddingHorizontal
 
                 // Use FontMetrics for tight vertical bounds (ignores line spacing multiplier)
                 val baseline = l.getLineBaseline(line).toFloat()
                 val fm = textPaint.fontMetrics
-                val top = baseline + fm.ascent - selectionPadding
-                val bottom = baseline + fm.descent + selectionPadding
+                val top = baseline + fm.ascent - selectionPaddingVertical
+                val bottom = baseline + fm.descent + selectionPaddingVertical
 
                 selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
             }
@@ -440,16 +441,16 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             for (lineIdx in startLine..endLine) {
                 val lineStart = if (lineIdx == startLine) start else l.getLineStart(lineIdx)
                 val lineEnd = if (lineIdx == endLine) end else l.getLineEnd(lineIdx)
-                val left = (if (lineIdx == startLine) l.getPrimaryHorizontal(lineStart) else 0f) - selectionPadding
+                val left = (if (lineIdx == startLine) l.getPrimaryHorizontal(lineStart) else 0f) - selectionPaddingHorizontal
                 val right =
                         (if (lineIdx == endLine) l.getPrimaryHorizontal(lineEnd)
-                        else l.width.toFloat()) + selectionPadding
+                        else l.width.toFloat()) + selectionPaddingHorizontal
 
                 // Use FontMetrics in magnifier too
                 val baseline = l.getLineBaseline(lineIdx).toFloat()
                 val fm = textPaint.fontMetrics
-                val top = baseline + fm.ascent - selectionPadding
-                val bottom = baseline + fm.descent + selectionPadding
+                val top = baseline + fm.ascent - selectionPaddingVertical
+                val bottom = baseline + fm.descent + selectionPaddingVertical
 
                 selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
             }
@@ -493,8 +494,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         val sX = l.getPrimaryHorizontal(minOff)
         val sBaseline = l.getLineBaseline(sLine).toFloat()
         val fm = textPaint.fontMetrics
-        val sTop = sBaseline + fm.ascent - selectionPadding
-        val sBottom = sBaseline + fm.descent + selectionPadding
+        val sTop = sBaseline + fm.ascent - selectionPaddingVertical
+        val sBottom = sBaseline + fm.descent + selectionPaddingVertical
 
         canvas.drawRect(sX - handleWidth / 2, sTop, sX + handleWidth / 2, sBottom, handlePaint)
         canvas.drawCircle(sX, sTop, handleBallRadius, handlePaint)
@@ -503,8 +504,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         val eLine = l.getLineForOffset(maxOff)
         val eX = l.getPrimaryHorizontal(maxOff)
         val eBaseline = l.getLineBaseline(eLine).toFloat()
-        val eTop = eBaseline + fm.ascent - selectionPadding
-        val eBottom = eBaseline + fm.descent + selectionPadding
+        val eTop = eBaseline + fm.ascent - selectionPaddingVertical
+        val eBottom = eBaseline + fm.descent + selectionPaddingVertical
 
         canvas.drawRect(eX - handleWidth / 2, eTop, eX + handleWidth / 2, eBottom, handlePaint)
         canvas.drawCircle(eX, eBottom, handleBallRadius, handlePaint)
@@ -646,8 +647,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         val baseline = l.getLineBaseline(line).toFloat()
         val fm = textPaint.fontMetrics
         val oy =
-                if (isStart) baseline + fm.ascent - selectionPadding + paddingTop
-                else baseline + fm.descent + selectionPadding + paddingTop
+                if (isStart) baseline + fm.ascent - selectionPaddingVertical + paddingTop
+                else baseline + fm.descent + selectionPaddingVertical + paddingTop
 
         // Massive hit area for handles: 180px radius (32400 squared)
         return (x - ox) * (x - ox) + (y - oy) * (y - oy) < 32400
