@@ -95,8 +95,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 122
-        versionName = "1.1.121"
+        versionCode = 123
+        versionName = "1.1.122"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
@@ -205,7 +205,7 @@ dependencies {
 
     // --- Cloudflare R2 (S3) ---
     implementation(libs.aws.sdk.s3)
-    implementation(libs.kotlinx.datetime.jvm)
+    implementation(libs.kotlinx.datetime)
 
     // --- JDK Desugaring ---
     coreLibraryDesugaring(libs.desugar.jdk.libs)
@@ -235,5 +235,12 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    constraints {
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1") {
+            version { strictly("0.6.1") }
+            because("aws.smithy.kotlin runtime expects kotlinx-datetime Instant classes, which were removed in 0.7.x")
+        }
+    }
 
 }
