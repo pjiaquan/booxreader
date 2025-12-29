@@ -5,17 +5,6 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.util.Base64
-import aws.smithy.kotlin.runtime.auth.awscredentials.Credentials
-import aws.sdk.kotlin.runtime.auth.credentials.StaticCredentialsProvider
-import aws.sdk.kotlin.services.s3.S3Client
-import aws.sdk.kotlin.services.s3.model.DeleteObjectRequest
-import aws.sdk.kotlin.services.s3.model.GetObjectRequest
-import aws.sdk.kotlin.services.s3.model.HeadObjectRequest
-import aws.sdk.kotlin.services.s3.model.PutObjectRequest
-import aws.smithy.kotlin.runtime.content.ByteStream
-import aws.smithy.kotlin.runtime.content.fromFile
-import aws.smithy.kotlin.runtime.content.writeToFile
-import aws.smithy.kotlin.runtime.net.url.Url
 import com.google.gson.FieldNamingPolicy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -30,7 +19,6 @@ import javax.crypto.spec.SecretKeySpec
 import javax.crypto.spec.GCMParameterSpec
 import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.db.AiNoteEntity
@@ -45,17 +33,15 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
-import okio.BufferedSink
 import okio.source
 
 /**
  * Syncs user-specific data (settings, reading progress, AI notes) to Supabase so it can
  * roam across devices. Falls back to no-ops when the user is not signed in.
  *
- * Books are stored in Cloudflare R2 (S3 compatible).
+ * Books are stored in Supabase Storage.
  */
 class UserSyncRepository(
     context: Context,
@@ -73,24 +59,10 @@ class UserSyncRepository(
         private val supabaseUrl = (baseUrl ?: BuildConfig.SUPABASE_URL).trimEnd('/')
         private val supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY
         private val supabaseRestUrl = "$supabaseUrl/rest/v1"
+        private val supabaseStorageUrl = "$supabaseUrl/storage/v1"
         
-        // S3 / R2 Configuration
-        private val r2Endpoint = BuildConfig.R2_ENDPOINT
-        private val r2Bucket = BuildConfig.R2_BUCKET
-        /*
-        private val s3Client: S3Client by lazy {
-             S3Client {
-                 region = "auto"
-                 endpointUrl = Url.parse(r2Endpoint)
-                 credentialsProvider = StaticCredentialsProvider(
-                     Credentials(
-                         accessKeyId = BuildConfig.R2_ACCESS_KEY,
-                         secretAccessKey = BuildConfig.R2_SECRET_KEY
-                     )
-                 )
-             }
-        }
-        */
+        // Supabase Storage Bucket
+        private val storageBucket = "books" // Fixed bucket name
 
         private val gson: Gson =
                 GsonBuilder()
@@ -108,11 +80,10 @@ class UserSyncRepository(
                 }
         private val emptyJsonBody =
                 "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
-        private val emptyOctetStreamBody =
-                ByteArray(0).toRequestBody("application/octet-stream".toMediaType())
         @Volatile private var cachedUserId: String? = null
 
         // --- Public API ---
+
 
         suspend fun pullSettingsIfNewer(): ReaderSettings? =
                 withContext(io) {
@@ -528,9 +499,51 @@ class UserSyncRepository(
                 contentResolver: android.content.ContentResolver? = null
         ): UploadedBookInfo? =
                 withContext<UploadedBookInfo?>(io) {
-                        // Direct upload disabled for security.
-                        // Ideally, use Presigned URLs via Supabase Edge Functions.
-                        return@withContext null
+                        val uri = Uri.parse(book.fileUri)
+                        val resolver = contentResolver ?: appContext.contentResolver
+                        val localMeta =
+                                readLocalFileMeta(uri, resolver)
+                                        ?: run {
+                                                android.util.Log.e("UserSyncRepo", "Read local file meta failed for ${book.fileUri}")
+                                                return@withContext null
+                                        }
+                        val storagePath = bookStoragePath(userId, book.bookId)
+                        if (storagePath.isBlank()) return@withContext null
+
+                        // Check if file exists and size matches
+                        val remoteSize = getRemoteFileSize(storageBucket, storagePath)
+                        android.util.Log.d("UserSyncRepo", "File check: local=${localMeta.size}, remote=$remoteSize")
+
+                        if (remoteSize == localMeta.size) {
+                             android.util.Log.d("UserSyncRepo", "File already exists on storage, skipping upload.")
+                             return@withContext UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
+                        }
+
+                        // Upload file
+                        try {
+                            resolver.openInputStream(uri)?.use { input ->
+                                val bytes = input.readBytes()
+                                android.util.Log.d("UserSyncRepo", "Starting upload to $storagePath, size=${bytes.size}")
+                                val response = supabaseStorageRequest(
+                                    method = "POST",
+                                    path = "object/$storageBucket/$storagePath",
+                                    bodyBytes = bytes,
+                                    contentType = "application/epub+zip",
+                                    headers = mapOf("x-upsert" to "true")
+                                )
+                                if (response != null) {
+                                    android.util.Log.d("UserSyncRepo", "Upload success")
+                                    UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
+                                } else {
+                                    android.util.Log.e("UserSyncRepo", "Upload failed (response null)")
+                                    null
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("UserSyncRepo", "Upload exception", e)
+                            e.printStackTrace()
+                            null
+                        }
                 }
 
         private fun bookStoragePath(userId: String, bookId: String): String {
@@ -540,19 +553,183 @@ class UserSyncRepository(
                                 bookId.toByteArray(Charsets.UTF_8),
                                 Base64.URL_SAFE or Base64.NO_WRAP
                         )
-                // S3 keys do not include the bucket name
                 return "users/$userId/books/$safeId.epub"
         }
 
         private suspend fun deleteBookFile(userId: String, bookId: String) {
-               // Direct delete disabled
+                val storagePath = bookStoragePath(userId, bookId)
+                if (storagePath.isBlank()) return
+                supabaseStorageRequest(
+                    method = "DELETE",
+                    path = "object/$storageBucket/$storagePath"
+                )
         }
 
-        /** Download EPUB file from Cloudflare R2 (S3) to local storage */
+        /** Download EPUB file from Supabase Storage to local storage */
         suspend fun downloadBookFile(bookId: String, storagePath: String? = null): Uri? =
                 withContext(io) {
-                     return@withContext null
+                        val userId = requireUserId() ?: return@withContext null
+                        val resolvedPath = storagePath ?: bookStoragePath(userId, bookId)
+                        if (resolvedPath.isBlank()) return@withContext null
+
+                        val filesDir =
+                                appContext.getExternalFilesDir("books")
+                                        ?: appContext.filesDir
+                        val booksDir = File(filesDir, "downloaded")
+                        if (!booksDir.exists()) {
+                                booksDir.mkdirs()
+                        }
+
+                        val safeId =
+                                Base64.encodeToString(
+                                        bookId.toByteArray(Charsets.UTF_8),
+                                        Base64.URL_SAFE or Base64.NO_WRAP
+                                )
+                        val fileName = "book_${safeId}_${System.currentTimeMillis()}.epub"
+                        val localFile = File(booksDir, fileName)
+
+                        try {
+                            android.util.Log.d("UserSyncRepo", "Downloading file from $resolvedPath")
+                            // Use authenticated endpoint for private buckets
+                            val responseBytes = supabaseStorageRequestBytes(
+                                method = "GET",
+                                path = "object/authenticated/$storageBucket/$resolvedPath"
+                            ) ?: return@withContext null
+
+                            localFile.writeBytes(responseBytes)
+                            android.util.Log.d("UserSyncRepo", "Download success: ${localFile.length()} bytes")
+
+                        } catch (e: Exception) {
+                            android.util.Log.e("UserSyncRepo", "Download failed", e)
+                            e.printStackTrace()
+                            return@withContext null
+                        }
+
+                        if (localFile.exists() && localFile.length() > 0) {
+                                val uri =
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                                androidx.core.content.FileProvider.getUriForFile(
+                                                        appContext,
+                                                        "${appContext.packageName}.fileprovider",
+                                                        localFile
+                                                )
+                                        } else {
+                                                Uri.fromFile(localFile)
+                                        }
+
+                                val cacheDir = appContext.cacheDir
+                                val cacheFile = File(cacheDir, "book_${bookId}.epub")
+                                localFile.copyTo(cacheFile, overwrite = true)
+
+                                return@withContext uri
+                        }
+                        null
                 }
+
+        private suspend fun getRemoteFileSize(bucket: String, path: String): Long {
+            // Supabase Storage doesn't have a direct HEAD for size on authenticated paths easily accessible via REST without signing?
+            // We can use 'list' on the parent folder.
+            // Path: users/uid/books/file.epub
+            // Parent: users/uid/books
+            // But 'list' requires POST.
+            
+            val parentPath = path.substringBeforeLast("/", "")
+            val fileName = path.substringAfterLast("/")
+            
+            if (fileName.isEmpty()) return -1L
+
+            // List objects in the parent path
+            val body = mapOf(
+                "prefix" to parentPath,
+                "search" to fileName,
+                "limit" to 1
+            )
+            
+            val response = supabaseStorageRequest(
+                method = "POST",
+                path = "object/list/$bucket",
+                body = body
+            ) ?: return -1L
+            
+            return try {
+                val listType = object : TypeToken<List<SupabaseStorageFile>>() {}.type
+                val files = gson.fromJson<List<SupabaseStorageFile>>(response, listType)
+                files.firstOrNull { it.name == fileName }?.metadata?.size ?: -1L
+            } catch (e: Exception) {
+                android.util.Log.e("UserSyncRepo", "Error parsing list response", e)
+                -1L
+            }
+        }
+
+        private fun supabaseStorageRequest(
+                method: String,
+                path: String,
+                query: Map<String, String> = emptyMap(),
+                body: Any? = null,
+                bodyBytes: ByteArray? = null,
+                contentType: String = "application/json; charset=utf-8",
+                headers: Map<String, String> = emptyMap()
+        ): String? {
+                val bytes = supabaseStorageRequestBytes(method, path, query, body, bodyBytes, contentType, headers)
+                return bytes?.toString(Charsets.UTF_8)
+        }
+
+        private fun supabaseStorageRequestBytes(
+                method: String,
+                path: String,
+                query: Map<String, String> = emptyMap(),
+                body: Any? = null,
+                bodyBytes: ByteArray? = null,
+                contentType: String = "application/json; charset=utf-8",
+                headers: Map<String, String> = emptyMap()
+        ): ByteArray? {
+                val token = accessToken() ?: return null
+                val url =
+                        "$supabaseStorageUrl/$path"
+                                .toHttpUrl()
+                                .newBuilder()
+                                .apply { query.forEach { addQueryParameter(it.key, it.value) } }
+                                .build()
+                
+                android.util.Log.d("UserSyncRepo", "Request: $method $url")
+
+                val requestBody =
+                        if (bodyBytes != null) {
+                            bodyBytes.toRequestBody(contentType.toMediaType())
+                        } else if (body != null) {
+                            gson.toJson(body).toRequestBody(contentType.toMediaType())
+                        } else {
+                            null
+                        }
+
+                val requestBuilder =
+                        Request.Builder()
+                                .url(url)
+                                .header("apikey", supabaseAnonKey)
+                                .header("Authorization", "Bearer $token")
+                                .apply { headers.forEach { header(it.key, it.value) } }
+
+                when (method.uppercase()) {
+                        "GET" -> requestBuilder.get()
+                        "POST" -> requestBuilder.post(requestBody ?: "{}".toRequestBody("application/json".toMediaType()))
+                        "DELETE" -> requestBuilder.delete()
+                        else -> error("Unsupported method: $method")
+                }
+                
+                return try {
+                    httpClient.newCall(requestBuilder.build()).execute().use { response ->
+                        if (!response.isSuccessful) {
+                             android.util.Log.e("UserSyncRepo", "Storage request failed: ${response.code} ${response.message} ${response.body?.string()}")
+                             return null
+                        }
+                        response.body?.bytes()
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("UserSyncRepo", "Storage request exception", e)
+                    e.printStackTrace()
+                    null
+                }
+        }
 
         private fun readLocalFileMeta(uri: Uri, contentResolver: android.content.ContentResolver): LocalFileMeta? {
                 val digest = MessageDigest.getInstance("SHA-256")
@@ -1376,6 +1553,17 @@ data class SupabaseAiProfile(
         val enableGoogleSearch: Boolean? = null,
         val createdAt: String? = null,
         val updatedAt: String? = null
+)
+
+data class SupabaseStorageFile(
+    val name: String,
+    val id: String? = null,
+    val metadata: SupabaseStorageMetadata? = null
+)
+
+data class SupabaseStorageMetadata(
+    val size: Long = 0,
+    val mimetype: String? = null
 )
 
 private object SyncCrypto {

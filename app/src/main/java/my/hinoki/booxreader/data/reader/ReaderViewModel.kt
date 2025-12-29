@@ -150,8 +150,8 @@ class ReaderViewModel(
                                 contentResolver = contentResolver
                         )
                     }
-                    result.onFailure { e -> }
-                    result.onSuccess {}
+                    result.onFailure { e -> android.util.Log.e("ReaderViewModel", "Failed to auto-upload book", e) }
+                    result.onSuccess { android.util.Log.d("ReaderViewModel", "Auto-upload book success") }
                 }
 
                 // Fetch cloud progress

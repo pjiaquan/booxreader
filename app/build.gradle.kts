@@ -204,8 +204,8 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.auth)
 
-    // --- Cloudflare R2 (S3) ---
-    implementation(libs.aws.sdk.s3)
+    // --- Cloudflare R2 (S3) - REMOVED, Replaced by Supabase Storage REST ---
+    // implementation(libs.aws.sdk.s3)
     implementation(libs.kotlinx.datetime)
 
     // --- JDK Desugaring ---
