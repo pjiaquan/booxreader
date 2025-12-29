@@ -391,6 +391,7 @@ class MainActivity : BaseActivity() {
                         totalSteps,
                         getString(R.string.sync_downloading_books)
                 )
+
                 val pullBooksResult = runCatching { syncRepo.pullBooks() }
                 val booksDownloadedInitial = pullBooksResult.getOrNull() ?: 0
 

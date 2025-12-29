@@ -77,6 +77,7 @@ class UserSyncRepository(
         // S3 / R2 Configuration
         private val r2Endpoint = BuildConfig.R2_ENDPOINT
         private val r2Bucket = BuildConfig.R2_BUCKET
+        /*
         private val s3Client: S3Client by lazy {
              S3Client {
                  region = "auto"
@@ -89,6 +90,7 @@ class UserSyncRepository(
                  )
              }
         }
+        */
 
         private val gson: Gson =
                 GsonBuilder()
@@ -526,59 +528,9 @@ class UserSyncRepository(
                 contentResolver: android.content.ContentResolver? = null
         ): UploadedBookInfo? =
                 withContext<UploadedBookInfo?>(io) {
-                        val uri = Uri.parse(book.fileUri)
-                        val resolver = contentResolver ?: appContext.contentResolver
-                        val localMeta =
-                                readLocalFileMeta(uri, resolver)
-                                        ?: run {
-                                                return@withContext null
-                                        }
-                        val storagePath = bookStoragePath(userId, book.bookId)
-                        if (storagePath.isBlank()) return@withContext null
-
-                        // Check if file exists and size matches to avoid redundant upload
-                        val remoteSize =
-                            runCatching {
-                                s3Client.headObject(
-                                    HeadObjectRequest {
-                                        bucket = r2Bucket
-                                        key = storagePath
-                                    }
-                                ).contentLength
-                            }.getOrNull() ?: -1L
-
-                        if (remoteSize == localMeta.size) {
-                             return@withContext UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
-                        }
-
-                        // Create a temp file to upload because S3 SDK needs a file or byte array,
-                        // and reading from content resolver stream directly to stream body is tricky without knowing exact size
-                        // (though we calculated size). But ByteStream.fromFile is safest.
-                        // Ideally we stream, but for now copy to cache.
-                        val cacheFile = File(appContext.cacheDir, "upload_${book.bookId}.tmp")
-                        try {
-                            resolver.openInputStream(uri)?.use { input ->
-                                cacheFile.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            } ?: return@withContext null
-
-                            s3Client.putObject(
-                                PutObjectRequest {
-                                    bucket = r2Bucket
-                                    key = storagePath
-                                    body = ByteStream.fromFile(cacheFile)
-                                    contentType = "application/epub+zip"
-                                }
-                            )
-
-                            UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            null
-                        } finally {
-                            cacheFile.delete()
-                        }
+                        // Direct upload disabled for security.
+                        // Ideally, use Presigned URLs via Supabase Edge Functions.
+                        return@withContext null
                 }
 
         private fun bookStoragePath(userId: String, bookId: String): String {
@@ -593,74 +545,13 @@ class UserSyncRepository(
         }
 
         private suspend fun deleteBookFile(userId: String, bookId: String) {
-                val storagePath = bookStoragePath(userId, bookId)
-                if (storagePath.isBlank()) return
-                runCatching {
-                    s3Client.deleteObject(
-                        DeleteObjectRequest {
-                            bucket = r2Bucket
-                            key = storagePath
-                        }
-                    )
-                }
+               // Direct delete disabled
         }
 
         /** Download EPUB file from Cloudflare R2 (S3) to local storage */
         suspend fun downloadBookFile(bookId: String, storagePath: String? = null): Uri? =
                 withContext(io) {
-                        val userId = requireUserId() ?: return@withContext null
-                        val resolvedPath = storagePath ?: bookStoragePath(userId, bookId)
-                        if (resolvedPath.isBlank()) return@withContext null
-
-                        val filesDir =
-                                appContext.getExternalFilesDir("books")
-                                        ?: appContext.filesDir
-                        val booksDir = File(filesDir, "downloaded")
-                        if (!booksDir.exists()) {
-                                booksDir.mkdirs()
-                        }
-
-                        val safeId =
-                                Base64.encodeToString(
-                                        bookId.toByteArray(Charsets.UTF_8),
-                                        Base64.URL_SAFE or Base64.NO_WRAP
-                                )
-                        val fileName = "book_${safeId}_${System.currentTimeMillis()}.epub"
-                        val localFile = File(booksDir, fileName)
-
-                        try {
-                            s3Client.getObject(
-                                GetObjectRequest {
-                                    bucket = r2Bucket
-                                    key = resolvedPath
-                                }
-                            ) { response ->
-                                response.body?.writeToFile(localFile)
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            return@withContext null
-                        }
-
-                        if (localFile.exists() && localFile.length() > 0) {
-                                val uri =
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                                androidx.core.content.FileProvider.getUriForFile(
-                                                        appContext,
-                                                        "${appContext.packageName}.fileprovider",
-                                                        localFile
-                                                )
-                                        } else {
-                                                Uri.fromFile(localFile)
-                                        }
-
-                                val cacheDir = appContext.cacheDir
-                                val cacheFile = File(cacheDir, "book_${bookId}.epub")
-                                localFile.copyTo(cacheFile, overwrite = true)
-
-                                return@withContext uri
-                        }
-                        null
+                     return@withContext null
                 }
 
         private fun readLocalFileMeta(uri: Uri, contentResolver: android.content.ContentResolver): LocalFileMeta? {

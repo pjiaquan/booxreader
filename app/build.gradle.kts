@@ -95,15 +95,16 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 130
-        versionName = "1.1.129"
+        versionCode = 131
+        versionName = "1.1.130"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
         buildConfigField("String", "R2_ENDPOINT", "\"$r2Endpoint\"")
         buildConfigField("String", "R2_BUCKET", "\"$r2Bucket\"")
-        buildConfigField("String", "R2_ACCESS_KEY", "\"$r2AccessKey\"")
-        buildConfigField("String", "R2_SECRET_KEY", "\"$r2SecretKey\"")
+        // Keys removed for security
+        buildConfigField("String", "R2_ACCESS_KEY", "\"\"")
+        buildConfigField("String", "R2_SECRET_KEY", "\"\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
