@@ -812,6 +812,32 @@ class ReaderActivity : BaseActivity() {
         etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
         cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
 
+        switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
+            val updatedSettings =
+                    readerSettings.copy(
+                            convertToTraditionalChinese = isChecked,
+                            updatedAt = System.currentTimeMillis()
+                    )
+            updatedSettings.saveTo(prefs)
+            nativeNavigatorFragment?.setChineseConversionEnabled(isChecked)
+
+            val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+            if (isChecked) {
+                val probe = my.hinoki.booxreader.data.util.ChineseConverter
+                        .toTraditional("简体中文")
+                        .toString()
+                if (probe == "简体中文") {
+                    Toast.makeText(
+                            this,
+                            "簡體轉繁體字庫載入失敗，可能無法轉換",
+                            Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
         val seekBarTextSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seekBarTextSize)
         val tvTextSizeValue = dialogView.findViewById<android.widget.TextView>(R.id.tvTextSizeValue)
 
