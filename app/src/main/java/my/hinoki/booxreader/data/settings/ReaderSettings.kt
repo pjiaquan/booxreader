@@ -22,7 +22,7 @@ data class ReaderSettings(
          * purposefully excluded from cloud sync in UserSyncRepository.kt to allow different sizes
          * on different devices.
          */
-        val textSize: Int = 140,
+        val textSize: Int = 96,
         val contrastMode: Int = ContrastMode.NORMAL.ordinal,
         val convertToTraditionalChinese: Boolean = false,
         val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
@@ -317,7 +317,7 @@ data class ReaderSettings(
               // 字體粗細使用預設值，不在此處讀取
               pageTapEnabled = prefs.getBoolean("page_tap_enabled", true),
               pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
-              textSize = prefs.getInt("text_size", 140),
+              textSize = prefs.getInt("text_size", 96),
               contrastMode = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal),
               convertToTraditionalChinese = prefs.getBoolean("convert_to_traditional_chinese", false),
               serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
