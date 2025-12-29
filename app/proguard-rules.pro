@@ -86,6 +86,10 @@
 -keep class org.readium.** { *; }
 -dontwarn org.readium.**
 
+# OpenCC4j - Chinese Conversion
+-keep class com.github.houbb.opencc4j.** { *; }
+-dontwarn com.github.houbb.opencc4j.**
+
 # OkHttp
 -dontwarn okhttp3.**
 -dontwarn okio.**
