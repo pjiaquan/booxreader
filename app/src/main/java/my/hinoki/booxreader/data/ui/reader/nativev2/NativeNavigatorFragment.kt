@@ -52,6 +52,7 @@ class NativeNavigatorFragment : Fragment() {
 
     private var pager: NativeReaderPager? = null
     private var resourceText: CharSequence = ""
+    private var convertToTraditionalChinese: Boolean = false
 
     private val _currentLocator = run {
         Log.d(TAG, "Initializing _currentLocator")
@@ -511,6 +512,7 @@ class NativeNavigatorFragment : Fragment() {
     }
 
     fun setChineseConversionEnabled(enabled: Boolean) {
+        convertToTraditionalChinese = enabled
         // Reload current resource with new conversion setting
         lifecycleScope.launch { loadCurrentResource() }
     }
@@ -568,6 +570,7 @@ class NativeNavigatorFragment : Fragment() {
                                         android.content.Context.MODE_PRIVATE
                                 )
                 )
+        convertToTraditionalChinese = settings.convertToTraditionalChinese
 
         resourceText =
                 withContext(Dispatchers.IO) {
@@ -577,9 +580,7 @@ class NativeNavigatorFragment : Fragment() {
                     var parsed = HtmlContentParser.parseHtml(html, textColor)
 
                     // Apply Chinese conversion if enabled
-                    if (settings.convertToTraditionalChinese) {
-                        parsed = ChineseConverter.toTraditional(parsed)
-                    }
+                    parsed = applyChineseConversion(parsed)
 
                     parsed
                 }
@@ -635,9 +636,14 @@ class NativeNavigatorFragment : Fragment() {
         }
 
         val text = p.getPageText(currentPageInResource)
-        binding.nativeReaderView.setContent(text)
+        binding.nativeReaderView.setContent(applyChineseConversion(text))
         updatePageIndicator()
         updateLocator()
+    }
+
+    private fun applyChineseConversion(text: CharSequence): CharSequence {
+        if (!convertToTraditionalChinese || text.isEmpty()) return text
+        return ChineseConverter.toTraditional(text)
     }
 
     private fun updateLocator() {
@@ -753,7 +759,7 @@ class NativeNavigatorFragment : Fragment() {
 
         if (sameResource && nextText != null) {
             // Simple slide animation within same resource
-            binding.nativeReaderViewSecondary.setContent(nextText)
+            binding.nativeReaderViewSecondary.setContent(applyChineseConversion(nextText))
             binding.nativeReaderViewSecondary.visibility = View.VISIBLE
             binding.nativeReaderViewSecondary.translationX = binding.root.width.toFloat()
 
@@ -794,7 +800,7 @@ class NativeNavigatorFragment : Fragment() {
         if (sameResource && currentPageInResource > 0) {
             // Simple slide animation within same resource
             val prevText = p.getPageText(currentPageInResource - 1)
-            binding.nativeReaderViewSecondary.setContent(prevText)
+            binding.nativeReaderViewSecondary.setContent(applyChineseConversion(prevText))
             binding.nativeReaderViewSecondary.visibility = View.VISIBLE
             binding.nativeReaderViewSecondary.translationX = -binding.root.width.toFloat()
 
