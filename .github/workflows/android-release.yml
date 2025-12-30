@@ -44,24 +44,12 @@ jobs:
           echo "apk_signed=dist/${APP_NAME}-${VERSION_NAME}-release.apk" >> $GITHUB_OUTPUT
           echo "aab_path=dist/${APP_NAME}-${VERSION_NAME}-release.aab" >> $GITHUB_OUTPUT
 
-      - name: Decode signing keystore (optional)
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          mkdir -p dist
-          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > dist/release.keystore
-            echo "Keystore decoded."
-          else
-            echo "No ANDROID_KEYSTORE_BASE64 provided; skipping keystore decode."
-          fi
-
       - name: Build release APK & AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
-          STORE_FILE: dist/release.keystore
+          STORE_FILE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           HTTP_PROXY:
           HTTPS_PROXY:
           NO_PROXY: repo.maven.apache.org,plugins.gradle.org,*.gradle.org
@@ -173,8 +161,3 @@ jobs:
           options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
         env:
           SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          # Pass keystore env vars in case fastlane needs to rebuild
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
-          STORE_FILE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
