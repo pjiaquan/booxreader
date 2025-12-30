@@ -323,15 +323,17 @@ data class ReaderSettings(
             """.trimIndent()
 
       val magicTagsJson = prefs.getString("magic_tags", null)
+      val hasMagicTagsKey = prefs.contains("magic_tags")
       val magicTags = if (magicTagsJson != null) {
           try {
               val type = object : TypeToken<List<MagicTag>>() {}.type
-              Gson().fromJson<List<MagicTag>>(magicTagsJson, type) ?: defaultMagicTags
+              Gson().fromJson<List<MagicTag>>(magicTagsJson, type)
+                  ?: if (hasMagicTagsKey) emptyList() else defaultMagicTags
           } catch (e: Exception) {
-              defaultMagicTags
+              if (hasMagicTagsKey) emptyList() else defaultMagicTags
           }
       } else {
-          defaultMagicTags
+          if (hasMagicTagsKey) emptyList() else defaultMagicTags
       }
 
       return ReaderSettings(

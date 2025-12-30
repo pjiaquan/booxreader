@@ -1791,10 +1791,21 @@ data class SupabaseReaderSettings(
         val useStreaming: Boolean = false,
         val pageAnimationEnabled: Boolean = false,
         val showPageIndicator: Boolean = true,
+        @SerializedName("magic_tags")
+        val magicTagsJson: String? = null,
         val updatedAt: Long = 0L,
         val activeProfileId: String? = null
 ) {
         fun toLocal(local: ReaderSettings, localProfileId: Long): ReaderSettings {
+                val resolvedMagicTags =
+                        magicTagsJson?.let { raw ->
+                                try {
+                                        val type = object : TypeToken<List<my.hinoki.booxreader.data.settings.MagicTag>>() {}.type
+                                        Gson().fromJson<List<my.hinoki.booxreader.data.settings.MagicTag>>(raw, type)
+                                } catch (e: Exception) {
+                                        local.magicTags
+                                }
+                        } ?: local.magicTags
                 return local.copy(
                         pageTapEnabled = pageTapEnabled,
                         pageSwipeEnabled = pageSwipeEnabled,
@@ -1815,6 +1826,7 @@ data class SupabaseReaderSettings(
                         pageAnimationEnabled = pageAnimationEnabled,
                         showPageIndicator = showPageIndicator,
                         language = language,
+                        magicTags = resolvedMagicTags,
                         updatedAt = updatedAt,
                         activeProfileId = localProfileId
                 )
@@ -1845,6 +1857,7 @@ data class SupabaseReaderSettings(
                                 useStreaming = local.useStreaming,
                                 pageAnimationEnabled = local.pageAnimationEnabled,
                                 showPageIndicator = local.showPageIndicator,
+                                magicTagsJson = Gson().toJson(local.magicTags),
                                 updatedAt = local.updatedAt,
                                 activeProfileId = remoteProfileId
                         )
