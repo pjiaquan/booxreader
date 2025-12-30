@@ -561,7 +561,7 @@ class UserSyncRepository(
                 if (storagePath.isBlank()) return
                 supabaseStorageRequest(
                     method = "DELETE",
-                    path = "object/$storageBucket/$storagePath"
+                    path = "object/authenticated/$storageBucket/$storagePath"
                 )
         }
 
