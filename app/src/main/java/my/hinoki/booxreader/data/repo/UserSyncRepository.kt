@@ -9,6 +9,7 @@ import com.google.gson.FieldNamingPolicy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
+import com.google.gson.JsonPrimitive
 import com.google.gson.annotations.SerializedName
 import com.google.gson.reflect.TypeToken
 import java.io.File
@@ -1878,7 +1879,7 @@ data class SupabaseReaderSettings(
                                 useStreaming = local.useStreaming,
                                 pageAnimationEnabled = local.pageAnimationEnabled,
                                 showPageIndicator = local.showPageIndicator,
-                                magicTagsPayload = Gson().toJsonTree(local.magicTags),
+                                magicTagsPayload = JsonPrimitive(Gson().toJson(local.magicTags)),
                                 updatedAt = local.updatedAt,
                                 activeProfileId = remoteProfileId
                         )
