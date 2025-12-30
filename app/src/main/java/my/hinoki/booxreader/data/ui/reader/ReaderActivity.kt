@@ -827,8 +827,9 @@ class ReaderActivity : BaseActivity() {
         cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
 
         switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
+            val currentSettings = ReaderSettings.fromPrefs(prefs)
             val updatedSettings =
-                    readerSettings.copy(
+                    currentSettings.copy(
                             convertToTraditionalChinese = isChecked,
                             updatedAt = System.currentTimeMillis()
                     )
@@ -933,6 +934,7 @@ class ReaderActivity : BaseActivity() {
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+                val currentSettings = ReaderSettings.fromPrefs(prefs)
                 val newUrlRaw = etServerUrl.text.toString().trim()
                 val newApiKey = etApiKey.text.toString().trim()
                 val newPageTap = switchPageTap.isChecked
@@ -947,7 +949,7 @@ class ReaderActivity : BaseActivity() {
 
                 val normalizedBaseUrl =
                         if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw)
-                        else readerSettings.serverBaseUrl
+                        else currentSettings.serverBaseUrl
                 val normalizedCustomUrl =
                         if (useCustomExport && customExportUrlRaw.isNotEmpty())
                                 normalizeUrl(customExportUrlRaw)
@@ -966,11 +968,12 @@ class ReaderActivity : BaseActivity() {
                 }
 
                 // Check if Chinese conversion setting changed
-                val conversionChanged = newConvertChinese != readerSettings.convertToTraditionalChinese
+                val conversionChanged =
+                        newConvertChinese != currentSettings.convertToTraditionalChinese
 
                 // Update settings object
                 val updatedSettings =
-                        readerSettings.copy(
+                        currentSettings.copy(
                                 serverBaseUrl = normalizedBaseUrl,
                                 apiKey = newApiKey,
                                 pageTapEnabled = newPageTap,
@@ -994,7 +997,7 @@ class ReaderActivity : BaseActivity() {
                 updatedSettings.saveTo(prefs)
 
                 // Restart if language changed
-                if (updatedSettings.language != readerSettings.language) {
+                if (updatedSettings.language != currentSettings.language) {
                     val intent =
                             Intent(
                                     applicationContext,
@@ -1022,10 +1025,10 @@ class ReaderActivity : BaseActivity() {
                     Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                 }
 
-                if (normalizedBaseUrl != readerSettings.serverBaseUrl) {
+                if (normalizedBaseUrl != currentSettings.serverBaseUrl) {
                     Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
                 }
-                if (newApiKey != readerSettings.apiKey) {
+                if (newApiKey != currentSettings.apiKey) {
                     Toast.makeText(this, "API Key updated", Toast.LENGTH_SHORT).show()
                 }
 
