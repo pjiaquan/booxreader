@@ -112,6 +112,7 @@ class AiNoteDetailActivity : BaseActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         applyActionBarPadding(binding.scrollView)
         applyThemeFromSettings()
+        settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
 
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
@@ -188,20 +189,15 @@ class AiNoteDetailActivity : BaseActivity() {
         setupScrollListener()
     }
 
-    override fun onStart() {
-        super.onStart()
-        settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
-    }
-
     override fun onResume() {
         super.onResume()
         applyThemeFromSettings()
         setupMagicTags()
     }
 
-    override fun onStop() {
+    override fun onDestroy() {
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
-        super.onStop()
+        super.onDestroy()
     }
 
     private fun applyThemeFromSettings() {
