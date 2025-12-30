@@ -1922,7 +1922,7 @@ data class SupabaseReaderSettings(
                                 useStreaming = local.useStreaming,
                                 pageAnimationEnabled = local.pageAnimationEnabled,
                                 showPageIndicator = local.showPageIndicator,
-                                magicTagsPayload = JsonPrimitive(Gson().toJson(local.magicTags)),
+                                magicTagsPayload = Gson().toJsonTree(local.magicTags),
                                 updatedAt = local.updatedAt,
                                 activeProfileId = remoteProfileId
                         )
