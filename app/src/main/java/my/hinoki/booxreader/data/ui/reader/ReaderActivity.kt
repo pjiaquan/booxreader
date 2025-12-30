@@ -1262,6 +1262,7 @@ class ReaderActivity : BaseActivity() {
         dialog.setOnShowListener {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
                     ?.setOnClickListener {
+                        Log.d("MagicTags", "Save clicked; rows=${rows.size}")
                         val seen = mutableSetOf<String>()
                         val updatedTags =
                                 rows.mapIndexedNotNull { index, row ->
@@ -1270,6 +1271,7 @@ class ReaderActivity : BaseActivity() {
                                             row.contentInput.text.toString().trim().ifBlank { title }
                                     if (title.isBlank()) {
                                         if (content.isNotBlank()) {
+                                            Log.w("MagicTags", "Validation failed: empty name with content")
                                             Toast.makeText(
                                                             this,
                                                             getString(
@@ -1283,6 +1285,7 @@ class ReaderActivity : BaseActivity() {
                                         return@mapIndexedNotNull null
                                     }
                                     if (!seen.add(title)) {
+                                        Log.w("MagicTags", "Validation failed: duplicate name=$title")
                                         Toast.makeText(
                                                         this,
                                                         getString(
@@ -1303,27 +1306,30 @@ class ReaderActivity : BaseActivity() {
                                             description = content
                                     )
                                 }
-                    val updatedSettings =
-                            settings.copy(
-                                    magicTags = updatedTags,
-                                    updatedAt = System.currentTimeMillis()
-                            )
-                    updatedSettings.saveTo(prefs)
-                    val magicTagsJson = Gson().toJson(updatedTags)
-                    prefs.edit()
-                            .putString("magic_tags", magicTagsJson)
-                            .putLong("settings_updated_at", updatedSettings.updatedAt)
-                            .apply()
-                    val persisted = ReaderSettings.fromPrefs(prefs).magicTags
-                    val persistedSignature =
-                            persisted.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
-                    val updatedSignature =
-                            updatedTags.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
-                    if (persistedSignature != updatedSignature) {
-                        Toast.makeText(
-                                        this,
-                                        getString(R.string.magic_tag_save_failed),
-                                        Toast.LENGTH_LONG
+                        val updatedSettings =
+                                settings.copy(
+                                        magicTags = updatedTags,
+                                        updatedAt = System.currentTimeMillis()
+                                )
+                        Log.d("MagicTags", "Persisting tags count=${updatedTags.size}")
+                        updatedSettings.saveTo(prefs)
+                        val magicTagsJson = Gson().toJson(updatedTags)
+                        prefs.edit()
+                                .putString("magic_tags", magicTagsJson)
+                                .putLong("settings_updated_at", updatedSettings.updatedAt)
+                                .apply()
+                        val persisted = ReaderSettings.fromPrefs(prefs).magicTags
+                        val persistedSignature =
+                                persisted.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
+                        val updatedSignature =
+                                updatedTags.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
+                        Log.d("MagicTags", "Persisted signature len=${persistedSignature.length}")
+                        if (persistedSignature != updatedSignature) {
+                            Log.e("MagicTags", "Persist failed: signature mismatch")
+                            Toast.makeText(
+                                            this,
+                                            getString(R.string.magic_tag_save_failed),
+                                            Toast.LENGTH_LONG
                         )
                                 .show()
                         return@setOnClickListener

@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.util.Base64
+import android.util.Log
 import com.google.gson.FieldNamingPolicy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -162,6 +163,7 @@ class UserSyncRepository(
 
         suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromPrefs(prefs)) {
                 val userId = requireUserId() ?: return
+                Log.d("UserSyncRepository", "pushSettings start userId=$userId updatedAt=${settings.updatedAt} magicTags=${settings.magicTags.size}")
 
                 // Map local long ID to remote string ID
                 var remoteProfileId: String? = null
@@ -183,6 +185,7 @@ class UserSyncRepository(
                                         body = payload,
                                         prefer = "resolution=merge-duplicates,return=representation"
                                 )
+                        Log.d("UserSyncRepository", "pushSettings response=${response?.take(200) ?: "null"}")
                         response?.takeIf { it.isNotBlank() }?.let { body ->
                                 val listType =
                                         object : TypeToken<List<SupabaseReaderSettings>>() {}.type
