@@ -402,6 +402,17 @@ class MainActivity : BaseActivity() {
                         totalSteps,
                         getString(R.string.sync_uploading_local_books)
                 )
+                val bucketCheck = syncRepo.ensureStorageBucketReady()
+                if (!bucketCheck.ok) {
+                    binding.tvSyncStatus.text = getString(R.string.sync_failed)
+                    binding.tvSyncDetails.text =
+                            getString(
+                                    R.string.sync_storage_bucket_missing,
+                                    bucketCheck.message ?: ""
+                            )
+                    binding.tvSyncProgress.text = "Error"
+                    return@launch
+                }
                 val uploadResult = runCatching { uploadLocalBooks() }
                 val booksUploaded = uploadResult.getOrNull() ?: 0
 
