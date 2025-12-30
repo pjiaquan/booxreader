@@ -891,7 +891,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     callback?.invoke(directionToSend)
                 }
         edgeHoldRunnable = runnable
-        postDelayed(runnable, 2000L)
+        postDelayed(runnable, 1500L)
     }
 
     private fun cancelEdgeHold() {
