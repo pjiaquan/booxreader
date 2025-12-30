@@ -26,6 +26,7 @@
     <string name="ai_profile_sync_failed">Sync failed: %1$s</string>
     <string name="ai_profile_import_success">Profile \'%1$s\' imported and synced successfully</string>
     <string name="ai_profile_import_failed">Import Failed: %1$s</string>
+    <string name="ai_profile_loading">Loading profiles...</string>
     <string name="ai_profile_apply_title">Apply Profile</string>
     <string name="ai_profile_apply_message">Apply settings from \'%1$s\'?</string>
     <string name="ai_profile_apply_positive">Apply</string>

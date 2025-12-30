@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,6 +48,7 @@ class AiProfileListActivity : BaseActivity() {
         val syncRepo = UserSyncRepository(applicationContext)
         repository = AiProfileRepository(applicationContext, syncRepo)
 
+        setLoading(true)
         setupUI()
         observeData()
     }
@@ -65,8 +67,13 @@ class AiProfileListActivity : BaseActivity() {
         super.onResume()
         updateActiveProfileId()
         lifecycleScope.launch {
-            repository.sync()
-            updateActiveProfileId()
+            setLoading(true)
+            try {
+                repository.sync()
+            } finally {
+                updateActiveProfileId()
+                setLoading(false)
+            }
         }
     }
 
@@ -95,6 +102,14 @@ class AiProfileListActivity : BaseActivity() {
         }
     }
 
+    private fun setLoading(loading: Boolean) {
+        binding.loadingOverlay.visibility = if (loading) View.VISIBLE else View.GONE
+        binding.recyclerView.visibility = if (loading) View.INVISIBLE else View.VISIBLE
+        binding.btnSync.isEnabled = !loading
+        binding.btnImport.isEnabled = !loading
+        binding.btnCreate.isEnabled = !loading
+    }
+
     private fun observeData() {
         repository.allProfiles.observe(this) { profiles ->
             adapter.submitList(profiles)
@@ -103,6 +118,7 @@ class AiProfileListActivity : BaseActivity() {
 
     private fun syncProfiles() {
         lifecycleScope.launch {
+            setLoading(true)
             try {
                 val count = repository.sync()
                 if (count > 0) {
@@ -125,6 +141,8 @@ class AiProfileListActivity : BaseActivity() {
                     Toast.LENGTH_LONG
                 ).show()
                 e.printStackTrace()
+            } finally {
+                setLoading(false)
             }
         }
     }
