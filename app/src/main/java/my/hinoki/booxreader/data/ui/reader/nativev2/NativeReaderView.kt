@@ -135,6 +135,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     fun setOnPageEdgeHoldListener(listener: (Int) -> Unit) {
+        Log.d(TAG, "setOnPageEdgeHoldListener")
         this.onPageEdgeHoldListener = listener
     }
 
@@ -901,6 +902,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         return@Runnable
                     }
                     val callback = onPageEdgeHoldListener
+                    if (callback == null) {
+                        Log.d(TAG, "edgeHold callback null")
+                    }
                     cancelEdgeHold()
                     callback?.invoke(edgeHoldDirection)
                 }
