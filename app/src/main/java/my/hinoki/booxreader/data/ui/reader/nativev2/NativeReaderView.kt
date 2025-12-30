@@ -6,7 +6,6 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
-import android.util.Log
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -22,9 +21,6 @@ class NativeReaderView
 @JvmOverloads
 constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
         View(context, attrs, defStyleAttr) {
-    companion object {
-        private const val TAG = "NativeReaderView"
-    }
 
     private val textPaint =
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -90,8 +86,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var edgeHoldRunnable: Runnable? = null
     private var edgeHoldDirection: Int = 0
     private var edgeHoldActiveHandle: Int = 0
-    private var lastLoggedSelectionStart: Int = -1
-    private var lastLoggedSelectionEnd: Int = -1
 
     data class SelectionRange(val start: Int, val end: Int)
 
@@ -212,14 +206,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                                 val boundaries = getWordBoundaries(localOffset)
                                 selectionStart = pageStartOffset + boundaries.first
                                 selectionEnd = pageStartOffset + boundaries.second
-                                Log.d(
-                                        TAG,
-                                        "onLongPress local=$localOffset pageStart=$pageStartOffset " +
-                                                "sel=[$selectionStart,$selectionEnd) " +
-                                                "bounds=${boundaries.first}..${boundaries.second} " +
-                                                "contentLen=${content.length}"
-                                )
-
                                 activeHandle = 2 // Default to end handle for extension
                                 isSelecting = true
                                 isMagnifying = true
@@ -420,21 +406,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
             val startLine = l.getLineForOffset(start)
             val endLine = l.getLineForOffset(end)
-            if (selectionStart != lastLoggedSelectionStart ||
-                    selectionEnd != lastLoggedSelectionEnd) {
-                lastLoggedSelectionStart = selectionStart
-                lastLoggedSelectionEnd = selectionEnd
-                val lineStart = l.getLineStart(startLine)
-                val lineEnd = l.getLineEnd(endLine)
-                Log.d(
-                        TAG,
-                        "drawSelection global=[$selectionStart,$selectionEnd) " +
-                                "page=[$pageStartOffset,$pageEndOffset) " +
-                                "local=[$start,$end) " +
-                                "lines=$startLine..$endLine lineRange=[$lineStart,$lineEnd)"
-                )
-            }
-
             selectionPath.reset()
             for (line in startLine..endLine) {
                 val lineStart = if (line == startLine) start else l.getLineStart(line)
@@ -661,10 +632,12 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
                         // Force minimum 1 character selection
                         if (selectionStart == selectionEnd) {
+                            val pageMin = pageStartOffset
+                            val pageMax = pageStartOffset + content.length
                             if (activeHandle == 1) {
-                                selectionStart = (selectionEnd - 1).coerceAtLeast(0)
+                                selectionStart = (selectionEnd - 1).coerceAtLeast(pageMin)
                             } else {
-                                selectionEnd = (selectionStart + 1).coerceAtMost(content.length)
+                                selectionEnd = (selectionStart + 1).coerceAtMost(pageMax)
                             }
                         }
 
@@ -692,7 +665,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     // Final safety check for 1-char
                     if (s == e) {
                         selectionStart = s
-                        selectionEnd = (s + 1).coerceAtMost(content.length)
+                        selectionEnd = (s + 1).coerceAtMost(pageStartOffset + content.length)
                     } else {
                         selectionStart = s
                         selectionEnd = e
