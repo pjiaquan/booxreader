@@ -136,6 +136,9 @@
     <string name="sync_start_toast">Starting data sync...</string>
     <string name="sync_books_toast">Synced books</string>
     <string name="sync_storage_bucket_missing">Storage sync failed: %1$s</string>
+    <string name="sync_storage_test_start">Running storage self-test...</string>
+    <string name="sync_storage_test_passed">Storage self-test passed</string>
+    <string name="sync_storage_test_failed">Storage self-test failed</string>
     <string name="sync_delete_book_title">Delete Book</string>
     <string name="sync_delete_book_message">Are you sure you want to delete "%1$s" from recent?</string>
     <string name="sync_delete_action">Delete</string>

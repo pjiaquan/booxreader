@@ -87,6 +87,10 @@ class MainActivity : BaseActivity() {
         }
 
         binding.btnSync.setOnClickListener { startManualSync() }
+        binding.btnSync.setOnLongClickListener {
+            runStorageSelfTest()
+            true
+        }
 
         binding.recyclerRecent.layoutManager = LinearLayoutManager(this)
         binding.recyclerRecent.adapter = recentAdapter
@@ -516,6 +520,31 @@ class MainActivity : BaseActivity() {
             } catch (e: Exception) {
                 binding.tvSyncStatus.text = getString(R.string.sync_failed)
                 binding.tvSyncDetails.text = getString(R.string.sync_failed) + ": ${e.message}"
+                binding.tvSyncProgress.text = "Error"
+            }
+        }
+    }
+
+    private fun runStorageSelfTest() {
+        binding.cardSyncStatus.visibility = android.view.View.VISIBLE
+        binding.tvSyncStatus.text = getString(R.string.sync_storage_test_start)
+        binding.progressSync.visibility = android.view.View.VISIBLE
+        binding.tvSyncProgress.visibility = android.view.View.VISIBLE
+        binding.tvSyncDetails.visibility = android.view.View.VISIBLE
+        binding.progressSync.progress = 0
+        binding.tvSyncProgress.text = "0%"
+        binding.tvSyncDetails.text = getString(R.string.sync_storage_test_start)
+
+        lifecycleScope.launch {
+            val result = syncRepo.runStorageSelfTest()
+            if (result.ok) {
+                binding.tvSyncStatus.text = getString(R.string.sync_storage_test_passed)
+                binding.tvSyncDetails.text = result.message
+                binding.tvSyncProgress.text = "100%"
+                binding.progressSync.progress = 100
+            } else {
+                binding.tvSyncStatus.text = getString(R.string.sync_storage_test_failed)
+                binding.tvSyncDetails.text = result.message
                 binding.tvSyncProgress.text = "Error"
             }
         }

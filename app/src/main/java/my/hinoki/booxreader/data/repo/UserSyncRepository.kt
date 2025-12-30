@@ -526,7 +526,7 @@ class UserSyncRepository(
                                 android.util.Log.d("UserSyncRepo", "Starting upload to $storagePath, size=${bytes.size}")
                                 val response = supabaseStorageRequest(
                                     method = "POST",
-                                    path = "object/authenticated/$storageBucket/$storagePath",
+                                    path = "object/$storageBucket/$storagePath",
                                     bodyBytes = bytes,
                                     contentType = "application/epub+zip",
                                     headers = mapOf("x-upsert" to "true")
@@ -561,7 +561,7 @@ class UserSyncRepository(
                 if (storagePath.isBlank()) return
                 supabaseStorageRequest(
                     method = "DELETE",
-                    path = "object/authenticated/$storageBucket/$storagePath"
+                    path = "object/$storageBucket/$storagePath"
                 )
         }
 
@@ -593,7 +593,7 @@ class UserSyncRepository(
                             // Use authenticated endpoint for private buckets
                             val responseBytes = supabaseStorageRequestBytes(
                                 method = "GET",
-                                path = "object/authenticated/$storageBucket/$resolvedPath"
+                                path = "object/$storageBucket/$resolvedPath"
                             ) ?: return@withContext null
 
                             localFile.writeBytes(responseBytes)
@@ -1324,6 +1324,65 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                         }
                 }
 
+        suspend fun runStorageSelfTest(): StorageSelfTestResult =
+                withContext(io) {
+                        val userId = requireUserId()
+                                ?: return@withContext StorageSelfTestResult(
+                                        ok = false,
+                                        message = "Missing user session."
+                                )
+                        val testId = "storage_test_${System.currentTimeMillis()}.txt"
+                        val storagePath = "users/$userId/tests/$testId"
+                        val payload =
+                                "booxreader-storage-test-${System.currentTimeMillis()}"
+                                        .toByteArray(Charsets.UTF_8)
+
+                        val upload =
+                                supabaseStorageRequest(
+                                        method = "POST",
+                                        path = "object/$storageBucket/$storagePath",
+                                        bodyBytes = payload,
+                                        contentType = "text/plain",
+                                        headers = mapOf("x-upsert" to "true")
+                                )
+                        if (upload == null) {
+                                return@withContext StorageSelfTestResult(
+                                        ok = false,
+                                        message = "Upload failed."
+                                )
+                        }
+
+                        val downloaded =
+                                supabaseStorageRequestBytes(
+                                        method = "GET",
+                                        path = "object/$storageBucket/$storagePath"
+                                )
+                                        ?: return@withContext StorageSelfTestResult(
+                                                ok = false,
+                                                message = "Download failed."
+                                        )
+                        if (!downloaded.contentEquals(payload)) {
+                                return@withContext StorageSelfTestResult(
+                                        ok = false,
+                                        message = "Downloaded data mismatch."
+                                )
+                        }
+
+                        val deleted =
+                                supabaseStorageRequestBytes(
+                                        method = "DELETE",
+                                        path = "object/$storageBucket/$storagePath"
+                                )
+                        if (deleted == null) {
+                                return@withContext StorageSelfTestResult(
+                                        ok = false,
+                                        message = "Delete failed."
+                                )
+                        }
+
+                        StorageSelfTestResult(ok = true, message = "Storage test passed.")
+                }
+
         private suspend fun requireUserId(): String? =
                 withContext(io) {
                         val cached = cachedUserId
@@ -1626,6 +1685,11 @@ data class SupabaseStorageMetadata(
 data class StorageBucketCheckResult(
         val ok: Boolean,
         val message: String? = null
+)
+
+data class StorageSelfTestResult(
+        val ok: Boolean,
+        val message: String
 )
 
 private object SyncCrypto {
