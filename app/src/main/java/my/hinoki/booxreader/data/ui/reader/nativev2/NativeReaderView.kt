@@ -643,7 +643,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
                         invalidate()
                         postInvalidateOnAnimation()
-                        maybeArmEdgeHold(localOffset)
+                        maybeArmEdgeHold()
                     } else {
                         cancelEdgeHold()
                     }
@@ -847,7 +847,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         return activeGlobal?.let { toLocalOffset(it) }
     }
 
-    private fun maybeArmEdgeHold(localOffset: Int) {
+    private fun maybeArmEdgeHold() {
+        val localOffset =
+                if (activeHandle == 1) toLocalOffset(selectionStart)
+                else if (activeHandle == 2) toLocalOffset(selectionEnd) else null
+        if (localOffset == null) {
+            cancelEdgeHold()
+            return
+        }
         val direction = getEdgeDirection(localOffset)
         if (direction == 0) {
             cancelEdgeHold()
@@ -867,11 +874,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         edgeHoldActiveHandle = activeHandle
         val runnable =
                 Runnable {
-                    val local = getLocalOffsetForPosition(lastTouchX, lastTouchY)
+                    val localNow =
+                            if (edgeHoldActiveHandle == 1) toLocalOffset(selectionStart)
+                            else if (edgeHoldActiveHandle == 2) toLocalOffset(selectionEnd) else null
                     if (!isSelecting ||
-                            local == -1 ||
+                            localNow == null ||
                             activeHandle != edgeHoldActiveHandle ||
-                            !isAtEdge(local, edgeHoldDirection)) {
+                            !isAtEdge(localNow, edgeHoldDirection)) {
                         cancelEdgeHold()
                         return@Runnable
                     }
