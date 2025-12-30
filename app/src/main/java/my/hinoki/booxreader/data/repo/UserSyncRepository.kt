@@ -190,6 +190,11 @@ class UserSyncRepository(
                                         gson.fromJson<List<SupabaseReaderSettings>>(body, listType)
                                                 .firstOrNull()
                                                 ?: return@withContext
+                                val localMagicTagsJson = gson.toJson(payload.magicTagsPayload)
+                                val remoteMagicTagsJson = gson.toJson(remote.magicTagsPayload)
+                                if (remoteMagicTagsJson != localMagicTagsJson) {
+                                        return@withContext
+                                }
                                 var localProfileId = settings.activeProfileId
                                 var activeProfile: AiProfileEntity? = null
                                 if (!remote.activeProfileId.isNullOrBlank()) {
