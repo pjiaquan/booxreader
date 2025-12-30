@@ -876,6 +876,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         if (edgeHoldRunnable != null &&
                 edgeHoldDirection == direction &&
                 edgeHoldActiveHandle == activeHandle) {
+            Log.d(TAG, "edgeHold already armed")
             return
         }
         cancelEdgeHold()
@@ -886,15 +887,16 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     val localNow =
                             if (edgeHoldActiveHandle == 1) toLocalOffset(selectionStart)
                             else if (edgeHoldActiveHandle == 2) toLocalOffset(selectionEnd) else null
+                    val atEdge = localNow?.let { isAtEdge(it, edgeHoldDirection) } == true
                     Log.d(
                             TAG,
                             "edgeHold fire? selecting=$isSelecting handle=$activeHandle " +
-                                    "dir=$edgeHoldDirection localNow=$localNow"
+                                    "dir=$edgeHoldDirection localNow=$localNow atEdge=$atEdge"
                     )
                     if (!isSelecting ||
                             localNow == null ||
                             activeHandle != edgeHoldActiveHandle ||
-                            !isAtEdge(localNow, edgeHoldDirection)) {
+                            !atEdge) {
                         cancelEdgeHold()
                         return@Runnable
                     }
