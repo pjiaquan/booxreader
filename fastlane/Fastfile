@@ -20,11 +20,12 @@ platform :android do
 
   desc "Upload release bundle to Google Play Internal track"
   lane :play_internal do |options|
-    json_key = ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_JSON_KEY"] || ENV["GOOGLE_APPLICATION_CREDENTIALS"]
-    UI.user_error!("Set SUPPLY_JSON_KEY (or GOOGLE_PLAY_JSON_KEY / GOOGLE_APPLICATION_CREDENTIALS) to your Play service account JSON") if json_key.to_s.empty?
+    # Support both inline JSON and file path
+    json_key = ENV["SUPPLY_JSON_KEY_FILE"] || ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_JSON_KEY"] || ENV["GOOGLE_APPLICATION_CREDENTIALS"]
+    UI.user_error!("Set SUPPLY_JSON_KEY_FILE or SUPPLY_JSON_KEY (or GOOGLE_PLAY_JSON_KEY / GOOGLE_APPLICATION_CREDENTIALS) to your Play service account JSON") if json_key.to_s.empty?
 
     aab_path = options[:aab] || "app/build/outputs/bundle/release/app-release.aab"
-    
+
     # Only build if the AAB doesn't exist at the specified path (CI usually downloads it)
     unless File.exist?(aab_path)
       gradle(task: "bundleRelease")
