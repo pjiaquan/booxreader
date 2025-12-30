@@ -14,8 +14,8 @@
             android:layout_height="match_parent"
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp" />
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp" />
 
         <ProgressBar
             android:id="@+id/progressBar"
