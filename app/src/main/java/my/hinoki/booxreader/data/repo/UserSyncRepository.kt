@@ -1792,16 +1792,37 @@ data class SupabaseReaderSettings(
         val pageAnimationEnabled: Boolean = false,
         val showPageIndicator: Boolean = true,
         @SerializedName("magic_tags")
-        val magicTagsJson: String? = null,
+        val magicTagsPayload: JsonElement? = null,
         val updatedAt: Long = 0L,
         val activeProfileId: String? = null
 ) {
         fun toLocal(local: ReaderSettings, localProfileId: Long): ReaderSettings {
                 val resolvedMagicTags =
-                        magicTagsJson?.let { raw ->
+                        magicTagsPayload?.let { payload ->
                                 try {
-                                        val type = object : TypeToken<List<my.hinoki.booxreader.data.settings.MagicTag>>() {}.type
-                                        Gson().fromJson<List<my.hinoki.booxreader.data.settings.MagicTag>>(raw, type)
+                                        val type =
+                                                object :
+                                                                TypeToken<
+                                                                        List<
+                                                                                my.hinoki.booxreader.data.settings.MagicTag
+                                                                        >
+                                                                >() {}.type
+                                        when {
+                                                payload.isJsonArray ->
+                                                        Gson().fromJson<
+                                                                        List<
+                                                                                my.hinoki.booxreader.data.settings.MagicTag
+                                                                        >
+                                                                >(payload, type)
+                                                payload.isJsonPrimitive &&
+                                                                payload.asJsonPrimitive.isString ->
+                                                        Gson().fromJson<
+                                                                        List<
+                                                                                my.hinoki.booxreader.data.settings.MagicTag
+                                                                        >
+                                                                >(payload.asString, type)
+                                                else -> local.magicTags
+                                        }
                                 } catch (e: Exception) {
                                         local.magicTags
                                 }
@@ -1857,7 +1878,7 @@ data class SupabaseReaderSettings(
                                 useStreaming = local.useStreaming,
                                 pageAnimationEnabled = local.pageAnimationEnabled,
                                 showPageIndicator = local.showPageIndicator,
-                                magicTagsJson = Gson().toJson(local.magicTags),
+                                magicTagsPayload = Gson().toJsonTree(local.magicTags),
                                 updatedAt = local.updatedAt,
                                 activeProfileId = remoteProfileId
                         )

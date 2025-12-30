@@ -1057,7 +1057,7 @@ git_operations() {
         fi
     elif [ "$AI_SUCCESS" = "true" ]; then
         echo "AI Commit Message: $DEFAULT_MSG"
-        read -p "Use this AI message? [Y/n]: " AI_REPLY
+        read -p "Use this AI message? [Y/n]: (Tip: use --auto-ai-allow-commit-message to skip this prompt) " AI_REPLY
         AI_REPLY=${AI_REPLY:-y}
         if [[ ! $AI_REPLY =~ ^[Yy]$ ]]; then
             read -p "Enter custom commit message: " USER_MSG
