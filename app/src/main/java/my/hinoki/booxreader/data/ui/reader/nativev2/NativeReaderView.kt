@@ -90,6 +90,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var edgeHoldRunnable: Runnable? = null
     private var edgeHoldDirection: Int = 0
     private var edgeHoldActiveHandle: Int = 0
+    private var lastLoggedSelectionStart: Int = -1
+    private var lastLoggedSelectionEnd: Int = -1
 
     data class SelectionRange(val start: Int, val end: Int)
 
@@ -418,6 +420,20 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
             val startLine = l.getLineForOffset(start)
             val endLine = l.getLineForOffset(end)
+            if (selectionStart != lastLoggedSelectionStart ||
+                    selectionEnd != lastLoggedSelectionEnd) {
+                lastLoggedSelectionStart = selectionStart
+                lastLoggedSelectionEnd = selectionEnd
+                val lineStart = l.getLineStart(startLine)
+                val lineEnd = l.getLineEnd(endLine)
+                Log.d(
+                        TAG,
+                        "drawSelection global=[$selectionStart,$selectionEnd) " +
+                                "page=[$pageStartOffset,$pageEndOffset) " +
+                                "local=[$start,$end) " +
+                                "lines=$startLine..$endLine lineRange=[$lineStart,$lineEnd)"
+                )
+            }
 
             selectionPath.reset()
             for (line in startLine..endLine) {
