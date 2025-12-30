@@ -33,6 +33,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.gson.Gson
 import kotlin.OptIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -1302,17 +1303,36 @@ class ReaderActivity : BaseActivity() {
                                             description = content
                                     )
                                 }
-                        val updatedSettings =
-                                settings.copy(
-                                        magicTags = updatedTags,
-                                        updatedAt = System.currentTimeMillis()
-                                )
-                        updatedSettings.saveTo(prefs)
-                        pushSettingsToCloud()
+                    val updatedSettings =
+                            settings.copy(
+                                    magicTags = updatedTags,
+                                    updatedAt = System.currentTimeMillis()
+                            )
+                    updatedSettings.saveTo(prefs)
+                    val magicTagsJson = Gson().toJson(updatedTags)
+                    prefs.edit()
+                            .putString("magic_tags", magicTagsJson)
+                            .putLong("settings_updated_at", updatedSettings.updatedAt)
+                            .apply()
+                    val persisted = ReaderSettings.fromPrefs(prefs).magicTags
+                    val persistedSignature =
+                            persisted.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
+                    val updatedSignature =
+                            updatedTags.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
+                    if (persistedSignature != updatedSignature) {
                         Toast.makeText(
                                         this,
-                                        getString(R.string.action_manage_magic_tags) + " OK",
-                                        Toast.LENGTH_SHORT
+                                        getString(R.string.magic_tag_save_failed),
+                                        Toast.LENGTH_LONG
+                        )
+                                .show()
+                        return@setOnClickListener
+                    }
+                    pushSettingsToCloud()
+                    Toast.makeText(
+                                    this,
+                                    getString(R.string.action_manage_magic_tags) + " OK",
+                                    Toast.LENGTH_SHORT
                         )
                                 .show()
                         dialog.dismiss()

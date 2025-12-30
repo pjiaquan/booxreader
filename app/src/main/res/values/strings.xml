@@ -39,6 +39,7 @@
     <string name="ai_profile_option_delete">Delete</string>
     <string name="magic_tag_invalid_empty_name">Tag name is required.</string>
     <string name="magic_tag_invalid_duplicate">Tag names must be unique.</string>
+    <string name="magic_tag_save_failed">Failed to save magic tags. Please try again.</string>
     <string name="ai_note_original_label">Original Text (Question):</string>
     <string name="ai_note_response_label">AI Response (Answer):</string>
     <string name="ai_note_publish_retry">Ask AI / Retry</string>
