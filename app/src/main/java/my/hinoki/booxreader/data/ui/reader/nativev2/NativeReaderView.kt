@@ -225,18 +225,21 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     private fun getWordBoundaries(offset: Int): Pair<Int, Int> {
         if (content.isEmpty()) return offset to offset
+        val text = content.toString()
+        val safeOffset = offset.coerceIn(0, text.length - 1)
         val iterator = BreakIterator.getWordInstance()
-        iterator.setText(content.toString())
+        iterator.setText(text)
 
-        var end = iterator.following(offset)
-        if (end == BreakIterator.DONE) end = content.length
-        var start = iterator.previous()
+        var start = iterator.preceding(safeOffset + 1)
         if (start == BreakIterator.DONE) start = 0
+        var end = iterator.following(safeOffset)
+        if (end == BreakIterator.DONE) end = text.length
 
-        // If it's a space or empty punctuation, fall back to single character
-        val selected = content.subSequence(start, end).toString()
-        if (selected.trim().isEmpty() && offset < content.length) {
-            return offset to (offset + 1).coerceAtMost(content.length)
+        val selected = text.substring(start, end)
+        if (selected.trim().isEmpty() ||
+                selected.any { it.isWhitespace() } ||
+                selected.length > 24) {
+            return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
         }
 
         return start to end
@@ -866,20 +869,42 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private fun isAtEdge(localOffset: Int, direction: Int): Boolean {
         val length = content.length
         if (length == 0) return false
+        val startEdge = getEffectiveStartEdge()
+        val endEdge = getEffectiveEndEdge()
         return if (direction < 0) {
-            localOffset <= 0
+            localOffset <= startEdge + 1
         } else {
-            localOffset >= length - 1
+            localOffset >= endEdge - 1
         }
     }
 
     private fun getEdgeDirection(localOffset: Int): Int {
         val length = content.length
         if (length == 0) return 0
+        val startEdge = getEffectiveStartEdge()
+        val endEdge = getEffectiveEndEdge()
         return when {
-            localOffset <= 0 -> -1
-            localOffset >= length - 1 -> 1
+            localOffset <= startEdge + 1 -> -1
+            localOffset >= endEdge - 1 -> 1
             else -> 0
         }
+    }
+
+    private fun getEffectiveStartEdge(): Int {
+        val length = content.length
+        if (length == 0) return 0
+        for (i in 0 until length) {
+            if (!content[i].isWhitespace()) return i
+        }
+        return 0
+    }
+
+    private fun getEffectiveEndEdge(): Int {
+        val length = content.length
+        if (length == 0) return 0
+        for (i in length - 1 downTo 0) {
+            if (!content[i].isWhitespace()) return i
+        }
+        return length - 1
     }
 }
