@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.settings.ContrastMode
+import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
@@ -666,6 +667,7 @@ class ReaderActivity : BaseActivity() {
         val etCustomExportUrl = dialogView.findViewById<EditText>(R.id.etCustomExportUrl)
         val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
         val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
+        val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
 
         // dialogView is a ScrollView, so we need to get its child LinearLayout
         val layout =
@@ -675,6 +677,8 @@ class ReaderActivity : BaseActivity() {
         val btnAiProfiles = Button(this).apply { text = "AI Profiles (Switch Model/API)" }
 
         layout?.addView(btnAiProfiles, 2)
+
+        btnManageMagicTags.setOnClickListener { showMagicTagManager() }
 
         // --- Reading Theme ---
         val themeTitle =
@@ -1086,6 +1090,113 @@ class ReaderActivity : BaseActivity() {
                 }
             }
         }
+    }
+
+    private data class MagicTagRow(
+            val id: String?,
+            val titleInput: EditText,
+            val contentInput: EditText,
+            val container: android.view.View
+    )
+
+    private fun showMagicTagManager() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val settings = ReaderSettings.fromPrefs(prefs)
+
+        val rows = mutableListOf<MagicTagRow>()
+        val contentLayout =
+                android.widget.LinearLayout(this).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    setPadding(32, 24, 32, 16)
+                }
+
+        val btnAdd =
+                Button(this).apply {
+                    text = getString(R.string.action_manage_magic_tags) + " +"
+                }
+        contentLayout.addView(btnAdd)
+
+        val scrollView =
+                android.widget.ScrollView(this).apply {
+                    addView(contentLayout)
+                }
+
+        fun addRow(tag: MagicTag?) {
+            val rowContainer =
+                    android.widget.LinearLayout(this).apply {
+                        orientation = android.widget.LinearLayout.VERTICAL
+                        setPadding(0, 16, 0, 16)
+                    }
+
+            val titleInput =
+                    EditText(this).apply {
+                        hint = "Tag Name"
+                        setText(tag?.label.orEmpty())
+                    }
+            val contentInput =
+                    EditText(this).apply {
+                        hint = "Tag Content"
+                        setText(tag?.content?.ifBlank { tag.label }.orEmpty())
+                        minLines = 2
+                    }
+            val btnDelete =
+                    Button(this).apply {
+                        text = "Delete"
+                    }
+
+            rowContainer.addView(titleInput)
+            rowContainer.addView(contentInput)
+            rowContainer.addView(btnDelete)
+
+            val row = MagicTagRow(tag?.id, titleInput, contentInput, rowContainer)
+            rows.add(row)
+            contentLayout.addView(rowContainer)
+
+            btnDelete.setOnClickListener {
+                rows.remove(row)
+                contentLayout.removeView(rowContainer)
+            }
+        }
+
+        settings.magicTags.forEach { addRow(it) }
+
+        btnAdd.setOnClickListener { addRow(null) }
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.action_manage_magic_tags))
+                .setView(scrollView)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val updatedTags =
+                            rows.mapIndexedNotNull { index, row ->
+                                val title = row.titleInput.text.toString().trim()
+                                val content =
+                                        row.contentInput.text.toString().trim().ifBlank { title }
+                                if (title.isBlank()) return@mapIndexedNotNull null
+                                val id =
+                                        row.id
+                                                ?: "custom-${System.currentTimeMillis()}-$index"
+                                MagicTag(
+                                        id = id,
+                                        label = title,
+                                        content = content,
+                                        description = content
+                                )
+                            }
+                    val updatedSettings =
+                            settings.copy(
+                                    magicTags = updatedTags,
+                                    updatedAt = System.currentTimeMillis()
+                            )
+                    updatedSettings.saveTo(prefs)
+                    Toast.makeText(
+                                    this,
+                                    getString(R.string.action_manage_magic_tags) + " OK",
+                                    Toast.LENGTH_SHORT
+                            )
+                            .show()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
     }
 
     private fun applyReaderSettings(settings: ReaderSettings) {

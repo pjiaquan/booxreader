@@ -1062,7 +1062,11 @@ class AiNoteDetailActivity : BaseActivity() {
                     handleMagicTagClick(tag)
                 }
                 setOnLongClickListener {
-                    Toast.makeText(context, tag.description, Toast.LENGTH_LONG).show()
+                    val info =
+                            tag.description.ifBlank {
+                                tag.content.ifBlank { tag.label }
+                            }
+                    Toast.makeText(context, info, Toast.LENGTH_LONG).show()
                     true
                 }
             }

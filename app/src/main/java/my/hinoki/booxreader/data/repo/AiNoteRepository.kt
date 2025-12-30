@@ -166,9 +166,15 @@ class AiNoteRepository(
         return tag?.role?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotBlank() }
     }
 
+    private fun magicText(tag: MagicTag?): String {
+        val content = tag?.content?.trim().orEmpty()
+        val label = tag?.label?.trim().orEmpty()
+        return if (content.isNotEmpty()) content else label
+    }
+
     private fun resolveSystemPrompt(settings: ReaderSettings, tag: MagicTag?): String {
         val role = normalizeMagicRole(tag)
-        val magicText = tag?.label?.trim().orEmpty()
+        val magicText = magicText(tag)
         return if (role == "system" && magicText.isNotEmpty()) {
             magicText
         } else {
@@ -178,7 +184,7 @@ class AiNoteRepository(
 
     private fun resolveUserInput(settings: ReaderSettings, text: String, tag: MagicTag?): String {
         val role = normalizeMagicRole(tag)
-        val magicText = tag?.label?.trim().orEmpty()
+        val magicText = magicText(tag)
         val userText = if (role == "user" && magicText.isNotEmpty()) {
             "$magicText $text".trim()
         } else {
@@ -189,7 +195,7 @@ class AiNoteRepository(
 
     private fun maybeAddAssistantMagic(messages: JSONArray, tag: MagicTag?) {
         val role = normalizeMagicRole(tag)
-        val magicText = tag?.label?.trim().orEmpty()
+        val magicText = magicText(tag)
         if (role == "assistant" && magicText.isNotEmpty()) {
             messages.put(
                 JSONObject().apply {

@@ -209,10 +209,30 @@ data class ReaderSettings(
     const val PREFS_NAME = "reader_prefs"
 
     val defaultMagicTags = listOf(
-        MagicTag("story-mode", "[請講故事]", "強力觸發「歷史現場」與「文化深淵」模式，AI會優先挖掘概念背後的故事與神話。"),
-        MagicTag("cross-domain", "[跨界聯想]", "強力觸發「跨界回響」，要求AI將概念與一個意想不到的領域進行類比。"),
-        MagicTag("no-formula", "[無公式，純故事]", "極致的人文體驗，關閉所有技術備忘，完全聚焦於歷史敘事、文化比喻與費曼解釋。"),
-        MagicTag("museum-guide", "[像導覽博物館一樣]", "AI將以沉浸式導覽口吻，帶領您漫步於概念發展的歷史長廊中。")
+        MagicTag(
+            id = "story-mode",
+            label = "[請講故事]",
+            content = "[請講故事]",
+            description = "強力觸發「歷史現場」與「文化深淵」模式，AI會優先挖掘概念背後的故事與神話。"
+        ),
+        MagicTag(
+            id = "cross-domain",
+            label = "[跨界聯想]",
+            content = "[跨界聯想]",
+            description = "強力觸發「跨界回響」，要求AI將概念與一個意想不到的領域進行類比。"
+        ),
+        MagicTag(
+            id = "no-formula",
+            label = "[無公式，純故事]",
+            content = "[無公式，純故事]",
+            description = "極致的人文體驗，關閉所有技術備忘，完全聚焦於歷史敘事、文化比喻與費曼解釋。"
+        ),
+        MagicTag(
+            id = "museum-guide",
+            label = "[像導覽博物館一樣]",
+            content = "[像導覽博物館一樣]",
+            description = "AI將以沉浸式導覽口吻，帶領您漫步於概念發展的歷史長廊中。"
+        )
     )
 
     fun fromPrefs(prefs: SharedPreferences): ReaderSettings {

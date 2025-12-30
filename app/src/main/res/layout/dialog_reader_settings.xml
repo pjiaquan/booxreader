@@ -161,6 +161,13 @@
             android:inputType="textPassword"
             android:textSize="14sp" />
 
+        <Button
+            android:id="@+id/btnManageMagicTags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/action_manage_magic_tags"
+            android:layout_marginTop="12dp" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
