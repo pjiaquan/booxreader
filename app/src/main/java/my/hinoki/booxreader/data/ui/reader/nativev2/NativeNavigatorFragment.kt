@@ -198,6 +198,7 @@ class NativeNavigatorFragment : Fragment() {
                 hideSelectionMenu()
             }
         }
+        Log.d(TAG, "setOnPageEdgeHoldListener for nativeReaderView")
         binding.nativeReaderView.setOnPageEdgeHoldListener { direction ->
             handlePageEdgeHold(direction)
         }
