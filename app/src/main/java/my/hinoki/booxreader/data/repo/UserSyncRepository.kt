@@ -1790,6 +1790,7 @@ data class SupabaseReaderSettings(
         val enableGoogleSearch: Boolean = true,
         val useStreaming: Boolean = false,
         val pageAnimationEnabled: Boolean = false,
+        val showPageIndicator: Boolean = true,
         val updatedAt: Long = 0L,
         val activeProfileId: String? = null
 ) {
@@ -1812,6 +1813,7 @@ data class SupabaseReaderSettings(
                         enableGoogleSearch = enableGoogleSearch,
                         useStreaming = useStreaming,
                         pageAnimationEnabled = pageAnimationEnabled,
+                        showPageIndicator = showPageIndicator,
                         language = language,
                         updatedAt = updatedAt,
                         activeProfileId = localProfileId
@@ -1842,6 +1844,7 @@ data class SupabaseReaderSettings(
                                 enableGoogleSearch = local.enableGoogleSearch,
                                 useStreaming = local.useStreaming,
                                 pageAnimationEnabled = local.pageAnimationEnabled,
+                                showPageIndicator = local.showPageIndicator,
                                 updatedAt = local.updatedAt,
                                 activeProfileId = remoteProfileId
                         )

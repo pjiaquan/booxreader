@@ -81,6 +81,7 @@ class NativeNavigatorFragment : Fragment() {
     private var currentThemeColors: Pair<Int, Int>? = null // bgColor to textColor
     private var pageAnimationEnabled: Boolean = false
     private var isAnimating: Boolean = false
+    private var showPageIndicator: Boolean = true
 
     fun setThemeColors(backgroundColor: Int, textColor: Int, buttonColor: Int) {
         Log.d(
@@ -206,6 +207,7 @@ class NativeNavigatorFragment : Fragment() {
         // Dismiss menu when clicking outside (on the background or indicator)
         binding.root.setOnClickListener { binding.nativeReaderView.clearSelection() }
         binding.pageIndicator.setOnClickListener { binding.nativeReaderView.clearSelection() }
+        binding.pageIndicator.visibility = if (showPageIndicator) View.VISIBLE else View.GONE
 
         binding.btnCopy.setOnClickListener {
             val text = binding.nativeReaderView.getSelectedText()
@@ -693,6 +695,13 @@ class NativeNavigatorFragment : Fragment() {
 
     fun setPageAnimationEnabled(enabled: Boolean) {
         pageAnimationEnabled = enabled
+    }
+
+    fun setPageIndicatorVisible(enabled: Boolean) {
+        showPageIndicator = enabled
+        if (_binding != null) {
+            binding.pageIndicator.visibility = if (enabled) View.VISIBLE else View.GONE
+        }
     }
 
     fun goForward() {

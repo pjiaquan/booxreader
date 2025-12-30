@@ -78,6 +78,7 @@
     <string name="reader_settings_tap_to_turn">Tap to turn page</string>
     <string name="reader_settings_swipe_to_turn">Swipe to turn page</string>
     <string name="reader_settings_page_animation">Page Animation</string>
+    <string name="reader_settings_show_page_indicator">Show Page Indicator</string>
     <string name="reader_settings_bookmarks">Bookmarks</string>
     <string name="reader_settings_add_bookmark">Add Bookmark</string>
     <string name="reader_settings_view_bookmark">View Bookmarks</string>

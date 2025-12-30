@@ -73,6 +73,7 @@
     <string name="reader_settings_tap_to_turn">點擊翻頁</string>
     <string name="reader_settings_swipe_to_turn">滑動翻頁</string>
     <string name="reader_settings_page_animation">翻頁動畫</string>
+    <string name="reader_settings_show_page_indicator">顯示頁碼</string>
     <string name="reader_settings_bookmarks">書籤</string>
     <string name="reader_settings_add_bookmark">新增書籤</string>
     <string name="reader_settings_view_bookmark">查看書籤</string>

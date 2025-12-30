@@ -111,6 +111,7 @@ class ReaderActivity : BaseActivity() {
     private var currentFontSize: Int = 150
     private var currentFontWeight: Int = 400
     private var pageAnimationEnabled: Boolean = false
+    private var showPageIndicator: Boolean = true
     private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
     private var refreshJob: Job? = null
     private val refreshDelayMs = 250L
@@ -317,6 +318,7 @@ class ReaderActivity : BaseActivity() {
         pageTapEnabled = prefs.getBoolean("page_tap_enabled", true)
         pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true)
         pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false)
+        showPageIndicator = prefs.getBoolean("show_page_indicator", true)
 
         // 載入本地設置（包括對比模式）
         val contrastModeOrdinal = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal)
@@ -332,6 +334,7 @@ class ReaderActivity : BaseActivity() {
                 applyFontSize(currentFontSize)
                 applyFontWeight(currentFontWeight)
                 applyContrastMode(currentContrastMode)
+                nativeNavigatorFragment?.setPageIndicatorVisible(showPageIndicator)
             }
         }
 
@@ -799,6 +802,10 @@ class ReaderActivity : BaseActivity() {
                 dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
                         R.id.switchPageAnimation
                 )
+        val switchPageIndicator =
+                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+                        R.id.switchPageIndicator
+                )
 
         val switchConvertChinese =
                 dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
@@ -810,6 +817,7 @@ class ReaderActivity : BaseActivity() {
         switchPageTap.isChecked = readerSettings.pageTapEnabled
         switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
         switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
+        switchPageIndicator.isChecked = readerSettings.showPageIndicator
         switchConvertChinese.isChecked = readerSettings.convertToTraditionalChinese
         cbCustomExport.isChecked = readerSettings.exportToCustomUrl
         etCustomExportUrl.setText(readerSettings.exportCustomUrl)
@@ -924,6 +932,7 @@ class ReaderActivity : BaseActivity() {
                 val newPageTap = switchPageTap.isChecked
                 val newPageSwipe = switchPageSwipe.isChecked
                 val newPageAnimation = switchPageAnimation.isChecked
+                val newShowPageIndicator = switchPageIndicator.isChecked
                 val newConvertChinese = switchConvertChinese.isChecked
                 val useCustomExport = cbCustomExport.isChecked
                 val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
@@ -961,6 +970,7 @@ class ReaderActivity : BaseActivity() {
                                 pageTapEnabled = newPageTap,
                                 pageSwipeEnabled = newPageSwipe,
                                 pageAnimationEnabled = newPageAnimation,
+                                showPageIndicator = newShowPageIndicator,
                                 convertToTraditionalChinese = newConvertChinese,
                                 exportToCustomUrl = useCustomExport,
                                 exportCustomUrl = normalizedCustomUrl,
@@ -992,6 +1002,8 @@ class ReaderActivity : BaseActivity() {
                 }
                 pageAnimationEnabled = updatedSettings.pageAnimationEnabled
                 pageSwipeEnabled = updatedSettings.pageSwipeEnabled
+                showPageIndicator = updatedSettings.showPageIndicator
+                nativeNavigatorFragment?.setPageIndicatorVisible(showPageIndicator)
 
                 applyFontSize(newTextSize)
                 nativeNavigatorFragment?.setFontSize(newTextSize)
@@ -1032,6 +1044,10 @@ class ReaderActivity : BaseActivity() {
         switchPageAnimation.setOnCheckedChangeListener { _, isChecked ->
             pageAnimationEnabled = isChecked
             nativeNavigatorFragment?.setPageAnimationEnabled(isChecked)
+        }
+        switchPageIndicator.setOnCheckedChangeListener { _, isChecked ->
+            showPageIndicator = isChecked
+            nativeNavigatorFragment?.setPageIndicatorVisible(isChecked)
         }
 
         dialog.show()
@@ -1203,9 +1219,11 @@ class ReaderActivity : BaseActivity() {
         pageTapEnabled = settings.pageTapEnabled
         pageSwipeEnabled = settings.pageSwipeEnabled
         pageAnimationEnabled = settings.pageAnimationEnabled
+        showPageIndicator = settings.showPageIndicator
 
         // Apply page animation setting to fragment
         nativeNavigatorFragment?.setPageAnimationEnabled(pageAnimationEnabled)
+        nativeNavigatorFragment?.setPageIndicatorVisible(showPageIndicator)
 
         // 載入對比模式
         val contrastMode =
