@@ -883,11 +883,13 @@ class NativeNavigatorFragment : Fragment() {
             if (currentPageInResource < p.pageCount - 1) {
                 currentPageInResource++
                 displayCurrentPage()
+                binding.nativeReaderView.nudgeSelectionAfterPageTurn(direction)
             }
         } else if (direction < 0) {
             if (currentPageInResource > 0) {
                 currentPageInResource--
                 displayCurrentPage()
+                binding.nativeReaderView.nudgeSelectionAfterPageTurn(direction)
             }
         }
     }

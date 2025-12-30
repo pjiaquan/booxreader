@@ -701,6 +701,28 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         invalidate()
     }
 
+    fun nudgeSelectionAfterPageTurn(direction: Int) {
+        if (!hasSelection() || activeHandle == 0) return
+        val pageMin = pageStartOffset
+        val pageMax = pageStartOffset + content.length
+        if (direction > 0 && activeHandle == 2) {
+            if (selectionEnd < pageMin) {
+                selectionEnd = pageMin
+            }
+            if (selectionEnd == selectionStart) {
+                selectionEnd = (selectionStart + 1).coerceAtMost(pageMax)
+            }
+        } else if (direction < 0 && activeHandle == 1) {
+            if (selectionStart >= pageMax) {
+                selectionStart = (pageMax - 1).coerceAtLeast(pageMin)
+            }
+            if (selectionStart == selectionEnd) {
+                selectionStart = (selectionEnd - 1).coerceAtLeast(pageMin)
+            }
+        }
+        invalidate()
+    }
+
     private fun isNear(x: Float, y: Float, offset: Int, isStart: Boolean): Boolean {
         val localOffset = toLocalOffset(offset) ?: return false
         val l = layout ?: return false
