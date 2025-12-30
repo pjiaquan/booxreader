@@ -18,7 +18,6 @@ import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 import javax.crypto.spec.GCMParameterSpec
 import java.security.SecureRandom
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
@@ -82,7 +81,6 @@ class UserSyncRepository(
         private val emptyJsonBody =
                 "{}".toRequestBody("application/json; charset=utf-8".toMediaType())
         @Volatile private var cachedUserId: String? = null
-        private val bucketDiagOnce = AtomicBoolean(false)
 
         // --- Public API ---
 
@@ -723,12 +721,6 @@ class UserSyncRepository(
                         if (!response.isSuccessful) {
                              val responseBody = response.body?.string()
                              android.util.Log.e("UserSyncRepo", "Storage request failed: ${response.code} ${response.message} $responseBody")
-                             if ((response.code == 404 ||
-                                 responseBody?.contains("Bucket not found", ignoreCase = true) == true) &&
-                                 bucketDiagOnce.compareAndSet(false, true)
-                             ) {
-                                 logStorageBuckets()
-                             }
                              return null
                         }
                         response.body?.bytes()
@@ -737,34 +729,6 @@ class UserSyncRepository(
                     android.util.Log.e("UserSyncRepo", "Storage request exception", e)
                     e.printStackTrace()
                     null
-                }
-        }
-
-        private fun logStorageBuckets() {
-                android.util.Log.e("UserSyncRepo", "Storage bucket list diagnostic starting")
-                val token = accessToken()
-                if (token.isNullOrBlank()) {
-                        android.util.Log.e("UserSyncRepo", "Storage bucket list skipped: missing access token")
-                }
-                val url = "$supabaseStorageUrl/bucket"
-                val request =
-                        Request.Builder()
-                                .url(url)
-                                .header("apikey", supabaseAnonKey)
-                                .header("Authorization", "Bearer ${token ?: supabaseAnonKey}")
-                                .get()
-                                .build()
-                try {
-                        httpClient.newCall(request).execute().use { response ->
-                                val responseBody = response.body?.string().orEmpty()
-                                if (response.isSuccessful) {
-                                        android.util.Log.e("UserSyncRepo", "Storage buckets: $responseBody")
-                                } else {
-                                        android.util.Log.e("UserSyncRepo", "Storage bucket list failed: ${response.code} ${response.message} $responseBody")
-                                }
-                        }
-                } catch (e: Exception) {
-                        android.util.Log.e("UserSyncRepo", "Storage bucket list exception", e)
                 }
         }
 
@@ -1313,44 +1277,41 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                                         message = "Missing access token; sign in to sync storage."
                                 )
                         }
-                        val url = "$supabaseStorageUrl/bucket"
+                        val url = "$supabaseStorageUrl/object/list/$storageBucket"
+                        val body = gson.toJson(
+                                mapOf(
+                                        "prefix" to "",
+                                        "limit" to 1
+                                )
+                        )
                         val request =
                                 Request.Builder()
                                         .url(url)
                                         .header("apikey", supabaseAnonKey)
                                         .header("Authorization", "Bearer $token")
-                                        .get()
+                                        .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
                                         .build()
                         return@withContext runCatching {
                                 httpClient.newCall(request).execute().use { response ->
                                         val responseBody = response.body?.string().orEmpty()
                                         if (!response.isSuccessful) {
-                                                return@use StorageBucketCheckResult(
-                                                        ok = false,
-                                                        message = "Storage bucket list failed (${response.code} ${response.message})."
-                                                )
-                                        }
-                                        val listType =
-                                                object : TypeToken<List<SupabaseStorageBucket>>() {}.type
-                                        val buckets =
-                                                gson.fromJson<List<SupabaseStorageBucket>>(
-                                                        responseBody,
-                                                        listType
-                                                )
-                                        if (buckets.isEmpty()) {
-                                                return@use StorageBucketCheckResult(
-                                                        ok = false,
-                                                        message = "No storage buckets found in the Supabase project."
-                                                )
-                                        }
-                                        val exists =
-                                                buckets.any {
-                                                        it.name.equals(storageBucket, ignoreCase = false)
+                                                if (response.code == 404 &&
+                                                        responseBody.contains("Bucket not found", ignoreCase = true)) {
+                                                        return@use StorageBucketCheckResult(
+                                                                ok = false,
+                                                                message = "Storage bucket \"$storageBucket\" not found."
+                                                        )
                                                 }
-                                        if (!exists) {
+                                                if (response.code == 401 || response.code == 403) {
+                                                        return@use StorageBucketCheckResult(
+                                                                ok = false,
+                                                                message = "Storage authorization failed."
+                                                        )
+                                                }
                                                 return@use StorageBucketCheckResult(
                                                         ok = false,
-                                                        message = "Storage bucket \"$storageBucket\" not found."
+                                                        message =
+                                                                "Storage preflight failed (${response.code} ${response.message})."
                                                 )
                                         }
                                         StorageBucketCheckResult(ok = true, message = null)
@@ -1655,11 +1616,6 @@ data class SupabaseStorageFile(
     val name: String,
     val id: String? = null,
     val metadata: SupabaseStorageMetadata? = null
-)
-
-data class SupabaseStorageBucket(
-    val id: String? = null,
-    val name: String = ""
 )
 
 data class SupabaseStorageMetadata(
