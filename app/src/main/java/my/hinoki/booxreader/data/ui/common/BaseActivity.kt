@@ -58,6 +58,7 @@ abstract class BaseActivity : AppCompatActivity() {
                 } else {
                     0
                 }
-        view.setPadding(view.paddingLeft, initialTop + actionBarSize, view.paddingRight, view.paddingBottom)
+        val adjusted = (actionBarSize * 0.6f).toInt()
+        view.setPadding(view.paddingLeft, initialTop + adjusted, view.paddingRight, view.paddingBottom)
     }
 }
