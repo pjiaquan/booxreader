@@ -1204,6 +1204,7 @@ class ReaderActivity : BaseActivity() {
                                     updatedAt = System.currentTimeMillis()
                             )
                     updatedSettings.saveTo(prefs)
+                    pushSettingsToCloud()
                     Toast.makeText(
                                     this,
                                     getString(R.string.action_manage_magic_tags) + " OK",

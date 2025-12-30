@@ -2,6 +2,7 @@ package my.hinoki.booxreader.data.ui.notes
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
@@ -87,6 +88,15 @@ class AiNoteDetailActivity : BaseActivity() {
     private var isScrollButtonHovered = false
     private var scrollButtonHideJob: Job? = null
     private var selectionActionMode: ActionMode? = null
+    private val settingsPrefs by lazy {
+        getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    private val settingsListener =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == "magic_tags") {
+                    setupMagicTags()
+                }
+            }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -168,6 +178,16 @@ class AiNoteDetailActivity : BaseActivity() {
 
         // 設置滾動監聽來控制按鈕顯示/隱藏
         setupScrollListener()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
+    }
+
+    override fun onStop() {
+        settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
+        super.onStop()
     }
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
@@ -1044,7 +1064,7 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun setupMagicTags() {
-        val settings = ReaderSettings.fromPrefs(getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE))
+        val settings = ReaderSettings.fromPrefs(settingsPrefs)
         val magicTags = settings.magicTags
 
         binding.cgMagicTags.removeAllViews()
