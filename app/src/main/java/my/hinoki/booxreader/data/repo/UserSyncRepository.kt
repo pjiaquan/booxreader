@@ -526,7 +526,7 @@ class UserSyncRepository(
                                 android.util.Log.d("UserSyncRepo", "Starting upload to $storagePath, size=${bytes.size}")
                                 val response = supabaseStorageRequest(
                                     method = "POST",
-                                    path = "object/$storageBucket/$storagePath",
+                                    path = "object/authenticated/$storageBucket/$storagePath",
                                     bodyBytes = bytes,
                                     contentType = "application/epub+zip",
                                     headers = mapOf("x-upsert" to "true")
