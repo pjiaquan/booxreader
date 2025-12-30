@@ -82,6 +82,8 @@ BUILD_TYPE_LOCKED="${BUILD_TYPE_LOCKED:-false}"
 SKIP_TESTS="${SKIP_TESTS:-false}"
 SKIP_INSTALL="${SKIP_INSTALL:-false}"
 SKIP_GIT="${SKIP_GIT:-false}"
+AUTO_GIT="${AUTO_GIT:-false}"
+AUTO_AI_ALLOW_COMMIT_MESSAGE="${AUTO_AI_ALLOW_COMMIT_MESSAGE:-false}"
 AUTO_SELECT_DEVICE="${AUTO_SELECT_DEVICE:-false}"
 TARGET_DEVICE_SERIAL=""
 CI_RELEASE_ONLY="${CI_RELEASE_ONLY:-false}"
@@ -115,6 +117,8 @@ Options:
   --skip-tests       Skip running unit tests first
   --skip-install     Skip ADB install steps
   --skip-git         Skip git commit/tag/push steps (release only)
+  --auto-git         Automatically commit/push without prompting
+  --auto-ai-allow-commit-message    Automatically use AI commit message without prompting
   --skip-telegram    Disable Telegram upload
   --auto-select      Automatically select first device (no interactive prompt)
   -s, --device       Specify target device serial (e.g., -s emulator-5554)
@@ -132,6 +136,8 @@ Env vars (optional):
   SKIP_TESTS=true|false
   SKIP_INSTALL=true|false
   SKIP_GIT=true|false
+  AUTO_GIT=true|false
+  AUTO_AI_ALLOW_COMMIT_MESSAGE=true|false
   TELEGRAM_ENABLED=true|false
   AUTO_SELECT_DEVICE=true|false
   CI_RELEASE_ONLY=true|false
@@ -153,6 +159,8 @@ parse_args() {
             --skip-tests) SKIP_TESTS="true" ;;
             --skip-install) SKIP_INSTALL="true" ;;
             --skip-git) SKIP_GIT="true" ;;
+            --auto-git) AUTO_GIT="true" ;;
+            --auto-ai-allow-commit-message) AUTO_AI_ALLOW_COMMIT_MESSAGE="true" ;;
             --skip-telegram|--no-telegram) TELEGRAM_ENABLED="false"; TELEGRAM_ENABLED_LOCKED="true" ;;
             --auto-select) AUTO_SELECT_DEVICE="true" ;;
             -s|--device) TARGET_DEVICE_SERIAL="$2"; shift ;;
@@ -912,8 +920,12 @@ git_operations() {
         return 0
     fi
 
-    if [ "$CI_RELEASE_ONLY" = "true" ]; then
-        log "CI release mode: Automatically proceeding with git operations."
+    if [ "$CI_RELEASE_ONLY" = "true" ] || [ "$AUTO_GIT" = "true" ]; then
+        if [ "$AUTO_GIT" = "true" ]; then
+            log "Auto-git mode: Automatically proceeding with git operations."
+        else
+            log "CI release mode: Automatically proceeding with git operations."
+        fi
         REPLY="y"
     else
         if ! is_tty; then
@@ -1037,8 +1049,12 @@ git_operations() {
     fi
     
     COMMIT_MESSAGE="$DEFAULT_MSG"
-    if [ "$CI_RELEASE_ONLY" = "true" ]; then
-        echo "Using automated commit message: $COMMIT_MESSAGE"
+    if [ "$CI_RELEASE_ONLY" = "true" ] || [ "$AUTO_AI_ALLOW_COMMIT_MESSAGE" = "true" ]; then
+        if [ "$AUTO_AI_ALLOW_COMMIT_MESSAGE" = "true" ]; then
+            echo "Auto-accepting AI commit message: $COMMIT_MESSAGE"
+        else
+            echo "Using automated commit message: $COMMIT_MESSAGE"
+        fi
     elif [ "$AI_SUCCESS" = "true" ]; then
         echo "AI Commit Message: $DEFAULT_MSG"
         read -p "Use this AI message? [Y/n]: " AI_REPLY
