@@ -227,21 +227,23 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         if (content.isEmpty()) return offset to offset
         val text = content.toString()
         val safeOffset = offset.coerceIn(0, text.length - 1)
-        val iterator = BreakIterator.getWordInstance()
-        iterator.setText(text)
-
-        var start = iterator.preceding(safeOffset + 1)
-        if (start == BreakIterator.DONE) start = 0
-        var end = iterator.following(safeOffset)
-        if (end == BreakIterator.DONE) end = text.length
-
-        val selected = text.substring(start, end)
-        if (selected.trim().isEmpty() ||
-                selected.any { it.isWhitespace() } ||
-                selected.length > 24) {
+        val ch = text[safeOffset]
+        if (isCjk(ch)) {
             return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
         }
 
+        if (!isWordChar(ch)) {
+            return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
+        }
+
+        var start = safeOffset
+        while (start > 0 && isWordChar(text[start - 1])) {
+            start--
+        }
+        var end = safeOffset + 1
+        while (end < text.length && isWordChar(text[end])) {
+            end++
+        }
         return start to end
     }
 
@@ -906,5 +908,27 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             if (!content[i].isWhitespace()) return i
         }
         return length - 1
+    }
+
+    private fun isWordChar(ch: Char): Boolean {
+        return ch.isLetterOrDigit() || ch == '\'' || ch == '’' || ch == '_'
+    }
+
+    private fun isCjk(ch: Char): Boolean {
+        return when (Character.UnicodeBlock.of(ch)) {
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_C,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_D,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E,
+            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F,
+            Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS,
+            Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION,
+            Character.UnicodeBlock.HIRAGANA,
+            Character.UnicodeBlock.KATAKANA,
+            Character.UnicodeBlock.HANGUL_SYLLABLES -> true
+            else -> false
+        }
     }
 }
