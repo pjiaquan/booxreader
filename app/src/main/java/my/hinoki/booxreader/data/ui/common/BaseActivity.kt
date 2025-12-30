@@ -17,11 +17,30 @@ abstract class BaseActivity : AppCompatActivity() {
         }
     }
 
-    protected fun applyStatusBarInset(view: View) {
+    protected fun applyTopInsets(view: View, includeActionBar: Boolean = false) {
         val initialTop = view.paddingTop
+        val actionBarExtra =
+                if (includeActionBar) {
+                    val typedValue = android.util.TypedValue()
+                    if (theme.resolveAttribute(android.R.attr.actionBarSize, typedValue, true)) {
+                        android.util.TypedValue.complexToDimensionPixelSize(
+                                typedValue.data,
+                                resources.displayMetrics
+                        )
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                }
         ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
             val topInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            v.setPadding(v.paddingLeft, initialTop + topInset, v.paddingRight, v.paddingBottom)
+            v.setPadding(
+                    v.paddingLeft,
+                    initialTop + topInset + actionBarExtra,
+                    v.paddingRight,
+                    v.paddingBottom
+            )
             insets
         }
         ViewCompat.requestApplyInsets(view)

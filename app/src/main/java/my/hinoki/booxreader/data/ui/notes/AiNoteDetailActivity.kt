@@ -92,7 +92,7 @@ class AiNoteDetailActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAiNoteDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyStatusBarInset(binding.root)
+        applyTopInsets(binding.root, includeActionBar = true)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // Set custom selection action mode for TextViews
