@@ -167,7 +167,7 @@ jobs:
           echo "aab_path=$AAB_PATH" >> $GITHUB_OUTPUT
 
       - name: Deploy to Google Play
-        uses: maierj/fastlane-action@v2
+        uses: maierj/fastlane-action@v2.3.0
         with:
           lane: "android play_production"
           options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
