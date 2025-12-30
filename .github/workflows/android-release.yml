@@ -164,13 +164,17 @@ jobs:
           echo "Found AAB: $AAB_PATH"
           echo "aab_path=$AAB_PATH" >> $GITHUB_OUTPUT
 
+      - name: Prepare Google Play service account JSON
+        run: |
+          echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > play-service-account.json
+
       - name: Deploy to Google Play
         uses: maierj/fastlane-action@v2.3.0
         with:
           lane: "android play_internal"
           options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
         env:
-          SUPPLY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          SUPPLY_JSON_KEY_FILE: play-service-account.json
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
