@@ -103,8 +103,11 @@ class AiProfileRepository(
         
         // Force immediate sync to Firestore
         val synced = syncRepo.pushProfile(updatedProfile)
-        
-        return@withContext synced ?: updatedProfile
+
+        val saved = synced ?: updatedProfile
+        applyProfile(saved.id)
+
+        return@withContext saved
     }
 
     suspend fun deleteProfile(profile: AiProfileEntity) = withContext(Dispatchers.IO) {
