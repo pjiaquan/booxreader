@@ -1278,7 +1278,7 @@ class ReaderActivity : BaseActivity() {
                 )
         buttons.forEach { button ->
             button.backgroundTintList = buttonTint
-            button.setTextColor(textColor)
+            button.imageTintList = ColorStateList.valueOf(textColor)
         }
 
         @Suppress("DEPRECATION")

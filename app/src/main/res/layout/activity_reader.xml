@@ -22,70 +22,76 @@
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingHorizontal="8dp">
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp">
 
-        <Button
+        <ImageButton
             android:id="@+id/btnAinote"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_ai_note"
-            android:maxLines="1"
-            app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="8sp"
-            app:autoSizeMaxTextSize="14sp"
-            app:autoSizeStepGranularity="1sp" />
+            android:layout_margin="2dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/reader_ai_note"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_edit"
+            android:tint="?attr/colorControlNormal" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnAddBookmark"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_bookmark"
             android:visibility="gone"
-            android:maxLines="1"
-            app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="8sp"
-            app:autoSizeMaxTextSize="14sp"
-            app:autoSizeStepGranularity="1sp" />
+            android:layout_margin="2dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/reader_bookmark"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_save"
+            android:tint="?attr/colorControlNormal" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnShowBookmarks"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_publish"
-            android:maxLines="1"
-            app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="8sp"
-            app:autoSizeMaxTextSize="14sp"
-            app:autoSizeStepGranularity="1sp" />
+            android:layout_margin="2dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/reader_publish"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_share"
+            android:tint="?attr/colorControlNormal" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnChapters"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_table_of_contents"
-            android:maxLines="1"
-            app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="8sp"
-            app:autoSizeMaxTextSize="14sp"
-            app:autoSizeStepGranularity="1sp" />
+            android:layout_margin="2dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/reader_table_of_contents"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_agenda"
+            android:tint="?attr/colorControlNormal" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnSettings"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/reader_settings"
-            android:maxLines="1"
-            app:autoSizeTextType="uniform"
-            app:autoSizeMinTextSize="8sp"
-            app:autoSizeMaxTextSize="14sp"
-            app:autoSizeStepGranularity="1sp" />
+            android:layout_margin="2dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/reader_settings"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_preferences"
+            android:tint="?attr/colorControlNormal" />
     </LinearLayout>
 </LinearLayout>

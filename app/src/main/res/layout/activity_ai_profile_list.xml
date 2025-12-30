@@ -28,29 +28,41 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <Button
+        <ImageButton
             android:id="@+id/btnSync"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:layout_weight="1"
             android:layout_margin="2dp"
-            android:text="@string/ai_profile_sync" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/ai_profile_sync"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_popup_sync" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnImport"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:layout_weight="1"
             android:layout_margin="2dp"
-            android:text="@string/ai_profile_import_json" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/ai_profile_import_json"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_upload" />
 
-        <Button
+        <ImageButton
             android:id="@+id/btnCreate"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:layout_weight="1"
             android:layout_margin="2dp"
-            android:text="@string/ai_profile_create_new" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/ai_profile_create_new"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_input_add" />
 
     </LinearLayout>
 
