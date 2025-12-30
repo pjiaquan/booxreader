@@ -6,6 +6,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
+import android.util.Log
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -21,6 +22,9 @@ class NativeReaderView
 @JvmOverloads
 constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
         View(context, attrs, defStyleAttr) {
+    companion object {
+        private const val TAG = "NativeReaderView"
+    }
 
     private val textPaint =
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -856,6 +860,11 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             return
         }
         val direction = getEdgeDirection(localOffset)
+        Log.d(
+                TAG,
+                "edgeHold arm? handle=$activeHandle dir=$direction " +
+                        "local=$localOffset page=[$pageStartOffset,${pageStartOffset + content.length})"
+        )
         if (direction == 0) {
             cancelEdgeHold()
             return
@@ -877,6 +886,11 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     val localNow =
                             if (edgeHoldActiveHandle == 1) toLocalOffset(selectionStart)
                             else if (edgeHoldActiveHandle == 2) toLocalOffset(selectionEnd) else null
+                    Log.d(
+                            TAG,
+                            "edgeHold fire? selecting=$isSelecting handle=$activeHandle " +
+                                    "dir=$edgeHoldDirection localNow=$localNow"
+                    )
                     if (!isSelecting ||
                             localNow == null ||
                             activeHandle != edgeHoldActiveHandle ||
