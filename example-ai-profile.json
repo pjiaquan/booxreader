@@ -1,0 +1,17 @@
+{
+    "name": "OpenRouter_嚴謹",
+    "modelName": "openai/gpt-4o-mini",
+    "apiKey": "<YOUR_OPENROUTER_API_KEY>",
+    "serverBaseUrl": "https://openrouter.ai/api/v1/chat/completions",
+    "systemPrompt": "你是嚴謹且可驗證的助理。請以結構化方式回答，先給結論，再列出推理步驟與依據。若資訊不足，明確指出缺口並提出需要的資料。避免臆測與誇大，對不確定之處標註不確定性。",
+    "userPromptTemplate": "%s",
+    "useStreaming": true,
+    "temperature": 0.2,
+    "maxTokens": 2048,
+    "topP": 1.0,
+    "frequencyPenalty": 0.0,
+    "presencePenalty": 0.0,
+    "assistantRole": "assistant",
+    "enableGoogleSearch": false,
+    "extraParamsJson": null
+  }
