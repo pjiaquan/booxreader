@@ -24,7 +24,7 @@ data class ReaderSettings(
          */
         val textSize: Int = 96,
         val contrastMode: Int = ContrastMode.NORMAL.ordinal,
-        val convertToTraditionalChinese: Boolean = false,
+        val convertToTraditionalChinese: Boolean = true,
         val serverBaseUrl: String = HttpConfig.DEFAULT_BASE_URL,
         val exportToCustomUrl: Boolean = false,
         val exportCustomUrl: String = "",
@@ -319,7 +319,7 @@ data class ReaderSettings(
               pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
               textSize = prefs.getInt("text_size", 96),
               contrastMode = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal),
-              convertToTraditionalChinese = prefs.getBoolean("convert_to_traditional_chinese", false),
+              convertToTraditionalChinese = prefs.getBoolean("convert_to_traditional_chinese", true),
               serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                               ?: HttpConfig.DEFAULT_BASE_URL,
               exportToCustomUrl = prefs.getBoolean("export_to_custom_url", false),

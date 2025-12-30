@@ -19,6 +19,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.data.settings.MagicTag
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -159,6 +160,44 @@ class AiNoteRepository(
         val content = firstCandidate?.optJSONObject("content")
         val parts = content?.optJSONArray("parts")
         return parts?.optJSONObject(0)?.optString("text", "")
+    }
+
+    private fun normalizeMagicRole(tag: MagicTag?): String? {
+        return tag?.role?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotBlank() }
+    }
+
+    private fun resolveSystemPrompt(settings: ReaderSettings, tag: MagicTag?): String {
+        val role = normalizeMagicRole(tag)
+        val magicText = tag?.label?.trim().orEmpty()
+        return if (role == "system" && magicText.isNotEmpty()) {
+            magicText
+        } else {
+            settings.aiSystemPrompt
+        }
+    }
+
+    private fun resolveUserInput(settings: ReaderSettings, text: String, tag: MagicTag?): String {
+        val role = normalizeMagicRole(tag)
+        val magicText = tag?.label?.trim().orEmpty()
+        val userText = if (role == "user" && magicText.isNotEmpty()) {
+            "$magicText $text".trim()
+        } else {
+            text
+        }
+        return String.format(settings.safeUserPromptTemplate, userText)
+    }
+
+    private fun maybeAddAssistantMagic(messages: JSONArray, tag: MagicTag?) {
+        val role = normalizeMagicRole(tag)
+        val magicText = tag?.label?.trim().orEmpty()
+        if (role == "assistant" && magicText.isNotEmpty()) {
+            messages.put(
+                JSONObject().apply {
+                    put("role", "assistant")
+                    put("content", magicText)
+                }
+            )
+        }
     }
 
     suspend fun add(
@@ -307,7 +346,10 @@ class AiNoteRepository(
         }
     }
 
-    suspend fun fetchAiExplanation(text: String): Pair<String, String>? {
+    suspend fun fetchAiExplanation(
+        text: String,
+        magicTag: MagicTag? = null
+    ): Pair<String, String>? {
         val settings = getSettings()
         if (settings.apiKey.isNotBlank()) {
             return withContext(Dispatchers.IO) {
@@ -315,6 +357,7 @@ class AiNoteRepository(
                     val url = getBaseUrl()
                     val isGoogle = isGoogleNative(url)
                     val extraParams = loadExtraParams()
+                    val systemPrompt = resolveSystemPrompt(settings, magicTag)
                     
                     val requestBody: okhttp3.RequestBody
                     val requestBuilder = Request.Builder()
@@ -329,14 +372,15 @@ class AiNoteRepository(
                             // OR we just use transform directly.
                             put(JSONObject().apply {
                                 put("role", "user")
-                                put("content", String.format(settings.safeUserPromptTemplate, text))
+                                put("content", resolveUserInput(settings, text, magicTag))
                             })
                         }
+                        maybeAddAssistantMagic(messages, magicTag)
                         
                         val googlePayload = transformToGooglePayload(
                             settings.aiModelName, 
                             messages, 
-                            settings.aiSystemPrompt,
+                            systemPrompt,
                             settings.temperature,
                             settings.maxTokens,
                             settings.topP,
@@ -356,11 +400,12 @@ class AiNoteRepository(
                         val messages = JSONArray().apply {
                             put(JSONObject().apply {
                                 put("role", "system")
-                                put("content", settings.aiSystemPrompt)
+                                put("content", systemPrompt)
                             })
+                            maybeAddAssistantMagic(this, magicTag)
                             put(JSONObject().apply {
                                 put("role", "user")
-                                put("content", String.format(settings.safeUserPromptTemplate, text))
+                                put("content", resolveUserInput(settings, text, magicTag))
                             })
                         }
                         val payload = JSONObject().apply {
@@ -471,6 +516,7 @@ class AiNoteRepository(
 
     suspend fun fetchAiExplanationStreaming(
         text: String,
+        magicTag: MagicTag? = null,
         onPartial: suspend (String) -> Unit
     ): Pair<String, String>? {
         val settings = getSettings()
@@ -478,15 +524,17 @@ class AiNoteRepository(
             // Direct DeepSeek API call
             val url = getBaseUrl() // Use base URL directly without appending path
             val extraParams = loadExtraParams()
+            val systemPrompt = resolveSystemPrompt(settings, magicTag)
             
             val messages = JSONArray().apply {
                 put(JSONObject().apply {
                     put("role", "system")
-                    put("content", settings.aiSystemPrompt)
+                    put("content", systemPrompt)
                 })
-                    put(JSONObject().apply {
+                maybeAddAssistantMagic(this, magicTag)
+                put(JSONObject().apply {
                     put("role", "user")
-                    put("content", String.format(settings.safeUserPromptTemplate, text))
+                    put("content", resolveUserInput(settings, text, magicTag))
                 })
             }
 
@@ -518,13 +566,14 @@ class AiNoteRepository(
                  val messages = JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
-                        put("content", String.format(settings.safeUserPromptTemplate, text))
+                        put("content", resolveUserInput(settings, text, magicTag))
                     })
                 }
+                maybeAddAssistantMagic(messages, magicTag)
                 val googlePayload = transformToGooglePayload(
                     settings.aiModelName, 
                     messages, 
-                    settings.aiSystemPrompt,
+                    systemPrompt,
                     settings.temperature,
                     settings.maxTokens,
                     settings.topP,
@@ -766,7 +815,11 @@ class AiNoteRepository(
             "Error: ${e.message ?: "Unknown error"}"
         }
     }
-    suspend fun continueConversation(note: AiNoteEntity, followUpText: String): String? =
+    suspend fun continueConversation(
+        note: AiNoteEntity,
+        followUpText: String,
+        magicTag: MagicTag? = null
+    ): String? =
         withContext(Dispatchers.IO) {
             val settings = getSettings()
             if (settings.apiKey.isNotBlank()) {
@@ -774,6 +827,7 @@ class AiNoteRepository(
                     val url = getBaseUrl()
                     val isGoogle = isGoogleNative(url)
                     val extraParams = loadExtraParams()
+                    val systemPrompt = resolveSystemPrompt(settings, magicTag)
                     
                     val requestBody: okhttp3.RequestBody
                     val requestBuilder = Request.Builder().url(url)
@@ -781,7 +835,8 @@ class AiNoteRepository(
                     if (isGoogle) {
                         val history = buildMessages(note)
                         // Add current user message
-                        val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
+                        val userInputWithHint = resolveUserInput(settings, followUpText, magicTag)
+                        maybeAddAssistantMagic(history, magicTag)
                         history.put(JSONObject().apply {
                             put("role", "user")
                             put("content", userInputWithHint)
@@ -790,7 +845,7 @@ class AiNoteRepository(
                         val googlePayload = transformToGooglePayload(
                             settings.aiModelName, 
                             history, 
-                            settings.aiSystemPrompt,
+                            systemPrompt,
                             settings.temperature,
                             settings.maxTokens,
                             settings.topP,
@@ -805,7 +860,6 @@ class AiNoteRepository(
                     } else {
                         // Standard OpenAI
                         val history = buildMessages(note)
-                        val systemPrompt = settings.aiSystemPrompt
                         
                         val messages = JSONArray()
                         messages.put(JSONObject().apply {
@@ -813,8 +867,9 @@ class AiNoteRepository(
                             put("content", systemPrompt)
                         })
                         for (i in 0 until history.length()) messages.put(history.get(i))
+                        maybeAddAssistantMagic(messages, magicTag)
                         
-                        val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
+                        val userInputWithHint = resolveUserInput(settings, followUpText, magicTag)
                         messages.put(JSONObject().apply {
                             put("role", "user")
                             put("content", userInputWithHint)
@@ -907,6 +962,7 @@ class AiNoteRepository(
     suspend fun continueConversationStreaming(
         note: AiNoteEntity,
         followUpText: String,
+        magicTag: MagicTag? = null,
         onPartial: suspend (String) -> Unit
     ): String? {
         val settings = getSettings()
@@ -916,7 +972,7 @@ class AiNoteRepository(
             val history = buildMessages(note)
             
             // System Prompt from Settings
-            val systemPrompt = settings.aiSystemPrompt
+            val systemPrompt = resolveSystemPrompt(settings, magicTag)
 
             val messages = JSONArray()
             messages.put(JSONObject().apply {
@@ -928,9 +984,10 @@ class AiNoteRepository(
             for (i in 0 until history.length()) {
                 messages.put(history.get(i))
             }
+            maybeAddAssistantMagic(messages, magicTag)
 
             // Add current user message with template
-            val userInputWithHint = String.format(settings.safeUserPromptTemplate, followUpText)
+            val userInputWithHint = resolveUserInput(settings, followUpText, magicTag)
 
             messages.put(JSONObject().apply {
                 put("role", "user")
@@ -963,7 +1020,8 @@ class AiNoteRepository(
              val requestPayload = if (isGoogle) {
                 // History + User Input -> Google 'contents'
                 val historyGoogle = buildMessages(note)
-                val userInputWithHintGoogle = String.format(settings.safeUserPromptTemplate, followUpText)
+                val userInputWithHintGoogle = resolveUserInput(settings, followUpText, magicTag)
+                maybeAddAssistantMagic(historyGoogle, magicTag)
                 historyGoogle.put(JSONObject().apply {
                     put("role", "user")
                     put("content", userInputWithHintGoogle)
@@ -971,7 +1029,7 @@ class AiNoteRepository(
                 val googlePayload = transformToGooglePayload(
                     settings.aiModelName, 
                     historyGoogle, 
-                    settings.aiSystemPrompt,
+                    systemPrompt,
                     settings.temperature,
                     settings.maxTokens,
                     settings.topP,

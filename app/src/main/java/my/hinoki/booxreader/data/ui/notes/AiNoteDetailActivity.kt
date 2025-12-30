@@ -533,7 +533,11 @@ class AiNoteDetailActivity : BaseActivity() {
         }
     }
 
-    private fun sendFollowUp(note: AiNoteEntity, question: String) {
+    private fun sendFollowUp(
+        note: AiNoteEntity,
+        question: String,
+        magicTag: MagicTag? = null
+    ) {
         binding.btnFollowUp.isEnabled = false
         binding.btnFollowUp.text = getString(R.string.ai_note_follow_up_publishing)
         setLoading(true)
@@ -544,7 +548,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 val currentAiResponse = getAiResponse(note)
                 val result =
                         if (useStreaming) {
-                            repository.continueConversationStreaming(note, question) { partial ->
+                            repository.continueConversationStreaming(note, question, magicTag) { partial ->
                                 val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
                                 val preview =
                                         currentAiResponse +
@@ -557,7 +561,7 @@ class AiNoteDetailActivity : BaseActivity() {
                                 // restoreScrollIfJumped(savedScrollY)
                             }
                         } else {
-                            repository.continueConversation(note, question)
+                            repository.continueConversation(note, question, magicTag)
                         }
                 clearStreamingRenderer()
                 if (result != null) {
@@ -646,12 +650,17 @@ class AiNoteDetailActivity : BaseActivity() {
         }
     }
 
-    private fun startStreaming(note: AiNoteEntity, text: String, preserveScrollY: Int? = null) {
+    private fun startStreaming(
+        note: AiNoteEntity,
+        text: String,
+        preserveScrollY: Int? = null,
+        magicTag: MagicTag? = null
+    ) {
         setLoading(true)
         val savedScrollY = preserveScrollY ?: currentScrollY()
         lifecycleScope.launch {
             val result =
-                    repository.fetchAiExplanationStreaming(text) { partial ->
+                    repository.fetchAiExplanationStreaming(text, magicTag) { partial ->
                         renderStreamingMarkdown(partial)
                     }
             clearStreamingRenderer()
@@ -1066,17 +1075,19 @@ class AiNoteDetailActivity : BaseActivity() {
         val currentInput = binding.etFollowUp.text.toString().trim()
 
         if (currentInput.isNotEmpty()) {
-            val prompt = "${tag.label} $currentInput"
             binding.etFollowUp.setText("")
-            sendFollowUp(note, prompt)
+            sendFollowUp(note, currentInput, tag)
         } else {
             val originalText = getOriginalText(note)
-            val prompt = "${tag.label} $originalText"
-            rePublishWithPrompt(note, prompt)
+            rePublishWithPrompt(note, originalText, tag)
         }
     }
 
-    private fun rePublishWithPrompt(note: AiNoteEntity, promptText: String) {
+    private fun rePublishWithPrompt(
+        note: AiNoteEntity,
+        promptText: String,
+        magicTag: MagicTag? = null
+    ) {
         val savedScrollY = currentScrollY()
         binding.btnRepublishSelection.isEnabled = false
         binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_progress)
@@ -1086,12 +1097,12 @@ class AiNoteDetailActivity : BaseActivity() {
             val useStreaming = repository.isStreamingEnabled()
 
             if (useStreaming) {
-                startStreaming(note, promptText, savedScrollY)
+                startStreaming(note, promptText, savedScrollY, magicTag)
                 binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
                 return@launch
             }
 
-            val result = repository.fetchAiExplanation(promptText)
+            val result = repository.fetchAiExplanation(promptText, magicTag)
             if (result != null) {
                 val (serverText, content) = result
                 val updatedNote = updateNoteFromStrings(note, serverText, content)
