@@ -198,7 +198,6 @@ class NativeNavigatorFragment : Fragment() {
                 hideSelectionMenu()
             }
         }
-        Log.d(TAG, "setOnPageEdgeHoldListener for nativeReaderView")
         binding.nativeReaderView.setOnPageEdgeHoldListener { direction ->
             handlePageEdgeHold(direction)
         }
@@ -880,10 +879,6 @@ class NativeNavigatorFragment : Fragment() {
     private fun handlePageEdgeHold(direction: Int) {
         if (isAnimating) return
         val p = pager ?: return
-        Log.d(
-                TAG,
-                "handlePageEdgeHold dir=$direction page=$currentPageInResource/${p.pageCount}"
-        )
         if (direction > 0) {
             if (currentPageInResource < p.pageCount - 1) {
                 currentPageInResource++

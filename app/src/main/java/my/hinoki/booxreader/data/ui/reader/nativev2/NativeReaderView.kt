@@ -6,7 +6,6 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
-import android.util.Log
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -22,9 +21,6 @@ class NativeReaderView
 @JvmOverloads
 constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
         View(context, attrs, defStyleAttr) {
-    companion object {
-        private const val TAG = "NativeReaderView"
-    }
 
     private val textPaint =
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -135,7 +131,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     fun setOnPageEdgeHoldListener(listener: (Int) -> Unit) {
-        Log.d(TAG, "setOnPageEdgeHoldListener")
         this.onPageEdgeHoldListener = listener
     }
 
@@ -861,11 +856,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             return
         }
         val direction = getEdgeDirection(localOffset)
-        Log.d(
-                TAG,
-                "edgeHold arm? handle=$activeHandle dir=$direction " +
-                        "local=$localOffset page=[$pageStartOffset,${pageStartOffset + content.length})"
-        )
         if (direction == 0) {
             cancelEdgeHold()
             return
@@ -877,7 +867,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         if (edgeHoldRunnable != null &&
                 edgeHoldDirection == direction &&
                 edgeHoldActiveHandle == activeHandle) {
-            Log.d(TAG, "edgeHold already armed")
             return
         }
         cancelEdgeHold()
@@ -889,11 +878,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                             if (edgeHoldActiveHandle == 1) toLocalOffset(selectionStart)
                             else if (edgeHoldActiveHandle == 2) toLocalOffset(selectionEnd) else null
                     val atEdge = localNow?.let { isAtEdge(it, edgeHoldDirection) } == true
-                    Log.d(
-                            TAG,
-                            "edgeHold fire? selecting=$isSelecting handle=$activeHandle " +
-                                    "dir=$edgeHoldDirection localNow=$localNow atEdge=$atEdge"
-                    )
                     if (!isSelecting ||
                             localNow == null ||
                             activeHandle != edgeHoldActiveHandle ||
@@ -902,11 +886,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         return@Runnable
                     }
                     val callback = onPageEdgeHoldListener
-                    if (callback == null) {
-                        Log.d(TAG, "edgeHold callback null")
-                    }
+                    val directionToSend = edgeHoldDirection
                     cancelEdgeHold()
-                    callback?.invoke(edgeHoldDirection)
+                    callback?.invoke(directionToSend)
                 }
         edgeHoldRunnable = runnable
         postDelayed(runnable, 2000L)
