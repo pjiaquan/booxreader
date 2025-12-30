@@ -6,6 +6,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
+import android.util.Log
 import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -21,6 +22,9 @@ class NativeReaderView
 @JvmOverloads
 constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
         View(context, attrs, defStyleAttr) {
+    companion object {
+        private const val TAG = "NativeReaderView"
+    }
 
     private val textPaint =
             TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -206,6 +210,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                                 val boundaries = getWordBoundaries(localOffset)
                                 selectionStart = pageStartOffset + boundaries.first
                                 selectionEnd = pageStartOffset + boundaries.second
+                                Log.d(
+                                        TAG,
+                                        "onLongPress local=$localOffset pageStart=$pageStartOffset " +
+                                                "sel=[$selectionStart,$selectionEnd) " +
+                                                "bounds=${boundaries.first}..${boundaries.second} " +
+                                                "contentLen=${content.length}"
+                                )
 
                                 activeHandle = 2 // Default to end handle for extension
                                 isSelecting = true
