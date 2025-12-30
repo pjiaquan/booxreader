@@ -238,9 +238,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     constraints {
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1") {
-            version { strictly("0.6.1") }
-            because("aws.smithy.kotlin runtime expects kotlinx-datetime Instant classes, which were removed in 0.7.x")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1") {
+            version { strictly("0.7.1") }
+            because("Readium 3.1.2 expects kotlinx-datetime 0.7.x APIs (kotlin.time.Instant)")
         }
     }
 
