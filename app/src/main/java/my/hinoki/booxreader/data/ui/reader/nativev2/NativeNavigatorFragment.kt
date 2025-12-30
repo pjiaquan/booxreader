@@ -157,7 +157,7 @@ class NativeNavigatorFragment : Fragment() {
     data class Selection(val locator: Locator)
 
     fun currentSelection(): Selection? {
-        val text = _binding?.nativeReaderView?.getSelectedText() ?: return null
+        val text = getSelectedTextFromRange() ?: return null
         val href = currentResourceHref ?: return null
         return Selection(
                 Locator(
@@ -198,6 +198,9 @@ class NativeNavigatorFragment : Fragment() {
                 hideSelectionMenu()
             }
         }
+        binding.nativeReaderView.setOnPageEdgeHoldListener { direction ->
+            handlePageEdgeHold(direction)
+        }
 
         binding.nativeReaderView.setOnLinkClickListener { url -> handleLinkClick(url) }
 
@@ -210,8 +213,8 @@ class NativeNavigatorFragment : Fragment() {
         binding.pageIndicator.visibility = if (showPageIndicator) View.VISIBLE else View.GONE
 
         binding.btnCopy.setOnClickListener {
-            val text = binding.nativeReaderView.getSelectedText()
-            if (text != null) {
+            val text = getSelectedTextFromRange()
+            if (!text.isNullOrBlank()) {
                 copyToClipboard(text)
                 Toast.makeText(requireContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show()
                 binding.nativeReaderView.clearSelection() // Clear after copy
@@ -220,17 +223,17 @@ class NativeNavigatorFragment : Fragment() {
         }
 
         binding.btnSearch.setOnClickListener {
-            val text = binding.nativeReaderView.getSelectedText()
-            if (text != null) {
+            val text = getSelectedTextFromRange()
+            if (!text.isNullOrBlank()) {
                 googleSearch(text)
                 hideSelectionMenu()
             }
         }
 
         binding.btnAskAi.setOnClickListener {
-            val text = binding.nativeReaderView.getSelectedText()
+            val text = getSelectedTextFromRange()
             if (!text.isNullOrBlank()) {
-                val locator = binding.nativeReaderView.getSelectionLocator()
+                val locator = buildSelectionLocator(text)
                 val locatorJson = LocatorJsonHelper.toJson(locator)
 
                 // Sanitize similar to ReaderActivity
@@ -621,7 +624,8 @@ class NativeNavigatorFragment : Fragment() {
     private fun displayCurrentPage() {
         val p = pager ?: return
         if (p.pageCount == 0) {
-            binding.nativeReaderView.setContent("No content in this chapter")
+            binding.nativeReaderView.setPageRange(0, 0)
+            binding.nativeReaderView.setContent("No content in this chapter", resetSelection = true)
             updatePageIndicator()
             return
         }
@@ -637,8 +641,14 @@ class NativeNavigatorFragment : Fragment() {
             return
         }
 
+        val pageRange = p.getPageRange(currentPageInResource) ?: return
         val text = p.getPageText(currentPageInResource)
-        binding.nativeReaderView.setContent(applyChineseConversion(text))
+        binding.nativeReaderView.setPageRange(pageRange.startOffset, pageRange.endOffset)
+        val preserveSelection = binding.nativeReaderView.hasSelection()
+        binding.nativeReaderView.setContent(
+                applyChineseConversion(text),
+                resetSelection = !preserveSelection
+        )
         updatePageIndicator()
         updateLocator()
     }
@@ -704,9 +714,11 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
-    fun goForward() {
+    fun goForward(clearSelection: Boolean = true) {
         if (isAnimating) return
-        binding.nativeReaderView.clearSelection()
+        if (clearSelection) {
+            binding.nativeReaderView.clearSelection()
+        }
         val p = pager ?: return
         if (currentPageInResource < p.pageCount - 1) {
             // Same resource, next page
@@ -730,9 +742,11 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
-    fun goBackward() {
+    fun goBackward(clearSelection: Boolean = true) {
         if (isAnimating) return
-        binding.nativeReaderView.clearSelection()
+        if (clearSelection) {
+            binding.nativeReaderView.clearSelection()
+        }
         if (currentPageInResource > 0) {
             // Same resource, previous page
             if (pageAnimationEnabled) {
@@ -768,7 +782,17 @@ class NativeNavigatorFragment : Fragment() {
 
         if (sameResource && nextText != null) {
             // Simple slide animation within same resource
-            binding.nativeReaderViewSecondary.setContent(applyChineseConversion(nextText))
+            val nextRange = p.getPageRange(currentPageInResource + 1)
+            if (nextRange != null) {
+                binding.nativeReaderViewSecondary.setPageRange(
+                        nextRange.startOffset,
+                        nextRange.endOffset
+                )
+            }
+            binding.nativeReaderViewSecondary.setContent(
+                    applyChineseConversion(nextText),
+                    resetSelection = true
+            )
             binding.nativeReaderViewSecondary.visibility = View.VISIBLE
             binding.nativeReaderViewSecondary.translationX = binding.root.width.toFloat()
 
@@ -809,7 +833,17 @@ class NativeNavigatorFragment : Fragment() {
         if (sameResource && currentPageInResource > 0) {
             // Simple slide animation within same resource
             val prevText = p.getPageText(currentPageInResource - 1)
-            binding.nativeReaderViewSecondary.setContent(applyChineseConversion(prevText))
+            val prevRange = p.getPageRange(currentPageInResource - 1)
+            if (prevRange != null) {
+                binding.nativeReaderViewSecondary.setPageRange(
+                        prevRange.startOffset,
+                        prevRange.endOffset
+                )
+            }
+            binding.nativeReaderViewSecondary.setContent(
+                    applyChineseConversion(prevText),
+                    resetSelection = true
+            )
             binding.nativeReaderViewSecondary.visibility = View.VISIBLE
             binding.nativeReaderViewSecondary.translationX = -binding.root.width.toFloat()
 
@@ -840,6 +874,41 @@ class NativeNavigatorFragment : Fragment() {
                 isAnimating = false
             }
         }
+    }
+
+    private fun handlePageEdgeHold(direction: Int) {
+        if (isAnimating) return
+        val p = pager ?: return
+        if (direction > 0) {
+            if (currentPageInResource < p.pageCount - 1) {
+                currentPageInResource++
+                displayCurrentPage()
+            }
+        } else if (direction < 0) {
+            if (currentPageInResource > 0) {
+                currentPageInResource--
+                displayCurrentPage()
+            }
+        }
+    }
+
+    private fun getSelectedTextFromRange(): String? {
+        val view = _binding?.nativeReaderView ?: return null
+        val range = view.getSelectionRange() ?: return null
+        if (resourceText.isEmpty()) return null
+        val start = range.start.coerceIn(0, resourceText.length)
+        val end = range.end.coerceIn(start, resourceText.length)
+        if (start == end) return null
+        return resourceText.subSequence(start, end).toString()
+    }
+
+    private fun buildSelectionLocator(text: String): Locator? {
+        val href = currentResourceHref ?: return null
+        return Locator(
+                href = Url(href)!!,
+                mediaType = MediaType.HTML,
+                text = Locator.Text(highlight = text)
+        )
     }
 
     override fun onDestroyView() {

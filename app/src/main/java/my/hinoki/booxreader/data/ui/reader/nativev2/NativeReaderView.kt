@@ -49,6 +49,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     private var content: CharSequence = ""
     private var layout: StaticLayout? = null
+    private var pageStartOffset: Int = 0
+    private var pageEndOffset: Int = 0
 
     // Selection state
     private var selectionStart: Int = -1
@@ -59,6 +61,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var onTouchTapListener: ((Float, Float) -> Unit)? = null
     private var onSelectionListener: ((Boolean, Float, Float) -> Unit)? = null
     private var onLinkClickListener: ((String) -> Unit)? = null
+    private var onPageEdgeHoldListener: ((Int) -> Unit)? = null
 
     // Magnifier state
     private var isMagnifying = false
@@ -76,6 +79,15 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var currentBackgroundColor: Int = Color.WHITE
     private var currentTextColor: Int = Color.BLACK
     private var currentLinkColor: Int = Color.BLUE
+
+    private var lastTouchX = 0f
+    private var lastTouchY = 0f
+
+    private var edgeHoldRunnable: Runnable? = null
+    private var edgeHoldDirection: Int = 0
+    private var edgeHoldActiveHandle: Int = 0
+
+    data class SelectionRange(val start: Int, val end: Int)
 
     fun setThemeColors(backgroundColor: Int, textColor: Int) {
         currentBackgroundColor = backgroundColor
@@ -118,11 +130,25 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         this.onLinkClickListener = listener
     }
 
-    fun getSelectedText(): String? {
+    fun setOnPageEdgeHoldListener(listener: (Int) -> Unit) {
+        this.onPageEdgeHoldListener = listener
+    }
+
+    fun setPageRange(startOffset: Int, endOffset: Int) {
+        pageStartOffset = startOffset
+        pageEndOffset = endOffset
+    }
+
+    fun getSelectionRange(): SelectionRange? {
         if (!hasSelection()) return null
         val start = min(selectionStart, selectionEnd)
         val end = max(selectionStart, selectionEnd)
-        return content.subSequence(start, end).toString()
+        return if (start == end) null else SelectionRange(start, end)
+    }
+
+    fun getSelectedText(): String? {
+        val local = getLocalSelectionRange() ?: return null
+        return content.subSequence(local.first, local.second).toString()
     }
 
     fun hasSelection(): Boolean = selectionStart != -1 && selectionEnd != -1
@@ -171,15 +197,15 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         }
 
                         override fun onLongPress(e: MotionEvent) {
-                            val offset = getOffsetForPosition(e.x, e.y)
-                            if (offset != -1) {
+                            val localOffset = getLocalOffsetForPosition(e.x, e.y)
+                            if (localOffset != -1) {
                                 // Hide existing menu if any
                                 onSelectionListener?.invoke(false, 0f, 0f)
 
                                 // Expert Selection: Select full word/phrase
-                                val boundaries = getWordBoundaries(offset)
-                                selectionStart = boundaries.first
-                                selectionEnd = boundaries.second
+                                val boundaries = getWordBoundaries(localOffset)
+                                selectionStart = pageStartOffset + boundaries.first
+                                selectionEnd = pageStartOffset + boundaries.second
 
                                 activeHandle = 2 // Default to end handle for extension
                                 isSelecting = true
@@ -220,14 +246,18 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         return super.performClick()
     }
 
-    fun setContent(text: CharSequence) {
+    fun setContent(text: CharSequence, resetSelection: Boolean = true) {
         this.content =
                 if (text is android.text.Spannable) text else android.text.SpannableString(text)
         restyleLinks()
 
-        // Clear selection when content changes
-        selectionStart = -1
-        selectionEnd = -1
+        if (resetSelection) {
+            selectionStart = -1
+            selectionEnd = -1
+            activeHandle = 0
+            isSelecting = false
+            cancelEdgeHold()
+        }
         requestLayout()
         invalidate()
     }
@@ -365,9 +395,10 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         val l = layout ?: return
 
         // 1. Draw Selection Background
-        if (selectionStart != -1 && selectionEnd != -1) {
-            val start = min(selectionStart, selectionEnd)
-            val end = max(selectionStart, selectionEnd)
+        val localSelection = getLocalSelectionRange()
+        if (localSelection != null) {
+            val start = localSelection.first
+            val end = localSelection.second
 
             val startLine = l.getLineForOffset(start)
             val endLine = l.getLineForOffset(end)
@@ -392,7 +423,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             canvas.drawPath(selectionPath, selectionPaint)
 
             // 2. Draw Handles (Premium Pill Style)
-            drawHandles(canvas, start, end)
+            drawHandles(canvas)
         }
 
         // 3. Draw Text
@@ -401,11 +432,12 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
         // 4. Draw Magnifier Overlay
         if (isMagnifying && (selectionStart != -1 || selectionEnd != -1)) {
-            val offset =
-                    if (activeHandle == 1) min(selectionStart, selectionEnd)
-                    else max(selectionStart, selectionEnd)
-            val line = l.getLineForOffset(offset)
-            val focusX = l.getPrimaryHorizontal(offset) + paddingLeft
+            val focusOffset = getActiveHandleLocalOffset()
+            if (focusOffset == null) {
+                return
+            }
+            val line = l.getLineForOffset(focusOffset)
+            val focusX = l.getPrimaryHorizontal(focusOffset) + paddingLeft
             val focusY =
                     l.getLineBottom(line).toFloat() -
                             (l.getLineBottom(line) - l.getLineTop(line)) / 2f + paddingTop
@@ -432,29 +464,34 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             canvas.save()
             canvas.translate(paddingLeft.toFloat(), paddingTop.toFloat())
 
-            val start = min(selectionStart, selectionEnd)
-            val end = max(selectionStart, selectionEnd)
-            val startLine = l.getLineForOffset(start)
-            val endLine = l.getLineForOffset(end)
-            
-            selectionPath.reset()
-            for (lineIdx in startLine..endLine) {
-                val lineStart = if (lineIdx == startLine) start else l.getLineStart(lineIdx)
-                val lineEnd = if (lineIdx == endLine) end else l.getLineEnd(lineIdx)
-                val left = (if (lineIdx == startLine) l.getPrimaryHorizontal(lineStart) else 0f) - selectionPaddingHorizontal
-                val right =
-                        (if (lineIdx == endLine) l.getPrimaryHorizontal(lineEnd)
-                        else l.width.toFloat()) + selectionPaddingHorizontal
+            val localMagSelection = getLocalSelectionRange()
+            if (localMagSelection != null) {
+                val start = localMagSelection.first
+                val end = localMagSelection.second
+                val startLine = l.getLineForOffset(start)
+                val endLine = l.getLineForOffset(end)
 
-                // Use FontMetrics in magnifier too
-                val baseline = l.getLineBaseline(lineIdx).toFloat()
-                val fm = textPaint.fontMetrics
-                val top = baseline + fm.ascent - selectionPaddingVertical
-                val bottom = baseline + fm.descent + selectionPaddingVertical
+                selectionPath.reset()
+                for (lineIdx in startLine..endLine) {
+                    val lineStart = if (lineIdx == startLine) start else l.getLineStart(lineIdx)
+                    val lineEnd = if (lineIdx == endLine) end else l.getLineEnd(lineIdx)
+                    val left =
+                            (if (lineIdx == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
+                                    selectionPaddingHorizontal
+                    val right =
+                            (if (lineIdx == endLine) l.getPrimaryHorizontal(lineEnd)
+                            else l.width.toFloat()) + selectionPaddingHorizontal
 
-                selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
+                    // Use FontMetrics in magnifier too
+                    val baseline = l.getLineBaseline(lineIdx).toFloat()
+                    val fm = textPaint.fontMetrics
+                    val top = baseline + fm.ascent - selectionPaddingVertical
+                    val bottom = baseline + fm.descent + selectionPaddingVertical
+
+                    selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
+                }
+                canvas.drawPath(selectionPath, selectionPaint)
             }
-            canvas.drawPath(selectionPath, selectionPaint)
             
             l.draw(canvas)
             canvas.restore()
@@ -481,39 +518,57 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         }
     }
 
-    private fun drawHandles(canvas: Canvas, start: Int, end: Int) {
+    private fun drawHandles(canvas: Canvas) {
         val l = layout ?: return
         val handleWidth = 4f
         val handleBallRadius = 18f
 
-        val minOff = min(start, end)
-        val maxOff = max(start, end)
-
         // Start handle
-        val sLine = l.getLineForOffset(minOff)
-        val sX = l.getPrimaryHorizontal(minOff)
-        val sBaseline = l.getLineBaseline(sLine).toFloat()
-        val fm = textPaint.fontMetrics
-        val sTop = sBaseline + fm.ascent - selectionPaddingVertical
-        val sBottom = sBaseline + fm.descent + selectionPaddingVertical
+        val startLocal = toLocalOffset(selectionStart)
+        if (startLocal != null) {
+            val sLine = l.getLineForOffset(startLocal)
+            val sX = l.getPrimaryHorizontal(startLocal)
+            val sBaseline = l.getLineBaseline(sLine).toFloat()
+            val fm = textPaint.fontMetrics
+            val sTop = sBaseline + fm.ascent - selectionPaddingVertical
+            val sBottom = sBaseline + fm.descent + selectionPaddingVertical
 
-        canvas.drawRect(sX - handleWidth / 2, sTop, sX + handleWidth / 2, sBottom, handlePaint)
-        canvas.drawCircle(sX, sTop, handleBallRadius, handlePaint)
+            canvas.drawRect(
+                    sX - handleWidth / 2,
+                    sTop,
+                    sX + handleWidth / 2,
+                    sBottom,
+                    handlePaint
+            )
+            canvas.drawCircle(sX, sTop, handleBallRadius, handlePaint)
+        }
 
         // End handle
-        val eLine = l.getLineForOffset(maxOff)
-        val eX = l.getPrimaryHorizontal(maxOff)
-        val eBaseline = l.getLineBaseline(eLine).toFloat()
-        val eTop = eBaseline + fm.ascent - selectionPaddingVertical
-        val eBottom = eBaseline + fm.descent + selectionPaddingVertical
+        val endLocal = toLocalOffset(selectionEnd)
+        if (endLocal != null) {
+            val eLine = l.getLineForOffset(endLocal)
+            val eX = l.getPrimaryHorizontal(endLocal)
+            val eBaseline = l.getLineBaseline(eLine).toFloat()
+            val fm = textPaint.fontMetrics
+            val eTop = eBaseline + fm.ascent - selectionPaddingVertical
+            val eBottom = eBaseline + fm.descent + selectionPaddingVertical
 
-        canvas.drawRect(eX - handleWidth / 2, eTop, eX + handleWidth / 2, eBottom, handlePaint)
-        canvas.drawCircle(eX, eBottom, handleBallRadius, handlePaint)
+            canvas.drawRect(
+                    eX - handleWidth / 2,
+                    eTop,
+                    eX + handleWidth / 2,
+                    eBottom,
+                    handlePaint
+            )
+            canvas.drawCircle(eX, eBottom, handleBallRadius, handlePaint)
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val x = event.x
         val y = event.y
+        lastTouchX = x
+        lastTouchY = y
 
         // Pass to gesture detector primarily for LongPress and SingleTap
         val gestureHandled = gestureDetector.onTouchEvent(event)
@@ -522,16 +577,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             MotionEvent.ACTION_DOWN -> {
                 // If we are touching near a handle, start dragging it
                 if (selectionStart != -1) {
-                    val start = min(selectionStart, selectionEnd)
-                    val end = max(selectionStart, selectionEnd)
-
-                    if (isNear(x, y, start, true)) {
+                    if (isNear(x, y, selectionStart, true)) {
                         activeHandle = 1
                         isSelecting = true
                         onSelectionListener?.invoke(false, 0f, 0f)
                         parent?.requestDisallowInterceptTouchEvent(true)
                         return true
-                    } else if (isNear(x, y, end, false)) {
+                    } else if (isNear(x, y, selectionEnd, false)) {
                         activeHandle = 2
                         isSelecting = true
                         onSelectionListener?.invoke(false, 0f, 0f)
@@ -552,8 +604,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     isMagnifying = true
                     magnifierPos.set(x, y)
 
-                    var offset = getOffsetForPosition(x, y)
-                    if (offset != -1) {
+                    val localOffset = getLocalOffsetForPosition(x, y)
+                    if (localOffset != -1) {
+                        val offset = pageStartOffset + localOffset
                         // Smart handle selection: if we just started dragging from a long press,
                         // we can swap handle if the user moves to the left of the start
                         if (activeHandle == 2 && offset < selectionStart) {
@@ -585,6 +638,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
                         invalidate()
                         postInvalidateOnAnimation()
+                        maybeArmEdgeHold(localOffset)
+                    } else {
+                        cancelEdgeHold()
                     }
                     return true
                 }
@@ -594,6 +650,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     isSelecting = false
                     activeHandle = 0
                     isMagnifying = false
+                    cancelEdgeHold()
                     postInvalidateOnAnimation()
 
                     // Normalize selection after dragging for consistent state
@@ -611,10 +668,11 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
                     // Trigger selection menu AFTER finger is lifted
                     val l = layout
-                    if (l != null && selectionEnd != -1) {
+                    val localEnd = toLocalOffset(selectionEnd)
+                    if (l != null && localEnd != null) {
                         try {
-                            val line = l.getLineForOffset(selectionEnd)
-                            val menuX = l.getPrimaryHorizontal(selectionEnd) + paddingLeft
+                            val line = l.getLineForOffset(localEnd)
+                            val menuX = l.getPrimaryHorizontal(localEnd) + paddingLeft
                             val menuY = l.getLineTop(line).toFloat() + paddingTop
                             onSelectionListener?.invoke(true, menuX, menuY)
                         } catch (ex: Exception) {
@@ -633,17 +691,18 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         selectionEnd = -1
         activeHandle = 0
         isSelecting = false
+        cancelEdgeHold()
         onSelectionListener?.invoke(false, 0f, 0f)
         invalidate()
     }
 
     private fun isNear(x: Float, y: Float, offset: Int, isStart: Boolean): Boolean {
-        if (offset == -1) return false
+        val localOffset = toLocalOffset(offset) ?: return false
         val l = layout ?: return false
-        val line = l.getLineForOffset(offset)
+        val line = l.getLineForOffset(localOffset)
 
         // Target the center of the balls
-        val ox = l.getPrimaryHorizontal(offset) + paddingLeft
+        val ox = l.getPrimaryHorizontal(localOffset) + paddingLeft
         val baseline = l.getLineBaseline(line).toFloat()
         val fm = textPaint.fontMetrics
         val oy =
@@ -654,7 +713,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         return (x - ox) * (x - ox) + (y - oy) * (y - oy) < 32400
     }
 
-    private fun getOffsetForPosition(x: Float, y: Float): Int {
+    private fun getLocalOffsetForPosition(x: Float, y: Float): Int {
         val l = layout ?: return -1
         val relativeY = (y - paddingTop).coerceIn(0f, l.height.toFloat())
         val line = l.getLineForVertical(relativeY.toInt())
@@ -682,11 +741,11 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         // Try several points around the tap to increase hit area
         // We prioritize the center point
         val offsets = mutableSetOf<Int>()
-        offsets.add(getOffsetForPosition(x, y))
-        offsets.add(getOffsetForPosition(x - radius, y))
-        offsets.add(getOffsetForPosition(x + radius, y))
-        offsets.add(getOffsetForPosition(x, y - radius))
-        offsets.add(getOffsetForPosition(x, y + radius))
+        offsets.add(getLocalOffsetForPosition(x, y))
+        offsets.add(getLocalOffsetForPosition(x - radius, y))
+        offsets.add(getLocalOffsetForPosition(x + radius, y))
+        offsets.add(getLocalOffsetForPosition(x, y - radius))
+        offsets.add(getLocalOffsetForPosition(x, y + radius))
 
         if (content is android.text.Spanned) {
             val spanned = content as android.text.Spanned
@@ -738,5 +797,89 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             }
         }
         return null
+    }
+
+    private fun getLocalSelectionRange(): Pair<Int, Int>? {
+        if (!hasSelection()) return null
+        val start = min(selectionStart, selectionEnd)
+        val end = max(selectionStart, selectionEnd)
+        val localStart = (start.coerceAtLeast(pageStartOffset) - pageStartOffset)
+        val localEnd = (end.coerceAtMost(pageEndOffset) - pageStartOffset)
+        return if (localStart < localEnd) localStart to localEnd else null
+    }
+
+    private fun toLocalOffset(globalOffset: Int): Int? {
+        if (globalOffset < pageStartOffset || globalOffset > pageEndOffset) return null
+        return globalOffset - pageStartOffset
+    }
+
+    private fun getActiveHandleLocalOffset(): Int? {
+        val activeGlobal =
+                if (activeHandle == 1) min(selectionStart, selectionEnd)
+                else if (activeHandle == 2) max(selectionStart, selectionEnd) else null
+        return activeGlobal?.let { toLocalOffset(it) }
+    }
+
+    private fun maybeArmEdgeHold(localOffset: Int) {
+        val direction = getEdgeDirection(localOffset)
+        if (direction == 0) {
+            cancelEdgeHold()
+            return
+        }
+        if ((direction < 0 && activeHandle != 1) || (direction > 0 && activeHandle != 2)) {
+            cancelEdgeHold()
+            return
+        }
+        if (edgeHoldRunnable != null &&
+                edgeHoldDirection == direction &&
+                edgeHoldActiveHandle == activeHandle) {
+            return
+        }
+        cancelEdgeHold()
+        edgeHoldDirection = direction
+        edgeHoldActiveHandle = activeHandle
+        val runnable =
+                Runnable {
+                    val local = getLocalOffsetForPosition(lastTouchX, lastTouchY)
+                    if (!isSelecting ||
+                            local == -1 ||
+                            activeHandle != edgeHoldActiveHandle ||
+                            !isAtEdge(local, edgeHoldDirection)) {
+                        cancelEdgeHold()
+                        return@Runnable
+                    }
+                    val callback = onPageEdgeHoldListener
+                    cancelEdgeHold()
+                    callback?.invoke(edgeHoldDirection)
+                }
+        edgeHoldRunnable = runnable
+        postDelayed(runnable, 2000L)
+    }
+
+    private fun cancelEdgeHold() {
+        edgeHoldRunnable?.let { removeCallbacks(it) }
+        edgeHoldRunnable = null
+        edgeHoldDirection = 0
+        edgeHoldActiveHandle = 0
+    }
+
+    private fun isAtEdge(localOffset: Int, direction: Int): Boolean {
+        val length = content.length
+        if (length == 0) return false
+        return if (direction < 0) {
+            localOffset <= 0
+        } else {
+            localOffset >= length - 1
+        }
+    }
+
+    private fun getEdgeDirection(localOffset: Int): Int {
+        val length = content.length
+        if (length == 0) return 0
+        return when {
+            localOffset <= 0 -> -1
+            localOffset >= length - 1 -> 1
+            else -> 0
+        }
     }
 }

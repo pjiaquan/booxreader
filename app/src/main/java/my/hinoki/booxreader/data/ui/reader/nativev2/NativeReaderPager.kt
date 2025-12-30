@@ -76,6 +76,10 @@ class NativeReaderPager(
         return slice
     }
 
+    fun getPageRange(pageIndex: Int): PageRange? {
+        return pages.getOrNull(pageIndex)
+    }
+
     val pageCount: Int
         get() = pages.size
 }
