@@ -1530,7 +1530,11 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                 body: Any? = null,
                 prefer: String? = null
         ): String? {
-                val token = accessToken() ?: return null
+                val token = accessToken()
+                if (token.isNullOrBlank()) {
+                        Log.w("UserSyncRepository", "supabaseRestRequest missing token path=$path")
+                        return null
+                }
                 val url =
                         "$supabaseRestUrl/$path"
                                 .toHttpUrl()
@@ -1561,6 +1565,10 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                 return httpClient.newCall(requestBuilder.build()).execute().use { response ->
                         val responseBody = response.body?.string().orEmpty()
                         if (!response.isSuccessful) {
+                                Log.e(
+                                        "UserSyncRepository",
+                                        "supabaseRestRequest failed path=$path code=${response.code} body=${responseBody.take(200)}"
+                                )
                                 return null
                         }
                         responseBody
