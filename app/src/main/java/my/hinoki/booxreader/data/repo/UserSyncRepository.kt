@@ -175,13 +175,56 @@ class UserSyncRepository(
                                 .copy(userId = userId, updatedAt = System.currentTimeMillis())
 
                 withContext(io) {
-                        supabaseRestRequest(
-                                method = "POST",
-                                path = "settings",
-                                query = mapOf("on_conflict" to "user_id"),
-                                body = payload,
-                                prefer = "resolution=merge-duplicates"
-                        )
+                        val response =
+                                supabaseRestRequest(
+                                        method = "POST",
+                                        path = "settings",
+                                        query = mapOf("on_conflict" to "user_id"),
+                                        body = payload,
+                                        prefer = "resolution=merge-duplicates,return=representation"
+                                )
+                        response?.takeIf { it.isNotBlank() }?.let { body ->
+                                val listType =
+                                        object : TypeToken<List<SupabaseReaderSettings>>() {}.type
+                                val remote =
+                                        gson.fromJson<List<SupabaseReaderSettings>>(body, listType)
+                                                .firstOrNull()
+                                                ?: return@withContext
+                                var localProfileId = settings.activeProfileId
+                                var activeProfile: AiProfileEntity? = null
+                                if (!remote.activeProfileId.isNullOrBlank()) {
+                                        val profile =
+                                                db.aiProfileDao().getByRemoteId(remote.activeProfileId)
+                                        if (profile != null) {
+                                                localProfileId = profile.id
+                                                activeProfile = profile
+                                        }
+                                }
+                                var mergedSettings = remote.toLocal(settings, localProfileId)
+                                if (activeProfile != null) {
+                                        mergedSettings =
+                                                mergedSettings.copy(
+                                                        apiKey = activeProfile.apiKey,
+                                                        aiModelName = activeProfile.modelName,
+                                                        serverBaseUrl = activeProfile.serverBaseUrl,
+                                                        aiSystemPrompt = activeProfile.systemPrompt,
+                                                        aiUserPromptTemplate =
+                                                                activeProfile.userPromptTemplate,
+                                                        useStreaming = activeProfile.useStreaming,
+                                                        enableGoogleSearch =
+                                                                activeProfile.enableGoogleSearch,
+                                                        temperature = activeProfile.temperature,
+                                                        maxTokens = activeProfile.maxTokens,
+                                                        topP = activeProfile.topP,
+                                                        frequencyPenalty =
+                                                                activeProfile.frequencyPenalty,
+                                                        presencePenalty =
+                                                                activeProfile.presencePenalty,
+                                                        assistantRole = activeProfile.assistantRole
+                                                )
+                                }
+                                mergedSettings.saveTo(prefs)
+                        }
                 }
         }
 

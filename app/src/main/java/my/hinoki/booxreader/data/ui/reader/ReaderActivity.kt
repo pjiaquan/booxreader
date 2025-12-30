@@ -1178,42 +1178,76 @@ class ReaderActivity : BaseActivity() {
 
         btnAdd.setOnClickListener { addRow(null) }
 
-        androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(getString(R.string.action_manage_magic_tags))
-                .setView(scrollView)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val updatedTags =
-                            rows.mapIndexedNotNull { index, row ->
-                                val title = row.titleInput.text.toString().trim()
-                                val content =
-                                        row.contentInput.text.toString().trim().ifBlank { title }
-                                if (title.isBlank()) return@mapIndexedNotNull null
-                                val id =
-                                        row.id
-                                                ?: "custom-${System.currentTimeMillis()}-$index"
-                                MagicTag(
-                                        id = id,
-                                        label = title,
-                                        content = content,
-                                        description = content
+        val dialog =
+                androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle(getString(R.string.action_manage_magic_tags))
+                        .setView(scrollView)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                    ?.setOnClickListener {
+                        val seen = mutableSetOf<String>()
+                        val updatedTags =
+                                rows.mapIndexedNotNull { index, row ->
+                                    val title = row.titleInput.text.toString().trim()
+                                    val content =
+                                            row.contentInput.text.toString().trim().ifBlank { title }
+                                    if (title.isBlank()) {
+                                        if (content.isNotBlank()) {
+                                            Toast.makeText(
+                                                            this,
+                                                            getString(
+                                                                    R.string.magic_tag_invalid_empty_name
+                                                            ),
+                                                            Toast.LENGTH_SHORT
+                                            )
+                                                    .show()
+                                            return@setOnClickListener
+                                        }
+                                        return@mapIndexedNotNull null
+                                    }
+                                    if (!seen.add(title)) {
+                                        Toast.makeText(
+                                                        this,
+                                                        getString(
+                                                                R.string.magic_tag_invalid_duplicate
+                                                        ),
+                                                        Toast.LENGTH_SHORT
+                                        )
+                                                .show()
+                                        return@setOnClickListener
+                                    }
+                                    val id =
+                                            row.id
+                                                    ?: "custom-${System.currentTimeMillis()}-$index"
+                                    MagicTag(
+                                            id = id,
+                                            label = title,
+                                            content = content,
+                                            description = content
+                                    )
+                                }
+                        val updatedSettings =
+                                settings.copy(
+                                        magicTags = updatedTags,
+                                        updatedAt = System.currentTimeMillis()
                                 )
-                            }
-                    val updatedSettings =
-                            settings.copy(
-                                    magicTags = updatedTags,
-                                    updatedAt = System.currentTimeMillis()
-                            )
-                    updatedSettings.saveTo(prefs)
-                    pushSettingsToCloud()
-                    Toast.makeText(
-                                    this,
-                                    getString(R.string.action_manage_magic_tags) + " OK",
-                                    Toast.LENGTH_SHORT
-                            )
-                            .show()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+                        updatedSettings.saveTo(prefs)
+                        pushSettingsToCloud()
+                        Toast.makeText(
+                                        this,
+                                        getString(R.string.action_manage_magic_tags) + " OK",
+                                        Toast.LENGTH_SHORT
+                        )
+                                .show()
+                        dialog.dismiss()
+                    }
+        }
+
+        dialog.show()
     }
 
     private fun applyReaderSettings(settings: ReaderSettings) {
