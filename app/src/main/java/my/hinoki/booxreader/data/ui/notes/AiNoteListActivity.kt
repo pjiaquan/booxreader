@@ -12,10 +12,13 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowInsetsControllerCompat
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.ExportResult
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
@@ -23,6 +26,9 @@ import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.os.Build
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.widget.TextView
 
 class AiNoteListActivity : BaseActivity() {
 
@@ -45,6 +51,9 @@ class AiNoteListActivity : BaseActivity() {
     private var bookId: String? = null
     private var exportMenuItem: MenuItem? = null
     private var pendingExportAfterPermission: Boolean = false
+    private var listTextColor: Int = Color.BLACK
+    private var listSecondaryTextColor: Int = Color.DKGRAY
+    private var listBackgroundColor: Int = Color.WHITE
 
     private val storagePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -67,8 +76,14 @@ class AiNoteListActivity : BaseActivity() {
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         applyActionBarPadding(binding.listAiNotes)
+        applyThemeFromSettings()
 
         loadNotes()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyThemeFromSettings()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -96,6 +111,50 @@ class AiNoteListActivity : BaseActivity() {
         binding.listAiNotes.isEnabled = !inProgress
         exportMenuItem?.isEnabled = !inProgress
         supportActionBar?.subtitle = if (inProgress) "Exporting..." else null
+    }
+
+    private fun applyThemeFromSettings() {
+        val settings =
+                ReaderSettings.fromPrefs(
+                        getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
+                )
+        val mode = ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
+        applyContrastMode(mode)
+    }
+
+    private fun applyContrastMode(mode: ContrastMode) {
+        listBackgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        listTextColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, 170)
+
+        binding.root.setBackgroundColor(listBackgroundColor)
+        binding.listAiNotes.setBackgroundColor(listBackgroundColor)
+        binding.progressBar.indeterminateTintList =
+                ColorStateList.valueOf(listTextColor)
+
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = listBackgroundColor
+            window.navigationBarColor = listBackgroundColor
+        }
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        insetsController.isAppearanceLightStatusBars = useLightIcons
+        insetsController.isAppearanceLightNavigationBars = useLightIcons
+
+        (binding.listAiNotes.adapter as? android.widget.SimpleAdapter)?.notifyDataSetChanged()
     }
 
     private fun loadNotes() {
@@ -135,13 +194,26 @@ class AiNoteListActivity : BaseActivity() {
                 mapOf("text" to shortText, "time" to time)
             }
 
-            binding.listAiNotes.adapter = android.widget.SimpleAdapter(
-                this@AiNoteListActivity,
-                dataList,
-                android.R.layout.simple_list_item_2,
-                arrayOf("text", "time"),
-                intArrayOf(android.R.id.text1, android.R.id.text2)
-            )
+            val adapter =
+                android.widget.SimpleAdapter(
+                    this@AiNoteListActivity,
+                    dataList,
+                    android.R.layout.simple_list_item_2,
+                    arrayOf("text", "time"),
+                    intArrayOf(android.R.id.text1, android.R.id.text2)
+                ).apply {
+                    setViewBinder { view, data, _ ->
+                        if (view is TextView) {
+                            when (view.id) {
+                                android.R.id.text1 -> view.setTextColor(listTextColor)
+                                android.R.id.text2 -> view.setTextColor(listSecondaryTextColor)
+                            }
+                        }
+                        false
+                    }
+                }
+
+            binding.listAiNotes.adapter = adapter
 
             binding.listAiNotes.setOnItemClickListener { _, _, position, _ ->
                 val note = notes[position]

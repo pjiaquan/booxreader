@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
@@ -14,6 +15,8 @@ import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -32,6 +35,7 @@ import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 
@@ -93,10 +97,13 @@ class AiNoteDetailActivity : BaseActivity() {
     }
     private val settingsListener =
             SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key == "magic_tags") {
-                    setupMagicTags()
+                when (key) {
+                    "magic_tags" -> setupMagicTags()
+                    "contrast_mode" -> applyThemeFromSettings()
                 }
             }
+    private var magicTagTextColor: Int = Color.BLACK
+    private var magicTagBackgroundColor: Int = Color.parseColor("#E6E0D6")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,6 +111,7 @@ class AiNoteDetailActivity : BaseActivity() {
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         applyActionBarPadding(binding.scrollView)
+        applyThemeFromSettings()
 
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
@@ -185,9 +193,85 @@ class AiNoteDetailActivity : BaseActivity() {
         settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
     }
 
+    override fun onResume() {
+        super.onResume()
+        applyThemeFromSettings()
+        setupMagicTags()
+    }
+
     override fun onStop() {
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
         super.onStop()
+    }
+
+    private fun applyThemeFromSettings() {
+        val settings = ReaderSettings.fromPrefs(settingsPrefs)
+        val mode = ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
+        applyContrastMode(mode)
+    }
+
+    private fun applyContrastMode(mode: ContrastMode) {
+        val backgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val textColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+        val secondaryTextColor = ColorUtils.setAlphaComponent(textColor, 170)
+        val hintColor = ColorUtils.setAlphaComponent(textColor, 140)
+
+        magicTagTextColor = textColor
+        magicTagBackgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#E6E0D6")
+                    ContrastMode.DARK -> Color.parseColor("#1F1F1F")
+                    ContrastMode.SEPIA -> Color.parseColor("#E6D9BE")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#202020")
+                }
+
+        binding.root.setBackgroundColor(backgroundColor)
+        binding.scrollView.setBackgroundColor(backgroundColor)
+
+        binding.tvOriginalLabel.setTextColor(textColor)
+        binding.tvResponseLabel.setTextColor(textColor)
+        binding.tvOriginalText.setTextColor(textColor)
+        binding.tvAiResponse.setTextColor(textColor)
+        binding.tvAiModelInfo.setTextColor(secondaryTextColor)
+        binding.tvAiDisclaimer.setTextColor(secondaryTextColor)
+        binding.tvAiInputDisclaimer.setTextColor(secondaryTextColor)
+        binding.tvAutoScrollHint.setTextColor(secondaryTextColor)
+        binding.etFollowUp.setTextColor(textColor)
+        binding.etFollowUp.setHintTextColor(hintColor)
+
+        updateMagicTagStyles()
+
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = backgroundColor
+            window.navigationBarColor = backgroundColor
+        }
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        insetsController.isAppearanceLightStatusBars = useLightIcons
+        insetsController.isAppearanceLightNavigationBars = useLightIcons
+    }
+
+    private fun updateMagicTagStyles() {
+        for (i in 0 until binding.cgMagicTags.childCount) {
+            val view = binding.cgMagicTags.getChildAt(i)
+            if (view is Chip) {
+                view.setTextColor(magicTagTextColor)
+                view.chipBackgroundColor = ColorStateList.valueOf(magicTagBackgroundColor)
+            }
+        }
     }
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
@@ -1079,6 +1163,8 @@ class AiNoteDetailActivity : BaseActivity() {
         for (tag in magicTags) {
             val chip = Chip(this).apply {
                 text = tag.label
+                setTextColor(magicTagTextColor)
+                chipBackgroundColor = ColorStateList.valueOf(magicTagBackgroundColor)
                 setOnClickListener {
                     handleMagicTagClick(tag)
                 }

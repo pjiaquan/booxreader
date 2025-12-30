@@ -19,6 +19,7 @@
             android:orientation="vertical">
 
         <TextView
+            android:id="@+id/tvOriginalLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/ai_note_original_label"
@@ -45,6 +46,7 @@
             android:textColor="#FFFFFF" />
 
         <TextView
+            android:id="@+id/tvResponseLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/ai_note_response_label"
