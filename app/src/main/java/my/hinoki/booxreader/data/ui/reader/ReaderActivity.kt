@@ -24,6 +24,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -919,6 +920,10 @@ class ReaderActivity : BaseActivity() {
             }
         }
 
+        val contrastMode =
+                ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
+        applySettingsDialogTheme(dialogView, contrastMode)
+
         val dialog =
                 AlertDialog.Builder(this)
                         .setView(dialogView)
@@ -1051,6 +1056,73 @@ class ReaderActivity : BaseActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun applySettingsDialogTheme(root: View, mode: ContrastMode) {
+        val backgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val textColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+        val hintColor = ColorUtils.setAlphaComponent(textColor, 140)
+        val dividerColor = ColorUtils.setAlphaComponent(textColor, 60)
+        val buttonColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#E0E0E0")
+                    ContrastMode.DARK -> Color.parseColor("#333333")
+                    ContrastMode.SEPIA -> Color.parseColor("#D9C5A3")
+                    ContrastMode.HIGH_CONTRAST -> Color.DKGRAY
+                }
+
+        root.setBackgroundColor(backgroundColor)
+
+        fun applyToView(view: View) {
+            if (view is ViewGroup && view.background != null) {
+                view.setBackgroundColor(backgroundColor)
+            }
+            when (view) {
+                is EditText -> {
+                    view.setTextColor(textColor)
+                    view.setHintTextColor(hintColor)
+                }
+                is Button -> {
+                    view.setTextColor(textColor)
+                    view.backgroundTintList = ColorStateList.valueOf(buttonColor)
+                }
+                is android.widget.CompoundButton -> {
+                    view.setTextColor(textColor)
+                }
+                is TextView -> {
+                    view.setTextColor(textColor)
+                }
+                is SeekBar -> {
+                    view.progressTintList = ColorStateList.valueOf(textColor)
+                    view.thumbTintList = ColorStateList.valueOf(textColor)
+                }
+                else -> {
+                    val height = view.layoutParams?.height ?: 0
+                    if (height in 1..2) {
+                        view.setBackgroundColor(dividerColor)
+                    }
+                }
+            }
+            if (view is ViewGroup) {
+                for (i in 0 until view.childCount) {
+                    applyToView(view.getChildAt(i))
+                }
+            }
+        }
+
+        applyToView(root)
     }
 
     private fun showFileInfo() {

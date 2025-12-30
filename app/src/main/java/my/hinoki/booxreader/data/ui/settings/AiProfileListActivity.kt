@@ -9,6 +9,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
@@ -23,8 +25,12 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ContrastMode
+import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.databinding.ActivityAiProfileListBinding
 import my.hinoki.booxreader.databinding.ItemAiProfileBinding
+import android.content.res.ColorStateList
+import android.graphics.Color
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -33,6 +39,10 @@ class AiProfileListActivity : BaseActivity() {
     private lateinit var binding: ActivityAiProfileListBinding
     private lateinit var repository: AiProfileRepository
     private val adapter = ProfileAdapter()
+    private var listTextColor: Int = Color.BLACK
+    private var listSecondaryTextColor: Int = Color.DKGRAY
+    private var listBackgroundColor: Int = Color.WHITE
+    private var tagBackgroundColor: Int = Color.parseColor("#E6E0D6")
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importProfileFromFile(it) }
@@ -49,6 +59,7 @@ class AiProfileListActivity : BaseActivity() {
         repository = AiProfileRepository(applicationContext, syncRepo)
 
         setLoading(true)
+        applyThemeFromSettings()
         setupUI()
         observeData()
     }
@@ -65,6 +76,7 @@ class AiProfileListActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        applyThemeFromSettings()
         updateActiveProfileId()
         lifecycleScope.launch {
             setLoading(true)
@@ -108,6 +120,57 @@ class AiProfileListActivity : BaseActivity() {
         binding.btnSync.isEnabled = !loading
         binding.btnImport.isEnabled = !loading
         binding.btnCreate.isEnabled = !loading
+    }
+
+    private fun applyThemeFromSettings() {
+        val settings =
+                ReaderSettings.fromPrefs(
+                        getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
+                )
+        val mode = ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
+        applyContrastMode(mode)
+    }
+
+    private fun applyContrastMode(mode: ContrastMode) {
+        listBackgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        listTextColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, 170)
+        tagBackgroundColor = ColorUtils.setAlphaComponent(listTextColor, 48)
+
+        binding.root.setBackgroundColor(listBackgroundColor)
+        binding.recyclerView.setBackgroundColor(listBackgroundColor)
+        binding.bottomBar.setBackgroundColor(listBackgroundColor)
+        binding.loadingOverlay.setBackgroundColor(listBackgroundColor)
+        binding.tvLoading.setTextColor(listTextColor)
+
+        val tint = ColorStateList.valueOf(listTextColor)
+        binding.btnSync.imageTintList = tint
+        binding.btnImport.imageTintList = tint
+        binding.btnCreate.imageTintList = tint
+
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = listBackgroundColor
+            window.navigationBarColor = listBackgroundColor
+        }
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        insetsController.isAppearanceLightStatusBars = useLightIcons
+        insetsController.isAppearanceLightNavigationBars = useLightIcons
+
+        adapter.notifyDataSetChanged()
     }
 
     private fun observeData() {
@@ -206,6 +269,11 @@ class AiProfileListActivity : BaseActivity() {
             fun bind(profile: AiProfileEntity) {
                 binding.tvName.text = profile.name
                 binding.tvModel.text = profile.modelName
+                binding.tvName.setTextColor(listTextColor)
+                binding.tvModel.setTextColor(listSecondaryTextColor)
+                binding.tvCurrent.setTextColor(listTextColor)
+                binding.tvCurrent.backgroundTintList =
+                        ColorStateList.valueOf(tagBackgroundColor)
                 
                 if (profile.id == activeProfileId) {
                     binding.tvCurrent.visibility = android.view.View.VISIBLE
