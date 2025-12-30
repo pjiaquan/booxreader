@@ -115,7 +115,7 @@ Options:
   --skip-tests       Skip running unit tests first
   --skip-install     Skip ADB install steps
   --skip-git         Skip git commit/tag/push steps (release only)
-  --no-telegram      Disable Telegram upload
+  --skip-telegram    Disable Telegram upload
   --auto-select      Automatically select first device (no interactive prompt)
   -s, --device       Specify target device serial (e.g., -s emulator-5554)
   -h, --help         Show this help
@@ -153,7 +153,7 @@ parse_args() {
             --skip-tests) SKIP_TESTS="true" ;;
             --skip-install) SKIP_INSTALL="true" ;;
             --skip-git) SKIP_GIT="true" ;;
-            --no-telegram) TELEGRAM_ENABLED="false"; TELEGRAM_ENABLED_LOCKED="true" ;;
+            --skip-telegram|--no-telegram) TELEGRAM_ENABLED="false"; TELEGRAM_ENABLED_LOCKED="true" ;;
             --auto-select) AUTO_SELECT_DEVICE="true" ;;
             -s|--device) TARGET_DEVICE_SERIAL="$2"; shift ;;
             -h|--help) usage; exit 0 ;;
