@@ -42,6 +42,7 @@ class AiProfileListActivity : BaseActivity() {
         binding = ActivityAiProfileListBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        applyActionBarPadding(binding.recyclerView)
 
         val syncRepo = UserSyncRepository(applicationContext)
         repository = AiProfileRepository(applicationContext, syncRepo)

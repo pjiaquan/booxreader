@@ -93,6 +93,7 @@ class AiNoteDetailActivity : BaseActivity() {
         binding = ActivityAiNoteDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        applyActionBarPadding(binding.scrollView)
 
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback

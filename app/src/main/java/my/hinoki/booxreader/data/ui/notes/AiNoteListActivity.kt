@@ -66,6 +66,7 @@ class AiNoteListActivity : BaseActivity() {
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        applyActionBarPadding(binding.listAiNotes)
 
         loadNotes()
     }
