@@ -41,7 +41,6 @@ class AiProfileListActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityAiProfileListBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        applyTopInsets(binding.root, includeActionBar = false)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         val syncRepo = UserSyncRepository(applicationContext)
