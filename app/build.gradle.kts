@@ -95,8 +95,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 147
-        versionName = "1.1.146"
+        versionCode = 148
+        versionName = "1.1.147"
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
@@ -168,6 +168,40 @@ android {
 
 configurations.all {
     exclude(group = "com.intellij", module = "annotations")
+}
+
+// Task to increment version code for closed beta deployment
+tasks.register("incrementVersionCode") {
+    doLast {
+        val buildFile = rootProject.file("app/build.gradle.kts")
+        val lines = buildFile.readLines()
+
+        var updated = false
+        val newLines = lines.map { line ->
+            when {
+                line.trim().matches(Regex("""versionCode\s*=\s*\d+""")) -> {
+                    val current = line.trim().split(Regex("""\s*=\s*"""))[1].trim().toInt()
+                    val newVersion = current + 1
+                    println("Incremented versionCode: $current -> $newVersion")
+                    line.replace(Regex("""\d+"""), newVersion.toString()).also { updated = true }
+                }
+                line.trim().matches(Regex("""versionName\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"""")) -> {
+                    val current = line.trim().split(Regex("""\s*=\s*"""))[1].trim().replace("\"", "")
+                    val parts = current.split(".")
+                    val newVersion = "${parts[0]}.${parts[1]}.${parts[2].toInt() + 1}"
+                    println("Incremented versionName: $current -> $newVersion")
+                    line.replace(Regex(""""[0-9]+\.[0-9]+\.[0-9]+""""), "\"$newVersion\"").also { updated = true }
+                }
+                else -> line
+            }
+        }
+
+        if (updated) {
+            buildFile.writeText(newLines.joinToString("\n"))
+        } else {
+            throw GradleException("Could not find versionCode or versionName in build.gradle.kts")
+        }
+    }
 }
 
 dependencies {

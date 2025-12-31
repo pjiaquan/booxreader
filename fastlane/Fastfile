@@ -50,14 +50,23 @@ platform :android do
     json_key = ENV["SUPPLY_JSON_KEY_FILE"] || ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_JSON_KEY"] || ENV["GOOGLE_APPLICATION_CREDENTIALS"]
     UI.user_error!("Set SUPPLY_JSON_KEY_FILE or SUPPLY_JSON_KEY (or GOOGLE_PLAY_JSON_KEY / GOOGLE_APPLICATION_CREDENTIALS) to your Play service account JSON") if json_key.to_s.empty?
 
-    # Promote the internal testing release to closed beta
+    # Increment version code to avoid conflict with internal track
+    # This updates the versionCode and versionName in build.gradle.kts
+    sh("../gradlew :app:incrementVersionCode")
+
+    # Clean build output to ensure we use the new version
+    sh("../gradlew clean")
+
+    # Build with new version code
+    gradle(task: "bundleRelease")
+    aab_path = "app/build/outputs/bundle/release/app-release.aab"
+
+    # Upload to closed beta track
     supply(
       json_key: json_key,
       package_name: "my.hinoki.booxreader",
-      track: "internal",
-      track_promote_to: "beta",
-      skip_upload_apk: true,
-      skip_upload_aab: true,
+      track: "beta",
+      aab: aab_path,
       skip_upload_screenshots: true,
       skip_upload_images: true,
       skip_upload_metadata: true,
