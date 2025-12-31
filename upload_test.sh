@@ -33,34 +33,11 @@ fi
 echo "登入成功，已取得 Token。"
 
 
-echo "--- 3. 檢查初始額度 (GET /ai/credits) ---"
-CREDITS_RESPONSE=$(curl -s -X GET "$BASE_URL/functions/v1/ai-chat/ai/credits" \
+echo "--- 3. 檢查初始額度 (GET /billing/status) ---"
+CREDITS_RESPONSE=$(curl -s -X GET "$BASE_URL/functions/v1/billing/status" \
   -H "Authorization: Bearer $USER_TOKEN" \
   -H "Content-Type: application/json")
 
-echo "Credits Response: $CREDITS_RESPONSE"
+echo "Billing stauts: $CREDITS_RESPONSE"
 
-echo "--- 4. 發送聊天請求 (POST /ai/chat) ---"
-# Defaulting to qwen-flash as configured in the edge function
-CHAT_RESPONSE=$(curl -s -X POST "$BASE_URL/functions/v1/ai-chat/ai/chat" \
-  -H "Authorization: Bearer $USER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [
-      {
-        "role": "user",
-        "content": "Hello! Please reply in short."
-      }
-    ],
-    "model": "qwen-flash"
-  }')
-
-echo "Chat Response: $CHAT_RESPONSE"
-
-echo "--- 5. 再次檢查額度 (GET /ai/credits) ---"
-FINAL_CREDITS=$(curl -s -X GET "$BASE_URL/functions/v1/ai-chat/ai/credits" \
-  -H "Authorization: Bearer $USER_TOKEN" \
-  -H "Content-Type: application/json")
-
-echo "Final Credits: $FINAL_CREDITS"
 

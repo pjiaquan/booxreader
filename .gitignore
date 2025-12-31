@@ -84,3 +84,6 @@ deepseek.json
 gemini_profile.json
 *_profile.json
 .groq_env
+
+# Test scripts
+upload_test.sh
