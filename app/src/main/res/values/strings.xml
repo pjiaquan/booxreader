@@ -177,4 +177,7 @@
     <string name="ai_note_input_disclaimer">提示：AI 內容可能有誤，請自行判斷與查證。</string>
     <string name="ai_credits_left_toast">Free credits left: %1$d</string>
     <string name="action_manage_magic_tags">Manage Magic Tags</string>
+    <string name="reader_settings_upgrade_button">Upgrade</string>
+    <string name="reader_settings_upgrade_title">Choose your AI plan</string>
+    <string name="reader_settings_upgrade_message">Free\n50 credits / day\n\nMonthly\n$4 / month\n300 credits / day\n\nLifetime\n$25 one-time\n300 credits / day\n\nCredits reset daily. Cancel anytime.</string>
 </resources>

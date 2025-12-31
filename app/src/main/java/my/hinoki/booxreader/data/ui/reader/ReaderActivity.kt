@@ -673,6 +673,7 @@ class ReaderActivity : BaseActivity() {
         val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
         val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
         val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
+        val btnUpgradePlan = dialogView.findViewById<Button>(R.id.btnUpgradePlan)
 
         // dialogView is a ScrollView, so we need to get its child LinearLayout
         val layout =
@@ -684,6 +685,13 @@ class ReaderActivity : BaseActivity() {
         layout?.addView(btnAiProfiles, 2)
 
         btnManageMagicTags.setOnClickListener { showMagicTagManager() }
+        btnUpgradePlan.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle(R.string.reader_settings_upgrade_title)
+                .setMessage(getString(R.string.reader_settings_upgrade_message))
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
 
         // --- Reading Theme ---
         val themeTitle =
