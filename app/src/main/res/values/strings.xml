@@ -179,7 +179,7 @@
     <string name="action_manage_magic_tags">Manage Magic Tags</string>
     <string name="reader_settings_upgrade_button">Upgrade</string>
     <string name="reader_settings_upgrade_title">Choose your AI plan</string>
-    <string name="reader_settings_upgrade_message">Free\n50 credits / day\n\nMonthly\n$4 / month\n300 credits / day\n\nLifetime\n$25 one-time\n300 credits / day\n\nCredits reset daily. Cancel anytime.</string>
+    <string name="reader_settings_upgrade_message">Free\n20 credits / day\n\nMonthly\n$4 / month\n300 credits / day\n\nLifetime\n$25 one-time\n300 credits / day\n\nCredits reset daily. Cancel anytime.</string>
     <string name="reader_settings_plan_summary_loading">Plan: loading...</string>
     <string name="reader_settings_plan_summary_format">Plan: %1$s · Remaining today: %2$d</string>
     <string name="reader_settings_plan_summary_simple">Plan: %1$s</string>
@@ -195,7 +195,7 @@
     <string name="upgrade_remaining_format">Remaining today: %1$d credits</string>
     <string name="upgrade_manage_subscription">Manage subscription</string>
     <string name="upgrade_free_title">Free</string>
-    <string name="upgrade_free_desc">50 credits / day</string>
+    <string name="upgrade_free_desc">20 credits / day</string>
     <string name="upgrade_monthly_title">Monthly</string>
     <string name="upgrade_monthly_desc">300 credits / day</string>
     <string name="upgrade_lifetime_title">Lifetime</string>
