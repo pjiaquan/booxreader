@@ -260,7 +260,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
 
     private fun updateRemainingUi(remaining: Int?) {
         if (remaining == null) {
-            tvRemainingCredits.setText(R.string.upgrade_remaining_loading)
+            tvRemainingCredits.setText(R.string.upgrade_remaining_unknown)
             return
         }
         tvRemainingCredits.text = getString(R.string.upgrade_remaining_format, remaining)

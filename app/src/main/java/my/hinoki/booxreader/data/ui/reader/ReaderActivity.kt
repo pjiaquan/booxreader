@@ -19,6 +19,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -680,6 +681,7 @@ class ReaderActivity : BaseActivity() {
         val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
         val btnUpgradePlan = dialogView.findViewById<Button>(R.id.btnUpgradePlan)
         val tvPlanSummary = dialogView.findViewById<TextView>(R.id.tvPlanSummary)
+        val pbPlanSummary = dialogView.findViewById<ProgressBar>(R.id.pbPlanSummary)
 
         // dialogView is a ScrollView, so we need to get its child LinearLayout
         val layout =
@@ -699,7 +701,7 @@ class ReaderActivity : BaseActivity() {
                     )
             )
         }
-        updatePlanSummary(tvPlanSummary)
+        updatePlanSummary(tvPlanSummary, pbPlanSummary)
 
         // --- Reading Theme ---
         val themeTitle =
@@ -1078,15 +1080,17 @@ class ReaderActivity : BaseActivity() {
         dialog.show()
     }
 
-    private fun updatePlanSummary(target: TextView) {
+    private fun updatePlanSummary(target: TextView, spinner: ProgressBar) {
         val settings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
         val baseUrl = settings.serverBaseUrl.trimEnd('/')
         if (baseUrl.isBlank()) {
             target.setText(R.string.reader_settings_plan_summary_loading)
+            spinner.visibility = View.GONE
             return
         }
 
         lifecycleScope.launch {
+            spinner.visibility = View.VISIBLE
             val tokenManager = (application as BooxReaderApp).tokenManager
             val client =
                     OkHttpClient.Builder()
@@ -1112,7 +1116,15 @@ class ReaderActivity : BaseActivity() {
                         }
                     }
 
-            if (result == null) return@launch
+            if (result == null) {
+                target.text =
+                        getString(
+                                R.string.reader_settings_plan_summary_simple,
+                                getString(R.string.reader_settings_plan_free)
+                        )
+                spinner.visibility = View.GONE
+                return@launch
+            }
 
             val planName =
                     when (result.first?.lowercase()) {
@@ -1131,6 +1143,7 @@ class ReaderActivity : BaseActivity() {
             } else {
                 target.text = getString(R.string.reader_settings_plan_summary_simple, planName)
             }
+            spinner.visibility = View.GONE
         }
     }
 

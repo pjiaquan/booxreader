@@ -191,6 +191,7 @@
     <string name="upgrade_current_plan_title">Current plan</string>
     <string name="upgrade_current_plan_loading">Plan: loading...</string>
     <string name="upgrade_remaining_loading">Remaining today: loading...</string>
+    <string name="upgrade_remaining_unknown">Remaining today: --</string>
     <string name="upgrade_remaining_format">Remaining today: %1$d credits</string>
     <string name="upgrade_manage_subscription">Manage subscription</string>
     <string name="upgrade_free_title">Free</string>
