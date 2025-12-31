@@ -175,6 +175,10 @@ jobs:
           options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
         env:
           SUPPLY_JSON_KEY_FILE: play-service-account.json
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
+          STORE_FILE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       - name: Deploy to Google Play Closed Beta Track
         uses: maierj/fastlane-action@v2.3.0
@@ -183,3 +187,7 @@ jobs:
           options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
         env:
           SUPPLY_JSON_KEY_FILE: play-service-account.json
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
+          STORE_FILE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
