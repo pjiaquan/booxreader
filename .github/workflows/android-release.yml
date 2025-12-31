@@ -168,14 +168,18 @@ jobs:
         run: |
           echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > play-service-account.json
 
-      - name: Deploy to Google Play
+      - name: Deploy to Google Play Internal Track
         uses: maierj/fastlane-action@v2.3.0
         with:
           lane: "android play_internal"
           options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
         env:
           SUPPLY_JSON_KEY_FILE: play-service-account.json
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_ALIAS_PASSWORD: ${{ secrets.ANDROID_KEY_ALIAS_PASSWORD }}
-          STORE_FILE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Deploy to Google Play Closed Beta Track
+        uses: maierj/fastlane-action@v2.3.0
+        with:
+          lane: "android play_closed_beta"
+          options: '{"aab": "${{ steps.locate_aab.outputs.aab_path }}"}'
+        env:
+          SUPPLY_JSON_KEY_FILE: play-service-account.json
