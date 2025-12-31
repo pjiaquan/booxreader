@@ -237,6 +237,7 @@ dependencies {
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.auth)
+    implementation("com.android.billingclient:billing-ktx:6.2.1")
 
     // --- Cloudflare R2 (S3) - REMOVED, Replaced by Supabase Storage REST ---
     // implementation(libs.aws.sdk.s3)

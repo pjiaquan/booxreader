@@ -44,9 +44,11 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.reader.ReaderViewModel
+import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
@@ -61,6 +63,9 @@ import my.hinoki.booxreader.databinding.ActivityReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -674,6 +679,7 @@ class ReaderActivity : BaseActivity() {
         val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
         val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
         val btnUpgradePlan = dialogView.findViewById<Button>(R.id.btnUpgradePlan)
+        val tvPlanSummary = dialogView.findViewById<TextView>(R.id.tvPlanSummary)
 
         // dialogView is a ScrollView, so we need to get its child LinearLayout
         val layout =
@@ -686,12 +692,14 @@ class ReaderActivity : BaseActivity() {
 
         btnManageMagicTags.setOnClickListener { showMagicTagManager() }
         btnUpgradePlan.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle(R.string.reader_settings_upgrade_title)
-                .setMessage(getString(R.string.reader_settings_upgrade_message))
-                .setPositiveButton(android.R.string.ok, null)
-                .show()
+            startActivity(
+                    Intent(
+                            this,
+                            my.hinoki.booxreader.data.ui.billing.UpgradeActivity::class.java
+                    )
+            )
         }
+        updatePlanSummary(tvPlanSummary)
 
         // --- Reading Theme ---
         val themeTitle =
@@ -1068,6 +1076,62 @@ class ReaderActivity : BaseActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun updatePlanSummary(target: TextView) {
+        val settings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
+        val baseUrl = settings.serverBaseUrl.trimEnd('/')
+        if (baseUrl.isBlank()) {
+            target.setText(R.string.reader_settings_plan_summary_loading)
+            return
+        }
+
+        lifecycleScope.launch {
+            val tokenManager = (application as BooxReaderApp).tokenManager
+            val client =
+                    OkHttpClient.Builder()
+                            .addInterceptor(AuthInterceptor(tokenManager))
+                            .build()
+            val result =
+                    withContext(Dispatchers.IO) {
+                        val request =
+                                Request.Builder()
+                                        .url("$baseUrl/billing/status")
+                                        .get()
+                                        .build()
+                        client.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) return@withContext null
+                            val body = response.body?.string().orEmpty()
+                            if (body.isBlank()) return@withContext null
+                            val json = JSONObject(body)
+                            val planType =
+                                    json.optString("plan_type", "").ifBlank { null }
+                            val remaining =
+                                    json.optInt("daily_remaining", -1).takeIf { it >= 0 }
+                            return@withContext Pair(planType, remaining)
+                        }
+                    }
+
+            if (result == null) return@launch
+
+            val planName =
+                    when (result.first?.lowercase()) {
+                        "monthly" -> getString(R.string.reader_settings_plan_monthly)
+                        "lifetime" -> getString(R.string.reader_settings_plan_lifetime)
+                        else -> getString(R.string.reader_settings_plan_free)
+                    }
+            val remaining = result.second
+            if (remaining != null) {
+                target.text =
+                        getString(
+                                R.string.reader_settings_plan_summary_format,
+                                planName,
+                                remaining
+                        )
+            } else {
+                target.text = getString(R.string.reader_settings_plan_summary_simple, planName)
+            }
+        }
     }
 
     private fun applySettingsDialogTheme(root: View, mode: ContrastMode) {

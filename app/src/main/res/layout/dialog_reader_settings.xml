@@ -321,6 +321,15 @@
             android:textColor="#666666"
             android:layout_marginBottom="12dp" />
 
+        <TextView
+            android:id="@+id/tvPlanSummary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/reader_settings_plan_summary_loading"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="12dp" />
+
         <Button
             android:id="@+id/btnUpgradePlan"
             android:layout_width="match_parent"
