@@ -199,4 +199,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add app/build.gradle.kts
           git commit -m "chore: bump version for closed beta deployment [skip ci]"
-          git push
+          git push origin HEAD:main
