@@ -5,16 +5,9 @@ BASE_URL="https://app.hinoki.my"
 ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY2MDczNjAwLCJleHAiOjE5MjM4NDAwMDB9.JFC5hdPzUBYTxiEIYv4wBgQdxxtgL941HOB6YAa32Is"
 USER_EMAIL="support@hinoki.my"
 USER_PASSWORD="12345678Aa!"
-BUCKET_NAME="books"
-FILE_NAME="test.txt"
 
-echo "Hello from authenticated user at $(date)" > "$FILE_NAME"
-
-# 檢查檔案是否真的建立了
-if [ ! -f "$FILE_NAME" ]; then
-    echo "❌ 錯誤：無法建立測試檔案 $FILE_NAME，請檢查資料夾權限。"
-    exit 1
-fi
+#BASE_URL="http://localhost:8000"
+#ANON_KEY="${ANON_KEY:-your_anon_key_here}" 
 
 echo "--- 正在嘗試登入 ---"
 
@@ -39,50 +32,35 @@ fi
 
 echo "登入成功，已取得 Token。"
 
-echo "--- 正在上傳檔案到 R2 (透過 Supabase Storage API, authenticated) ---"
 
-# 3. 使用用戶 Token 上傳檔案
-UPLOAD_RESPONSE=$(curl -s -X POST "$BASE_URL/storage/v1/object/authenticated/$BUCKET_NAME/$FILE_NAME" \
+echo "--- 3. 檢查初始額度 (GET /ai/credits) ---"
+CREDITS_RESPONSE=$(curl -s -X GET "$BASE_URL/functions/v1/ai-chat/ai/credits" \
   -H "Authorization: Bearer $USER_TOKEN" \
-  -H "apikey: $ANON_KEY" \
-  -H "Content-Type: text/plain" \
-  --data-binary "@$FILE_NAME")
+  -H "Content-Type: application/json")
 
-echo "伺服器回傳: $UPLOAD_RESPONSE"
+echo "Credits Response: $CREDITS_RESPONSE"
 
-# 檢查結果
-if echo $UPLOAD_RESPONSE | grep -q "Id"; then
-  echo "✅ authenticated 上傳成功！檔案已存入 R2。"
-else
-  echo "❌ authenticated 上傳失敗。請檢查該 Bucket 的 RLS 權限設定。"
-fi
-
-echo "--- 正在上傳檔案到 R2 (透過 Supabase Storage API, public) ---"
-PUBLIC_UPLOAD_RESPONSE=$(curl -s -X POST "$BASE_URL/storage/v1/object/public/$BUCKET_NAME/$FILE_NAME" \
+echo "--- 4. 發送聊天請求 (POST /ai/chat) ---"
+# Defaulting to qwen-flash as configured in the edge function
+CHAT_RESPONSE=$(curl -s -X POST "$BASE_URL/functions/v1/ai-chat/ai/chat" \
   -H "Authorization: Bearer $USER_TOKEN" \
-  -H "apikey: $ANON_KEY" \
-  -H "Content-Type: text/plain" \
-  --data-binary "@$FILE_NAME")
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello! Please reply in short."
+      }
+    ],
+    "model": "qwen-flash"
+  }')
 
-echo "伺服器回傳: $PUBLIC_UPLOAD_RESPONSE"
+echo "Chat Response: $CHAT_RESPONSE"
 
-if echo $PUBLIC_UPLOAD_RESPONSE | grep -q "Id"; then
-  echo "✅ public 上傳成功！檔案已存入 R2。"
-else
-  echo "❌ public 上傳失敗。請檢查該 Bucket 是否為 public。"
-fi
-
-echo "--- 正在上傳檔案到 R2 (透過 Supabase Storage API, no access mode) ---"
-PLAIN_UPLOAD_RESPONSE=$(curl -s -X POST "$BASE_URL/storage/v1/object/$BUCKET_NAME/$FILE_NAME" \
+echo "--- 5. 再次檢查額度 (GET /ai/credits) ---"
+FINAL_CREDITS=$(curl -s -X GET "$BASE_URL/functions/v1/ai-chat/ai/credits" \
   -H "Authorization: Bearer $USER_TOKEN" \
-  -H "apikey: $ANON_KEY" \
-  -H "Content-Type: text/plain" \
-  --data-binary "@$FILE_NAME")
+  -H "Content-Type: application/json")
 
-echo "伺服器回傳: $PLAIN_UPLOAD_RESPONSE"
+echo "Final Credits: $FINAL_CREDITS"
 
-if echo $PLAIN_UPLOAD_RESPONSE | grep -q "Id"; then
-  echo "✅ no-mode 上傳成功！檔案已存入 R2。"
-else
-  echo "❌ no-mode 上傳失敗。"
-fi

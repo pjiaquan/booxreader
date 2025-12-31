@@ -50,12 +50,15 @@ platform :android do
     json_key = ENV["SUPPLY_JSON_KEY_FILE"] || ENV["SUPPLY_JSON_KEY"] || ENV["GOOGLE_PLAY_JSON_KEY"] || ENV["GOOGLE_APPLICATION_CREDENTIALS"]
     UI.user_error!("Set SUPPLY_JSON_KEY_FILE or SUPPLY_JSON_KEY (or GOOGLE_PLAY_JSON_KEY / GOOGLE_APPLICATION_CREDENTIALS) to your Play service account JSON") if json_key.to_s.empty?
 
+    # Get the project root directory (parent of fastlane directory)
+    project_root = File.expand_path("..", Dir.pwd)
+
     # Increment version code to avoid conflict with internal track
     # This updates the versionCode and versionName in build.gradle.kts
-    sh("../gradlew :app:incrementVersionCode")
-
-    # Clean build output to ensure we use the new version
-    sh("../gradlew clean")
+    Dir.chdir(project_root) do
+      sh("./gradlew :app:incrementVersionCode")
+      sh("./gradlew clean")
+    end
 
     # Build with new version code
     gradle(task: "bundleRelease")
