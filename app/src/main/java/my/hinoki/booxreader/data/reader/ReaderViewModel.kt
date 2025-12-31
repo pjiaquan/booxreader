@@ -23,6 +23,7 @@ import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.reader.LocatorJsonHelper
+import my.hinoki.booxreader.R
 import org.json.JSONArray
 import org.json.JSONObject
 import org.readium.r2.shared.ExperimentalReadiumApi
@@ -283,6 +284,15 @@ class ReaderViewModel(
                         withContext(Dispatchers.IO) { aiNoteRepo.update(updated) }
                     }
                     _toastMessage.emit("Finished")
+                    val credits = withContext(Dispatchers.IO) { aiNoteRepo.fetchRemainingCredits() }
+                    if (credits != null) {
+                        _toastMessage.emit(
+                                getApplication<Application>().getString(
+                                        R.string.ai_credits_left_toast,
+                                        credits
+                                )
+                        )
+                    }
                     loadHighlights() // Refresh
                     _navigateToNote.emit(NavigateToNote(noteId))
                 } else {

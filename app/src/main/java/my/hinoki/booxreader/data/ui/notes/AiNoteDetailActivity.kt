@@ -465,6 +465,7 @@ class AiNoteDetailActivity : BaseActivity() {
                     val updatedNote = updateNoteFromStrings(note, serverText, content)
                     repository.update(updatedNote)
                 }
+                showRemainingCreditsToast()
                 // Open the NEW note
                 AiNoteDetailActivity.open(this@AiNoteDetailActivity, newNoteId)
             } else {
@@ -612,6 +613,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
+                showRemainingCreditsToast()
                 Toast.makeText(
                                 this@AiNoteDetailActivity,
                                 getString(R.string.ai_note_published),
@@ -669,13 +671,14 @@ class AiNoteDetailActivity : BaseActivity() {
                     val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
                     val newContent =
                             currentAiResponse + separator + "---\nQ: " + question + "\n\n" + result
-                    val updated = updateNoteFromStrings(note, null, newContent)
-                    repository.update(updated)
-                    currentNote = updated
-                    // Avoid jumping the viewport after publish to keep the reader in place.
-                    updateUI(updated, scrollToQuestionHeader = false, preserveScroll = false)
-                    binding.etFollowUp.setText("")
-                } else {
+                val updated = updateNoteFromStrings(note, null, newContent)
+                repository.update(updated)
+                currentNote = updated
+                // Avoid jumping the viewport after publish to keep the reader in place.
+                updateUI(updated, scrollToQuestionHeader = false, preserveScroll = false)
+                showRemainingCreditsToast()
+                binding.etFollowUp.setText("")
+            } else {
                     Toast.makeText(
                                     this@AiNoteDetailActivity,
                                     getString(R.string.ai_note_follow_up_failed),
@@ -771,6 +774,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updated)
                 currentNote = updated
                 updateUI(updated)
+                showRemainingCreditsToast()
             } else {
                 Toast.makeText(
                                 this@AiNoteDetailActivity,
@@ -785,6 +789,20 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)
             setLoading(false)
             restoreScrollIfJumped(savedScrollY)
+        }
+    }
+
+    private fun showRemainingCreditsToast() {
+        lifecycleScope.launch {
+            val credits = repository.fetchRemainingCredits()
+            if (credits != null) {
+                Toast.makeText(
+                        this@AiNoteDetailActivity,
+                        getString(R.string.ai_credits_left_toast, credits),
+                        Toast.LENGTH_SHORT
+                )
+                        .show()
+            }
         }
     }
 
@@ -1216,6 +1234,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
+                showRemainingCreditsToast()
                 Toast.makeText(
                     this@AiNoteDetailActivity,
                     getString(R.string.ai_note_republish_success),

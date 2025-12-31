@@ -352,6 +352,30 @@ class AiNoteRepository(
         }
     }
 
+    suspend fun fetchRemainingCredits(): Int? = withContext(Dispatchers.IO) {
+        val settings = getSettings()
+        if (settings.apiKey.isNotBlank() || settings.aiModelName.isNotBlank()) {
+            return@withContext null
+        }
+        val baseUrl = getBaseUrl()
+        if (baseUrl.isBlank()) return@withContext null
+
+        val url = "$baseUrl/ai-chat/ai/credits"
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        return@withContext runCatching {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@runCatching null
+                val body = response.body?.string().orEmpty()
+                if (body.isBlank()) return@runCatching null
+                JSONObject(body).optInt("credits", -1).takeIf { it >= 0 }
+            }
+        }.getOrNull()
+    }
+
     suspend fun fetchAiExplanation(
         text: String,
         magicTag: MagicTag? = null
