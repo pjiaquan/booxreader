@@ -67,6 +67,7 @@ import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.TimeUnit
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -1084,17 +1085,25 @@ class ReaderActivity : BaseActivity() {
         val settings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
         val baseUrl = settings.serverBaseUrl.trimEnd('/')
         if (baseUrl.isBlank()) {
-            target.setText(R.string.reader_settings_plan_summary_loading)
+            target.text =
+                    getString(
+                            R.string.reader_settings_plan_summary_simple,
+                            getString(R.string.reader_settings_plan_free)
+                    )
             spinner.visibility = View.GONE
             return
         }
 
         lifecycleScope.launch {
+            target.setText(R.string.reader_settings_plan_summary_loading)
             spinner.visibility = View.VISIBLE
             val tokenManager = (application as BooxReaderApp).tokenManager
             val client =
                     OkHttpClient.Builder()
                             .addInterceptor(AuthInterceptor(tokenManager))
+                            .callTimeout(8, TimeUnit.SECONDS)
+                            .connectTimeout(5, TimeUnit.SECONDS)
+                            .readTimeout(5, TimeUnit.SECONDS)
                             .build()
             val result =
                     withContext(Dispatchers.IO) {
@@ -1103,11 +1112,15 @@ class ReaderActivity : BaseActivity() {
                                         .url("$baseUrl/billing/status")
                                         .get()
                                         .build()
-                        client.newCall(request).execute().use { response ->
-                            if (!response.isSuccessful) return@withContext null
-                            val body = response.body?.string().orEmpty()
-                            val status = BillingStatusParser.parse(body) ?: return@withContext null
-                            return@withContext Pair(status.planType, status.dailyRemaining)
+                        try {
+                            client.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) return@withContext null
+                                val body = response.body?.string().orEmpty()
+                                val status = BillingStatusParser.parse(body) ?: return@withContext null
+                                return@withContext Pair(status.planType, status.dailyRemaining)
+                            }
+                        } catch (e: Exception) {
+                            return@withContext null
                         }
                     }
 

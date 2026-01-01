@@ -32,6 +32,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     private lateinit var billingClient: BillingClient
@@ -79,6 +80,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                             fetchPlanStatus()
                         } else {
                             toast(getString(R.string.upgrade_billing_unavailable))
+                            fetchPlanStatus()
                         }
                     }
 
@@ -205,12 +207,19 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         val baseUrl = settings.serverBaseUrl.trimEnd('/')
         if (baseUrl.isBlank()) {
             tvCurrentPlan.setText(R.string.upgrade_missing_server)
+            updateRemainingUi(null)
             return
         }
 
         lifecycleScope.launch {
             val tokenManager = (application as BooxReaderApp).tokenManager
-            val client = buildAuthClient(tokenManager)
+            val client =
+                    buildAuthClient(tokenManager)
+                            .newBuilder()
+                            .callTimeout(8, TimeUnit.SECONDS)
+                            .connectTimeout(5, TimeUnit.SECONDS)
+                            .readTimeout(5, TimeUnit.SECONDS)
+                            .build()
 
             val status =
                     withContext(Dispatchers.IO) {
@@ -219,11 +228,15 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                                         .url("$baseUrl/billing/status")
                                         .get()
                                         .build()
-                        client.newCall(request).execute().use { response ->
-                            if (!response.isSuccessful) return@withContext null
-                            val body = response.body?.string().orEmpty()
-                            val status = BillingStatusParser.parse(body) ?: return@withContext null
-                            return@withContext Pair(status.planType, status.dailyRemaining)
+                        try {
+                            client.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) return@withContext null
+                                val body = response.body?.string().orEmpty()
+                                val status = BillingStatusParser.parse(body) ?: return@withContext null
+                                return@withContext Pair(status.planType, status.dailyRemaining)
+                            }
+                        } catch (e: Exception) {
+                            return@withContext null
                         }
                     }
 
