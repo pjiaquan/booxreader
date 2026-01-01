@@ -18,7 +18,7 @@
             android:textStyle="bold"
             android:layout_marginBottom="6dp" />
 
-        <TextView
+        <!-- <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/reader_settings_ai_section_body"
@@ -32,7 +32,7 @@
             android:text="@string/upgrade_current_plan_title"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="6dp" /> -->
 
         <LinearLayout
             android:layout_width="match_parent"
