@@ -57,6 +57,7 @@ import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.data.ui.notes.AiNoteDetailActivity
 import my.hinoki.booxreader.data.ui.notes.AiNoteListActivity
@@ -77,7 +78,6 @@ import org.readium.r2.shared.util.mediatype.MediaType
 
 @OptIn(ExperimentalReadiumApi::class)
 class ReaderActivity : BaseActivity() {
-
     private lateinit var binding: ActivityReaderBinding
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
     private val viewModel: ReaderViewModel by viewModels {
@@ -1082,8 +1082,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun updatePlanSummary(target: TextView, spinner: ProgressBar) {
-        val settings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
-        val baseUrl = settings.serverBaseUrl.trimEnd('/')
+        val baseUrl = billingBaseUrl()
         if (baseUrl.isBlank()) {
             target.text =
                     getString(
@@ -1154,6 +1153,13 @@ class ReaderActivity : BaseActivity() {
             spinner.visibility = View.GONE
         }
     }
+
+    private fun billingBaseUrl(): String {
+        val supabaseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        if (supabaseUrl.isBlank()) return ""
+        return "$supabaseUrl/functions/v1"
+    }
+
 
     private fun applySettingsDialogTheme(root: View, mode: ContrastMode) {
         val backgroundColor =

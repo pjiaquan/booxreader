@@ -22,12 +22,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
+import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.billing.BillingProducts
 import my.hinoki.booxreader.data.billing.BillingStatusParser
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
-import my.hinoki.booxreader.data.settings.ReaderSettings
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -212,13 +212,9 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     }
 
     private fun fetchPlanStatus() {
-        val settings =
-                ReaderSettings.fromPrefs(
-                        getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
-                )
-        val baseUrl = settings.serverBaseUrl.trimEnd('/')
+        val baseUrl = billingBaseUrl()
         if (baseUrl.isBlank()) {
-            Log.d(LOG_TAG, "fetchPlanStatus: missing serverBaseUrl")
+            Log.d(LOG_TAG, "fetchPlanStatus: missing supabaseUrl")
             tvCurrentPlan.setText(R.string.upgrade_missing_server)
             updateRemainingUi(null)
             return
@@ -270,6 +266,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         }
     }
 
+
     private fun updatePlanUi(planType: String?) {
         when (planType?.lowercase()) {
             "monthly" -> {
@@ -307,11 +304,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     private fun sendToBackend(purchase: Purchase) {
         val productId = purchase.products.firstOrNull() ?: return
         val token = purchase.purchaseToken
-        val settings =
-                ReaderSettings.fromPrefs(
-                        getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
-                )
-        val baseUrl = settings.serverBaseUrl.trimEnd('/')
+        val baseUrl = billingBaseUrl()
         if (baseUrl.isBlank()) {
             toast(getString(R.string.upgrade_missing_server))
             return
@@ -350,6 +343,12 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         return OkHttpClient.Builder()
                 .addInterceptor(AuthInterceptor(tokenManager))
                 .build()
+    }
+
+    private fun billingBaseUrl(): String {
+        val supabaseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        if (supabaseUrl.isBlank()) return ""
+        return "$supabaseUrl/functions/v1"
     }
 
     private fun toast(message: String) {

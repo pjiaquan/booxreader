@@ -208,7 +208,7 @@
     <string name="upgrade_billing_unavailable">Billing unavailable.</string>
     <string name="upgrade_purchase_success">Purchase verified.</string>
     <string name="upgrade_purchase_failed">Purchase failed.</string>
-    <string name="upgrade_missing_server">Server URL is missing.</string>
+    <string name="upgrade_missing_server">Supabase URL is missing.</string>
     <string name="upgrade_product_unavailable">Subscription required. Please subscribe to continue.</string>
     <string name="upgrade_plan_free">Plan: Free</string>
     <string name="upgrade_plan_monthly">Plan: Monthly</string>
