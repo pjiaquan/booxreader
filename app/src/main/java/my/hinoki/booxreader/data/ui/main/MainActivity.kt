@@ -53,9 +53,15 @@ class MainActivity : BaseActivity() {
                     permissions ->
                 val allGranted = permissions.all { it.value }
                 if (allGranted) {
-                    // 權限授予後執行同步
-                    performFullSync()
+                    if (pendingManualSyncAfterPermission) {
+                        pendingManualSyncAfterPermission = false
+                        startManualSync()
+                    } else {
+                        // 權限授予後執行同步
+                        performFullSync()
+                    }
                 } else {
+                    pendingManualSyncAfterPermission = false
                     showPermissionRationale()
                 }
             }
@@ -86,12 +92,6 @@ class MainActivity : BaseActivity() {
             )
         }
 
-        binding.btnSync.setOnClickListener { startManualSync() }
-        binding.btnSync.setOnLongClickListener {
-            runStorageSelfTest()
-            true
-        }
-
         binding.recyclerRecent.layoutManager = LinearLayoutManager(this)
         binding.recyclerRecent.adapter = recentAdapter
 
@@ -100,9 +100,14 @@ class MainActivity : BaseActivity() {
 
         // Check and request file permissions
         checkAndRequestFilePermissions()
+
+        setupManualSyncOnScroll()
     }
 
     private var progressSyncJob: Job? = null
+    private var manualSyncArmed = true
+    private var manualSyncInProgress = false
+    private var pendingManualSyncAfterPermission = false
 
     override fun onResume() {
         super.onResume()
@@ -369,6 +374,10 @@ class MainActivity : BaseActivity() {
     }
 
     private fun startManualSync() {
+        if (manualSyncInProgress) {
+            return
+        }
+        manualSyncInProgress = true
         // 顯示同步狀態卡片
         binding.cardSyncStatus.visibility = android.view.View.VISIBLE
         binding.tvSyncStatus.text = getString(R.string.sync_manual_start)
@@ -521,7 +530,45 @@ class MainActivity : BaseActivity() {
                 binding.tvSyncStatus.text = getString(R.string.sync_failed)
                 binding.tvSyncDetails.text = getString(R.string.sync_failed) + ": ${e.message}"
                 binding.tvSyncProgress.text = "Error"
+            } finally {
+                manualSyncInProgress = false
             }
+        }
+    }
+
+    private fun setupManualSyncOnScroll() {
+        val scrollView = binding.rootMain
+        val thresholdPx = (16 * resources.displayMetrics.density).toInt()
+
+        scrollView.viewTreeObserver.addOnScrollChangedListener {
+            val child = scrollView.getChildAt(0) ?: return@addOnScrollChangedListener
+            val maxScroll =
+                    (child.height - scrollView.height - thresholdPx).coerceAtLeast(0)
+            val canScroll = child.height > scrollView.height + thresholdPx
+            if (!canScroll) {
+                return@addOnScrollChangedListener
+            }
+
+            val atBottom = scrollView.scrollY >= maxScroll
+            if (atBottom && manualSyncArmed) {
+                manualSyncArmed = false
+                triggerManualSyncFromScroll()
+            } else if (!atBottom) {
+                manualSyncArmed = true
+            }
+        }
+    }
+
+    private fun triggerManualSyncFromScroll() {
+        if (manualSyncInProgress) {
+            return
+        }
+
+        if (hasFilePermissions()) {
+            startManualSync()
+        } else {
+            pendingManualSyncAfterPermission = true
+            requestFilePermissions()
         }
     }
 

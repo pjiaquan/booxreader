@@ -192,6 +192,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
+stash_before_pull() {
+    local dirty=""
+    dirty=$(git status --porcelain)
+    if [ -n "$dirty" ]; then
+        log "Working tree has local changes; stashing before pull."
+        git stash push -u -m "run.sh: auto stash before pull"
+        AUTO_STASH_APPLIED="true"
+    fi
+}
+
+restore_stash_after_pull() {
+    if [ "${AUTO_STASH_APPLIED:-false}" = "true" ]; then
+        log "Restoring stashed changes after pull."
+        git stash pop
+    fi
+}
+
 # Safety: Check if required tools are available
 check_dependencies() {
     local missing_tools=()
@@ -1090,6 +1107,12 @@ main() {
     load_telegram_config
 
     echo "=== BooxReader Build and Install Script ==="
+
+    # Pull latest changes from remote to sync with GitHub workflow edits
+    echo "Pulling latest changes from remote..."
+    stash_before_pull
+    git pull --rebase origin main
+    restore_stash_after_pull
 
     # Check dependencies
     check_dependencies

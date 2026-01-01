@@ -95,7 +95,7 @@
     <string name="main_profile">設定檔</string>
     <string name="main_sync">同步</string>
     <string name="main_sync_status">同步狀態</string>
-    <string name="main_sync_hint">點擊 Sync 按鈕開始同步</string>
+    <string name="main_sync_hint">向下滑動開始同步</string>
     <string name="main_recent_title">最近閱讀</string>
     <string name="main_recent_hint">點擊即可繼續閱讀</string>
     <string name="main_empty_state">尚未有閱讀紀錄，先選擇一本 EPUB 開始吧！</string>
@@ -159,4 +159,5 @@
     <string name="reader_settings_convert_chinese">簡體轉繁體</string>
     <string name="reader_settings_convert_chinese_description">將簡體中文內容轉換為繁體中文顯示</string>
     <string name="profile_version_format">版本：%1$s</string>
+    <string name="upgrade_product_unavailable">需要訂閱，請先訂閱再繼續。</string>
 </resources>

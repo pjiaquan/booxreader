@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.billing.BillingProducts
 import my.hinoki.booxreader.data.billing.BillingStatusParser
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
@@ -89,17 +90,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     }
 
     private fun queryProducts() {
-        val products =
-                listOf(
-                        QueryProductDetailsParams.Product.newBuilder()
-                                .setProductId(PRODUCT_MONTHLY)
-                                .setProductType(BillingClient.ProductType.SUBS)
-                                .build(),
-                        QueryProductDetailsParams.Product.newBuilder()
-                                .setProductId(PRODUCT_LIFETIME)
-                                .setProductType(BillingClient.ProductType.INAPP)
-                                .build()
-                )
+        val products = BillingProducts.buildQueryProductList()
 
         val params =
                 QueryProductDetailsParams.newBuilder()
@@ -107,8 +98,9 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                         .build()
 
         billingClient.queryProductDetailsAsync(params) { _, details ->
-            monthlyDetails = details.firstOrNull { it.productId == PRODUCT_MONTHLY }
-            lifetimeDetails = details.firstOrNull { it.productId == PRODUCT_LIFETIME }
+            monthlyDetails = details.firstOrNull { it.productId == BillingProducts.MONTHLY_SUBS_ID }
+            lifetimeDetails =
+                    details.firstOrNull { it.productId == BillingProducts.LIFETIME_INAPP_ID }
 
             tvMonthlyPrice.text = priceText(monthlyDetails)
             tvLifetimePrice.text = priceText(lifetimeDetails)
@@ -269,7 +261,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         val uri =
                 android.net.Uri.parse(
                         "https://play.google.com/store/account/subscriptions" +
-                                "?package=$packageName&sku=$PRODUCT_MONTHLY"
+                                "?package=$packageName&sku=${BillingProducts.MONTHLY_SUBS_ID}"
                 )
         startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
     }
@@ -331,8 +323,4 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         super.onDestroy()
     }
 
-    companion object {
-        private const val PRODUCT_MONTHLY = "ai_monthly_4"
-        private const val PRODUCT_LIFETIME = "ai_lifetime_25"
-    }
 }
