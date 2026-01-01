@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.billing.BillingStatusParser
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -133,7 +134,10 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     }
 
     private fun launchPurchase(details: ProductDetails?) {
-        if (details == null) return
+        if (details == null) {
+            toast(getString(R.string.upgrade_product_unavailable))
+            return
+        }
         val params =
                 BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(details)
@@ -226,13 +230,8 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                         client.newCall(request).execute().use { response ->
                             if (!response.isSuccessful) return@withContext null
                             val body = response.body?.string().orEmpty()
-                            if (body.isBlank()) return@withContext null
-                            val json = JSONObject(body)
-                            val planType =
-                                    json.optString("plan_type", "").ifBlank { null }
-                            val remaining =
-                                    json.optInt("daily_remaining", -1).takeIf { it >= 0 }
-                            return@withContext Pair(planType, remaining)
+                            val status = BillingStatusParser.parse(body) ?: return@withContext null
+                            return@withContext Pair(status.planType, status.dailyRemaining)
                         }
                     }
 

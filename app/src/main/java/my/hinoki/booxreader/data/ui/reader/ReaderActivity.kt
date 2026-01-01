@@ -49,6 +49,7 @@ import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.reader.ReaderViewModel
+import my.hinoki.booxreader.data.billing.BillingStatusParser
 import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
@@ -66,7 +67,6 @@ import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -1106,13 +1106,8 @@ class ReaderActivity : BaseActivity() {
                         client.newCall(request).execute().use { response ->
                             if (!response.isSuccessful) return@withContext null
                             val body = response.body?.string().orEmpty()
-                            if (body.isBlank()) return@withContext null
-                            val json = JSONObject(body)
-                            val planType =
-                                    json.optString("plan_type", "").ifBlank { null }
-                            val remaining =
-                                    json.optInt("daily_remaining", -1).takeIf { it >= 0 }
-                            return@withContext Pair(planType, remaining)
+                            val status = BillingStatusParser.parse(body) ?: return@withContext null
+                            return@withContext Pair(status.planType, status.dailyRemaining)
                         }
                     }
 
