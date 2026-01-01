@@ -54,6 +54,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(LOG_TAG, "onCreate")
         setContentView(R.layout.activity_upgrade)
 
         btnMonthly = findViewById(R.id.btnMonthly)
