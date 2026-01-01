@@ -60,6 +60,8 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         tvLifetimePrice = findViewById(R.id.tvLifetimePrice)
         tvCurrentPlan = findViewById(R.id.tvCurrentPlan)
         tvRemainingCredits = findViewById(R.id.tvRemainingCredits)
+        updatePlanUi(null)
+        updateRemainingUi(null)
 
         btnMonthly.setOnClickListener { launchPurchase(monthlyDetails) }
         btnLifetime.setOnClickListener { launchPurchase(lifetimeDetails) }
@@ -86,6 +88,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
 
                     override fun onBillingServiceDisconnected() {
                         toast(getString(R.string.upgrade_billing_unavailable))
+                        fetchPlanStatus()
                     }
                 }
         )
