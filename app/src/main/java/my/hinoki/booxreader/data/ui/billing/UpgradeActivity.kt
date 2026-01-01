@@ -5,6 +5,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.android.billingclient.api.AcknowledgePurchaseParams
@@ -35,6 +36,9 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
+    private companion object {
+        private const val LOG_TAG = "UpgradeActivity"
+    }
     private lateinit var billingClient: BillingClient
     private var monthlyDetails: ProductDetails? = null
     private var lifetimeDetails: ProductDetails? = null
@@ -209,6 +213,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                 )
         val baseUrl = settings.serverBaseUrl.trimEnd('/')
         if (baseUrl.isBlank()) {
+            Log.d(LOG_TAG, "fetchPlanStatus: missing serverBaseUrl")
             tvCurrentPlan.setText(R.string.upgrade_missing_server)
             updateRemainingUi(null)
             return
@@ -233,16 +238,28 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                                         .build()
                         try {
                             client.newCall(request).execute().use { response ->
+                                Log.d(
+                                        LOG_TAG,
+                                        "fetchPlanStatus: status=${response.code} url=$baseUrl/billing/status"
+                                )
                                 if (!response.isSuccessful) return@withContext null
                                 val body = response.body?.string().orEmpty()
-                                val status = BillingStatusParser.parse(body) ?: return@withContext null
+                                Log.d(
+                                        LOG_TAG,
+                                        "fetchPlanStatus: body=${body.take(200)}"
+                                )
+                                val status =
+                                        BillingStatusParser.parse(body)
+                                                ?: return@withContext null
                                 return@withContext Pair(status.planType, status.dailyRemaining)
                             }
                         } catch (e: Exception) {
+                            Log.d(LOG_TAG, "fetchPlanStatus: error=${e.message}")
                             return@withContext null
                         }
                     }
 
+            Log.d(LOG_TAG, "fetchPlanStatus: parsed=$status")
             updatePlanUi(status?.first)
             updateRemainingUi(status?.second)
         }
