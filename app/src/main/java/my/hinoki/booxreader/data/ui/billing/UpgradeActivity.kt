@@ -67,6 +67,8 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         tvRemainingCredits = findViewById(R.id.tvRemainingCredits)
         updatePlanUi(null)
         updateRemainingUi(null)
+        Log.d(LOG_TAG, "onCreate: fetchPlanStatus()")
+        fetchPlanStatus()
 
         btnMonthly.setOnClickListener { launchPurchase(monthlyDetails) }
         btnLifetime.setOnClickListener { launchPurchase(lifetimeDetails) }
@@ -82,6 +84,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         billingClient.startConnection(
                 object : BillingClientStateListener {
                     override fun onBillingSetupFinished(result: BillingResult) {
+                        Log.d(LOG_TAG, "onBillingSetupFinished: code=${result.responseCode}")
                         if (result.responseCode == BillingClient.BillingResponseCode.OK) {
                             queryProducts()
                             fetchPlanStatus()
@@ -92,6 +95,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                     }
 
                     override fun onBillingServiceDisconnected() {
+                        Log.d(LOG_TAG, "onBillingServiceDisconnected")
                         toast(getString(R.string.upgrade_billing_unavailable))
                         fetchPlanStatus()
                     }
