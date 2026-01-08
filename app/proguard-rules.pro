@@ -95,6 +95,27 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 
+# --- Text Selection and Unicode Handling ---
+# Prevent R8 from optimizing away Character.UnicodeBlock enum values
+# which are used for CJK vs English text detection in NativeReaderView
+-keep class java.lang.Character$UnicodeBlock { *; }
+
+# Keep NativeReaderView methods (selection, word boundaries, etc.)
+# These are critical for text selection functionality
+-keepclassmembers class my.hinoki.booxreader.data.ui.reader.nativev2.NativeReaderView {
+    private *** getWordBoundaries(...);
+    private *** isWordChar(...);
+    private *** isCjk(...);
+    private *** getLocalSelectionRange(...);
+    private *** toLocalOffset(...);
+    *** getSelectionRange();
+    *** getSelectedText();
+    *** hasSelection();
+    *** clearSelection();
+}
+
+# --- End Text Selection Rules ---
+
 # Strip Log.* calls in release to reduce noise and size.
 -assumenosideeffects class android.util.Log {
     public static *** v(...);
