@@ -962,19 +962,32 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     private fun isCjk(ch: Char): Boolean {
-        return when (Character.UnicodeBlock.of(ch)) {
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A,
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B,
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_C,
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_D,
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E,
-            Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F,
-            Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS,
-            Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION,
-            Character.UnicodeBlock.HIRAGANA,
-            Character.UnicodeBlock.KATAKANA,
-            Character.UnicodeBlock.HANGUL_SYLLABLES -> true
+        // Use code point ranges for compatibility with older Android versions
+        // (UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E/F don't exist before API 26)
+        val codePoint = ch.code
+        return when {
+            // CJK Unified Ideographs (U+4E00 - U+9FFF)
+            codePoint in 0x4E00..0x9FFF -> true
+            // CJK Unified Ideographs Extension A (U+3400 - U+4DBF)
+            codePoint in 0x3400..0x4DBF -> true
+            // CJK Unified Ideographs Extension B (U+20000 - U+2A6DF) - surrogate pair needed
+            codePoint in 0x20000..0x2A6DF -> true
+            // CJK Unified Ideographs Extension C (U+2A700 - U+2B73F)
+            codePoint in 0x2A700..0x2B73F -> true
+            // CJK Unified Ideographs Extension D (U+2B740 - U+2B81F)
+            codePoint in 0x2B740..0x2B81F -> true
+            // CJK Compatibility Ideographs (U+F900 - U+FAFF)
+            codePoint in 0xF900..0xFAFF -> true
+            // CJK Symbols and Punctuation (U+3000 - U+303F)
+            codePoint in 0x3000..0x303F -> true
+            // Hiragana (U+3040 - U+309F)
+            codePoint in 0x3040..0x309F -> true
+            // Katakana (U+30A0 - U+30FF)
+            codePoint in 0x30A0..0x30FF -> true
+            // Hangul Syllables (U+AC00 - U+D7AF)
+            codePoint in 0xAC00..0xD7AF -> true
+            // Bopomofo (U+3100 - U+312F)
+            codePoint in 0x3100..0x312F -> true
             else -> false
         }
     }
