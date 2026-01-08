@@ -10,7 +10,6 @@ import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
-import java.text.BreakIterator
 import kotlin.math.max
 import kotlin.math.min
 import org.readium.r2.shared.publication.Locator
@@ -34,7 +33,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 color = Color.BLACK
                 alpha = 40 // Light grey on E-ink
             }
-    
+
     private val selectionPath = Path()
 
     private val handlePaint =
@@ -197,53 +196,79 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         }
 
                         override fun onLongPress(e: MotionEvent) {
-                            val localOffset = getLocalOffsetForPosition(e.x, e.y)
-                            if (localOffset != -1) {
-                                // Hide existing menu if any
-                                onSelectionListener?.invoke(false, 0f, 0f)
+                            try {
+                                val localOffset = getLocalOffsetForPosition(e.x, e.y)
+                                if (localOffset != -1 && localOffset < content.length) {
+                                    // Hide existing menu if any
+                                    onSelectionListener?.invoke(false, 0f, 0f)
 
-                                // Expert Selection: Select full word/phrase
-                                val boundaries = getWordBoundaries(localOffset)
-                                selectionStart = pageStartOffset + boundaries.first
-                                selectionEnd = pageStartOffset + boundaries.second
-                                activeHandle = 2 // Default to end handle for extension
-                                isSelecting = true
-                                isMagnifying = true
-                                magnifierPos.set(e.x, e.y)
+                                    // Expert Selection: Select full word/phrase
+                                    val boundaries = getWordBoundaries(localOffset)
+                                    if (boundaries.first >= 0 &&
+                                                    boundaries.second <= content.length &&
+                                                    boundaries.first < boundaries.second
+                                    ) {
+                                        selectionStart = pageStartOffset + boundaries.first
+                                        selectionEnd = pageStartOffset + boundaries.second
+                                        activeHandle = 2 // Default to end handle for extension
+                                        isSelecting = true
+                                        isMagnifying = true
+                                        magnifierPos.set(e.x, e.y)
 
-                                // Tactile feedback
-                                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                        // Tactile feedback
+                                        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
 
-                                invalidate()
-                                postInvalidateOnAnimation()
-                                parent?.requestDisallowInterceptTouchEvent(true)
+                                        invalidate()
+                                        postInvalidateOnAnimation()
+                                        parent?.requestDisallowInterceptTouchEvent(true)
+                                    }
+                                }
+                            } catch (ex: Exception) {
+                                // Prevent crash on selection - silently fail
+                                android.util.Log.e("NativeReaderView", "onLongPress error", ex)
                             }
                         }
                     }
             )
 
     private fun getWordBoundaries(offset: Int): Pair<Int, Int> {
-        if (content.isEmpty()) return offset to offset
-        val text = content.toString()
-        val safeOffset = offset.coerceIn(0, text.length - 1)
-        val ch = text[safeOffset]
-        if (isCjk(ch)) {
-            return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
-        }
+        try {
+            if (content.isEmpty()) return offset.coerceAtLeast(0) to offset.coerceAtLeast(0)
+            val text = content.toString()
+            if (text.isEmpty()) return 0 to 0
 
-        if (!isWordChar(ch)) {
-            return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
-        }
+            val safeOffset = offset.coerceIn(0, text.length - 1)
+            val ch = text[safeOffset]
 
-        var start = safeOffset
-        while (start > 0 && isWordChar(text[start - 1])) {
-            start--
+            // CJK characters - select single character
+            if (isCjk(ch)) {
+                return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
+            }
+
+            // For non-word characters (punctuation, whitespace), select single character
+            if (!isWordChar(ch)) {
+                return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
+            }
+
+            // For word characters (letters, digits), find word boundaries
+            var start = safeOffset
+            while (start > 0 && isWordChar(text[start - 1])) {
+                start--
+            }
+            var end = safeOffset + 1
+            while (end < text.length && isWordChar(text[end])) {
+                end++
+            }
+
+            // Safety check: ensure valid range
+            start = start.coerceIn(0, text.length)
+            end = end.coerceIn(start, text.length)
+
+            return start to end
+        } catch (ex: Exception) {
+            // Fallback: return single character selection
+            return offset.coerceAtLeast(0) to (offset + 1).coerceAtLeast(1)
         }
-        var end = safeOffset + 1
-        while (end < text.length && isWordChar(text[end])) {
-            end++
-        }
-        return start to end
     }
 
     override fun performClick(): Boolean {
@@ -411,9 +436,12 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 val lineStart = if (line == startLine) start else l.getLineStart(line)
                 val lineEnd = if (line == endLine) end else l.getLineEnd(line)
 
-                val left = (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) - selectionPaddingHorizontal
+                val left =
+                        (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
+                                selectionPaddingHorizontal
                 val right =
-                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd) else l.width.toFloat()) + selectionPaddingHorizontal
+                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd)
+                        else l.width.toFloat()) + selectionPaddingHorizontal
 
                 // Use FontMetrics for tight vertical bounds (ignores line spacing multiplier)
                 val baseline = l.getLineBaseline(line).toFloat()
@@ -495,7 +523,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 }
                 canvas.drawPath(selectionPath, selectionPaint)
             }
-            
+
             l.draw(canvas)
             canvas.restore()
 
@@ -536,13 +564,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             val sTop = sBaseline + fm.ascent - selectionPaddingVertical
             val sBottom = sBaseline + fm.descent + selectionPaddingVertical
 
-            canvas.drawRect(
-                    sX - handleWidth / 2,
-                    sTop,
-                    sX + handleWidth / 2,
-                    sBottom,
-                    handlePaint
-            )
+            canvas.drawRect(sX - handleWidth / 2, sTop, sX + handleWidth / 2, sBottom, handlePaint)
             canvas.drawCircle(sX, sTop, handleBallRadius, handlePaint)
         }
 
@@ -556,13 +578,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             val eTop = eBaseline + fm.ascent - selectionPaddingVertical
             val eBottom = eBaseline + fm.descent + selectionPaddingVertical
 
-            canvas.drawRect(
-                    eX - handleWidth / 2,
-                    eTop,
-                    eX + handleWidth / 2,
-                    eBottom,
-                    handlePaint
-            )
+            canvas.drawRect(eX - handleWidth / 2, eTop, eX + handleWidth / 2, eBottom, handlePaint)
             canvas.drawCircle(eX, eBottom, handleBallRadius, handlePaint)
         }
     }
@@ -865,31 +881,29 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             return
         }
         if (edgeHoldRunnable != null &&
-                edgeHoldDirection == direction &&
-                edgeHoldActiveHandle == activeHandle) {
+                        edgeHoldDirection == direction &&
+                        edgeHoldActiveHandle == activeHandle
+        ) {
             return
         }
         cancelEdgeHold()
         edgeHoldDirection = direction
         edgeHoldActiveHandle = activeHandle
-        val runnable =
-                Runnable {
-                    val localNow =
-                            if (edgeHoldActiveHandle == 1) toLocalOffset(selectionStart)
-                            else if (edgeHoldActiveHandle == 2) toLocalOffset(selectionEnd) else null
-                    val atEdge = localNow?.let { isAtEdge(it, edgeHoldDirection) } == true
-                    if (!isSelecting ||
-                            localNow == null ||
-                            activeHandle != edgeHoldActiveHandle ||
-                            !atEdge) {
-                        cancelEdgeHold()
-                        return@Runnable
-                    }
-                    val callback = onPageEdgeHoldListener
-                    val directionToSend = edgeHoldDirection
-                    cancelEdgeHold()
-                    callback?.invoke(directionToSend)
-                }
+        val runnable = Runnable {
+            val localNow =
+                    if (edgeHoldActiveHandle == 1) toLocalOffset(selectionStart)
+                    else if (edgeHoldActiveHandle == 2) toLocalOffset(selectionEnd) else null
+            val atEdge = localNow?.let { isAtEdge(it, edgeHoldDirection) } == true
+            if (!isSelecting || localNow == null || activeHandle != edgeHoldActiveHandle || !atEdge
+            ) {
+                cancelEdgeHold()
+                return@Runnable
+            }
+            val callback = onPageEdgeHoldListener
+            val directionToSend = edgeHoldDirection
+            cancelEdgeHold()
+            callback?.invoke(directionToSend)
+        }
         edgeHoldRunnable = runnable
         postDelayed(runnable, 1500L)
     }
