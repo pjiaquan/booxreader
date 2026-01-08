@@ -10,24 +10,24 @@ import com.google.gson.FieldNamingPolicy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
-import com.google.gson.JsonPrimitive
 import com.google.gson.annotations.SerializedName
 import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.security.MessageDigest
-import java.time.Instant
-import javax.crypto.Cipher
-import javax.crypto.spec.SecretKeySpec
-import javax.crypto.spec.GCMParameterSpec
 import java.security.SecureRandom
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.SecretKeySpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
+import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
-import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -36,19 +36,17 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
-import okio.source
 
 /**
- * Syncs user-specific data (settings, reading progress, AI notes) to Supabase so it can
- * roam across devices. Falls back to no-ops when the user is not signed in.
+ * Syncs user-specific data (settings, reading progress, AI notes) to Supabase so it can roam across
+ * devices. Falls back to no-ops when the user is not signed in.
  *
  * Books are stored in Supabase Storage.
  */
 class UserSyncRepository(
-    context: Context,
-    baseUrl: String? = null,
-    tokenManager: TokenManager? = null
+        context: Context,
+        baseUrl: String? = null,
+        tokenManager: TokenManager? = null
 ) {
         private val appContext = context.applicationContext
         private val prefs: SharedPreferences =
@@ -62,7 +60,7 @@ class UserSyncRepository(
         private val supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY
         private val supabaseRestUrl = "$supabaseUrl/rest/v1"
         private val supabaseStorageUrl = "$supabaseUrl/storage/v1"
-        
+
         // Supabase Storage Bucket
         private val storageBucket = "books" // Fixed bucket name
 
@@ -86,7 +84,6 @@ class UserSyncRepository(
 
         // --- Public API ---
 
-
         suspend fun pullSettingsIfNewer(): ReaderSettings? =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext null
@@ -102,10 +99,11 @@ class UserSyncRepository(
                                                 )
                                 )
                                         ?: return@withContext null
-                        val listType =
-                                object : TypeToken<List<SupabaseReaderSettings>>() {}.type
-                        val remote = gson.fromJson<List<SupabaseReaderSettings>>(response, listType)
-                                .firstOrNull() ?: return@withContext null
+                        val listType = object : TypeToken<List<SupabaseReaderSettings>>() {}.type
+                        val remote =
+                                gson.fromJson<List<SupabaseReaderSettings>>(response, listType)
+                                        .firstOrNull()
+                                        ?: return@withContext null
 
                         // Map remote string ID to local long ID
                         var localProfileId = -1L
@@ -163,7 +161,10 @@ class UserSyncRepository(
 
         suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromPrefs(prefs)) {
                 val userId = requireUserId() ?: return
-                Log.d("UserSyncRepository", "pushSettings start userId=$userId updatedAt=${settings.updatedAt} magicTags=${settings.magicTags.size}")
+                Log.d(
+                        "UserSyncRepository",
+                        "pushSettings start userId=$userId updatedAt=${settings.updatedAt} magicTags=${settings.magicTags.size}"
+                )
 
                 // Map local long ID to remote string ID
                 var remoteProfileId: String? = null
@@ -185,7 +186,10 @@ class UserSyncRepository(
                                         body = payload,
                                         prefer = "resolution=merge-duplicates,return=representation"
                                 )
-                        Log.d("UserSyncRepository", "pushSettings response=${response?.take(200) ?: "null"}")
+                        Log.d(
+                                "UserSyncRepository",
+                                "pushSettings response=${response?.take(200) ?: "null"}"
+                        )
                         response?.takeIf { it.isNotBlank() }?.let { body ->
                                 val listType =
                                         object : TypeToken<List<SupabaseReaderSettings>>() {}.type
@@ -202,7 +206,8 @@ class UserSyncRepository(
                                 var activeProfile: AiProfileEntity? = null
                                 if (!remote.activeProfileId.isNullOrBlank()) {
                                         val profile =
-                                                db.aiProfileDao().getByRemoteId(remote.activeProfileId)
+                                                db.aiProfileDao()
+                                                        .getByRemoteId(remote.activeProfileId)
                                         if (profile != null) {
                                                 localProfileId = profile.id
                                                 activeProfile = profile
@@ -267,12 +272,11 @@ class UserSyncRepository(
                                                 )
                                 )
                                         ?: return@withContext null
-                        val listType =
-                                object : TypeToken<List<SupabaseProgress>>() {}.type
+                        val listType = object : TypeToken<List<SupabaseProgress>>() {}.type
                         val remote =
                                 gson.fromJson<List<SupabaseProgress>>(response, listType)
-                                        .firstOrNull() ?: return@withContext null
-
+                                        .firstOrNull()
+                                        ?: return@withContext null
 
                         if (remote.locatorJson.isBlank()) return@withContext null
 
@@ -287,8 +291,7 @@ class UserSyncRepository(
                                                         remote.updatedAt
                                                 )
                                 }
-                        } else {
-                        }
+                        } else {}
                         remote.locatorJson
                 }
 
@@ -320,7 +323,6 @@ class UserSyncRepository(
                 contentResolver: android.content.ContentResolver? = null
         ) =
                 withContext(io) {
-
                         val userId = requireUserId()
                         if (userId == null) {
                                 return@withContext
@@ -345,14 +347,9 @@ class UserSyncRepository(
                                         deletedAt = book.deletedAt?.let { toIsoTimestamp(it) }
                                 )
 
-
                         val existingId = findBookIdByLocalId(userId, book.bookId)
                         if (existingId == null) {
-                                supabaseRestRequest(
-                                        method = "POST",
-                                        path = "books",
-                                        body = payload
-                                )
+                                supabaseRestRequest(method = "POST", path = "books", body = payload)
                         } else {
                                 supabaseRestRequest(
                                         method = "PATCH",
@@ -362,9 +359,7 @@ class UserSyncRepository(
                                 )
                         }
 
-                        if (uploadInfo == null && uploadFile) {
-                        } else {
-                        }
+                        if (uploadInfo == null && uploadFile) {} else {}
                 }
 
         suspend fun softDeleteBook(bookId: String): Boolean =
@@ -398,7 +393,6 @@ class UserSyncRepository(
                                 return@withContext 0
                         }
 
-
                         // Push any pending deletions first
                         pushPendingDeletes()
 
@@ -410,7 +404,9 @@ class UserSyncRepository(
                                         query = mapOf("select" to "*", "user_id" to "eq.$userId")
                                 )
                                         ?: return@withContext 0
-                        val listType = object : com.google.gson.reflect.TypeToken<List<SupabaseBook>>() {}.type
+                        val listType =
+                                object : com.google.gson.reflect.TypeToken<List<SupabaseBook>>() {}
+                                        .type
                         val remotes = gson.fromJson<List<SupabaseBook>>(response, listType)
 
                         var updatedCount = 0
@@ -530,7 +526,6 @@ class UserSyncRepository(
                         true
                 }
 
-
         private suspend fun pushPendingDeletes() {
                 val dao = db.bookDao()
                 val pending = dao.getPendingDeletes()
@@ -540,8 +535,7 @@ class UserSyncRepository(
                         val success = softDeleteBook(book.bookId)
                         if (success) {
                                 dao.deleteById(book.bookId) // Hard delete now that cloud is updated
-                        } else {
-                        }
+                        } else {}
                 }
         }
 
@@ -556,7 +550,10 @@ class UserSyncRepository(
                         val localMeta =
                                 readLocalFileMeta(uri, resolver)
                                         ?: run {
-                                                android.util.Log.e("UserSyncRepo", "Read local file meta failed for ${book.fileUri}")
+                                                android.util.Log.e(
+                                                        "UserSyncRepo",
+                                                        "Read local file meta failed for ${book.fileUri}"
+                                                )
                                                 return@withContext null
                                         }
                         val storagePath = bookStoragePath(userId, book.bookId)
@@ -564,37 +561,58 @@ class UserSyncRepository(
 
                         // Check if file exists and size matches
                         val remoteSize = getRemoteFileSize(storageBucket, storagePath)
-                        android.util.Log.d("UserSyncRepo", "File check: local=${localMeta.size}, remote=$remoteSize")
+                        android.util.Log.d(
+                                "UserSyncRepo",
+                                "File check: local=${localMeta.size}, remote=$remoteSize"
+                        )
 
                         if (remoteSize == localMeta.size) {
-                             android.util.Log.d("UserSyncRepo", "File already exists on storage, skipping upload.")
-                             return@withContext UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
+                                android.util.Log.d(
+                                        "UserSyncRepo",
+                                        "File already exists on storage, skipping upload."
+                                )
+                                return@withContext UploadedBookInfo(
+                                        storagePath,
+                                        localMeta.size,
+                                        localMeta.checksum
+                                )
                         }
 
                         // Upload file
                         try {
-                            resolver.openInputStream(uri)?.use { input ->
-                                val bytes = input.readBytes()
-                                android.util.Log.d("UserSyncRepo", "Starting upload to $storagePath, size=${bytes.size}")
-                                val response = supabaseStorageRequest(
-                                    method = "POST",
-                                    path = "object/$storageBucket/$storagePath",
-                                    bodyBytes = bytes,
-                                    contentType = "application/epub+zip",
-                                    headers = mapOf("x-upsert" to "true")
-                                )
-                                if (response != null) {
-                                    android.util.Log.d("UserSyncRepo", "Upload success")
-                                    UploadedBookInfo(storagePath, localMeta.size, localMeta.checksum)
-                                } else {
-                                    android.util.Log.e("UserSyncRepo", "Upload failed (response null)")
-                                    null
+                                resolver.openInputStream(uri)?.use { input ->
+                                        val bytes = input.readBytes()
+                                        android.util.Log.d(
+                                                "UserSyncRepo",
+                                                "Starting upload to $storagePath, size=${bytes.size}"
+                                        )
+                                        val response =
+                                                supabaseStorageRequest(
+                                                        method = "POST",
+                                                        path = "object/$storageBucket/$storagePath",
+                                                        bodyBytes = bytes,
+                                                        contentType = "application/epub+zip",
+                                                        headers = mapOf("x-upsert" to "true")
+                                                )
+                                        if (response != null) {
+                                                android.util.Log.d("UserSyncRepo", "Upload success")
+                                                UploadedBookInfo(
+                                                        storagePath,
+                                                        localMeta.size,
+                                                        localMeta.checksum
+                                                )
+                                        } else {
+                                                android.util.Log.e(
+                                                        "UserSyncRepo",
+                                                        "Upload failed (response null)"
+                                                )
+                                                null
+                                        }
                                 }
-                            }
                         } catch (e: Exception) {
-                            android.util.Log.e("UserSyncRepo", "Upload exception", e)
-                            e.printStackTrace()
-                            null
+                                android.util.Log.e("UserSyncRepo", "Upload exception", e)
+                                e.printStackTrace()
+                                null
                         }
                 }
 
@@ -612,8 +630,8 @@ class UserSyncRepository(
                 val storagePath = bookStoragePath(userId, bookId)
                 if (storagePath.isBlank()) return
                 supabaseStorageRequest(
-                    method = "DELETE",
-                    path = "object/$storageBucket/$storagePath"
+                        method = "DELETE",
+                        path = "object/$storageBucket/$storagePath"
                 )
         }
 
@@ -625,8 +643,7 @@ class UserSyncRepository(
                         if (resolvedPath.isBlank()) return@withContext null
 
                         val filesDir =
-                                appContext.getExternalFilesDir("books")
-                                        ?: appContext.filesDir
+                                appContext.getExternalFilesDir("books") ?: appContext.filesDir
                         val booksDir = File(filesDir, "downloaded")
                         if (!booksDir.exists()) {
                                 booksDir.mkdirs()
@@ -641,20 +658,27 @@ class UserSyncRepository(
                         val localFile = File(booksDir, fileName)
 
                         try {
-                            android.util.Log.d("UserSyncRepo", "Downloading file from $resolvedPath")
-                            // Use authenticated endpoint for private buckets
-                            val responseBytes = supabaseStorageRequestBytes(
-                                method = "GET",
-                                path = "object/$storageBucket/$resolvedPath"
-                            ) ?: return@withContext null
+                                android.util.Log.d(
+                                        "UserSyncRepo",
+                                        "Downloading file from $resolvedPath"
+                                )
+                                // Use authenticated endpoint for private buckets
+                                val responseBytes =
+                                        supabaseStorageRequestBytes(
+                                                method = "GET",
+                                                path = "object/$storageBucket/$resolvedPath"
+                                        )
+                                                ?: return@withContext null
 
-                            localFile.writeBytes(responseBytes)
-                            android.util.Log.d("UserSyncRepo", "Download success: ${localFile.length()} bytes")
-
+                                localFile.writeBytes(responseBytes)
+                                android.util.Log.d(
+                                        "UserSyncRepo",
+                                        "Download success: ${localFile.length()} bytes"
+                                )
                         } catch (e: Exception) {
-                            android.util.Log.e("UserSyncRepo", "Download failed", e)
-                            e.printStackTrace()
-                            return@withContext null
+                                android.util.Log.e("UserSyncRepo", "Download failed", e)
+                                e.printStackTrace()
+                                return@withContext null
                         }
 
                         if (localFile.exists() && localFile.length() > 0) {
@@ -679,38 +703,37 @@ class UserSyncRepository(
                 }
 
         private suspend fun getRemoteFileSize(bucket: String, path: String): Long {
-            // Supabase Storage doesn't have a direct HEAD for size on authenticated paths easily accessible via REST without signing?
-            // We can use 'list' on the parent folder.
-            // Path: users/uid/books/file.epub
-            // Parent: users/uid/books
-            // But 'list' requires POST.
-            
-            val parentPath = path.substringBeforeLast("/", "")
-            val fileName = path.substringAfterLast("/")
-            
-            if (fileName.isEmpty()) return -1L
+                // Supabase Storage doesn't have a direct HEAD for size on authenticated paths
+                // easily accessible via REST without signing?
+                // We can use 'list' on the parent folder.
+                // Path: users/uid/books/file.epub
+                // Parent: users/uid/books
+                // But 'list' requires POST.
 
-            // List objects in the parent path
-            val body = mapOf(
-                "prefix" to parentPath,
-                "search" to fileName,
-                "limit" to 1
-            )
-            
-            val response = supabaseStorageRequest(
-                method = "POST",
-                path = "object/list/$bucket",
-                body = body
-            ) ?: return -1L
-            
-            return try {
-                val listType = object : TypeToken<List<SupabaseStorageFile>>() {}.type
-                val files = gson.fromJson<List<SupabaseStorageFile>>(response, listType)
-                files.firstOrNull { it.name == fileName }?.metadata?.size ?: -1L
-            } catch (e: Exception) {
-                android.util.Log.e("UserSyncRepo", "Error parsing list response", e)
-                -1L
-            }
+                val parentPath = path.substringBeforeLast("/", "")
+                val fileName = path.substringAfterLast("/")
+
+                if (fileName.isEmpty()) return -1L
+
+                // List objects in the parent path
+                val body = mapOf("prefix" to parentPath, "search" to fileName, "limit" to 1)
+
+                val response =
+                        supabaseStorageRequest(
+                                method = "POST",
+                                path = "object/list/$bucket",
+                                body = body
+                        )
+                                ?: return -1L
+
+                return try {
+                        val listType = object : TypeToken<List<SupabaseStorageFile>>() {}.type
+                        val files = gson.fromJson<List<SupabaseStorageFile>>(response, listType)
+                        files.firstOrNull { it.name == fileName }?.metadata?.size ?: -1L
+                } catch (e: Exception) {
+                        android.util.Log.e("UserSyncRepo", "Error parsing list response", e)
+                        -1L
+                }
         }
 
         private fun supabaseStorageRequest(
@@ -722,7 +745,16 @@ class UserSyncRepository(
                 contentType: String = "application/json; charset=utf-8",
                 headers: Map<String, String> = emptyMap()
         ): String? {
-                val bytes = supabaseStorageRequestBytes(method, path, query, body, bodyBytes, contentType, headers)
+                val bytes =
+                        supabaseStorageRequestBytes(
+                                method,
+                                path,
+                                query,
+                                body,
+                                bodyBytes,
+                                contentType,
+                                headers
+                        )
                 return bytes?.toString(Charsets.UTF_8)
         }
 
@@ -742,16 +774,16 @@ class UserSyncRepository(
                                 .newBuilder()
                                 .apply { query.forEach { addQueryParameter(it.key, it.value) } }
                                 .build()
-                
+
                 android.util.Log.d("UserSyncRepo", "Request: $method $url")
 
                 val requestBody =
                         if (bodyBytes != null) {
-                            bodyBytes.toRequestBody(contentType.toMediaType())
+                                bodyBytes.toRequestBody(contentType.toMediaType())
                         } else if (body != null) {
-                            gson.toJson(body).toRequestBody(contentType.toMediaType())
+                                gson.toJson(body).toRequestBody(contentType.toMediaType())
                         } else {
-                            null
+                                null
                         }
 
                 val requestBuilder =
@@ -763,28 +795,40 @@ class UserSyncRepository(
 
                 when (method.uppercase()) {
                         "GET" -> requestBuilder.get()
-                        "POST" -> requestBuilder.post(requestBody ?: "{}".toRequestBody("application/json".toMediaType()))
+                        "POST" ->
+                                requestBuilder.post(
+                                        requestBody
+                                                ?: "{}".toRequestBody(
+                                                        "application/json".toMediaType()
+                                                )
+                                )
                         "DELETE" -> requestBuilder.delete()
                         else -> error("Unsupported method: $method")
                 }
-                
+
                 return try {
-                    httpClient.newCall(requestBuilder.build()).execute().use { response ->
-                        if (!response.isSuccessful) {
-                             val responseBody = response.body?.string()
-                             android.util.Log.e("UserSyncRepo", "Storage request failed: ${response.code} ${response.message} $responseBody")
-                             return null
+                        httpClient.newCall(requestBuilder.build()).execute().use { response ->
+                                if (!response.isSuccessful) {
+                                        val responseBody = response.body?.string()
+                                        android.util.Log.e(
+                                                "UserSyncRepo",
+                                                "Storage request failed: ${response.code} ${response.message} $responseBody"
+                                        )
+                                        return null
+                                }
+                                response.body?.bytes()
                         }
-                        response.body?.bytes()
-                    }
                 } catch (e: Exception) {
-                    android.util.Log.e("UserSyncRepo", "Storage request exception", e)
-                    e.printStackTrace()
-                    null
+                        android.util.Log.e("UserSyncRepo", "Storage request exception", e)
+                        e.printStackTrace()
+                        null
                 }
         }
 
-        private fun readLocalFileMeta(uri: Uri, contentResolver: android.content.ContentResolver): LocalFileMeta? {
+        private fun readLocalFileMeta(
+                uri: Uri,
+                contentResolver: android.content.ContentResolver
+        ): LocalFileMeta? {
                 val digest = MessageDigest.getInstance("SHA-256")
                 var size = 0L
                 try {
@@ -796,9 +840,10 @@ class UserSyncRepository(
                                         digest.update(buffer, 0, read)
                                         size += read
                                 }
-                        } ?: run {
-                                return null
                         }
+                                ?: run {
+                                        return null
+                                }
                 } catch (e: Exception) {
                         return null
                 }
@@ -822,8 +867,7 @@ class UserSyncRepository(
                                         resolver.openInputStream(uri)?.use { input ->
                                                 return@withContext uri
                                         }
-                                } catch (e: Exception) {
-                                }
+                                } catch (e: Exception) {}
                         }
 
                         // Check multiple possible locations for the book file
@@ -884,9 +928,7 @@ class UserSyncRepository(
 
                         // Download from storage
                         val result = downloadBookFile(bookId, storagePath)
-                        if (result != null) {
-                        } else {
-                        }
+                        if (result != null) {} else {}
                         return@withContext result
                 }
 
@@ -900,12 +942,16 @@ class UserSyncRepository(
                                         userId = userId,
                                         bookId = note.bookId,
                                         bookTitle = note.bookTitle,
-                                        originalText =
-                                                note.originalText?.takeIf { it.isNotBlank() }
-                                                        ?: AiNoteSerialization.originalTextFromMessages(note.messages),
-                                        aiResponse =
-                                                note.aiResponse?.takeIf { it.isNotBlank() }
-                                                        ?: AiNoteSerialization.aiResponseFromMessages(note.messages),
+                                        originalText = note.originalText?.takeIf { it.isNotBlank() }
+                                                        ?: AiNoteSerialization
+                                                                .originalTextFromMessages(
+                                                                        note.messages
+                                                                ),
+                                        aiResponse = note.aiResponse?.takeIf { it.isNotBlank() }
+                                                        ?: AiNoteSerialization
+                                                                .aiResponseFromMessages(
+                                                                        note.messages
+                                                                ),
                                         locator = parseLocatorJson(note.locatorJson),
                                         createdAt = toIsoTimestamp(note.createdAt),
                                         updatedAt = toIsoTimestamp(now)
@@ -922,9 +968,15 @@ class UserSyncRepository(
                                                 )
                                                         ?: return@withContext null
                                         val listType =
-                                                object : com.google.gson.reflect.TypeToken<List<SupabaseAiNote>>() {}.type
+                                                object :
+                                                                com.google.gson.reflect.TypeToken<
+                                                                        List<SupabaseAiNote>>() {}
+                                                        .type
                                         val created =
-                                                gson.fromJson<List<SupabaseAiNote>>(response, listType)
+                                                gson.fromJson<List<SupabaseAiNote>>(
+                                                                response,
+                                                                listType
+                                                        )
                                                         .firstOrNull()
                                         created?.id
                                 } else {
@@ -949,7 +1001,7 @@ class UserSyncRepository(
                         }
                 }
 
-suspend fun pullNotes(): Int =
+        suspend fun pullNotes(): Int =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext 0
                         val dao = db.aiNoteDao()
@@ -965,7 +1017,10 @@ suspend fun pullNotes(): Int =
                                 )
                                         ?: return@withContext 0
                         val listType =
-                                object : com.google.gson.reflect.TypeToken<List<SupabaseAiNote>>() {}.type
+                                object :
+                                                com.google.gson.reflect.TypeToken<
+                                                        List<SupabaseAiNote>>() {}
+                                        .type
                         val remotes = gson.fromJson<List<SupabaseAiNote>>(response, listType)
                         var updatedCount = 0
 
@@ -973,9 +1028,9 @@ suspend fun pullNotes(): Int =
                                 val remoteId = remote.id ?: return@forEach
                                 val existing = dao.getByRemoteId(remoteId)
                                 val createdAt =
-                                        fromIsoTimestamp(remote.createdAt)
-                                                .takeIf { it > 0 }
-                                                ?: (existing?.createdAt ?: System.currentTimeMillis())
+                                        fromIsoTimestamp(remote.createdAt).takeIf { it > 0 }
+                                                ?: (existing?.createdAt
+                                                        ?: System.currentTimeMillis())
                                 val updatedAt = fromIsoTimestamp(remote.updatedAt)
 
                                 val messages =
@@ -1009,7 +1064,7 @@ suspend fun pullNotes(): Int =
                         updatedCount
                 }
 
-suspend fun pushBookmark(entity: BookmarkEntity): BookmarkEntity? =
+        suspend fun pushBookmark(entity: BookmarkEntity): BookmarkEntity? =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext null
                         val now = System.currentTimeMillis()
@@ -1033,9 +1088,15 @@ suspend fun pushBookmark(entity: BookmarkEntity): BookmarkEntity? =
                                                 )
                                                         ?: return@withContext null
                                         val listType =
-                                                object : com.google.gson.reflect.TypeToken<List<SupabaseBookmark>>() {}.type
+                                                object :
+                                                                com.google.gson.reflect.TypeToken<
+                                                                        List<SupabaseBookmark>>() {}
+                                                        .type
                                         val created =
-                                                gson.fromJson<List<SupabaseBookmark>>(response, listType)
+                                                gson.fromJson<List<SupabaseBookmark>>(
+                                                                response,
+                                                                listType
+                                                        )
                                                         .firstOrNull()
                                         created?.id
                                 } else {
@@ -1061,7 +1122,7 @@ suspend fun pushBookmark(entity: BookmarkEntity): BookmarkEntity? =
                         }
                 }
 
-suspend fun pullBookmarks(bookId: String? = null): Int =
+        suspend fun pullBookmarks(bookId: String? = null): Int =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext 0
                         val dao = db.bookmarkDao()
@@ -1069,11 +1130,7 @@ suspend fun pullBookmarks(bookId: String? = null): Int =
                         // Push local-only first to get remoteId
                         runCatching { dao.getLocalOnly().forEach { local -> pushBookmark(local) } }
 
-                        val query =
-                                mutableMapOf(
-                                        "select" to "*",
-                                        "user_id" to "eq.$userId"
-                                )
+                        val query = mutableMapOf("select" to "*", "user_id" to "eq.$userId")
                         if (!bookId.isNullOrBlank()) {
                                 query["book_id"] = "eq.$bookId"
                         }
@@ -1086,7 +1143,10 @@ suspend fun pullBookmarks(bookId: String? = null): Int =
                                 )
                                         ?: return@withContext 0
                         val listType =
-                                object : com.google.gson.reflect.TypeToken<List<SupabaseBookmark>>() {}.type
+                                object :
+                                                com.google.gson.reflect.TypeToken<
+                                                        List<SupabaseBookmark>>() {}
+                                        .type
                         val remotes = gson.fromJson<List<SupabaseBookmark>>(response, listType)
 
                         var updatedCount = 0
@@ -1094,9 +1154,9 @@ suspend fun pullBookmarks(bookId: String? = null): Int =
                                 val remoteId = remote.id ?: return@forEach
                                 val existing = dao.getByRemoteId(remoteId)
                                 val createdAt =
-                                        fromIsoTimestamp(remote.createdAt)
-                                                .takeIf { it > 0 }
-                                                ?: (existing?.createdAt ?: System.currentTimeMillis())
+                                        fromIsoTimestamp(remote.createdAt).takeIf { it > 0 }
+                                                ?: (existing?.createdAt
+                                                        ?: System.currentTimeMillis())
                                 val updatedAt = fromIsoTimestamp(remote.updatedAt)
                                 val entity =
                                         BookmarkEntity(
@@ -1121,7 +1181,7 @@ suspend fun pullBookmarks(bookId: String? = null): Int =
                         updatedCount
                 }
 
-suspend fun pushProfile(profile: AiProfileEntity): AiProfileEntity? =
+        suspend fun pushProfile(profile: AiProfileEntity): AiProfileEntity? =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext null
                         val now = System.currentTimeMillis()
@@ -1158,9 +1218,16 @@ suspend fun pushProfile(profile: AiProfileEntity): AiProfileEntity? =
                                                 )
                                                         ?: return@withContext null
                                         val listType =
-                                                object : com.google.gson.reflect.TypeToken<List<SupabaseAiProfile>>() {}.type
+                                                object :
+                                                                com.google.gson.reflect.TypeToken<
+                                                                        List<
+                                                                                SupabaseAiProfile>>() {}
+                                                        .type
                                         val created =
-                                                gson.fromJson<List<SupabaseAiProfile>>(response, listType)
+                                                gson.fromJson<List<SupabaseAiProfile>>(
+                                                                response,
+                                                                listType
+                                                        )
                                                         .firstOrNull()
                                         created?.id
                                 } else {
@@ -1186,7 +1253,7 @@ suspend fun pushProfile(profile: AiProfileEntity): AiProfileEntity? =
                         }
                 }
 
-suspend fun pullProfiles(): Int =
+        suspend fun pullProfiles(): Int =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext 0
                         val dao = db.aiProfileDao()
@@ -1202,7 +1269,10 @@ suspend fun pullProfiles(): Int =
                                 )
                                         ?: return@withContext 0
                         val listType =
-                                object : com.google.gson.reflect.TypeToken<List<SupabaseAiProfile>>() {}.type
+                                object :
+                                                com.google.gson.reflect.TypeToken<
+                                                        List<SupabaseAiProfile>>() {}
+                                        .type
                         val remotes = gson.fromJson<List<SupabaseAiProfile>>(response, listType)
 
                         var updatedCount = 0
@@ -1211,9 +1281,9 @@ suspend fun pullProfiles(): Int =
                                 val existing = dao.getByRemoteId(remoteId)
                                 val remoteUpdatedAt = fromIsoTimestamp(remote.updatedAt)
                                 val createdAt =
-                                        fromIsoTimestamp(remote.createdAt)
-                                                .takeIf { it > 0 }
-                                                ?: (existing?.createdAt ?: System.currentTimeMillis())
+                                        fromIsoTimestamp(remote.createdAt).takeIf { it > 0 }
+                                                ?: (existing?.createdAt
+                                                        ?: System.currentTimeMillis())
 
                                 val entity =
                                         AiProfileEntity(
@@ -1223,7 +1293,8 @@ suspend fun pullProfiles(): Int =
                                                 apiKey = SyncCrypto.decrypt(remote.apiKey ?: ""),
                                                 serverBaseUrl = remote.serverBaseUrl ?: "",
                                                 systemPrompt = remote.systemPrompt ?: "",
-                                                userPromptTemplate = remote.userPromptTemplate ?: "",
+                                                userPromptTemplate = remote.userPromptTemplate
+                                                                ?: "",
                                                 useStreaming = remote.useStreaming ?: false,
                                                 temperature = remote.temperature ?: 0.7,
                                                 maxTokens = remote.maxTokens ?: 4096,
@@ -1231,7 +1302,8 @@ suspend fun pullProfiles(): Int =
                                                 frequencyPenalty = remote.frequencyPenalty ?: 0.0,
                                                 presencePenalty = remote.presencePenalty ?: 0.0,
                                                 assistantRole = remote.assistantRole ?: "assistant",
-                                                enableGoogleSearch = remote.enableGoogleSearch ?: true,
+                                                enableGoogleSearch = remote.enableGoogleSearch
+                                                                ?: true,
                                                 extraParamsJson = existing?.extraParamsJson,
                                                 remoteId = remoteId,
                                                 createdAt = createdAt,
@@ -1253,7 +1325,7 @@ suspend fun pullProfiles(): Int =
                         updatedCount
                 }
 
-suspend fun pullAllProgress(): Int =
+        suspend fun pullAllProgress(): Int =
                 withContext(io) {
                         val userId = requireUserId() ?: return@withContext 0
 
@@ -1265,9 +1337,11 @@ suspend fun pullAllProgress(): Int =
                                 )
                                         ?: return@withContext 0
                         val listType =
-                                object : com.google.gson.reflect.TypeToken<List<SupabaseProgress>>() {}.type
+                                object :
+                                                com.google.gson.reflect.TypeToken<
+                                                        List<SupabaseProgress>>() {}
+                                        .type
                         val remotes = gson.fromJson<List<SupabaseProgress>>(response, listType)
-
 
                         var updated = 0
                         remotes.forEach { remote ->
@@ -1277,9 +1351,12 @@ suspend fun pullAllProgress(): Int =
 
                                 val localTs = prefs.getLong(progressTimestampKey(remote.bookId), 0)
 
-
                                 if (remote.updatedAt > localTs) {
-                                        cacheProgress(remote.bookId, remote.locatorJson, remote.updatedAt)
+                                        cacheProgress(
+                                                remote.bookId,
+                                                remote.locatorJson,
+                                                remote.updatedAt
+                                        )
                                         runCatching {
                                                 db.bookDao()
                                                         .updateProgress(
@@ -1295,7 +1372,7 @@ suspend fun pullAllProgress(): Int =
                         updated
                 }
 
-private fun decodeBookIdFromStorageName(name: String?): String? {
+        private fun decodeBookIdFromStorageName(name: String?): String? {
                 if (name.isNullOrBlank()) return null
                 val safeId = name.substringBeforeLast(".")
                 return runCatching {
@@ -1316,7 +1393,8 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                         .getOrDefault(false)
         }
 
-        private fun accessToken(): String? = tokenManager.getAccessToken()?.takeIf { it.isNotBlank() }
+        private fun accessToken(): String? =
+                tokenManager.getAccessToken()?.takeIf { it.isNotBlank() }
 
         suspend fun getUserId(): String? = requireUserId()
 
@@ -1330,34 +1408,39 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                                 )
                         }
                         val url = "$supabaseStorageUrl/object/list/$storageBucket"
-                        val body = gson.toJson(
-                                mapOf(
-                                        "prefix" to "",
-                                        "limit" to 1
-                                )
-                        )
+                        val body = gson.toJson(mapOf("prefix" to "", "limit" to 1))
                         val request =
                                 Request.Builder()
                                         .url(url)
                                         .header("apikey", supabaseAnonKey)
                                         .header("Authorization", "Bearer $token")
-                                        .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                                        .post(
+                                                body.toRequestBody(
+                                                        "application/json; charset=utf-8".toMediaType()
+                                                )
+                                        )
                                         .build()
                         return@withContext runCatching {
                                 httpClient.newCall(request).execute().use { response ->
                                         val responseBody = response.body?.string().orEmpty()
                                         if (!response.isSuccessful) {
                                                 if (response.code == 404 &&
-                                                        responseBody.contains("Bucket not found", ignoreCase = true)) {
+                                                                responseBody.contains(
+                                                                        "Bucket not found",
+                                                                        ignoreCase = true
+                                                                )
+                                                ) {
                                                         return@use StorageBucketCheckResult(
                                                                 ok = false,
-                                                                message = "Storage bucket \"$storageBucket\" not found."
+                                                                message =
+                                                                        "Storage bucket \"$storageBucket\" not found."
                                                         )
                                                 }
                                                 if (response.code == 401 || response.code == 403) {
                                                         return@use StorageBucketCheckResult(
                                                                 ok = false,
-                                                                message = "Storage authorization failed."
+                                                                message =
+                                                                        "Storage authorization failed."
                                                         )
                                                 }
                                                 return@use StorageBucketCheckResult(
@@ -1368,26 +1451,29 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                                         }
                                         StorageBucketCheckResult(ok = true, message = null)
                                 }
-                        }.getOrElse {
-                                StorageBucketCheckResult(
-                                        ok = false,
-                                        message = "Storage bucket check failed."
-                                )
                         }
+                                .getOrElse {
+                                        StorageBucketCheckResult(
+                                                ok = false,
+                                                message = "Storage bucket check failed."
+                                        )
+                                }
                 }
 
         suspend fun runStorageSelfTest(): StorageSelfTestResult =
                 withContext(io) {
-                        val userId = requireUserId()
-                                ?: return@withContext StorageSelfTestResult(
-                                        ok = false,
-                                        message = "Missing user session."
-                                )
+                        val userId =
+                                requireUserId()
+                                        ?: return@withContext StorageSelfTestResult(
+                                                ok = false,
+                                                message = "Missing user session."
+                                        )
                         val testId = "storage_test_${System.currentTimeMillis()}.txt"
                         val storagePath = "users/$userId/tests/$testId"
                         val payload =
-                                "booxreader-storage-test-${System.currentTimeMillis()}"
-                                        .toByteArray(Charsets.UTF_8)
+                                "booxreader-storage-test-${System.currentTimeMillis()}".toByteArray(
+                                        Charsets.UTF_8
+                                )
 
                         val upload =
                                 supabaseStorageRequest(
@@ -1456,17 +1542,28 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                                         if (response.code == 401 || response.code == 403) {
                                                 val refreshed = refreshAccessToken()
                                                 if (refreshed) {
-                                                        val retryToken = accessToken() ?: return@withContext null
+                                                        val retryToken =
+                                                                accessToken()
+                                                                        ?: return@withContext null
                                                         val retryRequest =
                                                                 request.newBuilder()
-                                                                        .header("Authorization", "Bearer $retryToken")
+                                                                        .header(
+                                                                                "Authorization",
+                                                                                "Bearer $retryToken"
+                                                                        )
                                                                         .build()
-                                                        return@withContext httpClient.newCall(retryRequest)
+                                                        return@withContext httpClient
+                                                                .newCall(retryRequest)
                                                                 .execute()
                                                                 .use { retryResponse ->
                                                                         val retryBody =
-                                                                                retryResponse.body?.string().orEmpty()
-                                                                        if (!retryResponse.isSuccessful) {
+                                                                                retryResponse
+                                                                                        .body
+                                                                                        ?.string()
+                                                                                        .orEmpty()
+                                                                        if (!retryResponse
+                                                                                        .isSuccessful
+                                                                        ) {
                                                                                 return@withContext null
                                                                         }
                                                                         retryBody
@@ -1493,7 +1590,8 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                 }
 
         private fun refreshAccessToken(): Boolean {
-                val refreshToken = tokenManager.getRefreshToken()?.takeIf { it.isNotBlank() } ?: return false
+                val refreshToken =
+                        tokenManager.getRefreshToken()?.takeIf { it.isNotBlank() } ?: return false
                 if (supabaseAnonKey.isBlank()) return false
                 val body = gson.toJson(mapOf("refresh_token" to refreshToken))
                 val request =
@@ -1502,25 +1600,34 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                                 .tag(String::class.java, "SKIP_AUTH")
                                 .header("apikey", supabaseAnonKey)
                                 .header("Authorization", "Bearer $supabaseAnonKey")
-                                .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                                .post(
+                                        body.toRequestBody(
+                                                "application/json; charset=utf-8".toMediaType()
+                                        )
+                                )
                                 .build()
                 return runCatching {
-                        httpClient.newCall(request).execute().use { response ->
-                                val responseBody = response.body?.string().orEmpty()
-                                if (!response.isSuccessful) {
-                                        return false
+                                httpClient.newCall(request).execute().use { response ->
+                                        val responseBody = response.body?.string().orEmpty()
+                                        if (!response.isSuccessful) {
+                                                return false
+                                        }
+                                        val payload =
+                                                gson.fromJson(
+                                                        responseBody,
+                                                        SupabaseSessionTokens::class.java
+                                                )
+                                        val accessToken =
+                                                payload.accessToken?.takeIf { it.isNotBlank() }
+                                                        ?: return false
+                                        tokenManager.saveAccessToken(accessToken)
+                                        payload.refreshToken?.takeIf { it.isNotBlank() }?.let {
+                                                tokenManager.saveRefreshToken(it)
+                                        }
+                                        true
                                 }
-                                val payload =
-                                        gson.fromJson(responseBody, SupabaseSessionTokens::class.java)
-                                val accessToken = payload.accessToken?.takeIf { it.isNotBlank() }
-                                        ?: return false
-                                tokenManager.saveAccessToken(accessToken)
-                                payload.refreshToken
-                                        ?.takeIf { it.isNotBlank() }
-                                        ?.let { tokenManager.saveRefreshToken(it) }
-                                true
                         }
-                }.getOrDefault(false)
+                        .getOrDefault(false)
         }
 
         private fun supabaseRestRequest(
@@ -1544,7 +1651,9 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                 val requestBody =
                         body?.let {
                                 gson.toJson(it)
-                                        .toRequestBody("application/json; charset=utf-8".toMediaType())
+                                        .toRequestBody(
+                                                "application/json; charset=utf-8".toMediaType()
+                                        )
                         }
                 val requestBuilder =
                         Request.Builder()
@@ -1634,6 +1743,38 @@ private fun decodeBookIdFromStorageName(name: String?): String? {
                 }
         }
 
+        /** Upload a crash report to Supabase. Returns true if upload was successful. */
+        suspend fun pushCrashReport(report: my.hinoki.booxreader.data.core.CrashReport): Boolean =
+                withContext(io) {
+                        val userId = requireUserId()
+                        val payload =
+                                SupabaseCrashReport(
+                                        userId = userId,
+                                        appVersion = report.appVersion,
+                                        versionCode = report.versionCode,
+                                        osVersion = report.osVersion,
+                                        deviceModel = report.deviceModel,
+                                        deviceManufacturer = report.deviceManufacturer,
+                                        stacktrace = report.stacktrace,
+                                        message = report.message,
+                                        threadName = report.threadName,
+                                        createdAt = toIsoTimestamp(report.createdAt)
+                                )
+
+                        try {
+                                val response =
+                                        supabaseRestRequest(
+                                                method = "POST",
+                                                path = "crash_reports",
+                                                body = payload
+                                        )
+                                response != null
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "Failed to push crash report", e)
+                                false
+                        }
+                }
+
         companion object {
                 private const val STORAGE_BUCKET = "books"
         }
@@ -1643,15 +1784,11 @@ private data class LocalFileMeta(val size: Long, val checksum: String?)
 
 private data class UploadedBookInfo(val storagePath: String, val size: Long, val checksum: String?)
 
-data class SupabaseAuthUser(
-        val id: String = ""
-)
+data class SupabaseAuthUser(val id: String = "")
 
 private data class SupabaseSessionTokens(
-        @SerializedName("access_token")
-        val accessToken: String? = null,
-        @SerializedName("refresh_token")
-        val refreshToken: String? = null
+        @SerializedName("access_token") val accessToken: String? = null,
+        @SerializedName("refresh_token") val refreshToken: String? = null
 )
 
 data class SupabaseProgress(
@@ -1667,38 +1804,25 @@ data class SupabaseProgress(
 data class SupabaseBook(
         val id: String? = null,
         val userId: String? = null,
-        @SerializedName("book_id_local")
-        val bookIdLocal: String = "",
+        @SerializedName("book_id_local") val bookIdLocal: String = "",
         val title: String = "",
-        @SerializedName("file_uri")
-        val fileUri: String? = null,
-        @SerializedName("last_locator")
-        val lastLocator: String? = null,
-        @SerializedName("last_opened_at")
-        val lastOpenedAt: String? = null,
-        @SerializedName("is_deleted")
-        val isDeleted: Boolean = false,
-        @SerializedName("deleted_at")
-        val deletedAt: String? = null
+        @SerializedName("file_uri") val fileUri: String? = null,
+        @SerializedName("last_locator") val lastLocator: String? = null,
+        @SerializedName("last_opened_at") val lastOpenedAt: String? = null,
+        @SerializedName("is_deleted") val isDeleted: Boolean = false,
+        @SerializedName("deleted_at") val deletedAt: String? = null
 )
 
 data class SupabaseAiNote(
         val id: String? = null,
-        @SerializedName("user_id")
-        val userId: String? = null,
-        @SerializedName("book_id")
-        val bookId: String? = null,
-        @SerializedName("book_title")
-        val bookTitle: String? = null,
-        @SerializedName("original_text")
-        val originalText: String? = null,
-        @SerializedName("ai_response")
-        val aiResponse: String? = null,
+        @SerializedName("user_id") val userId: String? = null,
+        @SerializedName("book_id") val bookId: String? = null,
+        @SerializedName("book_title") val bookTitle: String? = null,
+        @SerializedName("original_text") val originalText: String? = null,
+        @SerializedName("ai_response") val aiResponse: String? = null,
         val locator: JsonElement? = null,
-        @SerializedName("created_at")
-        val createdAt: String? = null,
-        @SerializedName("updated_at")
-        val updatedAt: String? = null
+        @SerializedName("created_at") val createdAt: String? = null,
+        @SerializedName("updated_at") val updatedAt: String? = null
 )
 
 data class SupabaseBookmark(
@@ -1732,37 +1856,29 @@ data class SupabaseAiProfile(
 )
 
 data class SupabaseStorageFile(
-    val name: String,
-    val id: String? = null,
-    val metadata: SupabaseStorageMetadata? = null
+        val name: String,
+        val id: String? = null,
+        val metadata: SupabaseStorageMetadata? = null
 )
 
-data class SupabaseStorageMetadata(
-    val size: Long = 0,
-    val mimetype: String? = null
-)
+data class SupabaseStorageMetadata(val size: Long = 0, val mimetype: String? = null)
 
-data class StorageBucketCheckResult(
-        val ok: Boolean,
-        val message: String? = null
-)
+data class StorageBucketCheckResult(val ok: Boolean, val message: String? = null)
 
-data class StorageSelfTestResult(
-        val ok: Boolean,
-        val message: String
-)
+data class StorageSelfTestResult(val ok: Boolean, val message: String)
 
 private object SyncCrypto {
         private const val ALGORITHM_AES = "AES"
         private const val TRANSFORMATION_ECB = "AES/ECB/PKCS5Padding" // Legacy
-        private const val TRANSFORMATION_GCM = "AES/GCM/NoPadding"    // New (Secure)
+        private const val TRANSFORMATION_GCM = "AES/GCM/NoPadding" // New (Secure)
         private const val GCM_IV_LENGTH = 12
         private const val GCM_TAG_LENGTH = 128
-        
+
         // Use a fixed key for simplicity in this context.
         private const val KEY_STR = "BooxReaderAiKeysSyncSecret2024!!"
 
-        private val secretKeySpec = SecretKeySpec(KEY_STR.toByteArray(Charsets.UTF_8), ALGORITHM_AES)
+        private val secretKeySpec =
+                SecretKeySpec(KEY_STR.toByteArray(Charsets.UTF_8), ALGORITHM_AES)
 
         fun encrypt(input: String): String {
                 if (input.isBlank()) return ""
@@ -1770,18 +1886,18 @@ private object SyncCrypto {
                         // Generate random IV
                         val iv = ByteArray(GCM_IV_LENGTH)
                         SecureRandom().nextBytes(iv)
-                        
+
                         val cipher = Cipher.getInstance(TRANSFORMATION_GCM)
                         val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
                         cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, spec)
-                        
+
                         val encrypted = cipher.doFinal(input.toByteArray(Charsets.UTF_8))
-                        
+
                         // Combine IV + Encrypted Data
                         val combined = ByteArray(iv.size + encrypted.size)
                         System.arraycopy(iv, 0, combined, 0, iv.size)
                         System.arraycopy(encrypted, 0, combined, iv.size, encrypted.size)
-                        
+
                         Base64.encodeToString(combined, Base64.NO_WRAP)
                 } catch (e: Exception) {
                         e.printStackTrace()
@@ -1791,11 +1907,12 @@ private object SyncCrypto {
 
         fun decrypt(input: String): String {
                 if (input.isBlank()) return ""
-                val decoded = try {
-                        Base64.decode(input, Base64.NO_WRAP)
-                } catch (e: Exception) {
-                        return ""
-                }
+                val decoded =
+                        try {
+                                Base64.decode(input, Base64.NO_WRAP)
+                        } catch (e: Exception) {
+                                return ""
+                        }
 
                 // 1. Try GCM (New Format)
                 try {
@@ -1804,18 +1921,23 @@ private object SyncCrypto {
                                 // Extract IV
                                 val iv = ByteArray(GCM_IV_LENGTH)
                                 System.arraycopy(decoded, 0, iv, 0, GCM_IV_LENGTH)
-                                
+
                                 val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
                                 cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, spec)
-                                
+
                                 // Decrypt only the ciphertext part
                                 return String(
-                                        cipher.doFinal(decoded, GCM_IV_LENGTH, decoded.size - GCM_IV_LENGTH),
+                                        cipher.doFinal(
+                                                decoded,
+                                                GCM_IV_LENGTH,
+                                                decoded.size - GCM_IV_LENGTH
+                                        ),
                                         Charsets.UTF_8
                                 )
                         }
                 } catch (e: Exception) {
-                        // Failed to decrypt with GCM (likely old format or wrong key), fall through to ECB
+                        // Failed to decrypt with GCM (likely old format or wrong key), fall through
+                        // to ECB
                 }
 
                 // 2. Fallback to ECB (Old Format)
@@ -1851,8 +1973,7 @@ data class SupabaseReaderSettings(
         val useStreaming: Boolean = false,
         val pageAnimationEnabled: Boolean = false,
         val showPageIndicator: Boolean = true,
-        @SerializedName("magic_tags")
-        val magicTagsPayload: JsonElement? = null,
+        @SerializedName("magic_tags") val magicTagsPayload: JsonElement? = null,
         val updatedAt: Long = 0L,
         val activeProfileId: String? = null
 ) {
@@ -1864,29 +1985,31 @@ data class SupabaseReaderSettings(
                                                 object :
                                                                 TypeToken<
                                                                         List<
-                                                                                my.hinoki.booxreader.data.settings.MagicTag
-                                                                        >
-                                                                >() {}.type
+                                                                                my.hinoki.booxreader.data.settings.MagicTag>>() {}
+                                                        .type
                                         when {
                                                 payload.isJsonArray ->
                                                         Gson().fromJson<
                                                                         List<
-                                                                                my.hinoki.booxreader.data.settings.MagicTag
-                                                                        >
-                                                                >(payload, type)
+                                                                                my.hinoki.booxreader.data.settings.MagicTag>>(
+                                                                        payload,
+                                                                        type
+                                                                )
                                                 payload.isJsonPrimitive &&
-                                                                payload.asJsonPrimitive.isString ->
+                                                        payload.asJsonPrimitive.isString ->
                                                         Gson().fromJson<
                                                                         List<
-                                                                                my.hinoki.booxreader.data.settings.MagicTag
-                                                                        >
-                                                                >(payload.asString, type)
+                                                                                my.hinoki.booxreader.data.settings.MagicTag>>(
+                                                                        payload.asString,
+                                                                        type
+                                                                )
                                                 else -> local.magicTags
                                         }
                                 } catch (e: Exception) {
                                         local.magicTags
                                 }
-                        } ?: local.magicTags
+                        }
+                                ?: local.magicTags
                 return local.copy(
                         pageTapEnabled = pageTapEnabled,
                         pageSwipeEnabled = pageSwipeEnabled,
@@ -1945,3 +2068,17 @@ data class SupabaseReaderSettings(
                 }
         }
 }
+
+/** Data class for crash report upload to Supabase. */
+data class SupabaseCrashReport(
+        @SerializedName("user_id") val userId: String? = null,
+        @SerializedName("app_version") val appVersion: String,
+        @SerializedName("version_code") val versionCode: Int,
+        @SerializedName("os_version") val osVersion: String,
+        @SerializedName("device_model") val deviceModel: String,
+        @SerializedName("device_manufacturer") val deviceManufacturer: String?,
+        @SerializedName("stacktrace") val stacktrace: String,
+        @SerializedName("message") val message: String?,
+        @SerializedName("thread_name") val threadName: String?,
+        @SerializedName("created_at") val createdAt: String?
+)

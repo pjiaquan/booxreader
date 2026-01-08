@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@supabase/supabase-js": "^2.90.1"
+  }
+}

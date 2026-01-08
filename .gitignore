@@ -87,3 +87,12 @@ gemini_profile.json
 
 # Test scripts
 upload_test.sh
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+.npm
