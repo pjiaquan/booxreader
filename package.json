@@ -1,6 +1,29 @@
 {
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
-    "@supabase/supabase-js": "^2.90.1"
-  }
+    "@supabase/supabase-js": "^2.90.1",
+    "zod": "^4.3.5"
+  },
+  "name": "booxreader",
+  "version": "1.0.0",
+  "description": "Private EPUB reader for Android with resilient cloud sync and AI-linked notes, tuned for e-ink devices (Boox).",
+  "main": "http-mcp.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pjiaquan/booxreader.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pjiaquan/booxreader/issues"
+  },
+  "homepage": "https://github.com/pjiaquan/booxreader#readme"
 }

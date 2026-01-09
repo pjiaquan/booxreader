@@ -22,6 +22,7 @@ import my.hinoki.booxreader.data.auth.LoginActivity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.repo.BookRepository
+import my.hinoki.booxreader.data.repo.GitHubUpdateRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.data.ui.reader.ReaderActivity
@@ -32,6 +33,7 @@ class MainActivity : BaseActivity() {
     private lateinit var binding: ActivityMainBinding
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
     private val bookRepository by lazy { BookRepository(applicationContext, syncRepo) }
+    private val updateRepository by lazy { GitHubUpdateRepository(applicationContext) }
     private val recentAdapter by lazy {
         RecentBooksAdapter(
                 onClick = { openBook(it) },
@@ -102,6 +104,8 @@ class MainActivity : BaseActivity() {
         checkAndRequestFilePermissions()
 
         setupManualSyncOnScroll()
+
+        checkForUpdates()
     }
 
     private var progressSyncJob: Job? = null
@@ -542,8 +546,7 @@ class MainActivity : BaseActivity() {
 
         scrollView.viewTreeObserver.addOnScrollChangedListener {
             val child = scrollView.getChildAt(0) ?: return@addOnScrollChangedListener
-            val maxScroll =
-                    (child.height - scrollView.height - thresholdPx).coerceAtLeast(0)
+            val maxScroll = (child.height - scrollView.height - thresholdPx).coerceAtLeast(0)
             val canScroll = child.height > scrollView.height + thresholdPx
             if (!canScroll) {
                 return@addOnScrollChangedListener
@@ -631,6 +634,58 @@ class MainActivity : BaseActivity() {
             contentResolver.openInputStream(uri)?.use { true } ?: false
         } catch (e: Exception) {
             false
+        }
+    }
+
+    private fun checkForUpdates() {
+        lifecycleScope.launch {
+            val release = updateRepository.fetchLatestRelease() ?: return@launch
+            if (updateRepository.isNewerVersion(release.tagName)) {
+                showUpdateDialog(release)
+            }
+        }
+    }
+
+    private fun showUpdateDialog(release: my.hinoki.booxreader.data.repo.GitHubRelease) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.update_available_title))
+                .setMessage(getString(R.string.update_new_version_available, release.tagName))
+                .setPositiveButton(getString(R.string.update_action_download_and_install)) { _, _ ->
+                    downloadAndInstallUpdate(release)
+                }
+                .setNegativeButton(getString(R.string.update_action_later), null)
+                .show()
+    }
+
+    private fun downloadAndInstallUpdate(release: my.hinoki.booxreader.data.repo.GitHubRelease) {
+        val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
+        if (apkAsset == null) {
+            // Fallback to browser if no APK asset found
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl))
+            startActivity(intent)
+            return
+        }
+
+        lifecycleScope.launch {
+            val toast =
+                    android.widget.Toast.makeText(
+                            this@MainActivity,
+                            R.string.update_downloading,
+                            android.widget.Toast.LENGTH_LONG
+                    )
+            toast.show()
+
+            val file = updateRepository.downloadApk(apkAsset.downloadUrl, apkAsset.name)
+            if (file != null) {
+                updateRepository.installApk(file)
+            } else {
+                android.widget.Toast.makeText(
+                                this@MainActivity,
+                                R.string.update_download_failed,
+                                android.widget.Toast.LENGTH_SHORT
+                        )
+                        .show()
+            }
         }
     }
 }

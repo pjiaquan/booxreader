@@ -161,4 +161,10 @@
     <string name="reader_settings_convert_chinese_description">將簡體中文內容轉換為繁體中文顯示</string>
     <string name="profile_version_format">版本：%1$s</string>
     <string name="upgrade_product_unavailable">需要訂閱，請先訂閱再繼續。</string>
+    <string name="update_available_title">有新版本</string>
+    <string name="update_new_version_available">GitHub 上有新版本 %1$s 可供下載！</string>
+    <string name="update_action_download_and_install">下載並安裝</string>
+    <string name="update_action_later">稍後</string>
+    <string name="update_downloading">正在下載更新...</string>
+    <string name="update_download_failed">下載失敗</string>
 </resources>
