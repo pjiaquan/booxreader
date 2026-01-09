@@ -21,8 +21,8 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.auth.LoginActivity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
+import my.hinoki.booxreader.data.repo.*
 import my.hinoki.booxreader.data.repo.BookRepository
-import my.hinoki.booxreader.data.repo.GitHubUpdateRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.data.ui.reader.ReaderActivity
@@ -646,7 +646,7 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    private fun showUpdateDialog(release: my.hinoki.booxreader.data.repo.GitHubRelease) {
+    private fun showUpdateDialog(release: GitHubRelease) {
         androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(getString(R.string.update_available_title))
                 .setMessage(getString(R.string.update_new_version_available, release.tagName))
@@ -657,7 +657,7 @@ class MainActivity : BaseActivity() {
                 .show()
     }
 
-    private fun downloadAndInstallUpdate(release: my.hinoki.booxreader.data.repo.GitHubRelease) {
+    private fun downloadAndInstallUpdate(release: GitHubRelease) {
         val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
         if (apkAsset == null) {
             // Fallback to browser if no APK asset found
