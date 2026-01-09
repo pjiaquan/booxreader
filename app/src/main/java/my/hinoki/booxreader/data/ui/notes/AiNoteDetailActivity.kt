@@ -234,6 +234,7 @@ class AiNoteDetailActivity : BaseActivity() {
 
         binding.root.setBackgroundColor(backgroundColor)
         binding.scrollView.setBackgroundColor(backgroundColor)
+        binding.llInputArea.setBackgroundColor(backgroundColor)
 
         binding.tvOriginalLabel.setTextColor(textColor)
         binding.tvResponseLabel.setTextColor(textColor)
