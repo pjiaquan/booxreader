@@ -28,8 +28,7 @@ gha-creds-*.json
 
 # Ignore log and repo outputs generated during CI or local runs
 logs/
-repo/
-!app/src/main/java/my/hinoki/booxreader/data/repo/*.kt
+/repo/
 *.log
 release.keystore
 

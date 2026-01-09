@@ -21,8 +21,9 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.auth.LoginActivity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
-import my.hinoki.booxreader.data.repo.*
 import my.hinoki.booxreader.data.repo.BookRepository
+import my.hinoki.booxreader.data.repo.GitHubRelease
+import my.hinoki.booxreader.data.repo.GitHubUpdateRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.data.ui.reader.ReaderActivity
@@ -33,7 +34,9 @@ class MainActivity : BaseActivity() {
     private lateinit var binding: ActivityMainBinding
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
     private val bookRepository by lazy { BookRepository(applicationContext, syncRepo) }
-    private val updateRepository by lazy { GitHubUpdateRepository(applicationContext) }
+    private val updateRepository: GitHubUpdateRepository by lazy {
+        GitHubUpdateRepository(applicationContext)
+    }
     private val recentAdapter by lazy {
         RecentBooksAdapter(
                 onClick = { openBook(it) },
