@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.chip.Chip
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import io.noties.markwon.Markwon
@@ -36,12 +37,10 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
+import my.hinoki.booxreader.data.settings.MagicTag
+import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
-
-import com.google.android.material.chip.Chip
-import my.hinoki.booxreader.data.settings.ReaderSettings
-import my.hinoki.booxreader.data.settings.MagicTag
 
 class AiNoteDetailActivity : BaseActivity() {
 
@@ -636,11 +635,7 @@ class AiNoteDetailActivity : BaseActivity() {
         }
     }
 
-    private fun sendFollowUp(
-        note: AiNoteEntity,
-        question: String,
-        magicTag: MagicTag? = null
-    ) {
+    private fun sendFollowUp(note: AiNoteEntity, question: String, magicTag: MagicTag? = null) {
         binding.btnFollowUp.isEnabled = false
         binding.btnFollowUp.text = getString(R.string.ai_note_follow_up_publishing)
         setLoading(true)
@@ -651,7 +646,8 @@ class AiNoteDetailActivity : BaseActivity() {
                 val currentAiResponse = getAiResponse(note)
                 val result =
                         if (useStreaming) {
-                            repository.continueConversationStreaming(note, question, magicTag) { partial ->
+                            repository.continueConversationStreaming(note, question, magicTag) {
+                                    partial ->
                                 val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
                                 val preview =
                                         currentAiResponse +
@@ -671,14 +667,14 @@ class AiNoteDetailActivity : BaseActivity() {
                     val separator = if (currentAiResponse.isBlank()) "" else "\n\n"
                     val newContent =
                             currentAiResponse + separator + "---\nQ: " + question + "\n\n" + result
-                val updated = updateNoteFromStrings(note, null, newContent)
-                repository.update(updated)
-                currentNote = updated
-                // Avoid jumping the viewport after publish to keep the reader in place.
-                updateUI(updated, scrollToQuestionHeader = false, preserveScroll = false)
-                showRemainingCreditsToast()
-                binding.etFollowUp.setText("")
-            } else {
+                    val updated = updateNoteFromStrings(note, null, newContent)
+                    repository.update(updated)
+                    currentNote = updated
+                    // Avoid jumping the viewport after publish to keep the reader in place.
+                    updateUI(updated, scrollToQuestionHeader = false, preserveScroll = false)
+                    showRemainingCreditsToast()
+                    binding.etFollowUp.setText("")
+                } else {
                     Toast.makeText(
                                     this@AiNoteDetailActivity,
                                     getString(R.string.ai_note_follow_up_failed),
@@ -755,10 +751,10 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun startStreaming(
-        note: AiNoteEntity,
-        text: String,
-        preserveScrollY: Int? = null,
-        magicTag: MagicTag? = null
+            note: AiNoteEntity,
+            text: String,
+            preserveScrollY: Int? = null,
+            magicTag: MagicTag? = null
     ) {
         setLoading(true)
         val savedScrollY = preserveScrollY ?: currentScrollY()
@@ -797,10 +793,10 @@ class AiNoteDetailActivity : BaseActivity() {
             val credits = repository.fetchRemainingCredits()
             if (credits != null) {
                 Toast.makeText(
-                        this@AiNoteDetailActivity,
-                        getString(R.string.ai_credits_left_toast, credits),
-                        Toast.LENGTH_SHORT
-                )
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_credits_left_toast, credits),
+                                Toast.LENGTH_SHORT
+                        )
                         .show()
             }
         }
@@ -1175,22 +1171,18 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.cgMagicTags.visibility = View.VISIBLE
 
         for (tag in magicTags) {
-            val chip = Chip(this).apply {
-                text = tag.label
-                setTextColor(magicTagTextColor)
-                chipBackgroundColor = ColorStateList.valueOf(magicTagBackgroundColor)
-                setOnClickListener {
-                    handleMagicTagClick(tag)
-                }
-                setOnLongClickListener {
-                    val info =
-                            tag.description.ifBlank {
-                                tag.content.ifBlank { tag.label }
-                            }
-                    Toast.makeText(context, info, Toast.LENGTH_LONG).show()
-                    true
-                }
-            }
+            val chip =
+                    Chip(this).apply {
+                        text = tag.label
+                        setTextColor(magicTagTextColor)
+                        chipBackgroundColor = ColorStateList.valueOf(magicTagBackgroundColor)
+                        setOnClickListener { handleMagicTagClick(tag) }
+                        setOnLongClickListener {
+                            val info = tag.description.ifBlank { tag.content.ifBlank { tag.label } }
+                            Toast.makeText(context, info, Toast.LENGTH_LONG).show()
+                            true
+                        }
+                    }
             binding.cgMagicTags.addView(chip)
         }
     }
@@ -1203,15 +1195,22 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.etFollowUp.setText("")
             sendFollowUp(note, currentInput, tag)
         } else {
-            val originalText = getOriginalText(note)
-            rePublishWithPrompt(note, originalText, tag)
+            val aiResponse = getAiResponse(note)
+            if (aiResponse.isNotBlank()) {
+                // If there's already a response, treat it as a follow-up to "continue"
+                sendFollowUp(note, tag.label, tag)
+            } else {
+                // If first time (draft), then start the initial explanation
+                val originalText = getOriginalText(note)
+                rePublishWithPrompt(note, originalText, tag)
+            }
         }
     }
 
     private fun rePublishWithPrompt(
-        note: AiNoteEntity,
-        promptText: String,
-        magicTag: MagicTag? = null
+            note: AiNoteEntity,
+            promptText: String,
+            magicTag: MagicTag? = null
     ) {
         val savedScrollY = currentScrollY()
         binding.btnRepublishSelection.isEnabled = false
@@ -1236,18 +1235,18 @@ class AiNoteDetailActivity : BaseActivity() {
                 updateUI(updatedNote)
                 showRemainingCreditsToast()
                 Toast.makeText(
-                    this@AiNoteDetailActivity,
-                    getString(R.string.ai_note_republish_success),
-                    Toast.LENGTH_SHORT
-                )
-                    .show()
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_republish_success),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
             } else {
                 Toast.makeText(
-                    this@AiNoteDetailActivity,
-                    getString(R.string.ai_note_republish_failed),
-                    Toast.LENGTH_SHORT
-                )
-                    .show()
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_republish_failed),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
             }
             binding.btnRepublishSelection.isEnabled = true
             binding.btnRepublishSelection.text = getString(R.string.ai_note_republish_button)

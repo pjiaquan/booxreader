@@ -16,50 +16,49 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class GitHubUpdateRepositoryTest {
 
-    private lateinit var mockWebServer: MockWebServer
-    private lateinit var repository: GitHubUpdateRepository
-    private lateinit var context: Context
-    private val gson = Gson()
+  private lateinit var mockWebServer: MockWebServer
+  private lateinit var repository: GitHubUpdateRepository
+  private lateinit var context: Context
+  private val gson = Gson()
 
-    @Before
-    fun setup() {
-        mockWebServer = MockWebServer()
-        mockWebServer.start()
+  @Before
+  fun setup() {
+    mockWebServer = MockWebServer()
+    mockWebServer.start()
 
-        context = ApplicationProvider.getApplicationContext()
-        repository = GitHubUpdateRepository(context)
+    context = ApplicationProvider.getApplicationContext()
+    repository = GitHubUpdateRepository(context)
 
-        // Inject mock server URL into repository if needed,
-        // but for unit test of version logic we don't strictly need network.
-        // However, to test fetchLatestRelease we need to reflectively set the URL.
-        val field = GitHubUpdateRepository::class.java.getDeclaredField("apiUrl")
-        field.isAccessible = true
-        field.set(repository, mockWebServer.url("/").toString())
-    }
+    // Inject mock server URL into repository if needed,
+    // but for unit test of version logic we don't strictly need network.
+    // However, to test fetchLatestRelease we need to reflectively set the URL.
+    val field = GitHubUpdateRepository::class.java.getDeclaredField("apiUrl")
+    field.isAccessible = true
+    field.set(repository, mockWebServer.url("/").toString())
+  }
 
-    @After
-    fun tearDown() {
-        mockWebServer.shutdown()
-    }
+  @After
+  fun tearDown() {
+    mockWebServer.shutdown()
+  }
 
-    @Test
-    fun `isNewerVersion compares correctly`() {
-        // Assume current version is 1.1.162 (as seen in build.gradle.kts)
-        // If BuildConfig.VERSION_NAME is different in test, we should be aware.
+  @Test
+  fun `isNewerVersion compares correctly`() {
+    // Current version is 1.1.165 (as seen in build.gradle.kts)
 
-        assertTrue(repository.isNewerVersion("v1.1.163"))
-        assertTrue(repository.isNewerVersion("1.2.0"))
-        assertTrue(repository.isNewerVersion("2.0.0"))
+    assertTrue(repository.isNewerVersion("v1.1.166"))
+    assertTrue(repository.isNewerVersion("1.2.0"))
+    assertTrue(repository.isNewerVersion("2.0.0"))
 
-        assertFalse(repository.isNewerVersion("v1.1.162"))
-        assertFalse(repository.isNewerVersion("1.1.161"))
-        assertFalse(repository.isNewerVersion("1.0.9"))
-    }
+    assertFalse(repository.isNewerVersion("v1.1.165"))
+    assertFalse(repository.isNewerVersion("1.1.164"))
+    assertFalse(repository.isNewerVersion("1.0.9"))
+  }
 
-    @Test
-    fun `fetchLatestRelease parses JSON correctly`() = runBlocking {
-        val json =
-                """
+  @Test
+  fun `fetchLatestRelease parses JSON correctly`() = runBlocking {
+    val json =
+            """
             {
               "tag_name": "v1.2.0",
               "html_url": "https://github.com/pjiaquan/booxreader/releases/tag/v1.2.0",
@@ -74,14 +73,14 @@ class GitHubUpdateRepositoryTest {
             }
         """.trimIndent()
 
-        mockWebServer.enqueue(MockResponse().setBody(json))
+    mockWebServer.enqueue(MockResponse().setBody(json))
 
-        val release = repository.fetchLatestRelease()
+    val release = repository.fetchLatestRelease()
 
-        assertNotNull(release)
-        assertEquals("v1.2.0", release?.tagName)
-        assertEquals(1, release?.assets?.size)
-        assertEquals("app-release.apk", release?.assets?.get(0)?.name)
-        assertEquals(123456L, release?.assets?.get(0)?.size)
-    }
+    assertNotNull(release)
+    assertEquals("v1.2.0", release?.tagName)
+    assertEquals(1, release?.assets?.size)
+    assertEquals("app-release.apk", release?.assets?.get(0)?.name)
+    assertEquals(123456L, release?.assets?.get(0)?.size)
+  }
 }
