@@ -16,7 +16,10 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.chip.Chip
 import com.google.android.material.color.MaterialColors
@@ -112,6 +115,14 @@ class AiNoteDetailActivity : BaseActivity() {
         applyActionBarPadding(binding.scrollView)
         applyThemeFromSettings()
         settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
+
+        // Handle keyboard (IME) and system bar insets manually
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
+            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+            view.updatePadding(bottom = if (ime.bottom > 0) ime.bottom else systemBars.bottom)
+            windowInsets
+        }
 
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
