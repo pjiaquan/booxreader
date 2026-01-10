@@ -95,6 +95,12 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 
+# Google Tink (EncryptedSharedPreferences) & Protobuf
+# Prevents "Protocol message contained an invalid tag (zero)" crash in release builds
+-keep class com.google.crypto.tink.** { *; }
+-keep class com.google.crypto.tink.shaded.protobuf.** { *; }
+-keep class androidx.security.crypto.** { *; }
+
 # --- Text Selection and Unicode Handling ---
 # Prevent R8 from optimizing away Character.UnicodeBlock enum values
 # which are used for CJK vs English text detection in NativeReaderView
