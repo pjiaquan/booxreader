@@ -3,6 +3,7 @@ package my.hinoki.booxreader.data.auth
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
@@ -10,20 +11,15 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.activity.result.contract.ActivityResultContracts
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
+import kotlinx.coroutines.launch
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.ui.common.BaseActivity
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 class LoginActivity : BaseActivity() {
 
     private val viewModel: AuthViewModel by viewModels()
     private val RC_SIGN_IN = 9001
-    
+
     private val googleHelper by lazy { GoogleSignInHelper(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +38,17 @@ class LoginActivity : BaseActivity() {
             btnGoogle.visibility = android.view.View.GONE
         }
 
+        etPassword.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE ||
+                            actionId == EditorInfo.IME_ACTION_UNSPECIFIED
+            ) {
+                btnLogin.performClick()
+                true
+            } else {
+                false
+            }
+        }
+
         btnLogin.setOnClickListener {
             val email = etEmail.text.toString()
             val pass = etPassword.text.toString()
@@ -50,9 +57,7 @@ class LoginActivity : BaseActivity() {
             }
         }
 
-        btnGoogle.setOnClickListener {
-            googleHelper.signIn(RC_SIGN_IN)
-        }
+        btnGoogle.setOnClickListener { googleHelper.signIn(RC_SIGN_IN) }
 
         btnResend.setOnClickListener {
             val email = etEmail.text.toString()
@@ -60,13 +65,12 @@ class LoginActivity : BaseActivity() {
             if (email.isNotBlank() && pass.isNotBlank()) {
                 viewModel.resendVerification(email, pass)
             } else {
-                Toast.makeText(this, getString(R.string.login_resend_prompt), Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.login_resend_prompt), Toast.LENGTH_SHORT)
+                        .show()
             }
         }
-        
-        tvRegister.setOnClickListener {
-            startActivity(Intent(this, RegisterActivity::class.java))
-        }
+
+        tvRegister.setOnClickListener { startActivity(Intent(this, RegisterActivity::class.java)) }
 
         lifecycleScope.launch {
             viewModel.authState.collect { state ->
@@ -79,13 +83,23 @@ class LoginActivity : BaseActivity() {
                         tvRegister.visibility = View.GONE
                     }
                     is AuthState.Success -> {
-                        Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                                        this@LoginActivity,
+                                        getString(R.string.login_success),
+                                        Toast.LENGTH_SHORT
+                                )
+                                .show()
                         btnResend.visibility = View.GONE
                         progressBar.visibility = View.GONE
-                        
+
                         // Navigate to MainActivity
-                        val intent = Intent(this@LoginActivity, my.hinoki.booxreader.data.ui.main.MainActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        val intent =
+                                Intent(
+                                        this@LoginActivity,
+                                        my.hinoki.booxreader.data.ui.main.MainActivity::class.java
+                                )
+                        intent.flags =
+                                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         startActivity(intent)
                         finish()
                     }
@@ -95,7 +109,8 @@ class LoginActivity : BaseActivity() {
                         progressBar.visibility = View.GONE
                         Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_SHORT).show()
                         if (state.message.contains("not verified", ignoreCase = true) ||
-                            state.message.contains("驗證", ignoreCase = true)) {
+                                        state.message.contains("驗證", ignoreCase = true)
+                        ) {
                             btnResend.visibility = View.VISIBLE
                         } else {
                             btnResend.visibility = View.GONE
