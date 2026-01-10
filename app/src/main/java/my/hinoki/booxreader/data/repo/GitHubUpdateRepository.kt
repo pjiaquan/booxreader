@@ -47,8 +47,10 @@ class GitHubUpdateRepository(private val context: Context) {
                 }
             }
 
-    fun isNewerVersion(remoteTagName: String): Boolean {
-        val currentVersion = BuildConfig.VERSION_NAME // e.g., "1.1.162"
+    fun isNewerVersion(
+            remoteTagName: String,
+            currentVersion: String = BuildConfig.VERSION_NAME
+    ): Boolean {
         val remoteVersion = remoteTagName.removePrefix("v").trim()
 
         // Simple version comparison logic

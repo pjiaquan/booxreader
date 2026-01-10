@@ -44,15 +44,16 @@ class GitHubUpdateRepositoryTest {
 
   @Test
   fun `isNewerVersion compares correctly`() {
-    // Current version is 1.1.165 (as seen in build.gradle.kts)
+    // Testing logic without being tied to BuildConfig.VERSION_NAME
+    val current = "1.1.170"
 
-    assertTrue(repository.isNewerVersion("v1.1.166"))
-    assertTrue(repository.isNewerVersion("1.2.0"))
-    assertTrue(repository.isNewerVersion("2.0.0"))
+    assertTrue(repository.isNewerVersion("v1.1.171", current))
+    assertTrue(repository.isNewerVersion("1.2.0", current))
+    assertTrue(repository.isNewerVersion("2.0.0", current))
 
-    assertFalse(repository.isNewerVersion("v1.1.165"))
-    assertFalse(repository.isNewerVersion("1.1.164"))
-    assertFalse(repository.isNewerVersion("1.0.9"))
+    assertFalse(repository.isNewerVersion("v1.1.170", current))
+    assertFalse(repository.isNewerVersion("1.1.169", current))
+    assertFalse(repository.isNewerVersion("1.0.9", current))
   }
 
   @Test
