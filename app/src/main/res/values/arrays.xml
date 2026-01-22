@@ -3,6 +3,7 @@
     <string-array name="ai_profile_options">
         <item>@string/ai_profile_option_edit</item>
         <item>@string/ai_profile_option_duplicate</item>
+        <item>@string/ai_profile_option_export</item>
         <item>@string/ai_profile_option_delete</item>
     </string-array>
 </resources>

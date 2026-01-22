@@ -14,13 +14,17 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
+import com.google.gson.Gson
+import com.google.gson.JsonParser
 import my.hinoki.booxreader.data.ui.common.BaseActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
@@ -39,14 +43,49 @@ class AiProfileListActivity : BaseActivity() {
     private lateinit var binding: ActivityAiProfileListBinding
     private lateinit var repository: AiProfileRepository
     private val adapter = ProfileAdapter()
+    private val gson = Gson()
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
     private var tagBackgroundColor: Int = Color.parseColor("#E6E0D6")
+    private var pendingExportJson: String? = null
+    private var pendingExportName: String? = null
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importProfileFromFile(it) }
     }
+
+    private val exportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            val json = pendingExportJson
+            val name = pendingExportName
+            pendingExportJson = null
+            pendingExportName = null
+            if (uri == null || json == null) {
+                return@registerForActivityResult
+            }
+            lifecycleScope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        contentResolver.openOutputStream(uri)?.use { outputStream ->
+                            outputStream.write(json.toByteArray(Charsets.UTF_8))
+                        }
+                    }
+                    Toast.makeText(
+                        this@AiProfileListActivity,
+                        getString(R.string.ai_profile_export_success, name ?: ""),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@AiProfileListActivity,
+                        getString(R.string.ai_profile_export_failed, e.message ?: ""),
+                        Toast.LENGTH_LONG
+                    ).show()
+                    e.printStackTrace()
+                }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -214,6 +253,48 @@ class AiProfileListActivity : BaseActivity() {
         filePickerLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
     }
 
+    private fun exportProfile(profile: AiProfileEntity) {
+        val json = buildExportJson(profile)
+        val fileName = buildExportFileName(profile.name)
+        pendingExportJson = json
+        pendingExportName = fileName
+        exportLauncher.launch(fileName)
+    }
+
+    private fun buildExportJson(profile: AiProfileEntity): String {
+        val extra = profile.extraParamsJson?.takeIf { it.isNotBlank() }
+        val extraElement = extra?.let { runCatching { JsonParser.parseString(it) }.getOrNull() }
+        val payload = linkedMapOf(
+            "name" to profile.name,
+            "modelName" to profile.modelName,
+            "apiKey" to profile.apiKey,
+            "serverBaseUrl" to profile.serverBaseUrl,
+            "systemPrompt" to profile.systemPrompt,
+            "userPromptTemplate" to profile.userPromptTemplate,
+            "useStreaming" to profile.useStreaming,
+            "temperature" to profile.temperature,
+            "maxTokens" to profile.maxTokens,
+            "topP" to profile.topP,
+            "frequencyPenalty" to profile.frequencyPenalty,
+            "presencePenalty" to profile.presencePenalty,
+            "assistantRole" to profile.assistantRole,
+            "enableGoogleSearch" to profile.enableGoogleSearch,
+            "extraParamsJson" to (extraElement ?: extra)
+        )
+        return gson.toJson(payload)
+    }
+
+    private fun buildExportFileName(name: String): String {
+        val base = name.trim().ifBlank { "ai-profile" }
+        val safe = base.replace(Regex("[^A-Za-z0-9._-]+"), "_").trim('_')
+        val finalName = safe.ifBlank { "ai-profile" }
+        return if (finalName.endsWith(".json", ignoreCase = true)) {
+            finalName
+        } else {
+            "$finalName.json"
+        }
+    }
+
     private fun importProfileFromFile(uri: Uri) {
         lifecycleScope.launch {
             try {
@@ -325,7 +406,10 @@ class AiProfileListActivity : BaseActivity() {
                             duplicateProfile(profile)
                         }
                     }
-                    2 -> { // Delete
+                    2 -> { // Export
+                        exportProfile(profile)
+                    }
+                    3 -> { // Delete
                         lifecycleScope.launch {
                             repository.deleteProfile(profile)
                         }

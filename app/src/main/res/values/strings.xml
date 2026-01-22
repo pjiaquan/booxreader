@@ -36,7 +36,10 @@
     <string name="ai_profile_copy_name">%1$s (Copy)</string>
     <string name="ai_profile_option_edit">Edit</string>
     <string name="ai_profile_option_duplicate">Duplicate</string>
+    <string name="ai_profile_option_export">Export</string>
     <string name="ai_profile_option_delete">Delete</string>
+    <string name="ai_profile_export_success">Profile exported: %1$s</string>
+    <string name="ai_profile_export_failed">Export failed: %1$s</string>
     <string name="magic_tag_invalid_empty_name">Tag name is required.</string>
     <string name="magic_tag_invalid_duplicate">Tag names must be unique.</string>
     <string name="magic_tag_save_failed">Failed to save magic tags. Please try again.</string>

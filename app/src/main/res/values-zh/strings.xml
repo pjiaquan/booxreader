@@ -31,7 +31,10 @@
     <string name="ai_profile_copy_name">%1$s (複製)</string>
     <string name="ai_profile_option_edit">編輯</string>
     <string name="ai_profile_option_duplicate">複製</string>
+    <string name="ai_profile_option_export">匯出</string>
     <string name="ai_profile_option_delete">刪除</string>
+    <string name="ai_profile_export_success">設定檔已匯出：%1$s</string>
+    <string name="ai_profile_export_failed">匯出失敗：%1$s</string>
     <string name="ai_note_original_label">原文 (問題)：</string>
     <string name="ai_note_response_label">AI 回應 (答案)：</string>
     <string name="ai_note_publish_retry">發佈 / 重試</string>
