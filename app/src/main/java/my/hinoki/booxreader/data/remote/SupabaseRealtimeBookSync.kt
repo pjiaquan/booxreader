@@ -57,13 +57,19 @@ class SupabaseRealtimeBookSync(
     private fun connect() {
         reconnectJob?.cancel()
         reconnectJob = scope.launch(Dispatchers.IO) {
-            val token = tokenManager.getAccessToken()?.takeIf { it.isNotBlank() } ?: return@launch
-            val userId = syncRepo.getUserId() ?: return@launch
-            val wsUrl = buildRealtimeUrl(token) ?: return@launch
-            currentUserId = userId
+            try {
+                val token = tokenManager.getAccessToken()?.takeIf { it.isNotBlank() } ?: return@launch
+                val userId = syncRepo.getUserId() ?: return@launch
+                val wsUrl = buildRealtimeUrl(token) ?: return@launch
+                currentUserId = userId
 
-            val request = Request.Builder().url(wsUrl).build()
-            okHttpClient.newWebSocket(request, createListener(userId))
+                val request = Request.Builder().url(wsUrl).build()
+                okHttpClient.newWebSocket(request, createListener(userId))
+            } catch (e: Exception) {
+                // Handle network errors gracefully (e.g., no internet connection)
+                android.util.Log.e("RealtimeBookSync", "Failed to connect WebSocket", e)
+                scheduleReconnect()
+            }
         }
     }
 
