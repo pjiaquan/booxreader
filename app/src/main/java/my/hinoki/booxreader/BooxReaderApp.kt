@@ -2,6 +2,7 @@ package my.hinoki.booxreader
 
 import android.app.Application
 import android.content.Context
+import android.widget.Toast
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +66,18 @@ class BooxReaderApp : Application() {
             try {
                 val syncRepo = UserSyncRepository(applicationContext)
                 val profileRepo = AiProfileRepository(applicationContext, syncRepo)
+
+                // Ensure default profile exists
+                val profileCreated = profileRepo.ensureDefaultProfile()
+
+                // Show notification if default profile was created
+                if (profileCreated) {
+                    Toast.makeText(
+                        applicationContext,
+                        R.string.ai_profile_default_created,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
 
                 // Perform initial sync on app startup
                 val syncedCount = profileRepo.sync()

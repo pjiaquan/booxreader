@@ -38,6 +38,7 @@ class SupabaseRealtimeBookSync(
     private var webSocket: WebSocket? = null
     private var heartbeatJob: Job? = null
     private var reconnectJob: Job? = null
+    private var hasShownConnectionError = false
 
     fun start() {
         if (shouldReconnect.getAndSet(true)) return
@@ -68,6 +69,19 @@ class SupabaseRealtimeBookSync(
             } catch (e: Exception) {
                 // Handle network errors gracefully (e.g., no internet connection)
                 android.util.Log.e("RealtimeBookSync", "Failed to connect WebSocket", e)
+
+                // Show toast notification on main thread (only once until successful connection)
+                if (!hasShownConnectionError) {
+                    hasShownConnectionError = true
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Network error: Unable to connect to sync service",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+
                 scheduleReconnect()
             }
         }
@@ -92,6 +106,7 @@ class SupabaseRealtimeBookSync(
     private fun createListener(userId: String) = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
             this@SupabaseRealtimeBookSync.webSocket = webSocket
+            hasShownConnectionError = false // Reset error flag on successful connection
             sendJoin(webSocket, userId)
             startHeartbeat()
         }

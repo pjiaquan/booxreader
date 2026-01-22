@@ -40,6 +40,7 @@
     <string name="ai_profile_option_delete">Delete</string>
     <string name="ai_profile_export_success">Profile exported: %1$s</string>
     <string name="ai_profile_export_failed">Export failed: %1$s</string>
+    <string name="ai_profile_default_created">Default Gemini profile created. Get your API key at https://aistudio.google.com/app/apikey</string>
     <string name="magic_tag_invalid_empty_name">Tag name is required.</string>
     <string name="magic_tag_invalid_duplicate">Tag names must be unique.</string>
     <string name="magic_tag_save_failed">Failed to save magic tags. Please try again.</string>

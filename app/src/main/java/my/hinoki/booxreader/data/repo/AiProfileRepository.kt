@@ -20,6 +20,7 @@ class AiProfileRepository(
     private val dao = db.aiProfileDao()
     private val prefs = context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
+    private val defaultGenerator = AiProfileDefaultGenerator()
 
     val allProfiles: LiveData<List<AiProfileEntity>> = dao.getAll()
         .map { list -> 
@@ -148,7 +149,7 @@ class AiProfileRepository(
     
     suspend fun sync(): Int = withContext(Dispatchers.IO) {
         var totalSynced = 0
-        
+
         try {
             // First push any local changes to ensure they're backed up
             val localProfiles = dao.getPendingSync()
@@ -161,23 +162,38 @@ class AiProfileRepository(
                     e.printStackTrace()
                 }
             }
-            
+
             // Then pull latest changes from cloud
             val pulledCount = syncRepo.pullProfiles()
             totalSynced += pulledCount
-            
+
             // Also sync settings to get the latest 'activeProfileId'
             try {
                 syncRepo.pullSettingsIfNewer()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            
+
         } catch (e: Exception) {
             e.printStackTrace()
             throw e
         }
-        
+
         return@withContext totalSynced
+    }
+
+    suspend fun ensureDefaultProfile(): Boolean = withContext(Dispatchers.IO) {
+        val profiles = dao.getAllList()
+
+        if (profiles.isEmpty()) {
+            // No profiles exist, create default
+            val defaultProfile = defaultGenerator.createGeminiDefaultProfile()
+            val saved = addProfile(defaultProfile)
+            applyProfile(saved.id)
+            return@withContext true
+        }
+
+        // Profiles already exist, do nothing
+        return@withContext false
     }
 }
