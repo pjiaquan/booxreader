@@ -1,9 +1,10 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
+import android.util.Log
 import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
@@ -14,225 +15,198 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 
-class AuthRepository(
-    private val context: Context,
-    private val tokenManager: TokenManager
-) {
-    private val userDao = AppDatabase.get(context).userDao()
-    private val gson = Gson()
-    private val authClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-    private val supabaseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
-    private val supabaseAnonKey = BuildConfig.SUPABASE_ANON_KEY
+/** Handles user authentication via PocketBase REST API. */
+class AuthRepository(private val context: Context, private val tokenManager: TokenManager) {
+        private val userDao = AppDatabase.get(context).userDao()
+        private val gson = Gson()
+        private val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
 
-    suspend fun login(email: String, password: String): Result<UserEntity> = withContext(Dispatchers.IO) {
-        runCatching {
-            val response = postJson(
-                url = "$supabaseUrl/auth/v1/token?grant_type=password",
-                body = mapOf("email" to email, "password" to password),
-            )
-            val authPayload = parseAuthResponse(response)
-            cacheUser(authPayload, fallbackEmail = email)
-        }
-    }
+        private val httpClient =
+                OkHttpClient.Builder()
+                        .connectTimeout(30, TimeUnit.SECONDS)
+                        .readTimeout(30, TimeUnit.SECONDS)
+                        .writeTimeout(30, TimeUnit.SECONDS)
+                        .build()
 
-    suspend fun register(email: String, password: String): Result<UserEntity> = withContext(Dispatchers.IO) {
-        runCatching {
-            val response = postJson(
-                url = "$supabaseUrl/auth/v1/signup",
-                body = mapOf("email" to email, "password" to password),
-            )
-            val signupPayload = parseSignupResponse(response, fallbackEmail = email)
-            userDao.clearAllUsers()
-            tokenManager.clearTokens()
-            // Return lightweight entity for UI messaging; not cached until verification + login.
-            UserEntity(
-                userId = signupPayload.userId,
-                email = signupPayload.email,
-                displayName = signupPayload.displayName,
-                avatarUrl = signupPayload.avatarUrl
-            )
-        }
-    }
+        suspend fun login(email: String, password: String): Result<UserEntity> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                val requestBody =
+                                        gson.toJson(
+                                                        mapOf(
+                                                                "identity" to email,
+                                                                "password" to password
+                                                        )
+                                                )
+                                                .toRequestBody("application/json".toMediaType())
 
-    suspend fun googleLogin(idToken: String, email: String?, name: String?): Result<UserEntity> = withContext(Dispatchers.IO) {
-        runCatching {
-            val response = postJson(
-                url = "$supabaseUrl/auth/v1/token?grant_type=id_token",
-                body = mapOf("provider" to "google", "id_token" to idToken),
-            )
-            val authPayload = parseAuthResponse(response)
-            cacheUser(authPayload, fallbackEmail = email, fallbackName = name)
-        }
-    }
+                                val request =
+                                        Request.Builder()
+                                                .url(
+                                                        "$pocketBaseUrl/api/collections/users/auth-with-password"
+                                                )
+                                                .post(requestBody)
+                                                .build()
 
-    suspend fun logout() = withContext(Dispatchers.IO) {
-        userDao.clearAllUsers()
-        tokenManager.clearTokens()
-    }
+                                val response = httpClient.newCall(request).execute()
+                                val responseBody = response.body?.string() ?: ""
 
-    suspend fun resendVerification(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            postJson(
-                url = "$supabaseUrl/auth/v1/resend?type=signup",
-                body = mapOf("email" to email),
-            )
-            userDao.clearAllUsers()
-            tokenManager.clearTokens()
-        }
-    }
+                                if (!response.isSuccessful) {
+                                        Log.e("AuthRepository", "Login failed: $responseBody")
+                                        throw Exception("Login failed: ${response.code}")
+                                }
 
-    fun getCurrentUser() = userDao.getUser()
+                                val authData =
+                                        gson.fromJson(
+                                                responseBody,
+                                                PocketBaseAuthResponse::class.java
+                                        )
+                                val record =
+                                        authData.record
+                                                ?: throw Exception("No user record in response")
 
-    private suspend fun cacheUser(
-        payload: SupabaseAuthPayload,
-        fallbackEmail: String? = null,
-        fallbackName: String? = null
-    ): UserEntity {
-        val email = payload.user.email ?: fallbackEmail ?: error("Email not available")
-        val displayName = payload.displayName ?: fallbackName ?: email.substringBefore("@")
-        val accessToken = payload.accessToken ?: error("Unable to fetch access token")
-        val refreshToken = payload.refreshToken ?: error("Unable to fetch refresh token")
+                                // Save tokens
+                                tokenManager.saveAccessToken(authData.token)
+                                // PocketBase doesn't use refresh tokens in the same way - the token
+                                // is long-lived
 
-        val entity = UserEntity(
-            userId = payload.user.id,
-            email = email,
-            displayName = displayName,
-            avatarUrl = payload.avatarUrl
-        )
+                                // Create and cache user entity
+                                val user =
+                                        UserEntity(
+                                                userId = record.id,
+                                                email = record.email ?: email,
+                                                displayName = record.name,
+                                                avatarUrl = record.avatar
+                                        )
+                                userDao.insertUser(user)
+                                user
+                        }
+                }
 
-        userDao.clearAllUsers()
-        userDao.insertUser(entity)
+        suspend fun register(email: String, password: String, name: String?): Result<UserEntity> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                val requestBody =
+                                        gson.toJson(
+                                                        mapOf(
+                                                                "email" to email,
+                                                                "password" to password,
+                                                                "passwordConfirm" to password,
+                                                                "name" to (name ?: "")
+                                                        )
+                                                )
+                                                .toRequestBody("application/json".toMediaType())
 
-        tokenManager.clearTokens()
-        tokenManager.saveAccessToken(accessToken)
-        tokenManager.saveRefreshToken(refreshToken)
+                                val request =
+                                        Request.Builder()
+                                                .url("$pocketBaseUrl/api/collections/users/records")
+                                                .post(requestBody)
+                                                .build()
 
-        return entity
-    }
+                                val response = httpClient.newCall(request).execute()
+                                val responseBody = response.body?.string() ?: ""
 
-    private fun postJson(url: String, body: Map<String, String>): String {
-        if (supabaseAnonKey.isBlank()) {
-            error("Supabase anon key is missing. Set SUPABASE_ANON_KEY in gradle properties.")
-        }
+                                if (!response.isSuccessful) {
+                                        Log.e(
+                                                "AuthRepository",
+                                                "Registration failed: $responseBody"
+                                        )
+                                        throw Exception("Registration failed: ${response.code}")
+                                }
 
-        val jsonBody = gson.toJson(body)
-        val requestBody = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
-        val request = Request.Builder()
-            .url(url)
-            .tag(String::class.java, "SKIP_AUTH")
-            .header("apikey", supabaseAnonKey)
-            .header("Authorization", "Bearer $supabaseAnonKey")
-            .post(requestBody)
-            .build()
+                                val record =
+                                        gson.fromJson(
+                                                responseBody,
+                                                PocketBaseUserRecord::class.java
+                                        )
 
-        authClient.newCall(request).execute().use { response ->
-            val responseBody = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                val message = parseErrorMessage(responseBody) ?: response.message
-                error(message)
-            }
-            return responseBody
-        }
-    }
+                                // Now login to get the auth token
+                                login(email, password).getOrThrow()
+                        }
+                }
 
-    private fun parseAuthResponse(responseBody: String): SupabaseAuthPayload {
-        val payload = gson.fromJson(responseBody, SupabaseAuthResponse::class.java)
-        val session = payload.session
-        val user = session?.user ?: payload.user ?: error(context.getString(my.hinoki.booxreader.R.string.error_user_not_found))
-        val accessToken = payload.accessToken ?: session?.accessToken
-        val refreshToken = payload.refreshToken ?: session?.refreshToken
+        suspend fun loginWithGoogle(idToken: String): Result<UserEntity> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                // PocketBase OAuth2 flow is different - this would need to be
+                                // implemented
+                                // based on your specific OAuth2 provider setup in PocketBase
+                                // For now, return an error indicating it's not yet implemented
+                                throw UnsupportedOperationException(
+                                        "Google OAuth login not yet implemented for PocketBase"
+                                )
+                        }
+                }
 
-        return SupabaseAuthPayload(
-            user = user,
-            accessToken = accessToken,
-            refreshToken = refreshToken,
-            displayName = user.userMetadata?.fullName ?: user.userMetadata?.name,
-            avatarUrl = user.userMetadata?.avatarUrl
-        )
-    }
+        suspend fun logout(): Result<Unit> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                // Clear local data
+                                tokenManager.clearTokens()
+                                userDao.clearAllUsers()
+                        }
+                }
 
-    private fun parseSignupResponse(responseBody: String, fallbackEmail: String): SupabaseSignupPayload {
-        val payload = gson.fromJson(responseBody, SupabaseSignupResponse::class.java)
-        val user = payload.user
-        val email = user?.email ?: fallbackEmail
-        val displayName = user?.userMetadata?.fullName ?: user?.userMetadata?.name ?: email.substringBefore("@")
-        val userId = user?.id ?: fallbackEmail
+        suspend fun resendVerificationEmail(email: String): Result<Unit> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                val requestBody =
+                                        gson.toJson(mapOf("email" to email))
+                                                .toRequestBody("application/json".toMediaType())
 
-        return SupabaseSignupPayload(
-            userId = userId,
-            email = email,
-            displayName = displayName,
-            avatarUrl = user?.userMetadata?.avatarUrl
-        )
-    }
+                                val request =
+                                        Request.Builder()
+                                                .url(
+                                                        "$pocketBaseUrl/api/collections/users/request-verification"
+                                                )
+                                                .post(requestBody)
+                                                .build()
 
-    private fun parseErrorMessage(body: String): String? {
-        return runCatching {
-            val json = gson.fromJson(body, JsonObject::class.java)
-            when {
-                json.has("error_description") -> json.get("error_description").asString
-                json.has("msg") -> json.get("msg").asString
-                json.has("message") -> json.get("message").asString
-                json.has("error") -> json.get("error").asString
-                else -> null
-            }
-        }.getOrNull()
-    }
+                                val response = httpClient.newCall(request).execute()
+
+                                if (!response.isSuccessful) {
+                                        val errorBody = response.body?.string() ?: ""
+                                        Log.e(
+                                                "AuthRepository",
+                                                "Resend verification failed: $errorBody"
+                                        )
+                                        throw Exception(
+                                                "Failed to resend verification: ${response.code}"
+                                        )
+                                }
+                        }
+                }
+
+        suspend fun googleLogin(idToken: String): Result<UserEntity> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                Log.d(
+                                        "AuthRepository",
+                                        "googleLogin - STUB: Not implemented for PocketBase yet"
+                                )
+                                throw Exception("Google login not yet implemented for PocketBase")
+                        }
+                }
+
+        suspend fun getCurrentUser(): UserEntity? =
+                withContext(Dispatchers.IO) {
+                        userDao.getUserById(
+                                tokenManager.getAccessToken() ?: return@withContext null
+                        )
+                }
 }
 
-private data class SupabaseAuthResponse(
-    @SerializedName("access_token")
-    val accessToken: String? = null,
-    @SerializedName("refresh_token")
-    val refreshToken: String? = null,
-    val user: SupabaseUser? = null,
-    val session: SupabaseSession? = null
+// Response data classes for PocketBase API
+private data class PocketBaseAuthResponse(
+        @SerializedName("token") val token: String,
+        @SerializedName("record") val record: PocketBaseUserRecord?
 )
 
-private data class SupabaseSession(
-    @SerializedName("access_token")
-    val accessToken: String? = null,
-    @SerializedName("refresh_token")
-    val refreshToken: String? = null,
-    val user: SupabaseUser? = null
-)
-
-private data class SupabaseUser(
-    val id: String,
-    val email: String? = null,
-    @SerializedName("user_metadata")
-    val userMetadata: SupabaseUserMetadata? = null
-)
-
-private data class SupabaseUserMetadata(
-    @SerializedName("full_name")
-    val fullName: String? = null,
-    val name: String? = null,
-    @SerializedName("avatar_url")
-    val avatarUrl: String? = null
-)
-
-private data class SupabaseAuthPayload(
-    val user: SupabaseUser,
-    val accessToken: String?,
-    val refreshToken: String?,
-    val displayName: String?,
-    val avatarUrl: String?
-)
-
-private data class SupabaseSignupResponse(
-    val user: SupabaseUser? = null
-)
-
-private data class SupabaseSignupPayload(
-    val userId: String,
-    val email: String,
-    val displayName: String?,
-    val avatarUrl: String?
+private data class PocketBaseUserRecord(
+        @SerializedName("id") val id: String,
+        @SerializedName("email") val email: String?,
+        @SerializedName("name") val name: String?,
+        @SerializedName("avatar") val avatar: String?,
+        @SerializedName("verified") val verified: Boolean = false
 )

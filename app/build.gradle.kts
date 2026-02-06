@@ -33,13 +33,9 @@ val storeFileFromEnv: File? = run {
     }
 }
 
-val supabaseUrl: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_URL") as String?)
-    ?: System.getenv("NEXT_PUBLIC_SUPABASE_URL")
-    ?: "https://app.hinoki.my"
-
-val supabaseAnonKey: String = (project.findProperty("NEXT_PUBLIC_SUPABASE_ANON_KEY") as String?)
-    ?: System.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY2MDczNjAwLCJleHAiOjE5MjM4NDAwMDB9.JFC5hdPzUBYTxiEIYv4wBgQdxxtgL941HOB6YAa32Is"
+val pocketbaseUrl: String = (project.findProperty("POCKETBASE_URL") as String?)
+    ?: System.getenv("POCKETBASE_URL")
+    ?: "https://pocket.risc-v.tw"
 
 val r2Endpoint: String = (project.findProperty("R2_ENDPOINT") as String?)
     ?: System.getenv("R2_ENDPOINT")
@@ -98,8 +94,7 @@ android {
         versionCode = 182
         versionName = "1.1.181"
 
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "POCKETBASE_URL", "\"$pocketbaseUrl\"")
         buildConfigField("String", "R2_ENDPOINT", "\"$r2Endpoint\"")
         buildConfigField("String", "R2_BUCKET", "\"$r2Bucket\"")
         // Keys removed for security

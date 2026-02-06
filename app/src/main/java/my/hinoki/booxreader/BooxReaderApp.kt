@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import my.hinoki.booxreader.data.core.CrashReportHandler
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
-import my.hinoki.booxreader.data.remote.SupabaseRealtimeBookSync
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -28,7 +27,6 @@ class BooxReaderApp : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
     private var periodicSyncRunnable: Runnable = Runnable {}
-    private var realtimeBookSync: SupabaseRealtimeBookSync? = null
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(my.hinoki.booxreader.ui.common.LocaleHelper.onAttach(base))
@@ -57,8 +55,8 @@ class BooxReaderApp : Application() {
         // Upload any pending crash reports
         uploadPendingCrashReports()
 
-        // Start realtime deletes if a user is already signed in
-        startRealtimeBookSync()
+        // TODO: Implement PocketBase realtime sync (uses SSE instead of WebSocket)
+        // startRealtimeBookSync()
     }
 
     private fun initializeAiProfileSync() {
@@ -73,10 +71,11 @@ class BooxReaderApp : Application() {
                 // Show notification if default profile was created
                 if (profileCreated) {
                     Toast.makeText(
-                        applicationContext,
-                        R.string.ai_profile_default_created,
-                        Toast.LENGTH_LONG
-                    ).show()
+                                    applicationContext,
+                                    R.string.ai_profile_default_created,
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
                 }
 
                 // Perform initial sync on app startup
@@ -125,21 +124,21 @@ class BooxReaderApp : Application() {
         stopRealtimeBookSync()
     }
 
+    // TODO: Reimplement with PocketBase realtime (SSE-based)
     fun startRealtimeBookSync() {
-        if (realtimeBookSync == null) {
-            realtimeBookSync =
-                    SupabaseRealtimeBookSync(
-                            applicationContext,
-                            okHttpClient,
-                            tokenManager,
-                            applicationScope
-                    )
-        }
-        realtimeBookSync?.start()
+        // Stub: PocketBase realtime sync not yet implemented
+        android.util.Log.d(
+                "BooxReaderApp",
+                "startRealtimeBookSync - STUB: Not implemented for PocketBase yet"
+        )
     }
 
     fun stopRealtimeBookSync() {
-        realtimeBookSync?.stop()
+        // Stub: PocketBase realtime sync not yet implemented
+        android.util.Log.d(
+                "BooxReaderApp",
+                "stopRealtimeBookSync - STUB: Not implemented for PocketBase yet"
+        )
     }
 
     private fun uploadPendingCrashReports() {

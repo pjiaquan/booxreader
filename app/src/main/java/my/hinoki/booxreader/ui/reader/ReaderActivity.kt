@@ -35,6 +35,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.gson.Gson
+import java.util.concurrent.TimeUnit
 import kotlin.OptIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -44,31 +45,29 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import my.hinoki.booxreader.R
 import my.hinoki.booxreader.BooxReaderApp
-import my.hinoki.booxreader.data.settings.ContrastMode
-import my.hinoki.booxreader.data.settings.MagicTag
-import my.hinoki.booxreader.data.reader.ReaderViewModel
+import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.billing.BillingStatusParser
+import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ContrastMode
+import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
-import my.hinoki.booxreader.BuildConfig
+import my.hinoki.booxreader.databinding.ActivityReaderBinding
+import my.hinoki.booxreader.reader.LocatorJsonHelper
+import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.notes.AiNoteDetailActivity
 import my.hinoki.booxreader.ui.notes.AiNoteListActivity
 import my.hinoki.booxreader.ui.reader.nativev2.NativeNavigatorFragment
-import my.hinoki.booxreader.databinding.ActivityReaderBinding
-import my.hinoki.booxreader.reader.LocatorJsonHelper
-import my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.util.concurrent.TimeUnit
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -156,9 +155,11 @@ class ReaderActivity : BaseActivity() {
                     }
 
                     override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                        // Native Reader Selection Handling - if selector has selection or menu is visible, clear it
+                        // Native Reader Selection Handling - if selector has selection or menu is
+                        // visible, clear it
                         if (nativeNavigatorFragment?.hasSelection() == true ||
-                            nativeNavigatorFragment?.isSelectionMenuVisible() == true) {
+                                        nativeNavigatorFragment?.isSelectionMenuVisible() == true
+                        ) {
                             nativeNavigatorFragment?.clearSelection()
                             nativeNavigatorFragment?.hideSelectionMenu()
                             return true
@@ -695,12 +696,7 @@ class ReaderActivity : BaseActivity() {
 
         btnManageMagicTags.setOnClickListener { showMagicTagManager() }
         btnUpgradePlan.setOnClickListener {
-            startActivity(
-                    Intent(
-                            this,
-                            my.hinoki.booxreader.ui.billing.UpgradeActivity::class.java
-                    )
-            )
+            startActivity(Intent(this, my.hinoki.booxreader.ui.billing.UpgradeActivity::class.java))
         }
         updatePlanSummary(tvPlanSummary, pbPlanSummary)
 
@@ -736,9 +732,7 @@ class ReaderActivity : BaseActivity() {
                                     1f
                             )
                     setOnClickListener {
-                        applyContrastMode(
-                                ContrastMode.NORMAL
-                        )
+                        applyContrastMode(ContrastMode.NORMAL)
                         Toast.makeText(this@ReaderActivity, "Normal Mode", Toast.LENGTH_SHORT)
                                 .show()
                     }
@@ -753,9 +747,7 @@ class ReaderActivity : BaseActivity() {
                                     1f
                             )
                     setOnClickListener {
-                        applyContrastMode(
-                                ContrastMode.DARK
-                        )
+                        applyContrastMode(ContrastMode.DARK)
                         Toast.makeText(this@ReaderActivity, "Dark Mode", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -859,15 +851,11 @@ class ReaderActivity : BaseActivity() {
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
             if (isChecked) {
-                val probe = my.hinoki.booxreader.data.util.ChineseConverter
-                        .toTraditional("简体中文")
-                        .toString()
+                val probe =
+                        my.hinoki.booxreader.data.util.ChineseConverter.toTraditional("简体中文")
+                                .toString()
                 if (probe == "简体中文") {
-                    Toast.makeText(
-                            this,
-                            "簡體轉繁體字庫載入失敗，可能無法轉換",
-                            Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(this, "簡體轉繁體字庫載入失敗，可能無法轉換", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -1039,8 +1027,7 @@ class ReaderActivity : BaseActivity() {
                 // Reload content if Chinese conversion setting changed
                 if (conversionChanged) {
                     nativeNavigatorFragment?.setChineseConversionEnabled(newConvertChinese)
-                    val message =
-                            if (newConvertChinese) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
+                    val message = if (newConvertChinese) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
                     Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                 }
 
@@ -1106,16 +1093,13 @@ class ReaderActivity : BaseActivity() {
                             .build()
             val result =
                     withContext(Dispatchers.IO) {
-                        val request =
-                                Request.Builder()
-                                        .url("$baseUrl/billing/status")
-                                        .get()
-                                        .build()
+                        val request = Request.Builder().url("$baseUrl/billing/status").get().build()
                         try {
                             client.newCall(request).execute().use { response ->
                                 if (!response.isSuccessful) return@withContext null
                                 val body = response.body?.string().orEmpty()
-                                val status = BillingStatusParser.parse(body) ?: return@withContext null
+                                val status =
+                                        BillingStatusParser.parse(body) ?: return@withContext null
                                 return@withContext Pair(status.planType, status.dailyRemaining)
                             }
                         } catch (e: Exception) {
@@ -1142,24 +1126,17 @@ class ReaderActivity : BaseActivity() {
             val remaining = result.second
             if (remaining != null) {
                 target.text =
-                        getString(
-                                R.string.reader_settings_plan_summary_format,
-                                planName,
-                                remaining
-                        )
+                        getString(R.string.reader_settings_plan_summary_format, planName, remaining)
             } else {
                 target.text = getString(R.string.reader_settings_plan_summary_simple, planName)
             }
-            spinner.visibility = View.GONE
         }
     }
 
     private fun billingBaseUrl(): String {
-        val supabaseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
-        if (supabaseUrl.isBlank()) return ""
-        return "$supabaseUrl/functions/v1"
+        // TODO: Update for PocketBase billing endpoints
+        return ""
     }
-
 
     private fun applySettingsDialogTheme(root: View, mode: ContrastMode) {
         val backgroundColor =
@@ -1302,15 +1279,10 @@ class ReaderActivity : BaseActivity() {
                 }
 
         val btnAdd =
-                Button(this).apply {
-                    text = getString(R.string.action_manage_magic_tags) + " +"
-                }
+                Button(this).apply { text = getString(R.string.action_manage_magic_tags) + " +" }
         contentLayout.addView(btnAdd)
 
-        val scrollView =
-                android.widget.ScrollView(this).apply {
-                    addView(contentLayout)
-                }
+        val scrollView = android.widget.ScrollView(this).apply { addView(contentLayout) }
 
         fun addRow(tag: MagicTag?) {
             val rowContainer =
@@ -1330,10 +1302,7 @@ class ReaderActivity : BaseActivity() {
                         setText(tag?.content?.ifBlank { tag.label }.orEmpty())
                         minLines = 2
                     }
-            val btnDelete =
-                    Button(this).apply {
-                        text = "Delete"
-                    }
+            val btnDelete = Button(this).apply { text = "Delete" }
 
             rowContainer.addView(titleInput)
             rowContainer.addView(contentInput)
@@ -1370,37 +1339,44 @@ class ReaderActivity : BaseActivity() {
                                 rows.mapIndexedNotNull { index, row ->
                                     val title = row.titleInput.text.toString().trim()
                                     val content =
-                                            row.contentInput.text.toString().trim().ifBlank { title }
+                                            row.contentInput.text.toString().trim().ifBlank {
+                                                title
+                                            }
                                     if (title.isBlank()) {
                                         if (content.isNotBlank()) {
-                                            Log.w("MagicTags", "Validation failed: empty name with content")
+                                            Log.w(
+                                                    "MagicTags",
+                                                    "Validation failed: empty name with content"
+                                            )
                                             Toast.makeText(
                                                             this,
                                                             getString(
-                                                                    R.string.magic_tag_invalid_empty_name
+                                                                    R.string
+                                                                            .magic_tag_invalid_empty_name
                                                             ),
                                                             Toast.LENGTH_SHORT
-                                            )
+                                                    )
                                                     .show()
                                             return@setOnClickListener
                                         }
                                         return@mapIndexedNotNull null
                                     }
                                     if (!seen.add(title)) {
-                                        Log.w("MagicTags", "Validation failed: duplicate name=$title")
+                                        Log.w(
+                                                "MagicTags",
+                                                "Validation failed: duplicate name=$title"
+                                        )
                                         Toast.makeText(
                                                         this,
                                                         getString(
                                                                 R.string.magic_tag_invalid_duplicate
                                                         ),
                                                         Toast.LENGTH_SHORT
-                                        )
+                                                )
                                                 .show()
                                         return@setOnClickListener
                                     }
-                                    val id =
-                                            row.id
-                                                    ?: "custom-${System.currentTimeMillis()}-$index"
+                                    val id = row.id ?: "custom-${System.currentTimeMillis()}-$index"
                                     MagicTag(
                                             id = id,
                                             label = title,
@@ -1422,9 +1398,13 @@ class ReaderActivity : BaseActivity() {
                                 .apply()
                         val persisted = ReaderSettings.fromPrefs(prefs).magicTags
                         val persistedSignature =
-                                persisted.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
+                                persisted.joinToString("|") {
+                                    "${it.id}:${it.label}:${it.content}:${it.role}"
+                                }
                         val updatedSignature =
-                                updatedTags.joinToString("|") { "${it.id}:${it.label}:${it.content}:${it.role}" }
+                                updatedTags.joinToString("|") {
+                                    "${it.id}:${it.label}:${it.content}:${it.role}"
+                                }
                         Log.d("MagicTags", "Persisted signature len=${persistedSignature.length}")
                         if (persistedSignature != updatedSignature) {
                             Log.e("MagicTags", "Persist failed: signature mismatch")
@@ -1432,16 +1412,16 @@ class ReaderActivity : BaseActivity() {
                                             this,
                                             getString(R.string.magic_tag_save_failed),
                                             Toast.LENGTH_LONG
-                        )
-                                .show()
-                        return@setOnClickListener
-                    }
-                    pushSettingsToCloud()
-                    Toast.makeText(
-                                    this,
-                                    getString(R.string.action_manage_magic_tags) + " OK",
-                                    Toast.LENGTH_SHORT
-                        )
+                                    )
+                                    .show()
+                            return@setOnClickListener
+                        }
+                        pushSettingsToCloud()
+                        Toast.makeText(
+                                        this,
+                                        getString(R.string.action_manage_magic_tags) + " OK",
+                                        Toast.LENGTH_SHORT
+                                )
                                 .show()
                         dialog.dismiss()
                     }
@@ -1486,9 +1466,7 @@ class ReaderActivity : BaseActivity() {
         currentFontWeight = weight.coerceIn(300, 900)
         // 移除SharedPreferences保存，不再保存字體粗細設定
 
-        nativeNavigatorFragment?.view?.post {
-            binding.root.postInvalidateOnAnimation()
-        }
+        nativeNavigatorFragment?.view?.post { binding.root.postInvalidateOnAnimation() }
     }
 
     private fun applyContrastMode(mode: ContrastMode) {
@@ -1599,8 +1577,7 @@ class ReaderActivity : BaseActivity() {
             MotionEvent.ACTION_DOWN -> {
                 refreshJob?.cancel()
             }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {}
         }
 
         // 讓手勢檢測器和子 View 處理觸摸事件

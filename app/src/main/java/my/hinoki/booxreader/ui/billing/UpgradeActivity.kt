@@ -1,11 +1,11 @@
 package my.hinoki.booxreader.ui.billing
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.android.billingclient.api.AcknowledgePurchaseParams
@@ -18,11 +18,11 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
-import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.billing.BillingProducts
 import my.hinoki.booxreader.data.billing.BillingStatusParser
@@ -33,7 +33,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 
 class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     private companion object {
@@ -76,10 +75,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         btnManageSubscription.setOnClickListener { openManageSubscription() }
 
         billingClient =
-                BillingClient.newBuilder(this)
-                        .setListener(this)
-                        .enablePendingPurchases()
-                        .build()
+                BillingClient.newBuilder(this).setListener(this).enablePendingPurchases().build()
 
         billingClient.startConnection(
                 object : BillingClientStateListener {
@@ -106,10 +102,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     private fun queryProducts() {
         val products = BillingProducts.buildQueryProductList()
 
-        val params =
-                QueryProductDetailsParams.newBuilder()
-                        .setProductList(products)
-                        .build()
+        val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
 
         billingClient.queryProductDetailsAsync(params) { _, details ->
             monthlyDetails = details.firstOrNull { it.productId == BillingProducts.MONTHLY_SUBS_ID }
@@ -150,9 +143,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                         .apply {
                             if (details.productType == BillingClient.ProductType.SUBS) {
                                 val offerToken =
-                                        details.subscriptionOfferDetails
-                                                ?.firstOrNull()
-                                                ?.offerToken
+                                        details.subscriptionOfferDetails?.firstOrNull()?.offerToken
                                 if (!offerToken.isNullOrBlank()) {
                                     setOfferToken(offerToken)
                                 }
@@ -161,17 +152,12 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                         .build()
 
         val flowParams =
-                BillingFlowParams.newBuilder()
-                        .setProductDetailsParamsList(listOf(params))
-                        .build()
+                BillingFlowParams.newBuilder().setProductDetailsParamsList(listOf(params)).build()
 
         billingClient.launchBillingFlow(this, flowParams)
     }
 
-    override fun onPurchasesUpdated(
-        result: BillingResult,
-        purchases: MutableList<Purchase>?
-    ) {
+    override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
         if (result.responseCode != BillingClient.BillingResponseCode.OK || purchases == null) {
             if (result.responseCode != BillingClient.BillingResponseCode.USER_CANCELED) {
                 toast(getString(R.string.upgrade_purchase_failed))
@@ -198,17 +184,13 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                 QueryPurchasesParams.newBuilder()
                         .setProductType(BillingClient.ProductType.SUBS)
                         .build()
-        ) { _, purchases ->
-            purchases.forEach { sendToBackend(it) }
-        }
+        ) { _, purchases -> purchases.forEach { sendToBackend(it) } }
 
         billingClient.queryPurchasesAsync(
                 QueryPurchasesParams.newBuilder()
                         .setProductType(BillingClient.ProductType.INAPP)
                         .build()
-        ) { _, purchases ->
-            purchases.forEach { sendToBackend(it) }
-        }
+        ) { _, purchases -> purchases.forEach { sendToBackend(it) } }
     }
 
     private fun fetchPlanStatus() {
@@ -232,11 +214,7 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
 
             val status =
                     withContext(Dispatchers.IO) {
-                        val request =
-                                Request.Builder()
-                                        .url("$baseUrl/billing/status")
-                                        .get()
-                                        .build()
+                        val request = Request.Builder().url("$baseUrl/billing/status").get().build()
                         try {
                             client.newCall(request).execute().use { response ->
                                 Log.d(
@@ -245,13 +223,9 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                                 )
                                 if (!response.isSuccessful) return@withContext null
                                 val body = response.body?.string().orEmpty()
-                                Log.d(
-                                        LOG_TAG,
-                                        "fetchPlanStatus: body=${body.take(200)}"
-                                )
+                                Log.d(LOG_TAG, "fetchPlanStatus: body=${body.take(200)}")
                                 val status =
-                                        BillingStatusParser.parse(body)
-                                                ?: return@withContext null
+                                        BillingStatusParser.parse(body) ?: return@withContext null
                                 return@withContext Pair(status.planType, status.dailyRemaining)
                             }
                         } catch (e: Exception) {
@@ -265,7 +239,6 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
             updateRemainingUi(status?.second)
         }
     }
-
 
     private fun updatePlanUi(planType: String?) {
         when (planType?.lowercase()) {
@@ -320,15 +293,12 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
                                         .put("product_id", productId)
                                         .put("purchase_token", token)
                                         .toString()
-                                        .toRequestBody("application/json; charset=utf-8".toMediaType())
+                                        .toRequestBody(
+                                                "application/json; charset=utf-8".toMediaType()
+                                        )
                         val request =
-                                Request.Builder()
-                                        .url("$baseUrl/billing/verify")
-                                        .post(body)
-                                        .build()
-                        client.newCall(request).execute().use { response ->
-                            response.isSuccessful
-                        }
+                                Request.Builder().url("$baseUrl/billing/verify").post(body).build()
+                        client.newCall(request).execute().use { response -> response.isSuccessful }
                     }
             if (ok) {
                 toast(getString(R.string.upgrade_purchase_success))
@@ -340,15 +310,12 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
     }
 
     private fun buildAuthClient(tokenManager: TokenManager): OkHttpClient {
-        return OkHttpClient.Builder()
-                .addInterceptor(AuthInterceptor(tokenManager))
-                .build()
+        return OkHttpClient.Builder().addInterceptor(AuthInterceptor(tokenManager)).build()
     }
 
     private fun billingBaseUrl(): String {
-        val supabaseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
-        if (supabaseUrl.isBlank()) return ""
-        return "$supabaseUrl/functions/v1"
+        // TODO: Update for PocketBase billing endpoints
+        return ""
     }
 
     private fun toast(message: String) {
@@ -359,5 +326,4 @@ class UpgradeActivity : AppCompatActivity(), PurchasesUpdatedListener {
         billingClient.endConnection()
         super.onDestroy()
     }
-
 }

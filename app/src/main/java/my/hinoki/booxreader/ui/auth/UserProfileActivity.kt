@@ -1,14 +1,13 @@
 package my.hinoki.booxreader.ui.auth
 
-import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.repo.AuthRepository
 import my.hinoki.booxreader.ui.common.BaseActivity
 
 class UserProfileActivity : BaseActivity() {
@@ -37,22 +36,18 @@ class UserProfileActivity : BaseActivity() {
         }
 
         lifecycleScope.launch {
-            viewModel.currentUser.collectLatest { user ->
-                if (user == null) {
-                    // No user logged in
-                    tvName.text = "Guest"
-                    tvEmail.text = "Please login"
-                    btnLogout.text = "Login"
-                    btnLogout.setOnClickListener {
-                        startActivity(Intent(this@UserProfileActivity, LoginActivity::class.java))
-                        finish()
-                    }
-                } else {
-                    tvName.text = user.displayName ?: "User"
-                    tvEmail.text = user.email
-                    btnLogout.text = "Logout"
-                    btnLogout.setOnClickListener { viewModel.logout() }
-                }
+            val user =
+                    AuthRepository(
+                                    this@UserProfileActivity,
+                                    (application as my.hinoki.booxreader.BooxReaderApp).tokenManager
+                            )
+                            .getCurrentUser()
+            if (user != null) {
+                tvName.text = user.displayName ?: "User"
+                tvEmail.text = user.email ?: "No email"
+            } else {
+                tvName.text = "Guest"
+                tvEmail.text = "Please login"
             }
         }
     }
