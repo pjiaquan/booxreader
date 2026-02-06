@@ -6,7 +6,7 @@
     <application>
         <!-- Debug-only launcher for AI Profile list to ease adb access -->
         <activity
-            android:name="my.hinoki.booxreader.data.ui.settings.AiProfileListActivity"
+            android:name="my.hinoki.booxreader.ui.settings.AiProfileListActivity"
             android:exported="true"
             android:enabled="true"
             tools:replace="android:exported">

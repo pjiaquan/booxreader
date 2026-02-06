@@ -5,6 +5,7 @@ import android.text.Spanned
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.text.style.SuperscriptSpan
+import my.hinoki.booxreader.ui.reader.nativev2.HtmlContentParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

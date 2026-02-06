@@ -130,6 +130,7 @@
     <string name="sync_downloading_books">Downloading cloud books...</string>
     <string name="sync_uploading_local_books">Uploading local books...</string>
     <string name="sync_downloading_books_again">Re-downloading cloud books...</string>
+    <string name="sync_ai_profiles">Syncing AI Profiles...</string>
     <string name="sync_settings">Syncing settings...</string>
     <string name="sync_ai_notes">Syncing AI notes...</string>
     <string name="sync_progress">Syncing reading progress...</string>

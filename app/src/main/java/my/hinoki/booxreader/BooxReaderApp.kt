@@ -31,7 +31,7 @@ class BooxReaderApp : Application() {
     private var realtimeBookSync: SupabaseRealtimeBookSync? = null
 
     override fun attachBaseContext(base: Context) {
-        super.attachBaseContext(my.hinoki.booxreader.data.ui.common.LocaleHelper.onAttach(base))
+        super.attachBaseContext(my.hinoki.booxreader.ui.common.LocaleHelper.onAttach(base))
     }
 
     override fun onCreate() {
