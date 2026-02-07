@@ -62,7 +62,7 @@ class UserSyncRepository(
         private val io = Dispatchers.IO
         private val tokenManager = tokenManager ?: TokenManager(appContext)
         private val gson = Gson()
-        private val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
+        private val pocketBaseUrl = (baseUrl ?: BuildConfig.POCKETBASE_URL).trimEnd('/')
 
         private val httpClient =
                 OkHttpClient.Builder()
