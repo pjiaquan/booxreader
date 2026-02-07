@@ -1308,10 +1308,12 @@ main() {
 
     echo "=== BooxReader Build and Install Script ==="
 
-    # Pull latest changes from remote to sync with GitHub workflow edits
+    # Pull latest changes from remote to sync with GitHub workflow edits.
+    # Use fetch + rebase directly on origin/main to avoid FETCH_HEAD ambiguity.
     echo "Pulling latest changes from remote..."
     stash_before_pull
-    git pull --rebase origin main
+    git fetch origin main
+    git rebase origin/main
     restore_stash_after_pull
 
     # Check dependencies
