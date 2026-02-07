@@ -3,12 +3,19 @@ package my.hinoki.booxreader.ui.reader.nativev2
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
+import android.text.Html
 import android.text.TextPaint
 import android.util.Log
+import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -21,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -28,6 +36,7 @@ import my.hinoki.booxreader.ui.reader.ReaderActivity
 import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.databinding.FragmentNativeReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
+import java.net.URI
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.Url
@@ -354,7 +363,13 @@ class NativeNavigatorFragment : Fragment() {
                                 if (match != null) {
                                     val content = match.groupValues[1]
                                     val textColor = currentThemeColors?.second ?: Color.BLACK
-                                    var parsed = HtmlContentParser.parseHtml(content, textColor)
+                                    val imageGetter = createImageGetter(pub, resourceHref)
+                                    var parsed =
+                                            HtmlContentParser.parseHtml(
+                                                    content,
+                                                    textColor,
+                                                    imageGetter
+                                            )
 
                                     // Apply Chinese conversion if enabled
                                     if (settings.convertToTraditionalChinese) {
@@ -577,12 +592,13 @@ class NativeNavigatorFragment : Fragment() {
                 )
         convertToTraditionalChinese = settings.convertToTraditionalChinese
 
+        val imageGetter = createImageGetter(pub, link.href.toString())
         resourceText =
                 withContext(Dispatchers.IO) {
                     val resource = pub.get(link)
                     val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
                     val textColor = currentThemeColors?.second ?: Color.BLACK
-                    var parsed = HtmlContentParser.parseHtml(html, textColor)
+                    var parsed = HtmlContentParser.parseHtml(html, textColor, imageGetter)
 
                     // Apply Chinese conversion if enabled
                     parsed = applyChineseConversion(parsed)
@@ -656,6 +672,155 @@ class NativeNavigatorFragment : Fragment() {
     private fun applyChineseConversion(text: CharSequence): CharSequence {
         if (!convertToTraditionalChinese || text.isEmpty()) return text
         return ChineseConverter.toTraditional(text)
+    }
+
+    private fun createImageGetter(pub: Publication, baseHref: String): Html.ImageGetter {
+        val maxWidth = imageMaxWidthPx()
+        return Html.ImageGetter { source ->
+            loadImageDrawable(
+                    publication = pub,
+                    baseHref = baseHref,
+                    source = source,
+                    maxWidth = maxWidth
+            )
+        }
+    }
+
+    private fun imageMaxWidthPx(): Int {
+        val fallback = (resources.displayMetrics.widthPixels * 0.8f).toInt().coerceAtLeast(240)
+        if (_binding == null) return fallback
+        val width =
+                binding.nativeReaderView.width -
+                        binding.nativeReaderView.paddingLeft -
+                        binding.nativeReaderView.paddingRight
+        if (width <= 0) return fallback
+        return (width * 0.92f).toInt().coerceAtLeast(240)
+    }
+
+    private fun loadImageDrawable(
+            publication: Publication,
+            baseHref: String,
+            source: String?,
+            maxWidth: Int
+    ): Drawable {
+        val fallback = placeholderImageDrawable(maxWidth)
+        val rawSource = source?.trim().orEmpty()
+        if (rawSource.isEmpty()) return fallback
+
+        val imageBytes =
+                when {
+                    rawSource.startsWith("data:image", ignoreCase = true) -> {
+                        decodeDataUriImage(rawSource)
+                    }
+                    rawSource.startsWith("http://", ignoreCase = true) ||
+                            rawSource.startsWith("https://", ignoreCase = true) -> {
+                        null
+                    }
+                    else -> {
+                        val resolvedHref = resolveResourceHref(baseHref, rawSource) ?: return fallback
+                        val link = findPublicationLink(publication, resolvedHref) ?: return fallback
+                        runBlocking { publication.get(link)?.read()?.getOrNull() }
+                    }
+                } ?: return fallback
+
+        val bitmap = decodeImageBitmap(imageBytes, maxWidth) ?: return fallback
+        return BitmapDrawable(resources, bitmap).apply {
+            setBounds(0, 0, bitmap.width, bitmap.height)
+        }
+    }
+
+    private fun resolveResourceHref(baseHref: String, source: String): String? {
+        val normalizedSource = source.substringBefore('#').trim()
+        if (normalizedSource.isEmpty()) return null
+        return runCatching {
+                    URI(baseHref.substringBefore('#')).resolve(normalizedSource).toString()
+                }
+                .getOrElse {
+                    val baseDir = baseHref.substringBeforeLast('/', "")
+                    if (baseDir.isBlank()) {
+                        normalizedSource.removePrefix("./")
+                    } else {
+                        "$baseDir/${normalizedSource.removePrefix("./")}"
+                    }
+                }
+    }
+
+    private fun findPublicationLink(
+            publication: Publication,
+            resolvedHref: String
+    ): org.readium.r2.shared.publication.Link? {
+        val normalized = resolvedHref.substringBefore('?').substringBefore('#')
+        val candidates = linkedSetOf<String>()
+
+        fun addCandidate(value: String) {
+            if (value.isNotBlank()) candidates.add(value)
+        }
+
+        addCandidate(normalized)
+        addCandidate(normalized.removePrefix("./"))
+        addCandidate(normalized.removePrefix("/"))
+        val decoded = Uri.decode(normalized)
+        addCandidate(decoded)
+        addCandidate(decoded.removePrefix("./"))
+        addCandidate(decoded.removePrefix("/"))
+
+        for (candidate in candidates) {
+            val url = Url(candidate) ?: continue
+            publication.linkWithHref(url)?.let { return it }
+        }
+        return null
+    }
+
+    private fun decodeDataUriImage(source: String): ByteArray? {
+        val commaIndex = source.indexOf(',')
+        if (commaIndex <= 0) return null
+        val metadata = source.substring(0, commaIndex)
+        if (!metadata.contains(";base64", ignoreCase = true)) return null
+        val payload = source.substring(commaIndex + 1)
+        return runCatching { Base64.decode(payload, Base64.DEFAULT) }.getOrNull()
+    }
+
+    private fun decodeImageBitmap(bytes: ByteArray, maxWidth: Int): Bitmap? {
+        val safeMaxWidth = maxWidth.coerceAtLeast(1)
+        val bounds =
+                BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        val decodeOptions =
+                BitmapFactory.Options().apply {
+                    inSampleSize = calculateInSampleSize(bounds.outWidth, safeMaxWidth)
+                }
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions) ?: return null
+        if (decoded.width <= safeMaxWidth) return decoded
+
+        val scaledHeight =
+                (decoded.height * (safeMaxWidth.toFloat() / decoded.width.toFloat()))
+                        .toInt()
+                        .coerceAtLeast(1)
+        val scaled = Bitmap.createScaledBitmap(decoded, safeMaxWidth, scaledHeight, true)
+        if (scaled !== decoded) {
+            decoded.recycle()
+        }
+        return scaled
+    }
+
+    private fun calculateInSampleSize(sourceWidth: Int, maxWidth: Int): Int {
+        var sampleSize = 1
+        while (sourceWidth / sampleSize > maxWidth * 2) {
+            sampleSize *= 2
+        }
+        return sampleSize.coerceAtLeast(1)
+    }
+
+    private fun placeholderImageDrawable(maxWidth: Int): Drawable {
+        val width = (maxWidth * 0.6f).toInt().coerceAtLeast(120)
+        val height = (width * 0.56f).toInt().coerceAtLeast(68)
+        return ColorDrawable(Color.argb(30, 128, 128, 128)).apply {
+            setBounds(0, 0, width, height)
+        }
     }
 
     private fun updateLocator() {

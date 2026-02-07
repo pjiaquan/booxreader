@@ -21,31 +21,39 @@ internal object HtmlContentParser {
                     setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
             )
 
-    fun parseHtml(html: String, textColor: Int): CharSequence {
+    fun parseHtml(
+            html: String,
+            textColor: Int,
+            imageGetter: Html.ImageGetter? = null
+    ): CharSequence {
         val cleaned =
                 html.replace(scriptRegex, "")
                         .replace(styleRegex, "")
                         .replace(superSpanRegex, "<sup>$1</sup>")
 
-        val imageGetter = Html.ImageGetter { null }
+        val effectiveImageGetter = imageGetter ?: Html.ImageGetter { null }
         val parsed =
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                     Html.fromHtml(
                             cleaned,
                             Html.FROM_HTML_MODE_LEGACY,
-                            imageGetter,
+                            effectiveImageGetter,
                             QuoteTagHandler(textColor)
                     )
                 } else {
                     @Suppress("DEPRECATION")
-                    Html.fromHtml(cleaned, imageGetter, QuoteTagHandler(textColor))
+                    Html.fromHtml(cleaned, effectiveImageGetter, QuoteTagHandler(textColor))
                 }
 
         val builder = SpannableStringBuilder(parsed)
-        removeChar(builder, '□')
-        removeChar(builder, '\uFFFC')
-        removeSubstring(builder, "OBJ")
-        removeSubstring(builder, "\u672A\u77E5")
+        // When images are disabled, Android inserts placeholder object chars.
+        // Strip those to avoid visual noise in text-only mode.
+        if (imageGetter == null) {
+            removeChar(builder, '□')
+            removeChar(builder, '\uFFFC')
+            removeSubstring(builder, "OBJ")
+            removeSubstring(builder, "\u672A\u77E5")
+        }
         collapseWhitespace(builder)
         trimWhitespace(builder)
         return builder

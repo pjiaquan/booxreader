@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLEncoder
@@ -22,6 +23,7 @@ import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
+import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -138,8 +140,35 @@ class UserSyncRepository(
                 return body
         }
 
+        private fun longValue(value: Any?): Long {
+                return when (value) {
+                        is Number -> value.toLong()
+                        is String -> value.toLongOrNull() ?: 0L
+                        else -> 0L
+                }
+        }
+
+        private fun parseMagicTags(raw: Any?, fallback: List<MagicTag>): List<MagicTag> {
+                if (raw == null) return fallback
+
+                return runCatching {
+                                val type = object : TypeToken<List<MagicTag>>() {}.type
+                                when (raw) {
+                                        is String -> gson.fromJson<List<MagicTag>>(raw, type)
+                                        else -> gson.fromJson<List<MagicTag>>(gson.toJson(raw), type)
+                                } ?: fallback
+                        }
+                        .getOrElse {
+                                Log.w("UserSyncRepository", "parseMagicTags failed, using fallback", it)
+                                fallback
+                        }
+        }
+
         /** Parse settings from PocketBase JSON response. */
-        private fun parseSettingsFromJson(json: Map<String, Any>): ReaderSettings {
+        private fun parseSettingsFromJson(
+                json: Map<String, Any>,
+                fallbackMagicTags: List<MagicTag>
+        ): ReaderSettings {
                 return ReaderSettings(
                         pageTapEnabled = json["pageTapEnabled"] as? Boolean ?: true,
                         pageSwipeEnabled = json["pageSwipeEnabled"] as? Boolean ?: true,
@@ -166,9 +195,14 @@ class UserSyncRepository(
                         pageAnimationEnabled = json["pageAnimationEnabled"] as? Boolean ?: false,
                         showPageIndicator = json["showPageIndicator"] as? Boolean ?: true,
                         language = json["language"] as? String ?: "system",
-                        activeProfileId = (json["activeProfileId"] as? Double)?.toLong() ?: -1L,
-                        updatedAt = (json["updatedAt"] as? Double)?.toLong()
-                                        ?: System.currentTimeMillis()
+                        activeProfileId = longValue(json["activeProfileId"]).takeIf { it != 0L } ?: -1L,
+                        updatedAt = longValue(json["updatedAt"]).takeIf { it > 0L }
+                                        ?: System.currentTimeMillis(),
+                        magicTags =
+                                parseMagicTags(
+                                        raw = json["magicTags"] ?: json["magic_tags"],
+                                        fallback = fallbackMagicTags
+                                )
                 )
         }
 
@@ -208,16 +242,19 @@ class UserSyncRepository(
 
                                 val remoteSettings =
                                         items.maxByOrNull {
-                                                (it["updatedAt"] as? Double)?.toLong() ?: 0L
+                                                longValue(it["updatedAt"])
                                         }
                                                 ?: return@withContext null
-                                val remoteUpdatedAt =
-                                        remoteSettings.get("updatedAt") as? Double ?: 0.0
+                                val remoteUpdatedAt = longValue(remoteSettings["updatedAt"])
                                 val localSettings = ReaderSettings.fromPrefs(prefs)
 
-                                if (remoteUpdatedAt.toLong() > localSettings.updatedAt) {
+                                if (remoteUpdatedAt > localSettings.updatedAt) {
                                         // Remote is newer, update local
-                                        val updated = parseSettingsFromJson(remoteSettings)
+                                        val updated =
+                                                parseSettingsFromJson(
+                                                        remoteSettings,
+                                                        fallbackMagicTags = localSettings.magicTags
+                                                )
                                         updated.saveTo(prefs)
                                         Log.d(
                                                 "UserSyncRepository",
@@ -259,7 +296,7 @@ class UserSyncRepository(
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
 
-                                val settingsData =
+                                val baseSettingsData =
                                         mapOf(
                                                 "user" to userId,
                                                 "pageTapEnabled" to settings.pageTapEnabled,
@@ -292,10 +329,11 @@ class UserSyncRepository(
                                                 "activeProfileId" to settings.activeProfileId,
                                                 "updatedAt" to System.currentTimeMillis()
                                         )
+                                val settingsDataWithMagicTags =
+                                        baseSettingsData + ("magicTags" to settings.magicTags)
 
-                                val requestBody =
-                                        gson.toJson(settingsData)
-                                                .toRequestBody("application/json".toMediaType())
+                                fun toBody(data: Map<String, Any>) =
+                                        gson.toJson(data).toRequestBody("application/json".toMediaType())
 
                                 if (checkResponse.items.isNotEmpty()) {
                                         // Update existing record
@@ -304,28 +342,62 @@ class UserSyncRepository(
                                                         ?: return@withContext
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/settings/records/$recordId"
-                                        val updateRequest =
-                                                buildAuthenticatedRequest(updateUrl)
-                                                        .patch(requestBody)
-                                                        .build()
-                                        executeRequest(updateRequest)
-                                        Log.d(
-                                                "UserSyncRepository",
-                                                "pushSettings - Settings updated"
-                                        )
+                                        try {
+                                                val updateRequest =
+                                                        buildAuthenticatedRequest(updateUrl)
+                                                                .patch(toBody(settingsDataWithMagicTags))
+                                                                .build()
+                                                executeRequest(updateRequest)
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - Settings updated with magicTags"
+                                                )
+                                        } catch (e: Exception) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - update with magicTags failed, retrying without magicTags",
+                                                        e
+                                                )
+                                                val fallbackRequest =
+                                                        buildAuthenticatedRequest(updateUrl)
+                                                                .patch(toBody(baseSettingsData))
+                                                                .build()
+                                                executeRequest(fallbackRequest)
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - Settings updated without magicTags fallback"
+                                                )
+                                        }
                                 } else {
                                         // Create new record
                                         val createUrl =
                                                 "$pocketBaseUrl/api/collections/settings/records"
-                                        val createRequest =
-                                                buildAuthenticatedRequest(createUrl)
-                                                        .post(requestBody)
-                                                        .build()
-                                        executeRequest(createRequest)
-                                        Log.d(
-                                                "UserSyncRepository",
-                                                "pushSettings - Settings created"
-                                        )
+                                        try {
+                                                val createRequest =
+                                                        buildAuthenticatedRequest(createUrl)
+                                                                .post(toBody(settingsDataWithMagicTags))
+                                                                .build()
+                                                executeRequest(createRequest)
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - Settings created with magicTags"
+                                                )
+                                        } catch (e: Exception) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - create with magicTags failed, retrying without magicTags",
+                                                        e
+                                                )
+                                                val fallbackRequest =
+                                                        buildAuthenticatedRequest(createUrl)
+                                                                .post(toBody(baseSettingsData))
+                                                                .build()
+                                                executeRequest(fallbackRequest)
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - Settings created without magicTags fallback"
+                                                )
+                                        }
                                 }
                         } catch (e: Exception) {
                                 Log.e("UserSyncRepository", "pushSettings failed", e)
