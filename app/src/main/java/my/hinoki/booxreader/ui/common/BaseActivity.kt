@@ -47,18 +47,6 @@ abstract class BaseActivity : AppCompatActivity() {
     }
 
     protected fun applyActionBarPadding(view: View) {
-        val initialTop = view.paddingTop
-        val typedValue = android.util.TypedValue()
-        val actionBarSize =
-                if (theme.resolveAttribute(android.R.attr.actionBarSize, typedValue, true)) {
-                    android.util.TypedValue.complexToDimensionPixelSize(
-                            typedValue.data,
-                            resources.displayMetrics
-                    )
-                } else {
-                    0
-                }
-        val adjusted = (actionBarSize * 0.6f).toInt()
-        view.setPadding(view.paddingLeft, initialTop + adjusted, view.paddingRight, view.paddingBottom)
+        applyTopInsets(view, includeActionBar = true)
     }
 }
