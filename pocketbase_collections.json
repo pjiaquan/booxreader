@@ -145,11 +145,11 @@
                 }
             ],
             "indexes": [
-                "CREATE UNIQUE INDEX idx_user ON settings (user)"
+                "CREATE UNIQUE INDEX idx_settings_user ON settings (user)"
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -189,11 +189,11 @@
                 }
             ],
             "indexes": [
-                "CREATE UNIQUE INDEX idx_user_book ON progress (user, bookId)"
+                "CREATE UNIQUE INDEX idx_progress_user_book ON progress (user, bookId)"
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -234,7 +234,7 @@
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -295,7 +295,7 @@
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -401,7 +401,7 @@
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -456,11 +456,11 @@
                 }
             ],
             "indexes": [
-                "CREATE UNIQUE INDEX idx_user_book ON books (user, bookId)"
+                "CREATE UNIQUE INDEX idx_books_user_book ON books (user, bookId)"
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },

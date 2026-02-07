@@ -1,4 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+# Keep this script bash-only even when invoked via `zsh run.sh` or `sh run.sh`.
+if [ -z "${BASH_VERSION:-}" ]; then
+    if command -v bash >/dev/null 2>&1; then
+        exec bash "$0" "$@"
+    fi
+    printf 'Error: bash is required to run %s\n' "$0" >&2
+    exit 1
+fi
+
 set -Eeuo pipefail
 IFS=$'\n\t'
 
@@ -96,6 +106,8 @@ AUTO_SELECT_DEVICE="${AUTO_SELECT_DEVICE:-false}"
 TARGET_DEVICE_SERIAL=""
 CI_RELEASE_ONLY="${CI_RELEASE_ONLY:-false}"
 ALLOW_HARDCODED_CREDENTIALS="${ALLOW_HARDCODED_CREDENTIALS:-false}"
+GROQ_TIMEOUT_SECONDS="${GROQ_TIMEOUT_SECONDS:-25}"
+GIT_PUSH_TIMEOUT_SECONDS="${GIT_PUSH_TIMEOUT_SECONDS:-120}"
 
 load_telegram_config() {
     if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -151,6 +163,8 @@ Env vars (optional):
   AUTO_SELECT_DEVICE=true|false
   CI_RELEASE_ONLY=true|false
   ALLOW_HARDCODED_CREDENTIALS=true|false
+  GROQ_TIMEOUT_SECONDS=<seconds>
+  GIT_PUSH_TIMEOUT_SECONDS=<seconds>
 EOF
 }
 
@@ -882,10 +896,14 @@ Output ONLY the raw commit message in plain text. Do not use markdown code block
 
     echo "Generating commit message with AI..." >&2
     local response
-    response=$(curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+    if ! response=$(curl -sS --connect-timeout 10 --max-time "$GROQ_TIMEOUT_SECONDS" \
+        -X POST "https://api.groq.com/openai/v1/chat/completions" \
         -H "Authorization: Bearer $GROQ_API_KEY" \
         -H "Content-Type: application/json" \
-        -d "$json_body")
+        -d "$json_body"); then
+        warn "Groq API request failed or timed out after ${GROQ_TIMEOUT_SECONDS}s; using fallback message."
+        return 1
+    fi
         
     local message
     message=$(echo "$response" | jq -r '.choices[0].message.content // empty')
@@ -925,6 +943,22 @@ is_low_quality_ai_message() {
     return 1
 }
 
+push_with_timeout() {
+    local push_status=0
+    if command -v timeout >/dev/null 2>&1; then
+        timeout --foreground "${GIT_PUSH_TIMEOUT_SECONDS}s" git push "$@" || push_status=$?
+    else
+        git push "$@" || push_status=$?
+    fi
+
+    if [ $push_status -eq 124 ]; then
+        die "git push timed out after ${GIT_PUSH_TIMEOUT_SECONDS}s. Check network/auth and retry."
+    fi
+    if [ $push_status -ne 0 ]; then
+        die "git push failed with exit code $push_status."
+    fi
+}
+
 # Lightweight scan for potential hard-coded credentials or secrets.
 # This is a heuristic check to prevent accidental leaks in commits and AI prompts.
 secret_scan_patterns=(
@@ -958,6 +992,16 @@ search_text_for_secrets() {
     return 0
 }
 
+should_skip_untracked_secret_scan() {
+    local file="$1"
+    case "$file" in
+        .git/*|.gradle/*|.gradle-local/*|.gradle-user-home/*|node_modules/*|build/*|app/build/*|dist/*)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
 scan_added_lines_in_diff() {
     local label="$1"
     local diff_content="$2"
@@ -978,8 +1022,14 @@ scan_added_lines_in_diff() {
 
 scan_untracked_files_for_secrets() {
     local found=0
+    local scanned=0
+    local skipped=0
     while IFS= read -r file; do
         [ -z "$file" ] && continue
+        if should_skip_untracked_secret_scan "$file"; then
+            skipped=$((skipped + 1))
+            continue
+        fi
         [ ! -f "$file" ] && continue
         # Skip very large files (>1MB) to keep scan fast.
         if [ "$(wc -c <"$file" 2>/dev/null || echo 0)" -gt 1048576 ]; then
@@ -1000,7 +1050,11 @@ scan_untracked_files_for_secrets() {
             printf '%s\n' "$matches" >&2
             found=1
         fi
+        scanned=$((scanned + 1))
     done < <(git ls-files --others --exclude-standard)
+    if [ "$scanned" -gt 0 ] || [ "$skipped" -gt 0 ]; then
+        log "Credential scan checked $scanned untracked files (skipped $skipped generated/cache paths)."
+    fi
     if [ $found -ne 0 ]; then
         return 1
     fi
@@ -1016,6 +1070,7 @@ check_for_hardcoded_credentials() {
     local found=0
     local unstaged_diff=""
     local staged_diff=""
+    log "Running credential scan..."
     unstaged_diff=$(git diff --patch)
     staged_diff=$(git diff --cached --patch)
 
@@ -1089,8 +1144,7 @@ git_operations() {
             prompt_msg="Do you want to commit and push changes? [Y/n]: "
         fi
         
-        read -p "$prompt_msg" -n 1 -r
-        echo
+        read -r -p "$prompt_msg" REPLY || REPLY=""
         # Default to 'y' if Enter is pressed (REPLY is empty)
         REPLY=${REPLY:-y}
     fi
@@ -1236,14 +1290,14 @@ git_operations() {
         die "Credential scan failed on last commit. Aborting push."
     fi
     echo "Pushing to remote..."
-    git push
+    push_with_timeout
     
     # Create and push tag only for release
     if [ "$BUILD_TYPE" = "release" ]; then
         TAG_NAME="v$NEW_VERSION_NAME"
         echo "Creating and pushing tag: $TAG_NAME"
         git tag -a "$TAG_NAME" -m "Release $NEW_VERSION_NAME"
-        git push origin "$TAG_NAME"
+        push_with_timeout origin "$TAG_NAME"
     fi
 }
 

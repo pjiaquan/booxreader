@@ -194,6 +194,9 @@ class MainActivity : BaseActivity() {
 
                 val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
 
+                // Push local books first so cloud gets local-only entries before pull/merge.
+                runCatching { syncRepo.pushLocalBooks() }
+
                 val booksResult = runCatching { syncRepo.pullBooks() }
                 val booksUpdated = booksResult.getOrNull() ?: 0
 

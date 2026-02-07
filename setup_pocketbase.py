@@ -19,9 +19,7 @@ import sys
 
 
 def authenticate_admin(base_url, email, password, verify_ssl=True):
-    """Authenticate as admin and return the auth token."""
-    # PocketBase superuser authentication endpoint
-    auth_url = f"{base_url}/api/collections/_superusers/auth-with-password"
+    """Authenticate as superuser or admin and return the auth token."""
     
     # Try with 'email' field first (newer PocketBase versions)
     payload_email = {
@@ -35,49 +33,55 @@ def authenticate_admin(base_url, email, password, verify_ssl=True):
         "password": password
     }
     
-    print(f"   Endpoint: {auth_url}")
-    
-    # Try with 'email' field first
-    for attempt, payload in enumerate([payload_email, payload_identity], 1):
-        field_name = "email" if attempt == 1 else "identity"
-        print(f"   Attempt {attempt}: Using '{field_name}' field...")
-        
-        try:
-            response = requests.post(
-                auth_url, 
-                json=payload,
-                verify=verify_ssl,
-                headers={"Content-Type": "application/json"}
-            )
-            
-            print(f"   Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                data = response.json()
-                token = data.get("token") or data.get("record", {}).get("token")
-                
-                if not token:
-                    print(f"❌ No token in response: {data}")
-                    sys.exit(1)
-                    
-                return token
-            elif response.status_code == 400 and attempt == 1:
-                # Try next attempt with 'identity' field
-                print(f"   ⚠️  Failed with '{field_name}', trying alternative...")
-                continue
-            else:
-                # Last attempt failed or non-400 error
-                response.raise_for_status()
-                
-        except requests.exceptions.RequestException as e:
-            if attempt == 2:  # Last attempt
-                print(f"❌ Failed to authenticate: {e}")
-                if hasattr(e, 'response') and e.response is not None:
-                    print(f"   Response: {e.response.text}")
-                sys.exit(1)
-            # Otherwise continue to next attempt
-    
-    print(f"❌ Authentication failed with both 'email' and 'identity' fields")
+    auth_endpoints = [
+        f"{base_url}/api/collections/_superusers/auth-with-password",
+        f"{base_url}/api/admins/auth-with-password",
+    ]
+
+    for endpoint_index, auth_url in enumerate(auth_endpoints, 1):
+        print(f"   Endpoint {endpoint_index}: {auth_url}")
+
+        # Try with 'email' field first
+        for attempt, payload in enumerate([payload_email, payload_identity], 1):
+            field_name = "email" if attempt == 1 else "identity"
+            print(f"   Attempt {attempt}: Using '{field_name}' field...")
+
+            try:
+                response = requests.post(
+                    auth_url,
+                    json=payload,
+                    verify=verify_ssl,
+                    headers={"Content-Type": "application/json"}
+                )
+
+                print(f"   Status: {response.status_code}")
+
+                if response.status_code == 200:
+                    data = response.json()
+                    token = data.get("token") or data.get("record", {}).get("token")
+
+                    if not token:
+                        print(f"❌ No token in response: {data}")
+                        sys.exit(1)
+
+                    return token
+                elif response.status_code == 400 and attempt == 1:
+                    # Try next attempt with 'identity' field
+                    print(f"   ⚠️  Failed with '{field_name}', trying alternative...")
+                    continue
+                else:
+                    # Last attempt failed or non-400 error
+                    response.raise_for_status()
+
+            except requests.exceptions.RequestException as e:
+                if attempt == 2:
+                    # Try next endpoint after identity attempt
+                    print(f"   ⚠️  Auth attempt failed: {e}")
+                    if hasattr(e, 'response') and e.response is not None:
+                        print(f"   Response: {e.response.text}")
+                    break
+
+    print(f"❌ Authentication failed with both superuser and admin endpoints")
     sys.exit(1)
 
 
@@ -102,7 +106,40 @@ def create_collection(base_url, token, collection_data):
         else:
             regular_fields.append(field)
     
-    # Phase 1: Create collection with non-relation fields only
+    def get_existing_collection():
+        response = requests.get(collections_url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        collections = data.get("items", data) if isinstance(data, dict) else data
+        for c in collections:
+            if c.get("name") == collection_name:
+                return c
+        return None
+
+    def normalize_relation_field(field):
+        if field.get("name") == "user" and field.get("options", {}).get("collectionId") == "_pb_users_auth_":
+            field_copy = field.copy()
+            field_copy["options"] = field.get("options", {}).copy()
+            field_copy["options"]["collectionId"] = "users"
+            return field_copy
+        return field
+
+    def merge_fields(existing_fields, desired_fields):
+        existing_by_name = {f.get("name"): f for f in existing_fields}
+        merged = list(existing_fields)
+        added = 0
+        for f in desired_fields:
+            name = f.get("name")
+            if not name or name in existing_by_name:
+                continue
+            merged.append(normalize_relation_field(f))
+            added += 1
+        return merged, added
+
+    collection_id = None
+    current_fields = []
+
+    # Phase 1: Create collection with non-relation fields only (or load existing)
     collection_bare = {
         "name": collection_data.get("name"),
         "type": collection_data.get("type"),
@@ -113,59 +150,50 @@ def create_collection(base_url, token, collection_data):
         "updateRule": None,
         "deleteRule": None
     }
-    
+
     print(f"   Creating with {len(regular_fields)} regular fields (+ {len(relation_fields)} relation fields to add later)")
-    
+
     try:
         response = requests.post(collections_url, headers=headers, json=collection_bare)
-        
+
         if response.status_code == 400:
             error_data = response.json() if response.text else {}
             if "already exists" in str(error_data).lower() or "name_exists" in str(error_data):
-                print(f"⚠️  Collection '{collection_name}' already exists, skipping...")
-                return False
+                existing = get_existing_collection()
+                if not existing:
+                    print(f"❌ Failed to load existing collection '{collection_name}'")
+                    return False
+                collection_id = existing.get("id")
+                current_fields = existing.get("fields", [])
+                print(f"⚠️  Collection '{collection_name}' already exists, updating rules/fields/indexes...")
             else:
                 print(f"   Error response: {response.text}")
-        
-        response.raise_for_status()
-        created_collection = response.json()
-        collection_id = created_collection.get("id")
-        
-        print(f"✅ Created collection: {collection_name}")
-        
-        # Phase 2: Add relation fields (e.g., user field)
-        if relation_fields:
-            update_url = f"{collections_url}/{collection_id}"
-            
-            # Get current fields and append relation fields
+
+        if collection_id is None:
+            response.raise_for_status()
+            created_collection = response.json()
+            collection_id = created_collection.get("id")
             current_fields = regular_fields.copy()
-            
-            for rel_field in relation_fields:
-                # For user relations, use "users" as the collection reference
-                if rel_field.get("name") == "user" and rel_field.get("options", {}).get("collectionId") == "_pb_users_auth_":
-                    # Update options to use collection name instead of ID
-                    rel_field_copy = rel_field.copy()
-                    rel_field_copy["options"] = rel_field.get("options", {}).copy()
-                    rel_field_copy["options"]["collectionId"] = "users"
-                    current_fields.append(rel_field_copy)
-                else:
-                    current_fields.append(rel_field)
-            
-            fields_update = {"fields": current_fields}
-            
+            print(f"✅ Created collection: {collection_name}")
+
+        # Phase 2: Add relation fields and any missing fields
+        update_url = f"{collections_url}/{collection_id}"
+        desired_fields = regular_fields + relation_fields
+        merged_fields, added_fields = merge_fields(current_fields, desired_fields)
+        if added_fields > 0:
+            fields_update = {"fields": merged_fields}
             try:
                 update_response = requests.patch(update_url, headers=headers, json=fields_update)
                 update_response.raise_for_status()
-                print(f"   ✅ Added {len(relation_fields)} relation field(s)")
+                print(f"   ✅ Added {added_fields} missing field(s)")
             except requests.exceptions.RequestException as e:
-                print(f"   ⚠️  Warning: Failed to add relation fields: {e}")
+                print(f"   ⚠️  Warning: Failed to add missing fields: {e}")
                 if hasattr(e, 'response') and e.response and e.response.text:
                     error_msg = e.response.text[:300]
                     print(f"      {error_msg}")
-        
+
         # Phase 3: Update with API rules
         if collection_data.get("listRule") is not None or collection_data.get("createRule"):
-            update_url = f"{collections_url}/{collection_id}"
             rules_update = {
                 "listRule": collection_data.get("listRule"),
                 "viewRule": collection_data.get("viewRule"),
@@ -173,38 +201,45 @@ def create_collection(base_url, token, collection_data):
                 "updateRule": collection_data.get("updateRule"),
                 "deleteRule": collection_data.get("deleteRule")
             }
-            
+
             try:
                 update_response = requests.patch(update_url, headers=headers, json=rules_update)
                 update_response.raise_for_status()
                 print(f"   ✅ Added API rules")
             except requests.exceptions.RequestException as e:
                 print(f"   ⚠️  Warning: Failed to add API rules: {e}")
-                if hasattr(e, 'response') and e.response and e.response.text:
-                    error_msg = e.response.text[:200]
-                    print(f"      {error_msg}")
-        
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        error_text = e.response.text
+                    except Exception:
+                        error_text = None
+                    if error_text:
+                        print(f"      {error_text}")
+
         # Phase 4: Update with indexes
         if collection_data.get("indexes"):
-            update_url = f"{collections_url}/{collection_id}"
             indexes_update = {
                 "indexes": collection_data.get("indexes")
             }
-            
+
             try:
                 update_response = requests.patch(update_url, headers=headers, json=indexes_update)
                 update_response.raise_for_status()
                 print(f"   ✅ Added indexes")
             except requests.exceptions.RequestException as e:
                 print(f"   ⚠️  Warning: Failed to add indexes: {e}")
-                if hasattr(e, 'response') and e.response and e.response.text:
-                    error_msg = e.response.text[:200]
-                    print(f"      {error_msg}")
-        
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        error_text = e.response.text
+                    except Exception:
+                        error_text = None
+                    if error_text:
+                        print(f"      {error_text}")
+
         return True
-        
+
     except requests.exceptions.RequestException as e:
-        print(f"❌ Failed to create collection '{collection_name}': {e}")
+        print(f"❌ Failed to create/update collection '{collection_name}': {e}")
         if hasattr(e, 'response') and e.response and e.response.text:
             print(f"   Response: {e.response.text}")
         return False
@@ -244,10 +279,10 @@ def get_collections_schema():
                 {"name": "activeProfileId", "type": "number", "required": False},
                 {"name": "updatedAt", "type": "number", "required": False}
             ],
-            "indexes": ["CREATE UNIQUE INDEX idx_user ON settings (user)"],
+            "indexes": ["CREATE UNIQUE INDEX idx_settings_user ON settings (user)"],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -261,10 +296,10 @@ def get_collections_schema():
                 {"name": "locatorJson", "type": "text", "required": True},
                 {"name": "updatedAt", "type": "number", "required": False}
             ],
-            "indexes": ["CREATE UNIQUE INDEX idx_user_book ON progress (user, bookId)"],
+            "indexes": ["CREATE UNIQUE INDEX idx_progress_user_book ON progress (user, bookId)"],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -280,7 +315,7 @@ def get_collections_schema():
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -300,7 +335,7 @@ def get_collections_schema():
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -329,7 +364,7 @@ def get_collections_schema():
             ],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
@@ -346,10 +381,10 @@ def get_collections_schema():
                 {"name": "deletedAt", "type": "number", "required": False},
                 {"name": "updatedAt", "type": "number", "required": False}
             ],
-            "indexes": ["CREATE UNIQUE INDEX idx_user_book ON books (user, bookId)"],
+            "indexes": ["CREATE UNIQUE INDEX idx_books_user_book ON books (user, bookId)"],
             "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },

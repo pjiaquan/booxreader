@@ -59,7 +59,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 
 - **List:** `@request.auth.id != "" && user = @request.auth.id`
 - **View:** `@request.auth.id != "" && user = @request.auth.id`
-- **Create:** `@request.auth.id != "" && @request.data.user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
 - **Update:** `@request.auth.id != "" && user = @request.auth.id`
 - **Delete:** `@request.auth.id != "" && user = @request.auth.id`
 
@@ -87,7 +87,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 
 - **List:** `@request.auth.id != "" && user = @request.auth.id`
 - **View:** `@request.auth.id != "" && user = @request.auth.id`
-- **Create:** `@request.auth.id != "" && @request.data.user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
 - **Update:** `@request.auth.id != "" && user = @request.auth.id`
 - **Delete:** `@request.auth.id != "" && user = @request.auth.id`
 
@@ -111,7 +111,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 
 - **List:** `@request.auth.id != "" && user = @request.auth.id`
 - **View:** `@request.auth.id != "" && user = @request.auth.id`
-- **Create:** `@request.auth.id != "" && @request.data.user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
 - **Update:** `@request.auth.id != "" && user = @request.auth.id`
 - **Delete:** `@request.auth.id != "" && user = @request.auth.id`
 
@@ -139,7 +139,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 
 - **List:** `@request.auth.id != "" && user = @request.auth.id`
 - **View:** `@request.auth.id != "" && user = @request.auth.id`
-- **Create:** `@request.auth.id != "" && @request.data.user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
 - **Update:** `@request.auth.id != "" && user = @request.auth.id`
 - **Delete:** `@request.auth.id != "" && user = @request.auth.id`
 
@@ -176,7 +176,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 
 - **List:** `@request.auth.id != "" && user = @request.auth.id`
 - **View:** `@request.auth.id != "" && user = @request.auth.id`
-- **Create:** `@request.auth.id != "" && @request.data.user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
 - **Update:** `@request.auth.id != "" && user = @request.auth.id`
 - **Delete:** `@request.auth.id != "" && user = @request.auth.id`
 
@@ -207,7 +207,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 
 - **List:** `@request.auth.id != "" && user = @request.auth.id`
 - **View:** `@request.auth.id != "" && user = @request.auth.id`
-- **Create:** `@request.auth.id != "" && @request.data.user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
 - **Update:** `@request.auth.id != "" && user = @request.auth.id`
 - **Delete:** `@request.auth.id != "" && user = @request.auth.id`
 

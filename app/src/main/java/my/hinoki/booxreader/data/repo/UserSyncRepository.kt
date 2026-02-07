@@ -3,8 +3,13 @@ package my.hinoki.booxreader.data.repo
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
 import com.google.gson.Gson
+import java.io.File
+import java.io.FileOutputStream
+import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -19,8 +24,10 @@ import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 // Data class for PocketBase list responses
@@ -441,21 +448,212 @@ class UserSyncRepository(
                 book: BookEntity,
                 uploadFile: Boolean = false,
                 contentResolver: android.content.ContentResolver? = null
-        ) =
+        ): Boolean =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "pushBook - STUB: Not implemented for PocketBase yet"
-                        )
+                        try {
+                                val userId = getUserId() ?: return@withContext false
+                                val now = System.currentTimeMillis()
+                                val localUpdatedAt = maxOf(book.lastOpenedAt, book.deletedAt ?: 0L)
+                                val payloadUpdatedAt =
+                                        if (localUpdatedAt > 0L) localUpdatedAt else now
+                                var storagePath =
+                                        if (book.fileUri.startsWith("pocketbase://")) {
+                                                normalizeStoragePath(
+                                                        book.fileUri.removePrefix("pocketbase://")
+                                                )
+                                        } else {
+                                                null
+                                        }
+
+                                val bookData =
+                                        mutableMapOf<String, Any?>(
+                                                "user" to userId,
+                                                "bookId" to book.bookId,
+                                                "title" to (book.title ?: ""),
+                                                "storagePath" to storagePath,
+                                                // bookId is SHA-256 of file content in this app.
+                                                "fileHash" to book.bookId,
+                                                "deleted" to book.deleted,
+                                                "deletedAt" to book.deletedAt,
+                                                "updatedAt" to payloadUpdatedAt
+                                        )
+
+                                if (bookData["storagePath"] == null) {
+                                        bookData.remove("storagePath")
+                                }
+                                if (bookData["deletedAt"] == null) {
+                                        bookData.remove("deletedAt")
+                                }
+
+                                val requestBody =
+                                        gson.toJson(bookData)
+                                                .toRequestBody("application/json".toMediaType())
+
+                                val checkUrl =
+                                        "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId'%26%26bookId='${book.bookId}')&perPage=1"
+                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
+                                val checkBody = executeRequest(checkRequest)
+                                val checkResponse =
+                                        gson.fromJson(checkBody, PocketBaseListResponse::class.java)
+                                val existingItem = checkResponse.items.firstOrNull()
+                                var recordId = existingItem?.get("id") as? String
+
+                                if (existingItem != null) {
+                                        val remoteUpdatedAt =
+                                                (existingItem["updatedAt"] as? Double)
+                                                        ?.toLong()
+                                                        ?: 0L
+                                        if (!book.deleted && remoteUpdatedAt > payloadUpdatedAt) {
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "pushBook - Skip stale local update for ${book.bookId}"
+                                                )
+                                                return@withContext true
+                                        }
+
+                                        val safeRecordId = recordId ?: return@withContext false
+                                        val updateUrl =
+                                                "$pocketBaseUrl/api/collections/books/records/$safeRecordId"
+                                        val updateRequest =
+                                                buildAuthenticatedRequest(updateUrl)
+                                                        .patch(requestBody)
+                                                        .build()
+                                        executeRequest(updateRequest)
+                                } else {
+                                        val createUrl =
+                                                "$pocketBaseUrl/api/collections/books/records"
+                                        val createRequest =
+                                                buildAuthenticatedRequest(createUrl)
+                                                        .post(requestBody)
+                                                        .build()
+                                        val createBody = executeRequest(createRequest)
+                                        val created =
+                                                gson.fromJson(createBody, Map::class.java) as
+                                                        Map<String, Any>
+                                        recordId = created["id"] as? String
+                                }
+
+                                if (uploadFile && contentResolver != null) {
+                                        val uploadStoragePath =
+                                                tryUploadBookFile(
+                                                        recordId = recordId,
+                                                        book = book,
+                                                        contentResolver = contentResolver
+                                                )
+                                        if (!uploadStoragePath.isNullOrBlank() &&
+                                                        uploadStoragePath != storagePath &&
+                                                        recordId != null
+                                        ) {
+                                                storagePath = uploadStoragePath
+                                                updateBookStoragePath(
+                                                        recordId = recordId,
+                                                        storagePath = uploadStoragePath
+                                                )
+                                        }
+                                }
+
+                                Log.d("UserSyncRepository", "pushBook - Synced book ${book.bookId}")
+                                true
+                        } catch (e: Exception) {
+                                Log.e(
+                                        "UserSyncRepository",
+                                        "pushBook failed for ${book.bookId}",
+                                        e
+                                )
+                                false
+                        }
                 }
 
         suspend fun softDeleteBook(bookId: String): Boolean =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "softDeleteBook - STUB: Not implemented for PocketBase yet"
-                        )
-                        true
+                        try {
+                                val userId = getUserId() ?: return@withContext false
+                                val now = System.currentTimeMillis()
+                                val deleteData =
+                                        mapOf(
+                                                "user" to userId,
+                                                "bookId" to bookId,
+                                                "deleted" to true,
+                                                "deletedAt" to now,
+                                                "updatedAt" to now
+                                        )
+                                val requestBody =
+                                        gson.toJson(deleteData)
+                                                .toRequestBody("application/json".toMediaType())
+
+                                val checkUrl =
+                                        "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId'%26%26bookId='$bookId')&perPage=1"
+                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
+                                val checkBody = executeRequest(checkRequest)
+                                val checkResponse =
+                                        gson.fromJson(checkBody, PocketBaseListResponse::class.java)
+
+                                if (checkResponse.items.isNotEmpty()) {
+                                        val recordId =
+                                                checkResponse.items[0]["id"] as? String
+                                                        ?: return@withContext false
+                                        val updateUrl =
+                                                "$pocketBaseUrl/api/collections/books/records/$recordId"
+                                        val updateRequest =
+                                                buildAuthenticatedRequest(updateUrl)
+                                                        .patch(requestBody)
+                                                        .build()
+                                        executeRequest(updateRequest)
+                                } else {
+                                        val createUrl =
+                                                "$pocketBaseUrl/api/collections/books/records"
+                                        val createRequest =
+                                                buildAuthenticatedRequest(createUrl)
+                                                        .post(requestBody)
+                                                        .build()
+                                        executeRequest(createRequest)
+                                }
+
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "softDeleteBook - Synced deletion for $bookId"
+                                )
+                                true
+                        } catch (e: Exception) {
+                                Log.e(
+                                        "UserSyncRepository",
+                                        "softDeleteBook failed for $bookId",
+                                        e
+                                )
+                                false
+                        }
+                }
+
+        suspend fun pushLocalBooks(): Int =
+                withContext(io) {
+                        try {
+                                val localBooks = db.bookDao().getAllBooks()
+                                var syncedCount = 0
+                                for (book in localBooks) {
+                                        val synced = pushBook(book, uploadFile = false)
+                                        if (synced) {
+                                                syncedCount++
+                                        }
+                                }
+
+                                val pendingDeletes = db.bookDao().getPendingDeletes()
+                                for (deletedBook in pendingDeletes) {
+                                        val deleted = softDeleteBook(deletedBook.bookId)
+                                        if (deleted) {
+                                                db.bookDao().deleteById(deletedBook.bookId)
+                                                syncedCount++
+                                        }
+                                }
+
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "pushLocalBooks - Synced $syncedCount local books/deletes"
+                                )
+                                syncedCount
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "pushLocalBooks failed", e)
+                                0
+                        }
                 }
 
         suspend fun pullBooks(): Int =
@@ -492,12 +690,16 @@ class UserSyncRepository(
 
                                         if (existingBook == null) {
                                                 // New book from cloud
+                                                val remoteFileUri =
+                                                        storagePath
+                                                                ?.takeIf { it.isNotBlank() }
+                                                                ?.let { "pocketbase://$it" }
+                                                                ?: "pocketbase://$bookId"
                                                 val newBook =
                                                         BookEntity(
                                                                 bookId = bookId,
                                                                 title = title ?: "Untitled",
-                                                                fileUri =
-                                                                        "pocketbase://$storagePath", // Placeholder URI
+                                                                fileUri = remoteFileUri,
                                                                 lastLocatorJson = null,
                                                                 lastOpenedAt = updatedAt,
                                                                 deleted = false
@@ -505,16 +707,36 @@ class UserSyncRepository(
                                                 db.bookDao().insert(newBook)
                                                 syncedCount++
                                         } else {
-                                                // Update existing book if remote has newer info
-                                                // (e.g. title)
-                                                // Note: We preserve local fileUri unless it's a
-                                                // placeholder
-                                                if (existingBook.title != title) {
+                                                val remoteFileUri =
+                                                        storagePath
+                                                                ?.takeIf { it.isNotBlank() }
+                                                                ?.let { "pocketbase://$it" }
+                                                val shouldUpdateTitle =
+                                                        title != null && existingBook.title != title
+                                                val shouldUpdateFileUri =
+                                                        remoteFileUri != null &&
+                                                                existingBook.fileUri.startsWith(
+                                                                        "pocketbase://"
+                                                                ) &&
+                                                                existingBook.fileUri != remoteFileUri
+
+                                                if (shouldUpdateTitle || shouldUpdateFileUri) {
                                                         val updatedBook =
                                                                 existingBook.copy(
-                                                                        title = title
-                                                                                        ?: existingBook
+                                                                        title =
+                                                                                if (shouldUpdateTitle) {
+                                                                                        title
+                                                                                } else {
+                                                                                        existingBook
                                                                                                 .title
+                                                                                },
+                                                                        fileUri =
+                                                                                if (shouldUpdateFileUri) {
+                                                                                        remoteFileUri
+                                                                                } else {
+                                                                                        existingBook
+                                                                                                .fileUri
+                                                                                }
                                                                 )
                                                         db.bookDao().insert(updatedBook)
                                                         syncedCount++
@@ -948,29 +1170,237 @@ class UserSyncRepository(
                 downloadIfNeeded: Boolean = true
         ): android.net.Uri? =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "ensureBookFileAvailable - STUB: Not implemented for PocketBase yet"
-                        )
-                        null
+                        try {
+                                val original =
+                                        originalUri
+                                                ?.takeIf { it.isNotBlank() }
+                                                ?.let { Uri.parse(it) }
+                                if (original != null && isUriReadable(original)) {
+                                        return@withContext original
+                                }
+
+                                val cachedFile = localBookCacheFile(bookId)
+                                if (cachedFile.exists() && cachedFile.length() > 0L) {
+                                        return@withContext Uri.fromFile(cachedFile)
+                                }
+
+                                if (!downloadIfNeeded) {
+                                        return@withContext null
+                                }
+
+                                var recordId: String? = null
+                                var effectiveStoragePath = normalizeStoragePath(storagePath)
+                                if (effectiveStoragePath.isNullOrBlank()) {
+                                        val userId = getUserId() ?: return@withContext null
+                                        val remoteRecord = fetchBookRecord(userId, bookId)
+                                        if (remoteRecord == null) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "ensureBookFileAvailable - No remote record for $bookId"
+                                                )
+                                                return@withContext null
+                                        }
+                                        if (remoteRecord["deleted"] as? Boolean == true) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "ensureBookFileAvailable - Remote record is deleted for $bookId"
+                                                )
+                                                return@withContext null
+                                        }
+                                        recordId = remoteRecord["id"] as? String
+                                        effectiveStoragePath =
+                                                resolveStoragePathFromRecord(remoteRecord)
+                                }
+
+                                if (effectiveStoragePath.isNullOrBlank()) {
+                                        Log.w(
+                                                "UserSyncRepository",
+                                                "ensureBookFileAvailable - Missing storagePath for $bookId"
+                                        )
+                                        return@withContext null
+                                }
+
+                                val downloadUrl =
+                                        buildDownloadUrl(
+                                                storagePath = effectiveStoragePath,
+                                                recordId = recordId
+                                        )
+                                                ?: return@withContext null
+
+                                val downloaded =
+                                        downloadRemoteFile(
+                                                url = downloadUrl,
+                                                target = cachedFile
+                                        )
+                                if (!downloaded) {
+                                        return@withContext null
+                                }
+
+                                val localUri = Uri.fromFile(cachedFile)
+                                db.bookDao().getByIds(listOf(bookId)).firstOrNull()?.let { local ->
+                                        if (local.fileUri.startsWith("pocketbase://")) {
+                                                db.bookDao()
+                                                        .insert(local.copy(fileUri = localUri.toString()))
+                                        }
+                                }
+                                localUri
+                        } catch (e: Exception) {
+                                Log.e(
+                                        "UserSyncRepository",
+                                        "ensureBookFileAvailable failed for $bookId",
+                                        e
+                                )
+                                null
+                        }
                 }
 
         suspend fun ensureStorageBucketReady(): CheckResult =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "ensureStorageBucketReady - STUB: Not implemented for PocketBase yet"
-                        )
-                        CheckResult(ok = true, message = "Stub implementation")
+                        try {
+                                val userId =
+                                        getUserId()
+                                                ?: return@withContext CheckResult(
+                                                        ok = false,
+                                                        message = "No logged-in user"
+                                                )
+                                if (accessToken().isNullOrBlank()) {
+                                        return@withContext CheckResult(
+                                                ok = false,
+                                                message = "Missing auth token"
+                                        )
+                                }
+
+                                val checkUrl =
+                                        "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId')&perPage=1"
+                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
+                                executeRequest(checkRequest)
+
+                                val cacheDir = localBooksCacheDir()
+                                if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+                                        return@withContext CheckResult(
+                                                ok = false,
+                                                message =
+                                                        "Failed to create local cache dir: ${cacheDir.absolutePath}"
+                                        )
+                                }
+                                val probe = File(cacheDir, ".probe")
+                                probe.writeText("ok")
+                                val probeOk = probe.exists() && probe.readText() == "ok"
+                                probe.delete()
+                                if (!probeOk) {
+                                        return@withContext CheckResult(
+                                                ok = false,
+                                                message = "Local cache dir is not writable"
+                                        )
+                                }
+
+                                CheckResult(
+                                        ok = true,
+                                        message =
+                                                "Storage ready (remote books collection + local cache)"
+                                )
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "ensureStorageBucketReady failed", e)
+                                CheckResult(ok = false, message = e.message ?: "Storage check failed")
+                        }
                 }
 
         suspend fun runStorageSelfTest(): CheckResult =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "runStorageSelfTest - STUB: Not implemented for PocketBase yet"
-                        )
-                        CheckResult(ok = true, message = "Stub implementation")
+                        try {
+                                val bucketReady = ensureStorageBucketReady()
+                                if (!bucketReady.ok) {
+                                        return@withContext bucketReady
+                                }
+
+                                val userId = getUserId() ?: return@withContext bucketReady
+                                val remoteBooks =
+                                        fetchAllItems(
+                                                "books",
+                                                "(user='$userId'%26%26deleted=false)",
+                                                sortParam = "-updatedAt",
+                                                perPage = 20
+                                        )
+                                val withRemoteFile =
+                                        remoteBooks.firstOrNull {
+                                                !resolveStoragePathFromRecord(it).isNullOrBlank()
+                                        }
+
+                                if (withRemoteFile != null) {
+                                        val remoteBookId = withRemoteFile["bookId"] as? String
+                                        val remoteStorage = resolveStoragePathFromRecord(withRemoteFile)
+                                        if (!remoteBookId.isNullOrBlank() &&
+                                                        !remoteStorage.isNullOrBlank()
+                                        ) {
+                                                val uri =
+                                                        ensureBookFileAvailable(
+                                                                bookId = remoteBookId,
+                                                                storagePath = remoteStorage,
+                                                                downloadIfNeeded = true
+                                                        )
+                                                if (uri != null) {
+                                                        return@withContext CheckResult(
+                                                                ok = true,
+                                                                message =
+                                                                        "Download test passed for book $remoteBookId"
+                                                        )
+                                                }
+                                                return@withContext CheckResult(
+                                                        ok = false,
+                                                        message =
+                                                                "Download test failed for remote book $remoteBookId"
+                                                )
+                                        }
+                                }
+
+                                val localCandidate =
+                                        db.bookDao().getAllBooks().firstOrNull { entity ->
+                                                try {
+                                                        isUriReadable(Uri.parse(entity.fileUri))
+                                                } catch (_: Exception) {
+                                                        false
+                                                }
+                                        }
+
+                                if (localCandidate != null) {
+                                        val pushed =
+                                                pushBook(
+                                                        book = localCandidate,
+                                                        uploadFile = true,
+                                                        contentResolver = appContext.contentResolver
+                                                )
+                                        if (!pushed) {
+                                                return@withContext CheckResult(
+                                                        ok = false,
+                                                        message =
+                                                                "Upload metadata test failed for local book ${localCandidate.bookId}"
+                                                )
+                                        }
+                                        val refreshed = fetchBookRecord(userId, localCandidate.bookId)
+                                        val storage = resolveStoragePathFromRecord(refreshed)
+                                        if (storage.isNullOrBlank()) {
+                                                return@withContext CheckResult(
+                                                        ok = false,
+                                                        message =
+                                                                "Upload path missing after test. Configure a PocketBase file field on books and keep storagePath updated."
+                                                )
+                                        }
+                                        return@withContext CheckResult(
+                                                ok = true,
+                                                message =
+                                                        "Upload path test passed for ${localCandidate.bookId}"
+                                        )
+                                }
+
+                                CheckResult(
+                                        ok = true,
+                                        message =
+                                                "Storage checks passed (connectivity + cache). No eligible upload/download sample found."
+                                )
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "runStorageSelfTest failed", e)
+                                CheckResult(ok = false, message = e.message ?: "Self-test failed")
+                        }
                 }
 
         fun clearLocalUserData() {
@@ -982,14 +1412,300 @@ class UserSyncRepository(
 
         // --- Private Helpers ---
 
-        private fun requireUserId(): String? {
-                cachedUserId?.let {
-                        return it
+        private fun localBooksCacheDir(): File = File(appContext.filesDir, "synced_books")
+
+        private fun localBookCacheFile(bookId: String): File {
+                val safeBookId = bookId.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                return File(localBooksCacheDir(), "$safeBookId.epub")
+        }
+
+        private fun isUriReadable(uri: Uri): Boolean {
+                if (uri.scheme.equals("pocketbase", ignoreCase = true)) {
+                        return false
+                }
+                return try {
+                        appContext.contentResolver.openInputStream(uri)?.use { true } ?: false
+                } catch (_: Exception) {
+                        false
+                }
+        }
+
+        private fun normalizeStoragePath(path: String?): String? {
+                if (path.isNullOrBlank()) {
+                        return null
+                }
+                val normalized = path.trim().removePrefix("pocketbase://").trim()
+                return normalized.takeIf { it.isNotBlank() }
+        }
+
+        private suspend fun fetchBookRecord(
+                userId: String,
+                bookId: String
+        ): Map<String, Any>? {
+                val filter = "(user='$userId'%26%26bookId='$bookId')"
+                val url =
+                        "$pocketBaseUrl/api/collections/books/records?filter=$filter&perPage=1"
+                val request = buildAuthenticatedRequest(url).get().build()
+                val responseBody = executeRequest(request)
+                val response = gson.fromJson(responseBody, PocketBaseListResponse::class.java)
+                return response.items.firstOrNull()
+        }
+
+        private suspend fun updateBookStoragePath(recordId: String, storagePath: String) {
+                val payload =
+                        mapOf(
+                                "storagePath" to storagePath,
+                                "updatedAt" to System.currentTimeMillis()
+                        )
+                val requestBody =
+                        gson.toJson(payload).toRequestBody("application/json".toMediaType())
+                val url = "$pocketBaseUrl/api/collections/books/records/$recordId"
+                val request = buildAuthenticatedRequest(url).patch(requestBody).build()
+                executeRequest(request)
+        }
+
+        private suspend fun tryUploadBookFile(
+                recordId: String?,
+                book: BookEntity,
+                contentResolver: android.content.ContentResolver
+        ): String? {
+                if (recordId.isNullOrBlank() || book.deleted) {
+                        return null
                 }
 
-                // getUser() returns Flow, but we need sync access here
-                // This is a stub - in a complete implementation we'd handle this better
+                val sourceUri =
+                        runCatching { Uri.parse(book.fileUri) }
+                                .getOrNull()
+                                ?.takeIf { isUriReadable(it) }
+                                ?: return null
+
+                val uploadDir = File(appContext.cacheDir, "book_uploads")
+                if (!uploadDir.exists()) {
+                        uploadDir.mkdirs()
+                }
+                val tmpFile = File(uploadDir, "${book.bookId}.epub.tmp")
+
+                try {
+                        contentResolver.openInputStream(sourceUri)?.use { input ->
+                                FileOutputStream(tmpFile).use { output ->
+                                        input.copyTo(output)
+                                }
+                        } ?: return null
+
+                        if (!tmpFile.exists() || tmpFile.length() <= 0L) {
+                                return null
+                        }
+
+                        val displayName =
+                                (queryDisplayName(sourceUri) ?: "${book.bookId}.epub")
+                                        .substringAfterLast('/')
+                        val sanitizedBaseName =
+                                displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                        val nonEmptyBaseName =
+                                sanitizedBaseName.ifBlank { "${book.bookId}.epub" }
+                        val cleanName =
+                                if (nonEmptyBaseName.lowercase(Locale.US).endsWith(".epub")) {
+                                        nonEmptyBaseName
+                                } else {
+                                        "$nonEmptyBaseName.epub"
+                                }
+                        val mediaType = "application/epub+zip".toMediaType()
+                        val fieldCandidates = listOf("bookFile", "file", "epubFile", "epub", "asset")
+                        val uploadUrl = "$pocketBaseUrl/api/collections/books/records/$recordId"
+
+                        for (field in fieldCandidates) {
+                                val multipartBody =
+                                        MultipartBody.Builder()
+                                                .setType(MultipartBody.FORM)
+                                                .addFormDataPart(
+                                                        field,
+                                                        cleanName,
+                                                        tmpFile.asRequestBody(mediaType)
+                                                )
+                                                .build()
+
+                                val request =
+                                        buildAuthenticatedRequest(uploadUrl).patch(multipartBody).build()
+
+                                httpClient.newCall(request).execute().use { response ->
+                                        val body = response.body?.string().orEmpty()
+                                        if (!response.isSuccessful) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "tryUploadBookFile - field=$field failed code=${response.code}"
+                                                )
+                                        } else {
+                                                val payload =
+                                                        runCatching {
+                                                                gson.fromJson(body, Map::class.java)
+                                                                        as? Map<String, Any>
+                                                        }
+                                                                .getOrNull()
+                                                val uploadedFileName =
+                                                        extractUploadedFileName(
+                                                                payload,
+                                                                fieldName = field,
+                                                                fallback = cleanName
+                                                        )
+                                                if (!uploadedFileName.isNullOrBlank()) {
+                                                        return "$recordId/$uploadedFileName"
+                                                }
+                                        }
+                                }
+                        }
+                } catch (e: Exception) {
+                        Log.e("UserSyncRepository", "tryUploadBookFile failed", e)
+                } finally {
+                        runCatching { tmpFile.delete() }
+                }
                 return null
+        }
+
+        private fun queryDisplayName(uri: Uri): String? {
+                return runCatching {
+                                appContext.contentResolver
+                                        .query(
+                                                uri,
+                                                arrayOf(OpenableColumns.DISPLAY_NAME),
+                                                null,
+                                                null,
+                                                null
+                                        )
+                                        ?.use { cursor ->
+                                                if (!cursor.moveToFirst()) {
+                                                        return@use null
+                                                }
+                                                val index =
+                                                        cursor.getColumnIndex(
+                                                                OpenableColumns.DISPLAY_NAME
+                                                        )
+                                                if (index >= 0) cursor.getString(index) else null
+                                        }
+                        }
+                        .getOrNull()
+        }
+
+        private fun extractUploadedFileName(
+                record: Map<String, Any>?,
+                fieldName: String,
+                fallback: String? = null
+        ): String? {
+                if (record == null) {
+                        return fallback
+                }
+
+                val value = record[fieldName]
+                when (value) {
+                        is String -> {
+                                if (value.isNotBlank()) {
+                                        return value.substringAfterLast('/')
+                                }
+                        }
+                        is List<*> -> {
+                                val firstFile =
+                                        value.firstOrNull { it is String && it.isNotBlank() } as?
+                                                String
+                                if (!firstFile.isNullOrBlank()) {
+                                        return firstFile.substringAfterLast('/')
+                                }
+                        }
+                }
+
+                return fallback
+        }
+
+        private fun resolveStoragePathFromRecord(record: Map<String, Any>?): String? {
+                if (record == null) {
+                        return null
+                }
+
+                val direct = normalizeStoragePath(record["storagePath"] as? String)
+                if (!direct.isNullOrBlank()) {
+                        return direct
+                }
+
+                val recordId = record["id"] as? String ?: return null
+                val fileFieldCandidates = listOf("bookFile", "file", "epubFile", "epub", "asset")
+                for (field in fileFieldCandidates) {
+                        val fileName = extractUploadedFileName(record, field)
+                        if (!fileName.isNullOrBlank()) {
+                                return "$recordId/$fileName"
+                        }
+                }
+                return null
+        }
+
+        private fun buildDownloadUrl(storagePath: String, recordId: String?): String? {
+                val normalized = normalizeStoragePath(storagePath) ?: return null
+                if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+                        return normalized
+                }
+                if (normalized.startsWith("/")) {
+                        return "$pocketBaseUrl$normalized"
+                }
+
+                val clean = normalized.removePrefix("books/")
+                val parts = clean.split('/').filter { it.isNotBlank() }
+                if (parts.size >= 2) {
+                        val rid = urlEncodePath(parts.first())
+                        val fileName = urlEncodePath(parts.drop(1).joinToString("/"))
+                        return "$pocketBaseUrl/api/files/books/$rid/$fileName"
+                }
+
+                if (parts.size == 1 && !recordId.isNullOrBlank()) {
+                        val rid = urlEncodePath(recordId)
+                        val fileName = urlEncodePath(parts.first())
+                        return "$pocketBaseUrl/api/files/books/$rid/$fileName"
+                }
+
+                return null
+        }
+
+        private fun urlEncodePath(value: String): String =
+                value.split('/').joinToString("/") {
+                        URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20")
+                }
+
+        private suspend fun downloadRemoteFile(url: String, target: File): Boolean {
+                return try {
+                        target.parentFile?.mkdirs()
+                        val requestBuilder =
+                                if (url.startsWith(pocketBaseUrl)) {
+                                        buildAuthenticatedRequest(url)
+                                } else {
+                                        Request.Builder().url(url)
+                                }
+                        val request = requestBuilder.get().build()
+                        httpClient.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) {
+                                        Log.w(
+                                                "UserSyncRepository",
+                                                "downloadRemoteFile failed code=${response.code} url=$url"
+                                        )
+                                        return false
+                                }
+
+                                val body = response.body ?: return false
+                                val tmpFile = File(target.parentFile, "${target.name}.part")
+                                body.byteStream().use { input ->
+                                        FileOutputStream(tmpFile).use { output ->
+                                                input.copyTo(output)
+                                        }
+                                }
+
+                                if (target.exists()) {
+                                        target.delete()
+                                }
+                                if (!tmpFile.renameTo(target)) {
+                                        tmpFile.copyTo(target, overwrite = true)
+                                        tmpFile.delete()
+                                }
+                                target.exists() && target.length() > 0L
+                        }
+                } catch (e: Exception) {
+                        Log.e("UserSyncRepository", "downloadRemoteFile failed for $url", e)
+                        false
+                }
         }
 
         private fun progressKey(bookId: String) = "progress_$bookId"
