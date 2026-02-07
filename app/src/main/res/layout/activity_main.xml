@@ -1,196 +1,202 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/rootMain"
+    android:id="@+id/swipeRefreshLayout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/bg_main_gradient">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <ScrollView
+        android:id="@+id/rootMain"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
-
-        <TextView
-            android:id="@+id/tvTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/main_title"
-            android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:layout_marginTop="8dp" />
-
-        <TextView
-            android:id="@+id/tvSubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/main_subtitle"
-            android:textColor="#E0FFFFFF"
-            android:textSize="16sp"
-            android:layout_marginTop="4dp" />
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_main_gradient">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="16dp">
+            android:orientation="vertical"
+            android:padding="24dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnOpenEpub"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:text=""
-                android:contentDescription="@string/main_select_epub"
-                app:cornerRadius="16dp"
-                app:icon="@android:drawable/ic_menu_add"
-                app:iconPadding="0dp"
-                app:iconSize="24dp"
-                app:iconTint="@android:color/white"
-                android:textColor="@android:color/white"
-                app:strokeColor="@android:color/white"
-                app:strokeWidth="2dp"
-                android:layout_marginEnd="8dp"/>
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/main_title"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnProfile"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="0dp"
-                android:layout_height="56dp"
-                android:layout_weight="1"
-                android:text=""
-                android:contentDescription="@string/main_profile"
-                app:cornerRadius="16dp"
-                app:icon="@drawable/ic_person"
-                app:iconPadding="0dp"
-                app:iconSize="24dp"
-                app:iconTint="@android:color/white"
-                android:textColor="@android:color/white"
-                app:strokeColor="@android:color/white"
-                app:strokeWidth="2dp" />
+            <TextView
+                android:id="@+id/tvSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/main_subtitle"
+                android:textColor="#E0FFFFFF"
+                android:textSize="16sp"
+                android:layout_marginTop="4dp" />
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="16dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOpenEpub"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_weight="1"
+                    android:text=""
+                    android:contentDescription="@string/main_select_epub"
+                    app:cornerRadius="16dp"
+                    app:icon="@android:drawable/ic_menu_add"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp"
+                    app:iconTint="@android:color/white"
+                    android:textColor="@android:color/white"
+                    app:strokeColor="@android:color/white"
+                    app:strokeWidth="2dp"
+                    android:layout_marginEnd="8dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnProfile"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_weight="1"
+                    android:text=""
+                    android:contentDescription="@string/main_profile"
+                    app:cornerRadius="16dp"
+                    app:icon="@drawable/ic_person"
+                    app:iconPadding="0dp"
+                    app:iconSize="24dp"
+                    app:iconTint="@android:color/white"
+                    android:textColor="@android:color/white"
+                    app:strokeColor="@android:color/white"
+                    app:strokeWidth="2dp" />
+
+            </LinearLayout>
+
+            <!-- 同步狀態卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardSyncStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/main_card_bg"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvSyncTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/main_sync_status"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/main_card_title" />
+
+                    <TextView
+                        android:id="@+id/tvSyncStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/main_sync_hint"
+                        android:textSize="14sp"
+                        android:textColor="@color/main_card_subtitle"
+                        android:layout_marginTop="4dp" />
+
+                    <ProgressBar
+                        android:id="@+id/progressSync"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_marginTop="12dp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvSyncProgress"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="#4CAF50"
+                        android:layout_marginTop="4dp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvSyncDetails"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="#666666"
+                        android:layout_marginTop="8dp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 最近閱讀卡片 -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/main_card_bg">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tvRecentTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/main_recent_title"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/main_card_title" />
+
+                    <TextView
+                        android:id="@+id/tvRecentSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/main_recent_hint"
+                        android:textSize="14sp"
+                        android:textColor="@color/main_card_subtitle"
+                        android:layout_marginBottom="8dp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/recyclerRecent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false" />
+
+                    <TextView
+                        android:id="@+id/tvEmptyState"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/main_empty_state"
+                        android:textColor="@color/main_card_subtitle"
+                        android:textSize="14sp"
+                        android:visibility="gone"
+                        android:layout_marginTop="8dp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
-
-        <!-- 同步狀態卡片 -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardSyncStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="12dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="6dp"
-            app:cardBackgroundColor="@color/main_card_bg"
-            android:visibility="gone">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tvSyncTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/main_sync_status"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/main_card_title" />
-
-                <TextView
-                    android:id="@+id/tvSyncStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/main_sync_hint"
-                    android:textSize="14sp"
-                    android:textColor="@color/main_card_subtitle"
-                    android:layout_marginTop="4dp" />
-
-                <ProgressBar
-                    android:id="@+id/progressSync"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_marginTop="12dp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tvSyncProgress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:textColor="#4CAF50"
-                    android:layout_marginTop="4dp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tvSyncDetails"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="12sp"
-                    android:textColor="#666666"
-                    android:layout_marginTop="8dp"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- 最近閱讀卡片 -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="12dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="6dp"
-            app:cardBackgroundColor="@color/main_card_bg">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/tvRecentTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/main_recent_title"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/main_card_title" />
-
-                <TextView
-                    android:id="@+id/tvRecentSubtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/main_recent_hint"
-                    android:textSize="14sp"
-                    android:textColor="@color/main_card_subtitle"
-                    android:layout_marginBottom="8dp" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/recyclerRecent"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false" />
-
-                <TextView
-                    android:id="@+id/tvEmptyState"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/main_empty_state"
-                    android:textColor="@color/main_card_subtitle"
-                    android:textSize="14sp"
-                    android:visibility="gone"
-                    android:layout_marginTop="8dp" />
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

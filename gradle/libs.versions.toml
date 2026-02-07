@@ -25,6 +25,7 @@ playServicesAuth = "21.0.0"
 securityCrypto = "1.0.0"
 robolectric = "4.11.1"
 awsSdkKotlin = "1.5.109"
+swiperefreshlayout = "1.1.0"
 
 [libraries]
 aws-sdk-s3 = { group = "aws.sdk.kotlin", name = "s3", version.ref = "awsSdkKotlin" }
@@ -70,6 +71,7 @@ androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview"
 json = { group = "org.json", name = "json", version = "20231013" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version = "0.7.1" }
+androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
  
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -111,6 +111,21 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val result = authRepo.register(email, pass, null)
             result.fold(
                     onSuccess = {
+                        // Registration successful, now request verification email
+                        launch {
+                            val verifyResult = authRepo.resendVerificationEmail(email)
+                            verifyResult.onFailure { verifyError ->
+                                android.util.Log.e(
+                                        "AuthViewModel",
+                                        "Failed to send verification email after registration",
+                                        verifyError
+                                )
+                                // We don't change the UI state to error because registration itself
+                                // succeeded
+                                // The user can manually request verification later if needed
+                            }
+                        }
+
                         val msg =
                                 getApplication<Application>()
                                         .getString(

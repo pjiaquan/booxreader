@@ -427,11 +427,77 @@ class UserSyncRepository(
 
         suspend fun pullBooks(): Int =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "pullBooks - STUB: Not implemented for PocketBase yet"
-                        )
-                        0
+                        try {
+                                val userId = getUserId() ?: return@withContext 0
+
+                                val url =
+                                        "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId')"
+                                val request = buildAuthenticatedRequest(url).get().build()
+                                val responseBody = executeRequest(request)
+
+                                val response =
+                                        gson.fromJson(
+                                                responseBody,
+                                                PocketBaseListResponse::class.java
+                                        )
+                                var syncedCount = 0
+
+                                for (item in response.items) {
+                                        val bookId = item["bookId"] as? String ?: continue
+                                        val title = item["title"] as? String
+                                        val storagePath = item["storagePath"] as? String
+                                        val deleted = item["deleted"] as? Boolean ?: false
+                                        val updatedAt =
+                                                (item["updatedAt"] as? Double)?.toLong()
+                                                        ?: System.currentTimeMillis()
+
+                                        if (deleted) {
+                                                db.bookDao().deleteById(bookId)
+                                                continue
+                                        }
+
+                                        // Check if book exists locally
+                                        val existingBook =
+                                                db.bookDao().getByIds(listOf(bookId)).firstOrNull()
+
+                                        if (existingBook == null) {
+                                                // New book from cloud
+                                                val newBook =
+                                                        BookEntity(
+                                                                bookId = bookId,
+                                                                title = title ?: "Untitled",
+                                                                fileUri =
+                                                                        "pocketbase://$storagePath", // Placeholder URI
+                                                                lastLocatorJson = null,
+                                                                lastOpenedAt = updatedAt,
+                                                                deleted = false
+                                                        )
+                                                db.bookDao().insert(newBook)
+                                                syncedCount++
+                                        } else {
+                                                // Update existing book if remote has newer info
+                                                // (e.g. title)
+                                                // Note: We preserve local fileUri unless it's a
+                                                // placeholder
+                                                if (existingBook.title != title) {
+                                                        val updatedBook =
+                                                                existingBook.copy(
+                                                                        title = title
+                                                                                        ?: existingBook
+                                                                                                .title
+                                                                )
+                                                        db.bookDao().insert(updatedBook)
+                                                        syncedCount++
+                                                }
+                                        }
+                                }
+
+                                Log.d("UserSyncRepository", "pullBooks - Synced $syncedCount books")
+                                syncedCount
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "pullBooks failed", e)
+                                0
+                        }
                 }
 
         // --- Bookmark Sync ---

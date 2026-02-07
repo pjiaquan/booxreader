@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
-import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.GitHubRelease
@@ -75,6 +74,12 @@ class MainActivity : BaseActivity() {
         private const val PERMISSION_REQUEST_CODE = 100
     }
 
+    private var pendingManualSyncAfterPermission = false
+
+    private fun startManualSync() {
+        performFullSync()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -88,6 +93,8 @@ class MainActivity : BaseActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        setupSwipeRefresh()
 
         binding.btnOpenEpub.setOnClickListener { pickEpub.launch(arrayOf("application/epub+zip")) }
 
@@ -106,15 +113,25 @@ class MainActivity : BaseActivity() {
         // Check and request file permissions
         checkAndRequestFilePermissions()
 
-        setupManualSyncOnScroll()
+        // setupManualSyncOnScroll() // Removed in favor of SwipeRefreshLayout
 
         checkForUpdates()
     }
 
+    private fun setupSwipeRefresh() {
+        binding.swipeRefreshLayout.setColorSchemeResources(R.color.purple_500)
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            lifecycleScope.launch {
+                try {
+                    executeFullSync()
+                } finally {
+                    binding.swipeRefreshLayout.isRefreshing = false
+                }
+            }
+        }
+    }
+
     private var progressSyncJob: Job? = null
-    private var manualSyncArmed = true
-    private var manualSyncInProgress = false
-    private var pendingManualSyncAfterPermission = false
 
     override fun onResume() {
         super.onResume()
@@ -158,6 +175,17 @@ class MainActivity : BaseActivity() {
 
     private fun performFullSync() {
         lifecycleScope.launch {
+            binding.swipeRefreshLayout.isRefreshing = true
+            try {
+                executeFullSync()
+            } finally {
+                binding.swipeRefreshLayout.isRefreshing = false
+            }
+        }
+    }
+
+    private suspend fun executeFullSync() {
+        withContext(Dispatchers.IO) {
             try {
                 // Sync all user data
                 // Sync Profiles FIRST so settings can link to them
@@ -181,7 +209,7 @@ class MainActivity : BaseActivity() {
                 // Force refresh recent books after sync to ensure UI updates
                 // This ensures progress updates are reflected even if Flow doesn't emit
                 // automatically
-                lifecycleScope.launch {
+                withContext(Dispatchers.Main) {
                     val recentBooks = bookRepository.getRecentBooksSync(10)
                     recentAdapter.submitList(recentBooks)
                 }
@@ -380,200 +408,6 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    private fun startManualSync() {
-        if (manualSyncInProgress) {
-            return
-        }
-        manualSyncInProgress = true
-        // 顯示同步狀態卡片
-        binding.cardSyncStatus.visibility = android.view.View.VISIBLE
-        binding.tvSyncStatus.text = getString(R.string.sync_manual_start)
-        binding.progressSync.visibility = android.view.View.VISIBLE
-        binding.tvSyncProgress.visibility = android.view.View.VISIBLE
-        binding.tvSyncDetails.visibility = android.view.View.VISIBLE
-
-        // 重置進度條
-        binding.progressSync.progress = 0
-        binding.tvSyncProgress.text = "0%"
-        binding.tvSyncDetails.text = getString(R.string.sync_manual_start)
-
-        lifecycleScope.launch {
-            try {
-
-                val totalSteps =
-                        9 // 下載 + 上傳 + 再次下載校驗 + Profiles + 設定 + Notes + Progress + Bookmarks + Done
-                var currentStep = 0
-
-                // 步驟1: 先下載雲端書籍（包含Storage檔案）
-                currentStep++
-                updateSyncProgress(
-                        currentStep,
-                        totalSteps,
-                        getString(R.string.sync_downloading_books)
-                )
-
-                val pullBooksResult = runCatching { syncRepo.pullBooks() }
-                val booksDownloadedInitial = pullBooksResult.getOrNull() ?: 0
-
-                // 步驟2: 上傳本地書籍到雲端
-                currentStep++
-                updateSyncProgress(
-                        currentStep,
-                        totalSteps,
-                        getString(R.string.sync_uploading_local_books)
-                )
-                val bucketCheck = syncRepo.ensureStorageBucketReady()
-                if (!bucketCheck.ok) {
-                    binding.tvSyncStatus.text = getString(R.string.sync_failed)
-                    binding.tvSyncDetails.text =
-                            getString(
-                                    R.string.sync_storage_bucket_missing,
-                                    bucketCheck.message ?: ""
-                            )
-                    binding.tvSyncProgress.text = "Error"
-                    return@launch
-                }
-                val uploadResult = runCatching { uploadLocalBooks() }
-                val booksUploaded = uploadResult.getOrNull() ?: 0
-
-                // 步驟3: 再次下載，確保剛剛其它裝置上傳的書籍也同步到本機
-                currentStep++
-                updateSyncProgress(
-                        currentStep,
-                        totalSteps,
-                        getString(R.string.sync_downloading_books_again)
-                )
-                val pullBooksResultAfterUpload = runCatching { syncRepo.pullBooks() }
-                val booksDownloadedFinal = pullBooksResultAfterUpload.getOrNull() ?: 0
-
-                // 步驟4: 同步AI Profiles (Critical to run before settings)
-                currentStep++
-                updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_ai_profiles))
-                val profilesResult = runCatching { syncRepo.pullProfiles() }
-                val profilesUpdated = profilesResult.getOrNull() ?: 0
-
-                // 步驟5: 同步設定
-                currentStep++
-                updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_settings))
-                val settingsResult = runCatching { syncRepo.pullSettingsIfNewer() }
-
-                // 步驟6: 同步AI筆記
-                currentStep++
-                updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_ai_notes))
-                val notesResult = runCatching { syncRepo.pullNotes() }
-                val notesUpdated = notesResult.getOrNull() ?: 0
-
-                // 步驟7: 同步閱讀進度
-                currentStep++
-                updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_progress))
-                val progressResult = runCatching { syncRepo.pullAllProgress() }
-                val progressUpdated = progressResult.getOrNull() ?: 0
-
-                // 步驟8: 同步書籤
-                currentStep++
-                updateSyncProgress(currentStep, totalSteps, getString(R.string.sync_bookmarks))
-                val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
-                val bookmarksUpdated = bookmarksResult.getOrNull() ?: 0
-
-                // 完成
-                updateSyncProgress(totalSteps, totalSteps, getString(R.string.sync_complete))
-
-                // 顯示結果摘要
-                val summary = buildString {
-                    append(getString(R.string.sync_complete) + "\n")
-                    if (booksUploaded > 0)
-                            append(
-                                    getString(R.string.sync_result_uploaded_books, booksUploaded) +
-                                            "\n"
-                            )
-                    val totalDownloaded = booksDownloadedInitial + booksDownloadedFinal
-                    if (totalDownloaded > 0)
-                            append(
-                                    getString(
-                                            R.string.sync_result_downloaded_books,
-                                            totalDownloaded
-                                    ) + "\n"
-                            )
-                    if (profilesUpdated > 0) append("Profiles updated: $profilesUpdated\n")
-                    if (notesUpdated > 0)
-                            append(
-                                    getString(R.string.sync_result_updated_notes, notesUpdated) +
-                                            "\n"
-                            )
-                    if (progressUpdated > 0)
-                            append(
-                                    getString(
-                                            R.string.sync_result_updated_progress,
-                                            progressUpdated
-                                    ) + "\n"
-                            )
-                    if (bookmarksUpdated > 0)
-                            append(
-                                    getString(
-                                            R.string.sync_result_updated_bookmarks,
-                                            bookmarksUpdated
-                                    ) + "\n"
-                            )
-                    if (booksUploaded == 0 &&
-                                    totalDownloaded == 0 &&
-                                    notesUpdated == 0 &&
-                                    progressUpdated == 0 &&
-                                    bookmarksUpdated == 0 &&
-                                    profilesUpdated == 0
-                    ) {
-                        append(getString(R.string.sync_result_no_updates))
-                    }
-                }
-
-                binding.tvSyncStatus.text = getString(R.string.sync_complete)
-                binding.tvSyncDetails.text = summary
-                binding.tvSyncProgress.text = "100%"
-                binding.progressSync.progress = 100
-            } catch (e: Exception) {
-                binding.tvSyncStatus.text = getString(R.string.sync_failed)
-                binding.tvSyncDetails.text = getString(R.string.sync_failed) + ": ${e.message}"
-                binding.tvSyncProgress.text = "Error"
-            } finally {
-                manualSyncInProgress = false
-            }
-        }
-    }
-
-    private fun setupManualSyncOnScroll() {
-        val scrollView = binding.rootMain
-        val thresholdPx = (16 * resources.displayMetrics.density).toInt()
-
-        scrollView.viewTreeObserver.addOnScrollChangedListener {
-            val child = scrollView.getChildAt(0) ?: return@addOnScrollChangedListener
-            val maxScroll = (child.height - scrollView.height - thresholdPx).coerceAtLeast(0)
-            val canScroll = child.height > scrollView.height + thresholdPx
-            if (!canScroll) {
-                return@addOnScrollChangedListener
-            }
-
-            val atBottom = scrollView.scrollY >= maxScroll
-            if (atBottom && manualSyncArmed) {
-                manualSyncArmed = false
-                triggerManualSyncFromScroll()
-            } else if (!atBottom) {
-                manualSyncArmed = true
-            }
-        }
-    }
-
-    private fun triggerManualSyncFromScroll() {
-        if (manualSyncInProgress) {
-            return
-        }
-
-        if (hasFilePermissions()) {
-            startManualSync()
-        } else {
-            pendingManualSyncAfterPermission = true
-            requestFilePermissions()
-        }
-    }
-
     private fun runStorageSelfTest() {
         binding.cardSyncStatus.visibility = android.view.View.VISIBLE
         binding.tvSyncStatus.text = getString(R.string.sync_storage_test_start)
@@ -598,35 +432,6 @@ class MainActivity : BaseActivity() {
             }
         }
     }
-
-    private fun updateSyncProgress(current: Int, total: Int, message: String) {
-        val progress = (current * 100 / total)
-        binding.progressSync.progress = progress
-        binding.tvSyncProgress.text = "$progress%"
-        binding.tvSyncDetails.text = message
-    }
-
-    private suspend fun uploadLocalBooks(): Int =
-            withContext(Dispatchers.IO) {
-                val dao = AppDatabase.get(applicationContext).bookDao()
-                val bookIds = dao.getAllBookIds()
-
-                if (bookIds.isEmpty()) {
-                    return@withContext 0
-                }
-
-                val localBooks = dao.getByIds(bookIds)
-                var uploadedCount = 0
-
-                localBooks.forEach { book ->
-                    try {
-                        syncRepo.pushBook(book = book, uploadFile = true)
-                        uploadedCount++
-                    } catch (e: Exception) {}
-                }
-
-                return@withContext uploadedCount
-            }
 
     private fun isUriAccessible(uri: Uri): Boolean {
         return try {
