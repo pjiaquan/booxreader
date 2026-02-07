@@ -2,6 +2,7 @@ package my.hinoki.booxreader.ui.reader.nativev2
 
 import android.content.res.Resources
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.text.Editable
 import android.text.Html
@@ -158,28 +159,27 @@ internal object HtmlContentParser {
         }
     }
 
-    private class ModernQuoteSpan(private val textColor: Int) :
+        private class ModernQuoteSpan(private val textColor: Int) :
             LeadingMarginSpan, LineBackgroundSpan {
 
         private val density = Resources.getSystem().displayMetrics.density
-        private val cardInsetHorizontal = 10f * density
-        private val cardCorner = 12f * density
-        private val accentInsetStart = 8f * density
-        private val accentWidth = 3f * density
-        private val textGap = 12f * density
-        private val cardVerticalInset = 2f * density
+        private val cardInsetStart = 4f * density
+        private val cardInsetEnd = 1f * density
+        private val cardCorner = 10f * density
+        private val accentInsetStart = 6f * density
+        private val accentWidth = 2f * density
+        private val textGap = 10f * density
+        private val cardVerticalInset = 1.25f * density
+        private val firstLineTopPadding = 3.5f * density
 
         private val accentColor: Int
-            get() = (textColor and 0x00FFFFFF) or 0xCC000000.toInt()
+            get() = (textColor and 0x00FFFFFF) or 0xA6000000.toInt()
 
         private val backgroundColor: Int
-            get() = (textColor and 0x00FFFFFF) or 0x14000000.toInt()
-
-        private val borderColor: Int
-            get() = (textColor and 0x00FFFFFF) or 0x26000000.toInt()
+            get() = (textColor and 0x00FFFFFF) or 0x12000000.toInt()
 
         override fun getLeadingMargin(first: Boolean): Int {
-            return (cardInsetHorizontal + accentInsetStart + accentWidth + textGap).toInt()
+            return (cardInsetStart + accentInsetStart + accentWidth + textGap).toInt()
         }
 
         override fun drawLeadingMargin(
@@ -198,26 +198,41 @@ internal object HtmlContentParser {
         ) {
             val style = paint.style
             val color = paint.color
-            val originalStrokeWidth = paint.strokeWidth
 
             paint.style = Paint.Style.FILL
             paint.color = accentColor
 
-            val topInset = top + cardVerticalInset
-            val bottomInset = bottom - cardVerticalInset
+            val spanStart = (text as? Spanned)?.getSpanStart(this) ?: start
+            val spanEnd = (text as? Spanned)?.getSpanEnd(this) ?: end
+            val isFirstLine = start <= spanStart
+            val isLastLine = end >= spanEnd
+
+            val topInset =
+                    if (isFirstLine) {
+                        top - firstLineTopPadding + cardVerticalInset
+                    } else {
+                        top.toFloat()
+                    }
+            val bottomInset = if (isLastLine) bottom - cardVerticalInset else bottom.toFloat()
             val accentStart =
                     if (dir >= 0) {
-                        x + cardInsetHorizontal + accentInsetStart
+                        x + cardInsetStart + accentInsetStart
                     } else {
-                        x - cardInsetHorizontal - accentInsetStart - accentWidth
+                        x - cardInsetStart - accentInsetStart - accentWidth
                     }
             val accentEnd = accentStart + accentWidth
             val accentRect = RectF(accentStart, topInset, accentEnd, bottomInset)
-            canvas.drawRoundRect(accentRect, accentWidth, accentWidth, paint)
+            drawSegmentShape(
+                    canvas = canvas,
+                    paint = paint,
+                    rect = accentRect,
+                    isFirstLine = isFirstLine,
+                    isLastLine = isLastLine,
+                    corner = accentWidth
+            )
 
             paint.style = style
             paint.color = color
-            paint.strokeWidth = originalStrokeWidth
         }
 
         override fun drawBackground(
@@ -235,28 +250,72 @@ internal object HtmlContentParser {
         ) {
             val color = paint.color
             val style = paint.style
-            val originalStrokeWidth = paint.strokeWidth
+            val spanStart = (text as? Spanned)?.getSpanStart(this) ?: start
+            val spanEnd = (text as? Spanned)?.getSpanEnd(this) ?: end
+            val isFirstLine = start <= spanStart
+            val isLastLine = end >= spanEnd
+
+            val panelRight =
+                    (canvas.clipBounds.right.toFloat() - cardInsetEnd)
+                            .coerceAtLeast(right - cardInsetEnd)
+            val panelTop =
+                    if (isFirstLine) {
+                        top - firstLineTopPadding + cardVerticalInset
+                    } else {
+                        top.toFloat()
+                    }
+            val panelBottom = if (isLastLine) bottom - cardVerticalInset else bottom.toFloat()
 
             val cardRect =
                     RectF(
-                            left + cardInsetHorizontal,
-                            top + cardVerticalInset,
-                            right - cardInsetHorizontal,
-                            bottom - cardVerticalInset
+                            left + cardInsetStart,
+                            panelTop,
+                            panelRight,
+                            panelBottom
                     )
 
             paint.style = Paint.Style.FILL
             paint.color = backgroundColor
-            canvas.drawRoundRect(cardRect, cardCorner, cardCorner, paint)
-
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 1.2f * density
-            paint.color = borderColor
-            canvas.drawRoundRect(cardRect, cardCorner, cardCorner, paint)
+            drawSegmentShape(
+                    canvas = canvas,
+                    paint = paint,
+                    rect = cardRect,
+                    isFirstLine = isFirstLine,
+                    isLastLine = isLastLine,
+                    corner = cardCorner
+            )
 
             paint.style = style
-            paint.strokeWidth = originalStrokeWidth
             paint.color = color
+        }
+
+        private fun drawSegmentShape(
+                canvas: android.graphics.Canvas,
+                paint: Paint,
+                rect: RectF,
+                isFirstLine: Boolean,
+                isLastLine: Boolean,
+                corner: Float
+        ) {
+            if (rect.width() <= 0f || rect.height() <= 0f) return
+            if (isFirstLine && isLastLine) {
+                canvas.drawRoundRect(rect, corner, corner, paint)
+                return
+            }
+            if (!isFirstLine && !isLastLine) {
+                canvas.drawRect(rect, paint)
+                return
+            }
+
+            val radii =
+                    if (isFirstLine) {
+                        floatArrayOf(corner, corner, corner, corner, 0f, 0f, 0f, 0f)
+                    } else {
+                        floatArrayOf(0f, 0f, 0f, 0f, corner, corner, corner, corner)
+                    }
+            val path = Path()
+            path.addRoundRect(rect, radii, Path.Direction.CW)
+            canvas.drawPath(path, paint)
         }
     }
 }
