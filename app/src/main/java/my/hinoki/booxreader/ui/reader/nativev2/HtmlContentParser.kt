@@ -164,13 +164,13 @@ internal object HtmlContentParser {
 
         private val density = Resources.getSystem().displayMetrics.density
         private val cardInsetStart = 4f * density
-        private val cardInsetEnd = 1f * density
+        private val cardInsetEnd = 4f * density
         private val cardCorner = 10f * density
         private val accentInsetStart = 6f * density
         private val accentWidth = 2f * density
         private val textGap = 10f * density
         private val cardVerticalInset = 1.25f * density
-        private val firstLineTopPadding = 3.5f * density
+        private val firstLineTopPadding = 6f * density
 
         private val accentColor: Int
             get() = (textColor and 0x00FFFFFF) or 0xA6000000.toInt()
