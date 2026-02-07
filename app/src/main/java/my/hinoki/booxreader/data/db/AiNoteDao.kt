@@ -29,8 +29,17 @@ interface AiNoteDao {
     @Query("SELECT * FROM ai_notes WHERE id = :id")
     suspend fun getById(id: Long): AiNoteEntity?
 
+    @Query("SELECT * FROM ai_notes WHERE id IN (:ids) ORDER BY createdAt DESC, id DESC")
+    suspend fun getByIds(ids: List<Long>): List<AiNoteEntity>
+
     @Query("UPDATE ai_notes SET bookId = :newBookId WHERE bookId = :oldBookId")
     suspend fun migrateBookId(oldBookId: String, newBookId: String)
+
+    @Query("DELETE FROM ai_notes WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM ai_notes WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>): Int
 
     @Query("DELETE FROM ai_notes")
     suspend fun deleteAll()

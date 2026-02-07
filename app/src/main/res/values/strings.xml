@@ -185,6 +185,15 @@
     <string name="ai_note_go_to_page">Go to Page</string>
     <string name="ai_note_model_info_format">Model: %1$s</string>
     <string name="ai_note_model_disclaimer">AI can make mistakes. Check important info.</string>
+    <string name="ai_note_action_select_all">Select all</string>
+    <string name="ai_note_action_export_selected">Export selected</string>
+    <string name="ai_note_action_delete_selected">Delete selected</string>
+    <string name="ai_note_selected_count">%1$d selected</string>
+    <string name="ai_note_delete_selected_title">Delete AI Notes</string>
+    <string name="ai_note_delete_selected_message">Delete %1$d selected notes?</string>
+    <string name="ai_note_delete_selected_success">%1$d notes deleted</string>
+    <string name="ai_note_delete_selected_partial">%1$d deleted, %2$d failed</string>
+    <string name="ai_note_export_selected_empty">No selected notes to export</string>
     <string name="reader_settings_convert_chinese">Simplified to Traditional</string>
     <string name="reader_settings_convert_chinese_description">Convert Simplified Chinese to Traditional Chinese</string>
     <string name="profile_version_format">Version: %1$s</string>

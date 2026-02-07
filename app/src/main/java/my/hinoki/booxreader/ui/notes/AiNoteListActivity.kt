@@ -6,29 +6,36 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.format.DateFormat
+import android.view.LayoutInflater
 import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.view.ActionMode
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.DeleteResult
 import my.hinoki.booxreader.data.repo.ExportResult
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
+import my.hinoki.booxreader.databinding.ItemAiNoteSelectableBinding
 import kotlinx.coroutines.launch
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import android.os.Build
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.widget.TextView
+import android.widget.BaseAdapter
 
 class AiNoteListActivity : BaseActivity() {
 
@@ -48,21 +55,34 @@ class AiNoteListActivity : BaseActivity() {
     private lateinit var binding: ActivityAiNoteListBinding
     private lateinit var syncRepo: UserSyncRepository
     private lateinit var repo: AiNoteRepository
+    private lateinit var adapter: NoteListAdapter
     private var bookId: String? = null
     private var exportMenuItem: MenuItem? = null
-    private var pendingExportAfterPermission: Boolean = false
+    private var pendingExportAllAfterPermission: Boolean = false
+    private var pendingExportSelectedIds: Set<Long>? = null
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
+    private var notes: List<AiNoteEntity> = emptyList()
+    private val selectedNoteIds = linkedSetOf<Long>()
+    private var selectionActionMode: ActionMode? = null
 
     private val storagePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted && pendingExportAfterPermission) {
-                exportAllNotes()
-            } else if (!granted && pendingExportAfterPermission) {
+            val selectedIds = pendingExportSelectedIds
+            val exportAll = pendingExportAllAfterPermission
+            pendingExportSelectedIds = null
+            pendingExportAllAfterPermission = false
+
+            if (granted) {
+                if (selectedIds != null) {
+                    exportSelectedNotes(selectedIds)
+                } else if (exportAll) {
+                    exportAllNotes()
+                }
+            } else if (selectedIds != null || exportAll) {
                 Toast.makeText(this, "Storage permission denied; local export skipped", Toast.LENGTH_SHORT).show()
             }
-            pendingExportAfterPermission = false
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,6 +96,7 @@ class AiNoteListActivity : BaseActivity() {
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         applyActionBarPadding(binding.listAiNotes)
+        setupList()
         applyThemeFromSettings()
 
         loadNotes()
@@ -95,11 +116,15 @@ class AiNoteListActivity : BaseActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                onBackPressedDispatcher.onBackPressed()
+                if (selectionActionMode != null) {
+                    selectionActionMode?.finish()
+                } else {
+                    onBackPressedDispatcher.onBackPressed()
+                }
                 true
             }
             R.id.action_export_ai_notes -> {
-                exportAllNotes()
+                requestExportAllNotes()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -111,6 +136,27 @@ class AiNoteListActivity : BaseActivity() {
         binding.listAiNotes.isEnabled = !inProgress
         exportMenuItem?.isEnabled = !inProgress
         supportActionBar?.subtitle = if (inProgress) "Exporting..." else null
+    }
+
+    private fun setupList() {
+        adapter = NoteListAdapter()
+        binding.listAiNotes.adapter = adapter
+        binding.listAiNotes.setOnItemClickListener { _, _, position, _ ->
+            val note = notes.getOrNull(position) ?: return@setOnItemClickListener
+            if (selectionActionMode != null) {
+                toggleSelection(note.id)
+            } else {
+                AiNoteDetailActivity.open(this@AiNoteListActivity, note.id)
+            }
+        }
+        binding.listAiNotes.setOnItemLongClickListener { _, _, position, _ ->
+            val note = notes.getOrNull(position) ?: return@setOnItemLongClickListener true
+            if (selectionActionMode == null) {
+                selectionActionMode = startSupportActionMode(selectionActionModeCallback)
+            }
+            toggleSelection(note.id)
+            true
+        }
     }
 
     private fun applyThemeFromSettings() {
@@ -154,7 +200,7 @@ class AiNoteListActivity : BaseActivity() {
         insetsController.isAppearanceLightStatusBars = useLightIcons
         insetsController.isAppearanceLightNavigationBars = useLightIcons
 
-        (binding.listAiNotes.adapter as? android.widget.SimpleAdapter)?.notifyDataSetChanged()
+        adapter.notifyDataSetChanged()
     }
 
     private fun loadNotes() {
@@ -163,80 +209,40 @@ class AiNoteListActivity : BaseActivity() {
             runCatching { syncRepo.pullNotes() }
 
             if (isFinishing || isDestroyed) return@launch
-            val notes = if (bookId != null) {
+            notes = if (bookId != null) {
                 repo.getByBook(bookId!!)
             } else {
                 repo.getAll()
             }
-
-            // Map the data for SimpleAdapter
-            val dataList = notes.map {
-                val time = DateFormat.format("yyyy-MM-dd HH:mm", it.createdAt).toString()
-                
-                val messagesFallback = it.messages.trim()
-                val msgs = try { org.json.JSONArray(it.messages) } catch(e: Exception) { org.json.JSONArray() }
-                val rawOriginal = msgs.optJSONObject(0)?.optString("content", "")?.trim() ?: ""
-                val rawResponse = if (msgs.length() > 1) msgs.optJSONObject(msgs.length()-1)?.optString("content", "")?.trim() ?: "" else ""
-                
-                // Prioritize original text, fallback to AI response
-                val mainText = if (rawOriginal.isNotEmpty()) {
-                    rawOriginal
-                } else if (rawResponse.isNotEmpty()) {
-                    rawResponse
-                } else if (messagesFallback.isNotEmpty() && messagesFallback != "[]") {
-                    messagesFallback
-                } else {
-                    "(No Content)"
-                }
-
-                val shortText = mainText.replace("\n", " ").take(100)
-                
-                mapOf("text" to shortText, "time" to time)
+            val validIds = notes.map { it.id }.toSet()
+            selectedNoteIds.retainAll(validIds)
+            if (selectedNoteIds.isEmpty()) {
+                selectionActionMode?.finish()
+            } else {
+                updateSelectionTitle()
             }
-
-            val adapter =
-                android.widget.SimpleAdapter(
-                    this@AiNoteListActivity,
-                    dataList,
-                    android.R.layout.simple_list_item_2,
-                    arrayOf("text", "time"),
-                    intArrayOf(android.R.id.text1, android.R.id.text2)
-                ).apply {
-                    setViewBinder { view, data, _ ->
-                        if (view is TextView) {
-                            when (view.id) {
-                                android.R.id.text1 -> view.setTextColor(listTextColor)
-                                android.R.id.text2 -> view.setTextColor(listSecondaryTextColor)
-                            }
-                        }
-                        false
-                    }
-                }
-
-            binding.listAiNotes.adapter = adapter
-
-            binding.listAiNotes.setOnItemClickListener { _, _, position, _ ->
-                val note = notes[position]
-                AiNoteDetailActivity.open(this@AiNoteListActivity, note.id)
-            }
+            adapter.notifyDataSetChanged()
         }
     }
 
-    private fun exportAllNotes() {
+    private fun requestExportAllNotes() {
         if (bookId.isNullOrEmpty()) {
             Toast.makeText(this, "No book selected for export", Toast.LENGTH_SHORT).show()
             return
         }
         if (shouldRequestStoragePermission()) {
-            pendingExportAfterPermission = true
+            pendingExportAllAfterPermission = true
             storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             return
         }
+        exportAllNotes()
+    }
 
+    private fun exportAllNotes() {
         lifecycleScope.launch {
             setExportInProgress(true)
             val result = try {
-                repo.exportAllNotes(bookId!!)
+                repo.exportAllNotes(bookId ?: "")
             } catch (e: Exception) {
                 ExportResult(
                     success = false,
@@ -245,19 +251,213 @@ class AiNoteListActivity : BaseActivity() {
                     message = "Export failed: ${e.message ?: "Unknown error"}"
                 )
             }
+            showExportResult(result)
+            setExportInProgress(false)
+        }
+    }
 
-            val message = when {
-                result.isEmpty -> "No AI notes to export"
-                result.success -> {
-                    val base = "Exported ${result.exportedCount} AI notes"
-                    val pathHint = result.localPath?.let { " (Saved at $it)" } ?: ""
-                    base + pathHint
+    private fun requestExportSelectedNotes(noteIds: Set<Long>) {
+        if (noteIds.isEmpty()) {
+            Toast.makeText(this, getString(R.string.ai_note_export_selected_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (shouldRequestStoragePermission()) {
+            pendingExportSelectedIds = noteIds
+            storagePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            return
+        }
+        exportSelectedNotes(noteIds)
+    }
+
+    private fun exportSelectedNotes(noteIds: Set<Long>) {
+        lifecycleScope.launch {
+            setExportInProgress(true)
+            val result = try {
+                repo.exportSelectedNotes(noteIds)
+            } catch (e: Exception) {
+                ExportResult(
+                        success = false,
+                        exportedCount = 0,
+                        isEmpty = false,
+                        message = "Export failed: ${e.message ?: "Unknown error"}"
+                )
+            }
+            showExportResult(result)
+            setExportInProgress(false)
+        }
+    }
+
+    private fun showExportResult(result: ExportResult) {
+        val message = when {
+            result.isEmpty -> result.message ?: "No AI notes to export"
+            result.success -> {
+                val base = "Exported ${result.exportedCount} AI notes"
+                val pathHint = result.localPath?.let { " (Saved at $it)" } ?: ""
+                base + pathHint
+            }
+            else -> result.message ?: "Failed to export AI notes"
+        }
+        Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun confirmDeleteSelected() {
+        val count = selectedNoteIds.size
+        if (count == 0) return
+        AlertDialog.Builder(this)
+                .setTitle(R.string.ai_note_delete_selected_title)
+                .setMessage(getString(R.string.ai_note_delete_selected_message, count))
+                .setPositiveButton(R.string.action_delete) { _, _ ->
+                    deleteSelectedNotes(selectedNoteIds.toSet())
                 }
-                else -> result.message ?: "Failed to export AI notes"
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+    }
+
+    private fun deleteSelectedNotes(noteIds: Set<Long>) {
+        if (noteIds.isEmpty()) return
+        lifecycleScope.launch {
+            val result =
+                    runCatching { repo.deleteSelectedNotes(noteIds) }
+                            .getOrDefault(DeleteResult(deletedCount = 0, failedCount = noteIds.size))
+            val message =
+                    if (result.failedCount == 0) {
+                        getString(R.string.ai_note_delete_selected_success, result.deletedCount)
+                    } else {
+                        getString(
+                                R.string.ai_note_delete_selected_partial,
+                                result.deletedCount,
+                                result.failedCount
+                        )
+                    }
+            Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_LONG).show()
+            selectedNoteIds.clear()
+            selectionActionMode?.finish()
+            loadNotes()
+        }
+    }
+
+    private fun toggleSelection(noteId: Long) {
+        if (selectedNoteIds.contains(noteId)) {
+            selectedNoteIds.remove(noteId)
+        } else {
+            selectedNoteIds.add(noteId)
+        }
+        if (selectedNoteIds.isEmpty()) {
+            selectionActionMode?.finish()
+        } else {
+            updateSelectionTitle()
+            adapter.notifyDataSetChanged()
+        }
+    }
+
+    private fun updateSelectionTitle() {
+        selectionActionMode?.title = getString(R.string.ai_note_selected_count, selectedNoteIds.size)
+    }
+
+    private val selectionActionModeCallback =
+            object : ActionMode.Callback {
+                override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+                    mode.menuInflater.inflate(R.menu.menu_ai_note_selection, menu)
+                    updateSelectionTitle()
+                    exportMenuItem?.isVisible = false
+                    adapter.notifyDataSetChanged()
+                    return true
+                }
+
+                override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean = false
+
+                override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+                    return when (item.itemId) {
+                        R.id.action_select_all_notes -> {
+                            selectedNoteIds.clear()
+                            selectedNoteIds.addAll(notes.map { it.id })
+                            updateSelectionTitle()
+                            adapter.notifyDataSetChanged()
+                            true
+                        }
+
+                        R.id.action_export_selected_notes -> {
+                            requestExportSelectedNotes(selectedNoteIds.toSet())
+                            true
+                        }
+
+                        R.id.action_delete_selected_notes -> {
+                            confirmDeleteSelected()
+                            true
+                        }
+
+                        else -> false
+                    }
+                }
+
+                override fun onDestroyActionMode(mode: ActionMode) {
+                    selectedNoteIds.clear()
+                    selectionActionMode = null
+                    exportMenuItem?.isVisible = true
+                    adapter.notifyDataSetChanged()
+                }
             }
 
-            Toast.makeText(this@AiNoteListActivity, message, Toast.LENGTH_LONG).show()
-            setExportInProgress(false)
+    private fun previewText(note: AiNoteEntity): String {
+        val messagesFallback = note.messages.trim()
+        val msgs =
+                try {
+                    org.json.JSONArray(note.messages)
+                } catch (_: Exception) {
+                    org.json.JSONArray()
+                }
+        val rawOriginal = msgs.optJSONObject(0)?.optString("content", "")?.trim() ?: ""
+        val rawResponse =
+                if (msgs.length() > 1) {
+                    msgs.optJSONObject(msgs.length() - 1)?.optString("content", "")?.trim() ?: ""
+                } else {
+                    ""
+                }
+        val mainText =
+                when {
+                    rawOriginal.isNotEmpty() -> rawOriginal
+                    rawResponse.isNotEmpty() -> rawResponse
+                    messagesFallback.isNotEmpty() && messagesFallback != "[]" -> messagesFallback
+                    else -> "(No Content)"
+                }
+        return mainText.replace("\n", " ").take(100)
+    }
+
+    private inner class NoteListAdapter : BaseAdapter() {
+        override fun getCount(): Int = notes.size
+
+        override fun getItem(position: Int): Any = notes[position]
+
+        override fun getItemId(position: Int): Long = notes[position].id
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val holder: ItemAiNoteSelectableBinding
+            val rootView: View
+            if (convertView == null) {
+                holder =
+                        ItemAiNoteSelectableBinding.inflate(
+                                LayoutInflater.from(parent.context),
+                                parent,
+                                false
+                        )
+                rootView = holder.root
+                rootView.tag = holder
+            } else {
+                rootView = convertView
+                holder = convertView.tag as ItemAiNoteSelectableBinding
+            }
+
+            val note = notes[position]
+            holder.tvText.text = previewText(note)
+            holder.tvTime.text = DateFormat.format("yyyy-MM-dd HH:mm", note.createdAt).toString()
+            holder.tvText.setTextColor(listTextColor)
+            holder.tvTime.setTextColor(listSecondaryTextColor)
+            holder.cbSelect.buttonTintList = ColorStateList.valueOf(listTextColor)
+            holder.cbSelect.visibility = if (selectionActionMode != null) View.VISIBLE else View.GONE
+            holder.cbSelect.isChecked = selectedNoteIds.contains(note.id)
+            holder.cbSelect.isClickable = false
+            holder.cbSelect.isFocusable = false
+            return rootView
         }
     }
 
@@ -277,7 +477,11 @@ class AiNoteListActivity : BaseActivity() {
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 // Act as back button - return to previous activity
-                onBackPressedDispatcher.onBackPressed()
+                if (selectionActionMode != null) {
+                    selectionActionMode?.finish()
+                } else {
+                    onBackPressedDispatcher.onBackPressed()
+                }
                 true
             }
             else -> super.onKeyDown(keyCode, event)

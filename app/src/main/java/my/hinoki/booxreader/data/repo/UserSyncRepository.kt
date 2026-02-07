@@ -882,10 +882,10 @@ class UserSyncRepository(
 
         // --- Note Sync ---
 
-        suspend fun pushAiNote(note: AiNoteEntity): Boolean =
+        suspend fun pushAiNote(note: AiNoteEntity): String? =
                 withContext(io) {
                         try {
-                                val userId = getUserId() ?: return@withContext false
+                                val userId = getUserId() ?: return@withContext null
 
                                 val noteData =
                                         mapOf(
@@ -904,7 +904,8 @@ class UserSyncRepository(
                                         gson.toJson(noteData)
                                                 .toRequestBody("application/json".toMediaType())
 
-                                if (note.remoteId != null) {
+                                val syncedRemoteId =
+                                        if (!note.remoteId.isNullOrBlank()) {
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/ai_notes/records/${note.remoteId}"
                                         val updateRequest =
@@ -912,6 +913,7 @@ class UserSyncRepository(
                                                         .patch(requestBody)
                                                         .build()
                                         executeRequest(updateRequest)
+                                                note.remoteId
                                 } else {
                                         val createUrl =
                                                 "$pocketBaseUrl/api/collections/ai_notes/records"
@@ -919,14 +921,18 @@ class UserSyncRepository(
                                                 buildAuthenticatedRequest(createUrl)
                                                         .post(requestBody)
                                                         .build()
-                                        executeRequest(createRequest)
-                                }
+                                        val createBody = executeRequest(createRequest)
+                                        val created =
+                                                gson.fromJson(createBody, Map::class.java) as
+                                                        Map<String, Any>
+                                        created["id"] as? String
+                                } ?: return@withContext null
 
                                 Log.d("UserSyncRepository", "pushAiNote - Note synced")
-                                true
+                                syncedRemoteId
                         } catch (e: Exception) {
                                 Log.e("UserSyncRepository", "pushAiNote failed", e)
-                                false
+                                null
                         }
                 }
 
@@ -968,9 +974,16 @@ class UserSyncRepository(
                                                                         ?: System.currentTimeMillis()
                                                 )
 
-                                        db.aiNoteDao().insert(note)
-                                        syncedCount++
+                                        val existing = db.aiNoteDao().getByRemoteId(remoteId)
+                                        if (existing == null) {
+                                                db.aiNoteDao().insert(note)
+                                                syncedCount++
+                                        } else if (note.updatedAt > existing.updatedAt) {
+                                                db.aiNoteDao().update(note.copy(id = existing.id))
+                                                syncedCount++
+                                        }
                                 }
+                                cleanupDuplicateNotes()
 
                                 Log.d("UserSyncRepository", "pullNotes - Synced $syncedCount notes")
                                 syncedCount
@@ -979,6 +992,48 @@ class UserSyncRepository(
                                 0
                         }
                 }
+
+        suspend fun deleteAiNote(remoteId: String): Boolean =
+                withContext(io) {
+                        try {
+                                val url =
+                                        "$pocketBaseUrl/api/collections/ai_notes/records/$remoteId"
+                                val request = buildAuthenticatedRequest(url).delete().build()
+                                executeRequest(request)
+                                Log.d("UserSyncRepository", "deleteAiNote - Note deleted")
+                                true
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "deleteAiNote failed", e)
+                                false
+                        }
+                }
+
+        private suspend fun cleanupDuplicateNotes() {
+                val notes = db.aiNoteDao().getAll()
+                val seen = HashSet<String>(notes.size)
+                val duplicateIds = ArrayList<Long>()
+                for (note in notes) {
+                        val key =
+                                listOf(
+                                                note.remoteId.orEmpty(),
+                                                note.bookId.orEmpty(),
+                                                note.originalText.orEmpty(),
+                                                note.aiResponse.orEmpty(),
+                                                note.messages,
+                                                note.locatorJson.orEmpty()
+                                        )
+                                        .joinToString("\u0001")
+                        if (!seen.add(key)) {
+                                duplicateIds.add(note.id)
+                        }
+                }
+                if (duplicateIds.isEmpty()) return
+                duplicateIds.forEach { id -> db.aiNoteDao().deleteById(id) }
+                Log.d(
+                        "UserSyncRepository",
+                        "cleanupDuplicateNotes - Removed ${duplicateIds.size} duplicate notes"
+                )
+        }
 
         // --- Profile Sync ---
 
