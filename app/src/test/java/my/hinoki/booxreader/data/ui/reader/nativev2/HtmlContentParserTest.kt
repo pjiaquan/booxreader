@@ -5,6 +5,8 @@ import android.graphics.drawable.ColorDrawable
 import android.text.Html
 import android.text.Spanned
 import android.text.style.ImageSpan
+import android.text.style.LeadingMarginSpan
+import android.text.style.QuoteSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.text.style.SuperscriptSpan
@@ -92,6 +94,29 @@ class HtmlContentParserTest {
         assertTrue(
                 "Expected image spans to survive simplified->traditional conversion",
                 imageSpans.isNotEmpty()
+        )
+    }
+
+    @Test
+    fun parseHtml_blockquote_usesModernQuoteSpanInsteadOfDefaultQuoteSpan() {
+        val parsed =
+                HtmlContentParser.parseHtml(
+                        "<blockquote>Quoted content</blockquote>",
+                        Color.BLACK
+                )
+        assertTrue(parsed is Spanned)
+        val spanned = parsed as Spanned
+
+        val defaultQuoteSpans = spanned.getSpans(0, spanned.length, QuoteSpan::class.java)
+        assertTrue(
+                "Expected default QuoteSpan to be replaced by modern quote span",
+                defaultQuoteSpans.isEmpty()
+        )
+
+        val margins = spanned.getSpans(0, spanned.length, LeadingMarginSpan::class.java)
+        assertTrue(
+                "Expected at least one custom modern quote span",
+                margins.any { it.javaClass.name.contains("ModernQuoteSpan") }
         )
     }
 }

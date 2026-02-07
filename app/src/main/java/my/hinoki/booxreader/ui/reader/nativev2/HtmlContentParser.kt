@@ -47,6 +47,7 @@ internal object HtmlContentParser {
                 }
 
         val builder = SpannableStringBuilder(parsed)
+        replaceDefaultQuoteSpans(builder, textColor)
         // When images are disabled, Android inserts placeholder object chars.
         // Strip those to avoid visual noise in text-only mode.
         if (imageGetter == null) {
@@ -58,6 +59,20 @@ internal object HtmlContentParser {
         collapseWhitespace(builder)
         trimWhitespace(builder)
         return builder
+    }
+
+    private fun replaceDefaultQuoteSpans(builder: SpannableStringBuilder, textColor: Int) {
+        val defaultQuoteSpans =
+                builder.getSpans(0, builder.length, android.text.style.QuoteSpan::class.java)
+        for (span in defaultQuoteSpans) {
+            val start = builder.getSpanStart(span)
+            val end = builder.getSpanEnd(span)
+            val flags = builder.getSpanFlags(span)
+            builder.removeSpan(span)
+            if (start >= 0 && end > start && end <= builder.length) {
+                builder.setSpan(ModernQuoteSpan(textColor), start, end, flags)
+            }
+        }
     }
 
     private fun removeChar(builder: SpannableStringBuilder, target: Char) {
