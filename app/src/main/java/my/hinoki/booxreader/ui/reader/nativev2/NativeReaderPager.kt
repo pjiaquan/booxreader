@@ -80,6 +80,17 @@ class NativeReaderPager(
         return pages.getOrNull(pageIndex)
     }
 
+    fun findPageForOffset(offset: Int): Int? {
+        if (pages.isEmpty()) return null
+        val clamped = offset.coerceIn(0, currentText.length)
+        pages.forEachIndexed { index, range ->
+            if (clamped >= range.startOffset && clamped < range.endOffset) {
+                return index
+            }
+        }
+        return pages.lastIndex
+    }
+
     val pageCount: Int
         get() = pages.size
 }

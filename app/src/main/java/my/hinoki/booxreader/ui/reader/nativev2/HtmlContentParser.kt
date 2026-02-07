@@ -4,6 +4,7 @@ import android.content.res.Resources
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.net.Uri
 import android.text.Editable
 import android.text.Html
 import android.text.Layout
@@ -22,29 +23,47 @@ internal object HtmlContentParser {
                     "<span[^>]*class=[\"'][^\"']*\\bsuper\\b[^\"']*[\"'][^>]*>(.*?)</span>",
                     setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
             )
+    private val tagWithIdRegex =
+            Regex(
+                    "<([a-zA-Z][\\w:-]*)([^>]*?)\\bid\\s*=\\s*([\"'])([^\"']+)\\3([^>]*)>",
+                    setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+            )
+    private const val anchorTokenPrefix = "__boox_anchor_"
+    private const val anchorTokenSuffix = "__"
+
+    data class ParsedResult(val content: CharSequence, val anchorOffsets: Map<String, Int>)
 
     fun parseHtml(
             html: String,
             textColor: Int,
             imageGetter: Html.ImageGetter? = null
     ): CharSequence {
+        return parseHtmlWithAnchors(html, textColor, imageGetter).content
+    }
+
+    fun parseHtmlWithAnchors(
+            html: String,
+            textColor: Int,
+            imageGetter: Html.ImageGetter? = null
+    ): ParsedResult {
         val cleaned =
                 html.replace(scriptRegex, "")
                         .replace(styleRegex, "")
                         .replace(superSpanRegex, "<sup>$1</sup>")
+        val (annotatedHtml, tokenToAnchorId) = injectAnchorTokens(cleaned)
 
         val effectiveImageGetter = imageGetter ?: Html.ImageGetter { null }
         val parsed =
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                     Html.fromHtml(
-                            cleaned,
+                            annotatedHtml,
                             Html.FROM_HTML_MODE_LEGACY,
                             effectiveImageGetter,
                             QuoteTagHandler(textColor)
                     )
                 } else {
                     @Suppress("DEPRECATION")
-                    Html.fromHtml(cleaned, effectiveImageGetter, QuoteTagHandler(textColor))
+                    Html.fromHtml(annotatedHtml, effectiveImageGetter, QuoteTagHandler(textColor))
                 }
 
         val builder = SpannableStringBuilder(parsed)
@@ -59,7 +78,41 @@ internal object HtmlContentParser {
         }
         collapseWhitespace(builder)
         trimWhitespace(builder)
-        return builder
+        val anchorOffsets = extractAnchorOffsets(builder, tokenToAnchorId)
+        return ParsedResult(content = builder, anchorOffsets = anchorOffsets)
+    }
+
+    private fun injectAnchorTokens(cleanedHtml: String): Pair<String, Map<String, String>> {
+        val tokenToAnchorId = LinkedHashMap<String, String>()
+        var tokenIndex = 0
+        val annotatedHtml =
+                cleanedHtml.replace(tagWithIdRegex) { match ->
+                    val anchorId = match.groupValues[4].trim()
+                    if (anchorId.isEmpty()) {
+                        return@replace match.value
+                    }
+                    val token = "$anchorTokenPrefix${tokenIndex++}$anchorTokenSuffix"
+                    tokenToAnchorId[token] = Uri.decode(anchorId)
+                    "${match.value}$token"
+                }
+        return annotatedHtml to tokenToAnchorId
+    }
+
+    private fun extractAnchorOffsets(
+            builder: SpannableStringBuilder,
+            tokenToAnchorId: Map<String, String>
+    ): Map<String, Int> {
+        if (tokenToAnchorId.isEmpty()) return emptyMap()
+        val anchorOffsets = LinkedHashMap<String, Int>()
+        for ((token, anchorId) in tokenToAnchorId) {
+            var index = builder.indexOf(token)
+            while (index >= 0) {
+                anchorOffsets.putIfAbsent(anchorId, index)
+                builder.delete(index, index + token.length)
+                index = builder.indexOf(token, index)
+            }
+        }
+        return anchorOffsets
     }
 
     private fun replaceDefaultQuoteSpans(builder: SpannableStringBuilder, textColor: Int) {

@@ -46,6 +46,8 @@ private const val TAG = "NativeNavigator"
 
 class NativeNavigatorFragment : Fragment() {
 
+    private data class NavigationTarget(val index: Int, val fragment: String?)
+
     private var _binding: FragmentNativeReaderBinding? = null
     private val binding
         get() = _binding!!
@@ -61,6 +63,9 @@ class NativeNavigatorFragment : Fragment() {
 
     private var pager: NativeReaderPager? = null
     private var resourceText: CharSequence = ""
+    private var currentAnchorOffsets: Map<String, Int> = emptyMap()
+    private var pendingNavigationFragment: String? = null
+    private var pendingNavigationProgression: Double? = null
     private var convertToTraditionalChinese: Boolean = false
 
     private val _currentLocator = run {
@@ -468,16 +473,13 @@ class NativeNavigatorFragment : Fragment() {
             // If we have an initial locator, use it
             val loc = initialLocator
             if (loc != null) {
-                val pub = publication
-                if (pub != null) {
-                    val index =
-                            pub.readingOrder.indexOfFirst {
-                                it.href.toString() == loc.href.toString()
-                            }
-                    if (index != -1) {
-                        currentResourceIndex = index
-                        // We will handle intra-resource progression after paginating
-                    }
+                pendingNavigationFragment = null
+                pendingNavigationProgression = null
+                val target = resolveNavigationTarget(loc.href.toString())
+                if (target != null) {
+                    currentResourceIndex = target.index
+                    pendingNavigationFragment = target.fragment
+                    pendingNavigationProgression = loc.locations.progression
                 }
             }
 
@@ -491,6 +493,17 @@ class NativeNavigatorFragment : Fragment() {
     fun setPublication(pub: Publication, initialLocator: Locator? = null) {
         this.publication = pub
         this.initialLocator = initialLocator
+        pendingNavigationFragment = null
+        pendingNavigationProgression = null
+        currentAnchorOffsets = emptyMap()
+        initialLocator?.let { loc ->
+            val target = resolveNavigationTarget(loc.href.toString())
+            if (target != null) {
+                currentResourceIndex = target.index
+                pendingNavigationFragment = target.fragment
+                pendingNavigationProgression = loc.locations.progression
+            }
+        }
         if (isResumed && pager != null) {
             lifecycleScope.launch { loadCurrentResource() }
         }
@@ -539,25 +552,17 @@ class NativeNavigatorFragment : Fragment() {
 
     fun go(locator: Locator) {
         binding.nativeReaderView.clearSelection()
-        val pub = publication ?: return
-        val index = pub.readingOrder.indexOfFirst { it.href.toString() == locator.href.toString() }
-        if (index != -1) {
-            lifecycleScope.launch {
-                currentResourceIndex = index
-                // We need to wait for the resource to be loaded and paginated
-                loadCurrentResource()
-
-                val p = pager
-                if (p != null) {
-                    val progression = locator.locations.progression ?: 0.0
-                    val pageCount = p.pageCount
-                    if (pageCount > 0) {
-                        currentPageInResource =
-                                (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
-                        displayCurrentPage()
-                    }
-                }
-            }
+        val target = resolveNavigationTarget(locator.href.toString())
+        if (target == null) {
+            Log.w(TAG, "go: could not resolve locator href=${locator.href}")
+            return
+        }
+        lifecycleScope.launch {
+            currentResourceIndex = target.index
+            pendingNavigationFragment = target.fragment
+            pendingNavigationProgression = locator.locations.progression
+            // We need to wait for the resource to be loaded and paginated
+            loadCurrentResource()
         }
     }
 
@@ -593,18 +598,18 @@ class NativeNavigatorFragment : Fragment() {
         convertToTraditionalChinese = settings.convertToTraditionalChinese
 
         val imageGetter = createImageGetter(pub, link.href.toString())
-        resourceText =
+        val parsedResult =
                 withContext(Dispatchers.IO) {
                     val resource = pub.get(link)
                     val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
                     val textColor = currentThemeColors?.second ?: Color.BLACK
-                    var parsed = HtmlContentParser.parseHtml(html, textColor, imageGetter)
-
-                    // Apply Chinese conversion if enabled
-                    parsed = applyChineseConversion(parsed)
-
-                    parsed
+                    val parsedWithAnchors =
+                            HtmlContentParser.parseHtmlWithAnchors(html, textColor, imageGetter)
+                    val converted = applyChineseConversion(parsedWithAnchors.content)
+                    HtmlContentParser.ParsedResult(converted, parsedWithAnchors.anchorOffsets)
                 }
+        resourceText = parsedResult.content
+        currentAnchorOffsets = parsedResult.anchorOffsets
 
         if (resourceText.isEmpty() && currentResourceIndex < pub.readingOrder.size - 1) {
             // Skip empty resource
@@ -622,14 +627,37 @@ class NativeNavigatorFragment : Fragment() {
             currentPageInResource = 0
             loadCurrentResource()
         } else {
+            val pageCount = p?.pageCount ?: 0
+            val pendingFragment = pendingNavigationFragment
+            val pendingProgression = pendingNavigationProgression
+            pendingNavigationFragment = null
+            pendingNavigationProgression = null
             val loc = initialLocator
-            if (loc != null && loc.href.toString() == link.href.toString()) {
+            if (!pendingFragment.isNullOrBlank() && pageCount > 0) {
+                val pageForAnchor = findPageForFragment(pendingFragment)
+                if (pageForAnchor != null) {
+                    currentPageInResource = pageForAnchor
+                } else {
+                    val progression = pendingProgression ?: 0.0
+                    currentPageInResource =
+                            (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                }
+                initialLocator = null
+            } else if (pendingProgression != null && pageCount > 0) {
+                currentPageInResource =
+                        (pendingProgression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                initialLocator = null
+            } else if (loc != null && hrefTargetsSameResource(loc.href.toString(), link.href.toString())) {
                 val progression = loc.locations.progression ?: 0.0
-                val pageCount = p?.pageCount ?: 1
-                currentPageInResource = (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                currentPageInResource =
+                        if (pageCount > 0) {
+                            (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                        } else {
+                            0
+                        }
                 initialLocator = null // Clear after use
             } else if (jumpToLastPage) {
-                currentPageInResource = (p?.pageCount ?: 1) - 1
+                currentPageInResource = (pageCount - 1).coerceAtLeast(0)
             }
             displayCurrentPage()
         }
@@ -768,6 +796,118 @@ class NativeNavigatorFragment : Fragment() {
             publication.linkWithHref(url)?.let { return it }
         }
         return null
+    }
+
+    private fun resolveNavigationTarget(rawHref: String): NavigationTarget? {
+        val pub = publication ?: return null
+        val trimmed = rawHref.trim()
+        if (trimmed.isEmpty()) return null
+
+        val fragment = extractFragmentId(trimmed)
+        val rawResource = trimmed.substringBefore('#').trim()
+        val resourceHref =
+                if (rawResource.isNotEmpty()) {
+                    rawResource
+                } else {
+                    currentResourceHref?.substringBefore('#') ?: return null
+                }
+
+        val candidates = buildNavigationHrefCandidates(resourceHref)
+        if (candidates.isEmpty()) return null
+
+        val normalizedReadingOrder =
+                pub.readingOrder.map { normalizeHrefForMatch(it.href.toString()) }
+
+        for (candidate in candidates) {
+            val index = normalizedReadingOrder.indexOf(candidate)
+            if (index >= 0) {
+                return NavigationTarget(index = index, fragment = fragment)
+            }
+        }
+
+        for (candidate in candidates.sortedByDescending { it.length }) {
+            if (candidate.length < 3) continue
+            val matches =
+                    normalizedReadingOrder.mapIndexedNotNull { index, href ->
+                        if (href == candidate ||
+                                        href.endsWith("/$candidate") ||
+                                        candidate.endsWith("/$href")) {
+                                    index
+                                } else {
+                                    null
+                                }
+                    }
+            if (matches.size == 1) {
+                return NavigationTarget(index = matches.first(), fragment = fragment)
+            }
+        }
+        return null
+    }
+
+    private fun buildNavigationHrefCandidates(rawHref: String): Set<String> {
+        val candidates = linkedSetOf<String>()
+
+        fun addCandidate(value: String?) {
+            val normalized = normalizeHrefForMatch(value)
+            if (normalized.isNotEmpty()) {
+                candidates.add(normalized)
+            }
+        }
+
+        addCandidate(rawHref)
+        if (!rawHref.contains("://")) {
+            val base = currentResourceHref?.substringBefore('#')
+            if (!base.isNullOrBlank()) {
+                val resolved = runCatching { URI(base).resolve(rawHref).toString() }.getOrNull()
+                addCandidate(resolved)
+            }
+        }
+        return candidates
+    }
+
+    private fun normalizeHrefForMatch(href: String?): String {
+        if (href.isNullOrBlank()) return ""
+        var normalized = href.trim().substringBefore('#').substringBefore('?')
+        if (normalized.isEmpty()) return ""
+        normalized = Uri.decode(normalized)
+
+        val asUri = runCatching { URI(normalized).normalize() }.getOrNull()
+        normalized = asUri?.toString() ?: normalized
+        if (normalized.contains("://")) {
+            normalized = runCatching { URI(normalized).path ?: normalized }.getOrDefault(normalized)
+        }
+
+        normalized = normalized.replace('\\', '/')
+        normalized = normalized.removePrefix("./")
+        normalized = normalized.removePrefix("/")
+        return normalized
+    }
+
+    private fun extractFragmentId(href: String): String? {
+        val raw = href.substringAfter('#', "").trim()
+        if (raw.isEmpty()) return null
+        return Uri.decode(raw)
+    }
+
+    private fun hrefTargetsSameResource(targetHref: String, loadedResourceHref: String): Boolean {
+        val target = resolveNavigationTarget(targetHref) ?: return false
+        val loaded = normalizeHrefForMatch(loadedResourceHref)
+        val targetResource = publication?.readingOrder?.getOrNull(target.index)?.href?.toString()
+        return loaded == normalizeHrefForMatch(targetResource)
+    }
+
+    private fun findPageForFragment(fragmentId: String): Int? {
+        val p = pager ?: return null
+        val normalizedFragment = fragmentId.removePrefix("#").trim()
+        if (normalizedFragment.isEmpty()) return null
+        val decodedFragment = Uri.decode(normalizedFragment)
+        val offset =
+                currentAnchorOffsets[decodedFragment]
+                        ?: currentAnchorOffsets.entries
+                                .firstOrNull { (id, _) -> id.equals(decodedFragment, ignoreCase = true) }
+                                ?.value
+                        ?: return null
+        return p.findPageForOffset(offset)
     }
 
     private fun decodeDataUriImage(source: String): ByteArray? {

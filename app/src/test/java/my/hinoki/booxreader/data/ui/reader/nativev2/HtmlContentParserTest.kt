@@ -13,6 +13,7 @@ import android.text.style.SuperscriptSpan
 import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.ui.reader.nativev2.HtmlContentParser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,5 +119,33 @@ class HtmlContentParserTest {
                 "Expected at least one custom modern quote span",
                 margins.any { it.javaClass.name.contains("ModernQuoteSpan") }
         )
+    }
+
+    @Test
+    fun parseHtmlWithAnchors_extractsAnchorOffsetsWithoutLeakingMarkers() {
+        val result =
+                HtmlContentParser.parseHtmlWithAnchors(
+                        "<h2 id='chapter-start'>Chapter</h2><p id='section-2'>Section</p>",
+                        Color.BLACK
+                )
+        val content = result.content.toString()
+        val chapterOffset = result.anchorOffsets["chapter-start"]
+        val sectionOffset = result.anchorOffsets["section-2"]
+
+        assertTrue(chapterOffset != null)
+        assertTrue(sectionOffset != null)
+        assertTrue(sectionOffset!! > chapterOffset!!)
+        assertFalse(content.contains("boox_anchor"))
+    }
+
+    @Test
+    fun parseHtmlWithAnchors_decodesPercentEncodedAnchorId() {
+        val result =
+                HtmlContentParser.parseHtmlWithAnchors(
+                        "<p id='sec%201'>Anchor text</p>",
+                        Color.BLACK
+                )
+
+        assertTrue(result.anchorOffsets.containsKey("sec 1"))
     }
 }
