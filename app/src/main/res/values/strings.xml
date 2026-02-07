@@ -38,6 +38,14 @@
     <string name="ai_profile_option_duplicate">Duplicate</string>
     <string name="ai_profile_option_export">Export</string>
     <string name="ai_profile_option_delete">Delete</string>
+    <string name="ai_profile_select_all">Select all</string>
+    <string name="ai_profile_select_all_count">Select all (%1$d/%2$d)</string>
+    <string name="ai_profile_select_profile">Select profile %1$s</string>
+    <string name="ai_profile_delete_selected">Delete selected</string>
+    <string name="ai_profile_delete_selected_count">Delete selected (%1$d)</string>
+    <string name="ai_profile_bulk_delete_title">Delete profiles</string>
+    <string name="ai_profile_bulk_delete_message">Delete %1$d selected profiles?</string>
+    <string name="ai_profile_bulk_delete_success">%1$d profiles deleted</string>
     <string name="ai_profile_export_success">Profile exported: %1$s</string>
     <string name="ai_profile_export_failed">Export failed: %1$s</string>
     <string name="ai_profile_default_created">Default Gemini profile created. Get your API key at https://aistudio.google.com/app/apikey</string>

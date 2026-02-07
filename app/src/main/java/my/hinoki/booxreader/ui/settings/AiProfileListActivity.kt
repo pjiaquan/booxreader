@@ -50,6 +50,7 @@ class AiProfileListActivity : BaseActivity() {
     private var tagBackgroundColor: Int = Color.parseColor("#E6E0D6")
     private var pendingExportJson: String? = null
     private var pendingExportName: String? = null
+    private val selectedProfileIds = mutableSetOf<Long>()
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importProfileFromFile(it) }
@@ -139,6 +140,10 @@ class AiProfileListActivity : BaseActivity() {
         binding.recyclerView.adapter = adapter
         // Disable item animator to prevent automatic reordering animations
         binding.recyclerView.itemAnimator = null
+
+        binding.btnDeleteSelected.setOnClickListener {
+            showBulkDeleteConfirmation()
+        }
         
         binding.btnSync.setOnClickListener {
             syncProfiles()
@@ -151,6 +156,8 @@ class AiProfileListActivity : BaseActivity() {
         binding.btnCreate.setOnClickListener {
             startActivity(Intent(this, AiProfileEditActivity::class.java))
         }
+
+        updateSelectionUi()
     }
 
     private fun setLoading(loading: Boolean) {
@@ -159,6 +166,8 @@ class AiProfileListActivity : BaseActivity() {
         binding.btnSync.isEnabled = !loading
         binding.btnImport.isEnabled = !loading
         binding.btnCreate.isEnabled = !loading
+        binding.cbSelectAll.isEnabled = !loading
+        binding.btnDeleteSelected.isEnabled = !loading && selectedProfileIds.isNotEmpty()
     }
 
     private fun applyThemeFromSettings() {
@@ -198,6 +207,8 @@ class AiProfileListActivity : BaseActivity() {
         binding.btnSync.imageTintList = tint
         binding.btnImport.imageTintList = tint
         binding.btnCreate.imageTintList = tint
+        binding.cbSelectAll.setTextColor(listTextColor)
+        binding.btnDeleteSelected.setTextColor(listTextColor)
 
         @Suppress("DEPRECATION")
         run {
@@ -214,7 +225,91 @@ class AiProfileListActivity : BaseActivity() {
 
     private fun observeData() {
         repository.allProfiles.observe(this) { profiles ->
+            val currentIds = profiles.map { it.id }.toSet()
+            selectedProfileIds.retainAll(currentIds)
             adapter.submitList(profiles)
+            updateSelectionUi()
+        }
+    }
+
+    private fun updateSelectionUi() {
+        val totalCount = adapter.itemCount
+        val selectedCount = selectedProfileIds.size
+        val allSelected = totalCount > 0 && selectedCount == totalCount
+        binding.cbSelectAll.setOnCheckedChangeListener(null)
+        binding.cbSelectAll.isChecked = allSelected
+        binding.cbSelectAll.setOnCheckedChangeListener { _, isChecked ->
+            val profiles = adapter.currentList()
+            if (profiles.isEmpty()) {
+                return@setOnCheckedChangeListener
+            }
+            if (isChecked) {
+                selectedProfileIds.clear()
+                selectedProfileIds.addAll(profiles.map { it.id })
+            } else if (selectedProfileIds.size == profiles.size) {
+                selectedProfileIds.clear()
+            }
+            adapter.notifyDataSetChanged()
+            updateSelectionUi()
+        }
+
+        binding.cbSelectAll.text = if (totalCount > 0) {
+            getString(R.string.ai_profile_select_all_count, selectedCount, totalCount)
+        } else {
+            getString(R.string.ai_profile_select_all)
+        }
+        binding.btnDeleteSelected.text =
+            if (selectedCount > 0) {
+                getString(R.string.ai_profile_delete_selected_count, selectedCount)
+            } else {
+                getString(R.string.ai_profile_delete_selected)
+            }
+        binding.btnDeleteSelected.isEnabled =
+            binding.loadingOverlay.visibility != View.VISIBLE && selectedCount > 0
+    }
+
+    private fun toggleProfileSelection(profileId: Long, selected: Boolean) {
+        if (selected) {
+            selectedProfileIds.add(profileId)
+        } else {
+            selectedProfileIds.remove(profileId)
+        }
+        updateSelectionUi()
+    }
+
+    private fun showBulkDeleteConfirmation() {
+        val selectedCount = selectedProfileIds.size
+        if (selectedCount == 0) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.ai_profile_bulk_delete_title)
+            .setMessage(getString(R.string.ai_profile_bulk_delete_message, selectedCount))
+            .setPositiveButton(R.string.ai_profile_option_delete) { _, _ ->
+                deleteSelectedProfiles()
+            }
+            .setNegativeButton(R.string.ai_profile_apply_negative, null)
+            .show()
+    }
+
+    private fun deleteSelectedProfiles() {
+        val selectedIds = selectedProfileIds.toSet()
+        if (selectedIds.isEmpty()) return
+        lifecycleScope.launch {
+            setLoading(true)
+            try {
+                val selectedProfiles = adapter.currentList().filter { it.id in selectedIds }
+                selectedProfiles.forEach { profile ->
+                    repository.deleteProfile(profile)
+                }
+                selectedProfileIds.clear()
+                Toast.makeText(
+                    this@AiProfileListActivity,
+                    getString(R.string.ai_profile_bulk_delete_success, selectedProfiles.size),
+                    Toast.LENGTH_SHORT
+                ).show()
+            } finally {
+                setLoading(false)
+                updateSelectionUi()
+            }
         }
     }
 
@@ -329,11 +424,12 @@ class AiProfileListActivity : BaseActivity() {
         }
 
         fun setActiveProfileId(id: Long) {
-            val oldId = activeProfileId
             activeProfileId = id
             // Notify changes to refresh UI (could be optimized)
             notifyDataSetChanged()
         }
+
+        fun currentList(): List<AiProfileEntity> = list
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val binding = ItemAiProfileBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -355,6 +451,14 @@ class AiProfileListActivity : BaseActivity() {
                 binding.tvCurrent.setTextColor(listTextColor)
                 binding.tvCurrent.backgroundTintList =
                         ColorStateList.valueOf(tagBackgroundColor)
+                binding.cbSelect.buttonTintList = ColorStateList.valueOf(listTextColor)
+                binding.cbSelect.setOnCheckedChangeListener(null)
+                binding.cbSelect.isChecked = selectedProfileIds.contains(profile.id)
+                binding.cbSelect.contentDescription =
+                    getString(R.string.ai_profile_select_profile, profile.name)
+                binding.cbSelect.setOnCheckedChangeListener { _, isChecked ->
+                    toggleProfileSelection(profile.id, isChecked)
+                }
                 
                 if (profile.id == activeProfileId) {
                     binding.tvCurrent.visibility = android.view.View.VISIBLE

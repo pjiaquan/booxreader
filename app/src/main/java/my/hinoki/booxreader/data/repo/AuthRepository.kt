@@ -6,6 +6,7 @@ import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.db.AppDatabase
@@ -191,9 +192,60 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
 
         suspend fun getCurrentUser(): UserEntity? =
                 withContext(Dispatchers.IO) {
-                        userDao.getUserById(
-                                tokenManager.getAccessToken() ?: return@withContext null
-                        )
+                        // Keep auth gate tied to token presence, but read user from local cache.
+                        // Token is a JWT string and not equal to users.userId.
+                        val token = tokenManager.getAccessToken() ?: return@withContext null
+                        if (token.isBlank()) return@withContext null
+                        userDao.getUser().first()?.let { return@withContext it }
+
+                        // Fallback: refresh auth and restore local user cache.
+                        runCatching {
+                                        val requestBody =
+                                                "{}".toRequestBody(
+                                                        "application/json".toMediaType()
+                                                )
+                                        val request =
+                                                Request.Builder()
+                                                        .url(
+                                                                "$pocketBaseUrl/api/collections/users/auth-refresh"
+                                                        )
+                                                        .addHeader("Authorization", "Bearer $token")
+                                                        .post(requestBody)
+                                                        .build()
+
+                                        val response = httpClient.newCall(request).execute()
+                                        val responseBody = response.body?.string() ?: ""
+
+                                        if (!response.isSuccessful) {
+                                                Log.w(
+                                                        "AuthRepository",
+                                                        "getCurrentUser auth-refresh failed: ${response.code} $responseBody"
+                                                )
+                                                return@runCatching null
+                                        }
+
+                                        val authData =
+                                                gson.fromJson(
+                                                        responseBody,
+                                                        PocketBaseAuthResponse::class.java
+                                                )
+                                        val record = authData.record ?: return@runCatching null
+                                        tokenManager.saveAccessToken(authData.token)
+
+                                        val user =
+                                                UserEntity(
+                                                        userId = record.id,
+                                                        email = record.email ?: "",
+                                                        displayName = record.name,
+                                                        avatarUrl = record.avatar
+                                                )
+                                        userDao.insertUser(user)
+                                        user
+                                }
+                                .getOrElse {
+                                        Log.e("AuthRepository", "getCurrentUser failed", it)
+                                        null
+                                }
                 }
 }
 
