@@ -982,10 +982,10 @@ class UserSyncRepository(
 
         // --- Profile Sync ---
 
-        suspend fun pushAiProfile(profile: AiProfileEntity): Boolean =
+        suspend fun pushAiProfile(profile: AiProfileEntity): String? =
                 withContext(io) {
                         try {
-                                val userId = getUserId() ?: return@withContext false
+                                val userId = getUserId() ?: return@withContext null
 
                                 val profileData =
                                         mapOf(
@@ -1013,7 +1013,8 @@ class UserSyncRepository(
                                         gson.toJson(profileData)
                                                 .toRequestBody("application/json".toMediaType())
 
-                                if (profile.remoteId != null) {
+                                val syncedRemoteId =
+                                        if (!profile.remoteId.isNullOrBlank()) {
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/ai_profiles/records/${profile.remoteId}"
                                         val updateRequest =
@@ -1021,6 +1022,7 @@ class UserSyncRepository(
                                                         .patch(requestBody)
                                                         .build()
                                         executeRequest(updateRequest)
+                                                profile.remoteId
                                 } else {
                                         val createUrl =
                                                 "$pocketBaseUrl/api/collections/ai_profiles/records"
@@ -1028,18 +1030,22 @@ class UserSyncRepository(
                                                 buildAuthenticatedRequest(createUrl)
                                                         .post(requestBody)
                                                         .build()
-                                        executeRequest(createRequest)
-                                }
+                                        val createBody = executeRequest(createRequest)
+                                        val created =
+                                                gson.fromJson(createBody, Map::class.java) as
+                                                        Map<String, Any>
+                                        created["id"] as? String
+                                } ?: return@withContext null
 
                                 Log.d("UserSyncRepository", "pushAiProfile - Profile synced")
-                                true
+                                syncedRemoteId
                         } catch (e: Exception) {
                                 Log.e("UserSyncRepository", "pushAiProfile failed", e)
-                                false
+                                null
                         }
                 }
 
-        suspend fun pushProfile(profile: AiProfileEntity) = pushAiProfile(profile)
+        suspend fun pushProfile(profile: AiProfileEntity): String? = pushAiProfile(profile)
 
         suspend fun pullAiProfiles(): Int =
                 withContext(io) {
@@ -1110,8 +1116,14 @@ class UserSyncRepository(
                                                         isSynced = true
                                                 )
 
-                                        db.aiProfileDao().insert(profile)
-                                        syncedCount++
+                                        val existing = db.aiProfileDao().getByRemoteId(remoteId)
+                                        if (existing == null) {
+                                                db.aiProfileDao().insert(profile)
+                                                syncedCount++
+                                        } else if (profile.updatedAt > existing.updatedAt) {
+                                                db.aiProfileDao().insert(profile.copy(id = existing.id))
+                                                syncedCount++
+                                        }
                                 }
 
                                 Log.d(

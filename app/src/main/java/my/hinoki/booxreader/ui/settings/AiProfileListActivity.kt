@@ -297,13 +297,16 @@ class AiProfileListActivity : BaseActivity() {
             setLoading(true)
             try {
                 val selectedProfiles = adapter.currentList().filter { it.id in selectedIds }
+                var deletedCount = 0
                 selectedProfiles.forEach { profile ->
-                    repository.deleteProfile(profile)
+                    if (repository.deleteProfile(profile)) {
+                        deletedCount++
+                    }
                 }
                 selectedProfileIds.clear()
                 Toast.makeText(
                     this@AiProfileListActivity,
-                    getString(R.string.ai_profile_bulk_delete_success, selectedProfiles.size),
+                    getString(R.string.ai_profile_bulk_delete_success, deletedCount),
                     Toast.LENGTH_SHORT
                 ).show()
             } finally {
@@ -515,7 +518,14 @@ class AiProfileListActivity : BaseActivity() {
                     }
                     3 -> { // Delete
                         lifecycleScope.launch {
-                            repository.deleteProfile(profile)
+                            val deleted = repository.deleteProfile(profile)
+                            if (!deleted) {
+                                Toast.makeText(
+                                    this@AiProfileListActivity,
+                                    getString(R.string.ai_profile_delete_failed),
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
                         }
                     }
                 }

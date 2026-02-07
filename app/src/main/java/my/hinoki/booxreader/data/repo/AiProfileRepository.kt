@@ -100,8 +100,12 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                 // Get the saved profile with generated ID
                 val saved = dao.getById(newId)
                 if (saved != null) {
-                    // Trigger sync immediately (stub returns Unit, not a synced entity)
-                    syncRepo.pushProfile(saved)
+                    val remoteId = syncRepo.pushProfile(saved)
+                    if (!remoteId.isNullOrBlank()) {
+                        val synced = saved.copy(remoteId = remoteId, isSynced = true)
+                        dao.update(synced)
+                        return@withContext synced
+                    }
                     return@withContext saved
                 }
                 throw IllegalStateException("Failed to retrieve saved profile after insertion")
@@ -114,17 +118,35 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                         profile.copy(updatedAt = System.currentTimeMillis(), isSynced = false)
                 dao.update(updatedProfile)
 
-                // Force immediate sync to PocketBase (stub)
-                syncRepo.pushProfile(updatedProfile)
+                val remoteId = syncRepo.pushProfile(updatedProfile)
+                val syncedProfile =
+                        if (!remoteId.isNullOrBlank()) {
+                            val synced = updatedProfile.copy(remoteId = remoteId, isSynced = true)
+                            dao.update(synced)
+                            synced
+                        } else {
+                            updatedProfile
+                        }
 
-                return@withContext updatedProfile.also { applyProfile(it.id) }
+                return@withContext syncedProfile.also { applyProfile(it.id) }
             }
 
-    suspend fun deleteProfile(profile: AiProfileEntity) =
+    suspend fun deleteProfile(profile: AiProfileEntity): Boolean =
             withContext(Dispatchers.IO) {
+                if (!profile.remoteId.isNullOrBlank()) {
+                    val deletedRemote = syncRepo.deleteAiProfile(profile.remoteId)
+                    if (!deletedRemote) {
+                        return@withContext false
+                    }
+                }
                 dao.delete(profile)
-                // Note: We are not handling remote delete sync yet for simplicity,
-                // as per current sync architecture which is mostly append/update.
+                val currentSettings = ReaderSettings.fromPrefs(prefs)
+                if (currentSettings.activeProfileId == profile.id) {
+                    currentSettings
+                            .copy(activeProfileId = -1L, updatedAt = System.currentTimeMillis())
+                            .saveTo(prefs)
+                }
+                true
             }
 
     suspend fun applyProfile(profileId: Long) =
@@ -168,8 +190,11 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     val localProfiles = dao.getPendingSync()
                     localProfiles.forEach { localProfile ->
                         try {
-                            syncRepo.pushProfile(localProfile)
-                            totalSynced++
+                            val remoteId = syncRepo.pushProfile(localProfile)
+                            if (!remoteId.isNullOrBlank()) {
+                                dao.update(localProfile.copy(remoteId = remoteId, isSynced = true))
+                                totalSynced++
+                            }
                         } catch (e: Exception) {
                             // Log error but continue with other profiles
                             e.printStackTrace()
