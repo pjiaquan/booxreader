@@ -661,10 +661,9 @@ class NativeNavigatorFragment : Fragment() {
         val text = p.getPageText(currentPageInResource)
         binding.nativeReaderView.setPageRange(pageRange.startOffset, pageRange.endOffset)
         val preserveSelection = binding.nativeReaderView.hasSelection()
-        binding.nativeReaderView.setContent(
-                applyChineseConversion(text),
-                resetSelection = !preserveSelection
-        )
+        // `resourceText` is already converted once in `loadCurrentResource()`.
+        // Re-converting page slices can drop spans (e.g., image/link spans).
+        binding.nativeReaderView.setContent(text, resetSelection = !preserveSelection)
         updatePageIndicator()
         updateLocator()
     }
@@ -954,10 +953,7 @@ class NativeNavigatorFragment : Fragment() {
                         nextRange.endOffset
                 )
             }
-            binding.nativeReaderViewSecondary.setContent(
-                    applyChineseConversion(nextText),
-                    resetSelection = true
-            )
+            binding.nativeReaderViewSecondary.setContent(nextText, resetSelection = true)
             binding.nativeReaderViewSecondary.visibility = View.VISIBLE
             binding.nativeReaderViewSecondary.translationX = binding.root.width.toFloat()
 
@@ -1005,10 +1001,7 @@ class NativeNavigatorFragment : Fragment() {
                         prevRange.endOffset
                 )
             }
-            binding.nativeReaderViewSecondary.setContent(
-                    applyChineseConversion(prevText),
-                    resetSelection = true
-            )
+            binding.nativeReaderViewSecondary.setContent(prevText, resetSelection = true)
             binding.nativeReaderViewSecondary.visibility = View.VISIBLE
             binding.nativeReaderViewSecondary.translationX = -binding.root.width.toFloat()
 

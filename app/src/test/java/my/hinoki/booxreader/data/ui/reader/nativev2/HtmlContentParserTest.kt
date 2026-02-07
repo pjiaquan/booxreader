@@ -1,10 +1,14 @@
 package my.hinoki.booxreader.data.ui.reader.nativev2
 
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.text.Html
 import android.text.Spanned
+import android.text.style.ImageSpan
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.text.style.SuperscriptSpan
+import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.ui.reader.nativev2.HtmlContentParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -43,5 +47,51 @@ class HtmlContentParserTest {
         val normalSuperscripts =
                 spanned.getSpans(normalStart, normalEnd, SuperscriptSpan::class.java)
         assertTrue(normalSuperscripts.isEmpty())
+    }
+
+    @Test
+    fun parseHtml_withImageGetter_preservesImageSpan() {
+        val imageGetter =
+                Html.ImageGetter {
+                    ColorDrawable(Color.GRAY).apply {
+                        setBounds(0, 0, 64, 36)
+                    }
+                }
+
+        val parsed =
+                HtmlContentParser.parseHtml(
+                        "<p>Before <img src='cover.jpg'/> After</p>",
+                        Color.BLACK,
+                        imageGetter
+                )
+        assertTrue(parsed is Spanned)
+        val spanned = parsed as Spanned
+        val imageSpans = spanned.getSpans(0, spanned.length, ImageSpan::class.java)
+        assertTrue("Expected parsed HTML to retain image spans", imageSpans.isNotEmpty())
+    }
+
+    @Test
+    fun parseHtml_withImageGetter_keepsImageSpanAfterChineseConversion() {
+        val imageGetter =
+                Html.ImageGetter {
+                    ColorDrawable(Color.GRAY).apply {
+                        setBounds(0, 0, 64, 36)
+                    }
+                }
+
+        val parsed =
+                HtmlContentParser.parseHtml(
+                        "<p>简体前 <img src='cover.jpg'/> 简体后</p>",
+                        Color.BLACK,
+                        imageGetter
+                )
+        val converted = ChineseConverter.toTraditional(parsed)
+        assertTrue(converted is Spanned)
+        val spanned = converted as Spanned
+        val imageSpans = spanned.getSpans(0, spanned.length, ImageSpan::class.java)
+        assertTrue(
+                "Expected image spans to survive simplified->traditional conversion",
+                imageSpans.isNotEmpty()
+        )
     }
 }

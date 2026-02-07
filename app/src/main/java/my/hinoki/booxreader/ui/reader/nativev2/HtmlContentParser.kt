@@ -2,6 +2,7 @@ package my.hinoki.booxreader.ui.reader.nativev2
 
 import android.content.res.Resources
 import android.graphics.Paint
+import android.graphics.RectF
 import android.text.Editable
 import android.text.Html
 import android.text.Layout
@@ -146,17 +147,24 @@ internal object HtmlContentParser {
             LeadingMarginSpan, LineBackgroundSpan {
 
         private val density = Resources.getSystem().displayMetrics.density
-        private val stripeWidth = (4 * density).toInt()
-        private val gapWidth = (16 * density).toInt()
+        private val cardInsetHorizontal = 10f * density
+        private val cardCorner = 12f * density
+        private val accentInsetStart = 8f * density
+        private val accentWidth = 3f * density
+        private val textGap = 12f * density
+        private val cardVerticalInset = 2f * density
 
-        private val stripeColor: Int
-            get() = (textColor and 0x00FFFFFF) or 0xB3000000.toInt()
+        private val accentColor: Int
+            get() = (textColor and 0x00FFFFFF) or 0xCC000000.toInt()
 
         private val backgroundColor: Int
-            get() = (textColor and 0x00FFFFFF) or 0x0D000000.toInt()
+            get() = (textColor and 0x00FFFFFF) or 0x14000000.toInt()
+
+        private val borderColor: Int
+            get() = (textColor and 0x00FFFFFF) or 0x26000000.toInt()
 
         override fun getLeadingMargin(first: Boolean): Int {
-            return stripeWidth + gapWidth
+            return (cardInsetHorizontal + accentInsetStart + accentWidth + textGap).toInt()
         }
 
         override fun drawLeadingMargin(
@@ -175,18 +183,26 @@ internal object HtmlContentParser {
         ) {
             val style = paint.style
             val color = paint.color
+            val originalStrokeWidth = paint.strokeWidth
 
             paint.style = Paint.Style.FILL
-            paint.color = stripeColor
-            canvas.drawRect(
-                    x.toFloat(),
-                    top.toFloat(),
-                    (x + dir * stripeWidth).toFloat(),
-                    bottom.toFloat(),
-                    paint
-            )
+            paint.color = accentColor
+
+            val topInset = top + cardVerticalInset
+            val bottomInset = bottom - cardVerticalInset
+            val accentStart =
+                    if (dir >= 0) {
+                        x + cardInsetHorizontal + accentInsetStart
+                    } else {
+                        x - cardInsetHorizontal - accentInsetStart - accentWidth
+                    }
+            val accentEnd = accentStart + accentWidth
+            val accentRect = RectF(accentStart, topInset, accentEnd, bottomInset)
+            canvas.drawRoundRect(accentRect, accentWidth, accentWidth, paint)
+
             paint.style = style
             paint.color = color
+            paint.strokeWidth = originalStrokeWidth
         }
 
         override fun drawBackground(
@@ -203,8 +219,28 @@ internal object HtmlContentParser {
                 lineNumber: Int
         ) {
             val color = paint.color
+            val style = paint.style
+            val originalStrokeWidth = paint.strokeWidth
+
+            val cardRect =
+                    RectF(
+                            left + cardInsetHorizontal,
+                            top + cardVerticalInset,
+                            right - cardInsetHorizontal,
+                            bottom - cardVerticalInset
+                    )
+
+            paint.style = Paint.Style.FILL
             paint.color = backgroundColor
-            canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), paint)
+            canvas.drawRoundRect(cardRect, cardCorner, cardCorner, paint)
+
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1.2f * density
+            paint.color = borderColor
+            canvas.drawRoundRect(cardRect, cardCorner, cardCorner, paint)
+
+            paint.style = style
+            paint.strokeWidth = originalStrokeWidth
             paint.color = color
         }
     }
