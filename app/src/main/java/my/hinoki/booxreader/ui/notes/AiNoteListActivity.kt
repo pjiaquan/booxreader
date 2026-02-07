@@ -12,6 +12,8 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.core.graphics.ColorUtils
@@ -200,6 +202,7 @@ class AiNoteListActivity : BaseActivity() {
         insetsController.isAppearanceLightStatusBars = useLightIcons
         insetsController.isAppearanceLightNavigationBars = useLightIcons
 
+        applySelectionBarTheme()
         adapter.notifyDataSetChanged()
     }
 
@@ -360,6 +363,7 @@ class AiNoteListActivity : BaseActivity() {
                     mode.menuInflater.inflate(R.menu.menu_ai_note_selection, menu)
                     updateSelectionTitle()
                     exportMenuItem?.isVisible = false
+                    applySelectionBarTheme()
                     adapter.notifyDataSetChanged()
                     return true
                 }
@@ -397,6 +401,29 @@ class AiNoteListActivity : BaseActivity() {
                     adapter.notifyDataSetChanged()
                 }
             }
+
+    private fun applySelectionBarTheme() {
+        if (selectionActionMode == null) return
+        val contextBar =
+                findViewById<View>(androidx.appcompat.R.id.action_context_bar)
+                        ?: findViewById(androidx.appcompat.R.id.action_mode_bar)
+                        ?: return
+        contextBar.setBackgroundColor(listBackgroundColor)
+        tintViewTree(contextBar, listTextColor)
+    }
+
+    private fun tintViewTree(view: View, tintColor: Int) {
+        when (view) {
+            is android.widget.TextView -> view.setTextColor(tintColor)
+            is ImageView -> view.imageTintList = ColorStateList.valueOf(tintColor)
+            is ImageButton -> view.imageTintList = ColorStateList.valueOf(tintColor)
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                tintViewTree(view.getChildAt(i), tintColor)
+            }
+        }
+    }
 
     private fun previewText(note: AiNoteEntity): String {
         val messagesFallback = note.messages.trim()
