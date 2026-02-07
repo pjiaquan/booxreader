@@ -65,6 +65,38 @@ class UserSyncRepository(
         @Volatile private var cachedUserId: String? = null
 
         // --- Helper Methods ---
+        private suspend fun fetchAllItems(
+                collection: String,
+                filterParam: String,
+                sortParam: String? = null,
+                perPage: Int = 100
+        ): List<Map<String, Any>> =
+                withContext(io) {
+                        val items = mutableListOf<Map<String, Any>>()
+                        var page = 1
+                        while (true) {
+                                val sortQuery =
+                                        if (sortParam.isNullOrBlank()) "" else "&sort=$sortParam"
+                                val url =
+                                        "$pocketBaseUrl/api/collections/$collection/records?filter=$filterParam&page=$page&perPage=$perPage$sortQuery"
+                                val request = buildAuthenticatedRequest(url).get().build()
+                                val responseBody = executeRequest(request)
+                                val response =
+                                        gson.fromJson(
+                                                responseBody,
+                                                PocketBaseListResponse::class.java
+                                        )
+                                if (response.items.isEmpty()) {
+                                        break
+                                }
+                                items.addAll(response.items)
+                                if (response.totalPages <= page) {
+                                        break
+                                }
+                                page++
+                        }
+                        items
+                }
 
         /** Get the current user ID from the database. Returns null if no user is logged in. */
         private suspend fun getUserId(): String? {
@@ -152,17 +184,14 @@ class UserSyncRepository(
                                                         return@withContext null
                                                 }
 
-                                val url =
-                                        "$pocketBaseUrl/api/collections/settings/records?filter=(user='$userId')"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
-
-                                val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
+                                val items =
+                                        fetchAllItems(
+                                                "settings",
+                                                "(user='$userId')",
+                                                sortParam = "-updatedAt",
+                                                perPage = 100
                                         )
-                                if (response.items.isEmpty()) {
+                                if (items.isEmpty()) {
                                         Log.d(
                                                 "UserSyncRepository",
                                                 "pullSettingsIfNewer - No remote settings found"
@@ -170,7 +199,11 @@ class UserSyncRepository(
                                         return@withContext null
                                 }
 
-                                val remoteSettings = response.items[0]
+                                val remoteSettings =
+                                        items.maxByOrNull {
+                                                (it["updatedAt"] as? Double)?.toLong() ?: 0L
+                                        }
+                                                ?: return@withContext null
                                 val remoteUpdatedAt =
                                         remoteSettings.get("updatedAt") as? Double ?: 0.0
                                 val localSettings = ReaderSettings.fromPrefs(prefs)
@@ -430,19 +463,16 @@ class UserSyncRepository(
                         try {
                                 val userId = getUserId() ?: return@withContext 0
 
-                                val url =
-                                        "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId')"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
-
-                                val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
+                                val items =
+                                        fetchAllItems(
+                                                "books",
+                                                "(user='$userId')",
+                                                sortParam = "-updatedAt",
+                                                perPage = 100
                                         )
                                 var syncedCount = 0
 
-                                for (item in response.items) {
+                                for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val title = item["title"] as? String
                                         val storagePath = item["storagePath"] as? String
@@ -514,19 +544,16 @@ class UserSyncRepository(
                                                 "(user='$userId')"
                                         }
 
-                                val url =
-                                        "$pocketBaseUrl/api/collections/bookmarks/records?filter=$filterParam"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
-
-                                val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
+                                val items =
+                                        fetchAllItems(
+                                                "bookmarks",
+                                                filterParam,
+                                                sortParam = "-updatedAt",
+                                                perPage = 100
                                         )
                                 var syncedCount = 0
 
-                                for (item in response.items) {
+                                for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val bookmarkBookId = item["bookId"] as? String ?: continue
                                         val locatorJson = item["locatorJson"] as? String ?: continue
@@ -686,19 +713,16 @@ class UserSyncRepository(
                         try {
                                 val userId = getUserId() ?: return@withContext 0
 
-                                val url =
-                                        "$pocketBaseUrl/api/collections/ai_notes/records?filter=(user='$userId')"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
-
-                                val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
+                                val items =
+                                        fetchAllItems(
+                                                "ai_notes",
+                                                "(user='$userId')",
+                                                sortParam = "-updatedAt",
+                                                perPage = 100
                                         )
                                 var syncedCount = 0
 
-                                for (item in response.items) {
+                                for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val note =
                                                 AiNoteEntity(
@@ -800,19 +824,16 @@ class UserSyncRepository(
                         try {
                                 val userId = getUserId() ?: return@withContext 0
 
-                                val url =
-                                        "$pocketBaseUrl/api/collections/ai_profiles/records?filter=(user='$userId')"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
-
-                                val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
+                                val items =
+                                        fetchAllItems(
+                                                "ai_profiles",
+                                                "(user='$userId')",
+                                                sortParam = "-updatedAt",
+                                                perPage = 100
                                         )
                                 var syncedCount = 0
 
-                                for (item in response.items) {
+                                for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val profile =
                                                 AiProfileEntity(
@@ -917,11 +938,7 @@ class UserSyncRepository(
 
         suspend fun pullProfiles(): Int =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "pullProfiles - STUB: Not implemented for PocketBase yet"
-                        )
-                        0
+                        pullAiProfiles()
                 }
 
         suspend fun ensureBookFileAvailable(
