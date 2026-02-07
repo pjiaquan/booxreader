@@ -95,6 +95,7 @@ AUTO_AI_ALLOW_COMMIT_MESSAGE="${AUTO_AI_ALLOW_COMMIT_MESSAGE:-false}"
 AUTO_SELECT_DEVICE="${AUTO_SELECT_DEVICE:-false}"
 TARGET_DEVICE_SERIAL=""
 CI_RELEASE_ONLY="${CI_RELEASE_ONLY:-false}"
+ALLOW_HARDCODED_CREDENTIALS="${ALLOW_HARDCODED_CREDENTIALS:-false}"
 
 load_telegram_config() {
     if [ -f "$TELEGRAM_CONFIG_FILE" ]; then
@@ -149,6 +150,7 @@ Env vars (optional):
   TELEGRAM_ENABLED=true|false
   AUTO_SELECT_DEVICE=true|false
   CI_RELEASE_ONLY=true|false
+  ALLOW_HARDCODED_CREDENTIALS=true|false
 EOF
 }
 
@@ -923,6 +925,129 @@ is_low_quality_ai_message() {
     return 1
 }
 
+# Lightweight scan for potential hard-coded credentials or secrets.
+# This is a heuristic check to prevent accidental leaks in commits and AI prompts.
+secret_scan_patterns=(
+    'AKIA[0-9A-Z]{16}'
+    'ASIA[0-9A-Z]{16}'
+    'AIza[0-9A-Za-z_-]{35}'
+    'ghp_[A-Za-z0-9]{36}'
+    'gho_[A-Za-z0-9]{36}'
+    'github_pat_[A-Za-z0-9_]{22,}'
+    'glpat-[A-Za-z0-9_-]{20,}'
+    'xox[baprs]-[0-9A-Za-z-]{10,}'
+    '-----BEGIN (RSA|DSA|EC|OPENSSH|PRIVATE) KEY-----'
+    'aws_access_key_id[[:space:]]*[:=]'
+    'aws_secret_access_key[[:space:]]*[:=]'
+    '(api[_-]?key|secret|token|password|passwd|private_key|client_secret|access[_-]?token|refresh[_-]?token)[[:space:]]*[:=][[:space:]]*["'\'']?[A-Za-z0-9/+=._-]{8,}'
+    'sk_(live|test)_[A-Za-z0-9]{10,}'
+)
+
+search_text_for_secrets() {
+    local text="$1"
+    local matches=""
+    if command -v rg >/dev/null 2>&1; then
+        matches=$(printf '%s\n' "$text" | rg -n -i $(printf -- "-e %q " "${secret_scan_patterns[@]}") || true)
+    else
+        matches=$(printf '%s\n' "$text" | grep -Eni $(printf -- "-e %q " "${secret_scan_patterns[@]}") || true)
+    fi
+    if [ -n "$matches" ]; then
+        printf '%s\n' "$matches"
+        return 1
+    fi
+    return 0
+}
+
+scan_added_lines_in_diff() {
+    local label="$1"
+    local diff_content="$2"
+    local added_lines=""
+    added_lines=$(printf '%s\n' "$diff_content" | sed -n 's/^+//p' | grep -v '^\+\+\+' || true)
+    if [ -z "$added_lines" ]; then
+        return 0
+    fi
+    local matches
+    matches=$(search_text_for_secrets "$added_lines" || true)
+    if [ -n "$matches" ]; then
+        warn "Potential credentials detected in ${label}:"
+        printf '%s\n' "$matches" >&2
+        return 1
+    fi
+    return 0
+}
+
+scan_untracked_files_for_secrets() {
+    local found=0
+    while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        [ ! -f "$file" ] && continue
+        # Skip very large files (>1MB) to keep scan fast.
+        if [ "$(wc -c <"$file" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+            continue
+        fi
+        # Skip binary files.
+        if ! grep -Iq . "$file" 2>/dev/null; then
+            continue
+        fi
+        local matches=""
+        if command -v rg >/dev/null 2>&1; then
+            matches=$(rg -n -i $(printf -- "-e %q " "${secret_scan_patterns[@]}") -- "$file" || true)
+        else
+            matches=$(grep -Eni $(printf -- "-e %q " "${secret_scan_patterns[@]}") -- "$file" || true)
+        fi
+        if [ -n "$matches" ]; then
+            warn "Potential credentials detected in untracked file: $file"
+            printf '%s\n' "$matches" >&2
+            found=1
+        fi
+    done < <(git ls-files --others --exclude-standard)
+    if [ $found -ne 0 ]; then
+        return 1
+    fi
+    return 0
+}
+
+check_for_hardcoded_credentials() {
+    if [ "$ALLOW_HARDCODED_CREDENTIALS" = "true" ]; then
+        warn "Credential scan bypassed (ALLOW_HARDCODED_CREDENTIALS=true)."
+        return 0
+    fi
+
+    local found=0
+    local unstaged_diff=""
+    local staged_diff=""
+    unstaged_diff=$(git diff --patch)
+    staged_diff=$(git diff --cached --patch)
+
+    scan_added_lines_in_diff "unstaged changes" "$unstaged_diff" || found=1
+    scan_added_lines_in_diff "staged changes" "$staged_diff" || found=1
+    scan_untracked_files_for_secrets || found=1
+
+    if [ $found -ne 0 ]; then
+        if is_tty; then
+            warn "Potential credentials detected. Review the output above."
+            read -p "Proceed anyway? [y/N]: " REPLY
+            REPLY=${REPLY:-n}
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                return 1
+            fi
+            warn "Proceeding despite credential scan warnings."
+            return 0
+        fi
+        die "Potential credentials detected; aborting non-interactive run."
+    fi
+    return 0
+}
+
+check_last_commit_for_credentials() {
+    if [ "$ALLOW_HARDCODED_CREDENTIALS" = "true" ]; then
+        return 0
+    fi
+    local commit_diff=""
+    commit_diff=$(git show -1 --patch)
+    scan_added_lines_in_diff "last commit" "$commit_diff"
+}
+
 # Git operations with safety checks
 git_operations() {
     local build_gradle="app/build.gradle.kts"
@@ -975,6 +1100,11 @@ git_operations() {
         return 0
     fi
     
+    # Scan for hard-coded credentials before staging.
+    if ! check_for_hardcoded_credentials; then
+        die "Credential scan failed. Aborting git operations."
+    fi
+
     # Stage all changes (code + version bump)
     git add .
     
@@ -983,6 +1113,10 @@ git_operations() {
     
     # Try to generate AI commit message
     if [ -n "${GROQ_API_KEY:-}" ]; then
+        # Scan staged content before sending diffs to AI.
+        if ! check_for_hardcoded_credentials; then
+            warn "Credential scan failed; skipping AI commit message."
+        else
         # Get staged changes per file to ensure we don't miss files due to truncation
         local STAGED_DIFF=""
         local total_chars=0
@@ -1031,6 +1165,7 @@ git_operations() {
                 DEFAULT_MSG="$AI_MSG"
                 AI_SUCCESS="true"
             fi
+        fi
         fi
     else
         if [ "$CI_RELEASE_ONLY" != "true" ]; then
@@ -1097,6 +1232,9 @@ git_operations() {
     git commit -m "$COMMIT_MESSAGE"
     
     # Push to remote
+    if ! check_last_commit_for_credentials; then
+        die "Credential scan failed on last commit. Aborting push."
+    fi
     echo "Pushing to remote..."
     git push
     
