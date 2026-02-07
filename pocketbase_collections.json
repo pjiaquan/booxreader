@@ -1,0 +1,519 @@
+{
+    "collections": [
+        {
+            "name": "settings",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": true,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "pageTapEnabled",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "pageSwipeEnabled",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "contrastMode",
+                    "type": "number",
+                    "required": false,
+                    "options": {
+                        "min": 0,
+                        "max": 3
+                    }
+                },
+                {
+                    "name": "convertToTraditionalChinese",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "serverBaseUrl",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "exportToCustomUrl",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "exportCustomUrl",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "exportToLocalDownloads",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "apiKey",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "aiModelName",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "aiSystemPrompt",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "aiUserPromptTemplate",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "temperature",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "maxTokens",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "topP",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "frequencyPenalty",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "presencePenalty",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "assistantRole",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "enableGoogleSearch",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "useStreaming",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "pageAnimationEnabled",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "showPageIndicator",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "language",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "activeProfileId",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "indexes": [
+                "CREATE UNIQUE INDEX idx_user ON settings (user)"
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "progress",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": true,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "bookId",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "bookTitle",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "locatorJson",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "indexes": [
+                "CREATE UNIQUE INDEX idx_user_book ON progress (user, bookId)"
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "bookmarks",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": true,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "bookId",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "locatorJson",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "createdAt",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "ai_notes",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": true,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "bookId",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "bookTitle",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "messages",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "originalText",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "aiResponse",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "locatorJson",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "createdAt",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "ai_profiles",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": true,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "name",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "modelName",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "apiKey",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "serverBaseUrl",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "systemPrompt",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "userPromptTemplate",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "useStreaming",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "temperature",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "maxTokens",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "topP",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "frequencyPenalty",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "presencePenalty",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "assistantRole",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "enableGoogleSearch",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "extraParamsJson",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "createdAt",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "books",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": true,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "bookId",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "title",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "storagePath",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "fileHash",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "deleted",
+                    "type": "bool",
+                    "required": false
+                },
+                {
+                    "name": "deletedAt",
+                    "type": "number",
+                    "required": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "indexes": [
+                "CREATE UNIQUE INDEX idx_user_book ON books (user, bookId)"
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && @request.data.user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "crash_reports",
+            "type": "base",
+            "schema": [
+                {
+                    "name": "user",
+                    "type": "relation",
+                    "required": false,
+                    "options": {
+                        "collectionId": "_pb_users_auth_",
+                        "cascadeDelete": false,
+                        "maxSelect": 1
+                    }
+                },
+                {
+                    "name": "appVersion",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "androidVersion",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "deviceModel",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "stackTrace",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "message",
+                    "type": "text",
+                    "required": false
+                },
+                {
+                    "name": "timestamp",
+                    "type": "number",
+                    "required": true
+                }
+            ],
+            "listRule": null,
+            "viewRule": null,
+            "createRule": "@request.auth.id != \"\"",
+            "updateRule": null,
+            "deleteRule": null
+        }
+    ]
+}

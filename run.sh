@@ -15,6 +15,14 @@ if [ -f ".groq_env" ]; then
     source ".groq_env"
 fi
 
+# Load .env file for PocketBase configuration
+if [ -f ".env" ]; then
+    log "Loading environment from .env"
+    set -a
+    source ".env"
+    set +a
+fi
+
 is_writable_dir() {
     local dir="$1"
     mkdir -p "$dir" 2>/dev/null || return 1
