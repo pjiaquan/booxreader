@@ -483,6 +483,10 @@ class MainActivity : BaseActivity() {
     }
 
     private fun isUriAccessible(uri: Uri): Boolean {
+        // Placeholder cloud URI, not a ContentProvider-backed URI.
+        if (uri.scheme.equals("pocketbase", ignoreCase = true)) {
+            return false
+        }
         return try {
             contentResolver.openInputStream(uri)?.use { true } ?: false
         } catch (e: Exception) {

@@ -593,7 +593,14 @@ class UserSyncRepository(
                                                 (existingItem["updatedAt"] as? Double)
                                                         ?.toLong()
                                                         ?: 0L
-                                        if (!book.deleted && remoteUpdatedAt > payloadUpdatedAt) {
+                                        val needsFileBackfill =
+                                                uploadFile &&
+                                                        contentResolver != null &&
+                                                        !remoteHasFilePath
+                                        if (!book.deleted &&
+                                                        remoteUpdatedAt > payloadUpdatedAt &&
+                                                        !needsFileBackfill
+                                        ) {
                                                 Log.d(
                                                         "UserSyncRepository",
                                                         "pushBook - Skip stale local update for ${book.bookId}"
@@ -1712,6 +1719,7 @@ class UserSyncRepository(
                 if (recordId.isNullOrBlank() || book.deleted) {
                         return null
                 }
+                val userId = getUserId()
 
                 val sourceUri =
                         runCatching { Uri.parse(book.fileUri) }
@@ -1756,6 +1764,15 @@ class UserSyncRepository(
                                 val multipartBody =
                                         MultipartBody.Builder()
                                                 .setType(MultipartBody.FORM)
+                                                .addFormDataPart(
+                                                        "updatedAt",
+                                                        System.currentTimeMillis().toString()
+                                                )
+                                                .apply {
+                                                        if (!userId.isNullOrBlank()) {
+                                                                addFormDataPart("user", userId)
+                                                        }
+                                                }
                                                 .addFormDataPart(
                                                         field,
                                                         cleanName,
@@ -1916,21 +1933,52 @@ class UserSyncRepository(
                         URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20")
                 }
 
+        private fun urlEncodeQueryValue(value: String): String =
+                URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
+
+        private fun withFileToken(url: String, token: String): String {
+                if (Regex("[?&]token=").containsMatchIn(url)) return url
+                val separator = if (url.contains("?")) "&" else "?"
+                return "$url${separator}token=${urlEncodeQueryValue(token)}"
+        }
+
+        private suspend fun getProtectedFileToken(): String? {
+                return try {
+                        val tokenUrl = "$pocketBaseUrl/api/files/token"
+                        val requestBody = "{}".toRequestBody("application/json".toMediaType())
+                        val request = buildAuthenticatedRequest(tokenUrl).post(requestBody).build()
+                        val responseBody = executeRequest(request, reportError = false)
+                        val payload =
+                                runCatching { gson.fromJson(responseBody, Map::class.java) as? Map<*, *> }
+                                        .getOrNull()
+                        payload?.get("token") as? String
+                } catch (_: Exception) {
+                        null
+                }
+        }
+
         private suspend fun downloadRemoteFile(url: String, target: File): Boolean {
                 return try {
                         target.parentFile?.mkdirs()
+                        var resolvedUrl = url
+                        if (resolvedUrl.startsWith(pocketBaseUrl)) {
+                                val fileToken = getProtectedFileToken()
+                                if (!fileToken.isNullOrBlank()) {
+                                        resolvedUrl = withFileToken(resolvedUrl, fileToken)
+                                }
+                        }
                         val requestBuilder =
-                                if (url.startsWith(pocketBaseUrl)) {
-                                        buildAuthenticatedRequest(url)
+                                if (resolvedUrl.startsWith(pocketBaseUrl)) {
+                                        buildAuthenticatedRequest(resolvedUrl)
                                 } else {
-                                        Request.Builder().url(url)
+                                        Request.Builder().url(resolvedUrl)
                                 }
                         val request = requestBuilder.get().build()
                         httpClient.newCall(request).execute().use { response ->
                                 if (!response.isSuccessful) {
                                         Log.w(
                                                 "UserSyncRepository",
-                                                "downloadRemoteFile failed code=${response.code} url=$url"
+                                                "downloadRemoteFile failed code=${response.code} url=$resolvedUrl"
                                         )
                                         return false
                                 }

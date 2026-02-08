@@ -8,7 +8,9 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import my.hinoki.booxreader.BuildConfig
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.UserEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
@@ -143,9 +145,22 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun logout(): Result<Unit> =
                 withContext(Dispatchers.IO) {
                         runCatching {
+                                val syncRepo = UserSyncRepository(context, tokenManager = tokenManager)
+                                // Best-effort final upload before local wipe.
+                                // This avoids "book not found" after fast logout/login cycles.
+                                withTimeoutOrNull(15_000) {
+                                        runCatching { syncRepo.pushLocalBooks() }
+                                                .onFailure {
+                                                        ErrorReporter.report(
+                                                                context,
+                                                                "AuthRepository.logout",
+                                                                "Failed to push local books before logout",
+                                                                it
+                                                        )
+                                                }
+                                }
                                 tokenManager.clearTokens()
-                                UserSyncRepository(context, tokenManager = tokenManager)
-                                        .clearLocalUserData()
+                                syncRepo.clearLocalUserData()
                         }
                 }
 
