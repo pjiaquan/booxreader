@@ -145,11 +145,16 @@ class ReaderViewModel(
 
                 // Ensure new book files are synced
                 viewModelScope.launch(ioDispatcher) {
+                    val resolver = contentResolver ?: getApplication<Application>().contentResolver
                     val result = runCatching {
                         syncRepo.pushBook(
                                 book,
                                 uploadFile = true,
-                                contentResolver = contentResolver
+                                contentResolver = resolver
+                        )
+                        syncRepo.ensureRemoteBookFilePresent(
+                                book = book,
+                                contentResolver = resolver
                         )
                     }
                     result.onFailure { e ->

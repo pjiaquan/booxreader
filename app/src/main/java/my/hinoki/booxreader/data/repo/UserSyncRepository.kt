@@ -55,6 +55,12 @@ class UserSyncRepository(
         baseUrl: String? = null,
         tokenManager: TokenManager? = null
 ) {
+        private enum class RemoteFileState {
+                PRESENT,
+                MISSING,
+                UNKNOWN
+        }
+
         private companion object {
                 val BOOK_FILE_FIELD_CANDIDATES =
                         listOf("bookFile", "file", "epubFile", "epub", "asset", "book")
@@ -459,7 +465,17 @@ class UserSyncRepository(
                                         return@withContext null
                                 }
 
-                                val locatorJson = response.items[0]["locatorJson"] as? String
+                                val item = response.items[0]
+                                val locatorJson = item["locatorJson"] as? String
+                                val remoteUpdatedAt = parseEpochMillis(item["updatedAt"])
+                                if (!locatorJson.isNullOrBlank()) {
+                                        cacheProgress(bookId, locatorJson, remoteUpdatedAt)
+                                        mergeRemoteProgressIntoLocalBook(
+                                                bookId = bookId,
+                                                locatorJson = locatorJson,
+                                                remoteUpdatedAt = remoteUpdatedAt
+                                        )
+                                }
                                 Log.d(
                                         "UserSyncRepository",
                                         "pullProgress - Progress pulled for $bookId"
@@ -586,6 +602,7 @@ class UserSyncRepository(
                                 val existingItem = checkResponse.items.firstOrNull()
                                 val remoteHasFilePath =
                                         !resolveStoragePathFromRecord(existingItem).isNullOrBlank()
+                                var remoteDeleted = false
                                 var recordId = existingItem?.get("id") as? String
 
                                 if (existingItem != null) {
@@ -593,11 +610,13 @@ class UserSyncRepository(
                                                 (existingItem["updatedAt"] as? Double)
                                                         ?.toLong()
                                                         ?: 0L
+                                        remoteDeleted = existingItem["deleted"] as? Boolean ?: false
                                         val needsFileBackfill =
                                                 uploadFile &&
                                                         contentResolver != null &&
-                                                        !remoteHasFilePath
+                                                        (!remoteHasFilePath || remoteDeleted)
                                         if (!book.deleted &&
+                                                        !remoteDeleted &&
                                                         remoteUpdatedAt > payloadUpdatedAt &&
                                                         !needsFileBackfill
                                         ) {
@@ -630,7 +649,10 @@ class UserSyncRepository(
                                         recordId = created["id"] as? String
                                 }
 
-                                if (uploadFile && contentResolver != null && !remoteHasFilePath) {
+                                if (uploadFile &&
+                                                contentResolver != null &&
+                                                (!remoteHasFilePath || remoteDeleted)
+                                ) {
                                         val uploadStoragePath =
                                                 tryUploadBookFile(
                                                         recordId = recordId,
@@ -655,6 +677,101 @@ class UserSyncRepository(
                                 Log.e(
                                         "UserSyncRepository",
                                         "pushBook failed for ${book.bookId}",
+                                        e
+                                )
+                                false
+                        }
+                }
+
+        suspend fun ensureRemoteBookFilePresent(
+                book: BookEntity,
+                contentResolver: android.content.ContentResolver
+        ): Boolean =
+                withContext(io) {
+                        try {
+                                if (book.deleted) return@withContext true
+                                val userId = getUserId() ?: return@withContext false
+                                val remoteRecord = fetchBookRecord(userId, book.bookId)
+                                if (remoteRecord == null) {
+                                        return@withContext pushBook(
+                                                book,
+                                                uploadFile = true,
+                                                contentResolver = contentResolver
+                                        )
+                                }
+
+                                val recordId = remoteRecord["id"] as? String
+                                val remoteDeleted = remoteRecord["deleted"] as? Boolean ?: false
+                                val storagePath = resolveStoragePathFromRecord(remoteRecord)
+
+                                if (recordId.isNullOrBlank() ||
+                                                remoteDeleted ||
+                                                storagePath.isNullOrBlank()
+                                ) {
+                                        return@withContext pushBook(
+                                                book,
+                                                uploadFile = true,
+                                                contentResolver = contentResolver
+                                        )
+                                }
+
+                                val remoteUrl = buildDownloadUrl(storagePath, recordId)
+                                if (remoteUrl.isNullOrBlank()) {
+                                        return@withContext pushBook(
+                                                book,
+                                                uploadFile = true,
+                                                contentResolver = contentResolver
+                                        )
+                                }
+
+                                when (probeRemoteFileState(remoteUrl)) {
+                                        RemoteFileState.PRESENT -> true
+                                        RemoteFileState.UNKNOWN -> {
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "ensureRemoteBookFilePresent - Skip reupload for unknown remote state ${book.bookId}"
+                                                )
+                                                true
+                                        }
+                                        RemoteFileState.MISSING -> {
+                                                val uploadedStoragePath =
+                                                        tryUploadBookFile(
+                                                                recordId = recordId,
+                                                                book = book,
+                                                                contentResolver = contentResolver
+                                                        )
+                                                if (uploadedStoragePath.isNullOrBlank()) {
+                                                        Log.w(
+                                                                "UserSyncRepository",
+                                                                "ensureRemoteBookFilePresent - Reupload failed for ${book.bookId}"
+                                                        )
+                                                        return@withContext false
+                                                }
+                                                val normalizedCurrent =
+                                                        normalizeStoragePath(storagePath)
+                                                if (uploadedStoragePath != normalizedCurrent) {
+                                                        updateBookStoragePath(
+                                                                recordId = recordId,
+                                                                storagePath = uploadedStoragePath
+                                                        )
+                                                }
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "ensureRemoteBookFilePresent - Reuploaded missing file for ${book.bookId}"
+                                                )
+                                                true
+                                        }
+                                }
+                        } catch (e: Exception) {
+                                Log.e(
+                                        "UserSyncRepository",
+                                        "ensureRemoteBookFilePresent failed for ${book.bookId}",
+                                        e
+                                )
+                                ErrorReporter.report(
+                                        appContext,
+                                        "UserSyncRepository.ensureRemoteBookFilePresent",
+                                        "Failed to ensure remote file for ${book.bookId}",
                                         e
                                 )
                                 false
@@ -1351,11 +1468,40 @@ class UserSyncRepository(
 
         suspend fun pullAllProgress(): Int =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "pullAllProgress - STUB: Not implemented for PocketBase yet"
-                        )
-                        0
+                        try {
+                                val userId = getUserId() ?: return@withContext 0
+                                val items =
+                                        fetchAllItems(
+                                                "progress",
+                                                "(user='$userId')",
+                                                sortParam = "-updatedAt",
+                                                perPage = 100
+                                        )
+                                var mergedCount = 0
+                                for (item in items) {
+                                        val bookId = item["bookId"] as? String ?: continue
+                                        val locatorJson = item["locatorJson"] as? String ?: continue
+                                        val remoteUpdatedAt = parseEpochMillis(item["updatedAt"])
+                                        cacheProgress(bookId, locatorJson, remoteUpdatedAt)
+                                        val merged =
+                                                mergeRemoteProgressIntoLocalBook(
+                                                        bookId = bookId,
+                                                        locatorJson = locatorJson,
+                                                        remoteUpdatedAt = remoteUpdatedAt
+                                                )
+                                        if (merged) {
+                                                mergedCount++
+                                        }
+                                }
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "pullAllProgress - merged=$mergedCount records=${items.size}"
+                                )
+                                mergedCount
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "pullAllProgress failed", e)
+                                0
+                        }
                 }
 
         suspend fun pullProfiles(): Int =
@@ -1957,6 +2103,79 @@ class UserSyncRepository(
                 }
         }
 
+        private suspend fun probeRemoteFileState(url: String): RemoteFileState {
+                return try {
+                        var resolvedUrl = url
+                        if (resolvedUrl.startsWith(pocketBaseUrl)) {
+                                val fileToken = getProtectedFileToken()
+                                if (!fileToken.isNullOrBlank()) {
+                                        resolvedUrl = withFileToken(resolvedUrl, fileToken)
+                                }
+                        }
+
+                        fun classify(code: Int): RemoteFileState =
+                                when {
+                                        code in 200..299 || code == 304 || code == 416 ->
+                                                RemoteFileState.PRESENT
+                                        code == 404 || code == 410 -> RemoteFileState.MISSING
+                                        else -> RemoteFileState.UNKNOWN
+                                }
+
+                        val headCode =
+                                httpClient
+                                        .newCall(
+                                                (
+                                                                if (resolvedUrl.startsWith(
+                                                                                pocketBaseUrl
+                                                                )) {
+                                                                        buildAuthenticatedRequest(
+                                                                                resolvedUrl
+                                                                        )
+                                                                } else {
+                                                                        Request.Builder().url(
+                                                                                resolvedUrl
+                                                                        )
+                                                                }
+                                                        )
+                                                        .head()
+                                                        .build()
+                                        )
+                                        .execute()
+                                        .use { it.code }
+                        if (headCode == 405 || headCode == 501) {
+                                val getCode =
+                                        httpClient
+                                                .newCall(
+                                                        (
+                                                                        if (
+                                                                                resolvedUrl.startsWith(
+                                                                                        pocketBaseUrl
+                                                                                )
+                                                                        ) {
+                                                                                buildAuthenticatedRequest(
+                                                                                        resolvedUrl
+                                                                                )
+                                                                        } else {
+                                                                                Request.Builder()
+                                                                                        .url(
+                                                                                                resolvedUrl
+                                                                                        )
+                                                                        }
+                                                                )
+                                                                .addHeader("Range", "bytes=0-0")
+                                                                .get()
+                                                                .build()
+                                                )
+                                                .execute()
+                                                .use { it.code }
+                                return classify(getCode)
+                        }
+                        classify(headCode)
+                } catch (_: Exception) {
+                        RemoteFileState.UNKNOWN
+                }
+        }
+
         private suspend fun downloadRemoteFile(url: String, target: File): Boolean {
                 return try {
                         target.parentFile?.mkdirs()
@@ -2010,6 +2229,34 @@ class UserSyncRepository(
                         )
                         false
                 }
+        }
+
+        private fun parseEpochMillis(value: Any?): Long {
+                return when (value) {
+                        is Number -> value.toLong()
+                        is String -> value.toLongOrNull() ?: System.currentTimeMillis()
+                        else -> System.currentTimeMillis()
+                }
+        }
+
+        private suspend fun mergeRemoteProgressIntoLocalBook(
+                bookId: String,
+                locatorJson: String,
+                remoteUpdatedAt: Long
+        ): Boolean {
+                val local = db.bookDao().getByIds(listOf(bookId)).firstOrNull() ?: return false
+                val localHasProgress = !local.lastLocatorJson.isNullOrBlank()
+                val remoteIsNewerOrEqual = remoteUpdatedAt >= local.lastOpenedAt
+                val shouldApply = !localHasProgress || remoteIsNewerOrEqual
+                if (!shouldApply) {
+                        return false
+                }
+                if (local.lastLocatorJson == locatorJson && local.lastOpenedAt >= remoteUpdatedAt) {
+                        return false
+                }
+                val mergedTime = maxOf(local.lastOpenedAt, remoteUpdatedAt)
+                db.bookDao().updateProgress(bookId, locatorJson, mergedTime)
+                return true
         }
 
         private fun progressKey(bookId: String) = "progress_$bookId"
