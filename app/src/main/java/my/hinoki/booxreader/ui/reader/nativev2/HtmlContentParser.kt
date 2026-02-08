@@ -222,8 +222,14 @@ internal object HtmlContentParser {
         private val accentInsetStart = 6f * density
         private val accentWidth = 2f * density
         private val textGap = 10f * density
+        private val contentEndPadding = 6f * density
         private val cardVerticalInset = 1.25f * density
         private val firstLineTopPadding = 10f * density
+        private var cachedMaxLineWidth = -1f
+        private var cachedSpanStart = -1
+        private var cachedSpanEnd = -1
+        private var cachedTextSize = Float.NaN
+        private var cachedTypeface: android.graphics.Typeface? = null
 
         private val accentColor: Int
             get() = (textColor and 0x00FFFFFF) or 0xA6000000.toInt()
@@ -308,16 +314,10 @@ internal object HtmlContentParser {
             val isFirstLine = start <= spanStart
             val isLastLine = end >= spanEnd
 
-            val lineStart = start.coerceAtLeast(spanStart)
-            val lineEnd = end.coerceAtMost(spanEnd)
-            val measuredEnd =
-                    if (lineEnd > lineStart && text[lineEnd - 1] == '\n') lineEnd - 1 else lineEnd
-            val lineTextWidth =
-                    if (measuredEnd > lineStart) paint.measureText(text, lineStart, measuredEnd)
-                    else 0f
+            val maxLineTextWidth = getMaxLineTextWidth(text, spanStart, spanEnd, paint)
             val textStart = left + getLeadingMargin(isFirstLine)
             val panelRight =
-                    (textStart + lineTextWidth + cardInsetEnd)
+                    (textStart + maxLineTextWidth + contentEndPadding + cardInsetEnd)
                             .coerceAtMost((right - cardInsetEnd).toFloat())
             val panelTop =
                     if (isFirstLine) {
@@ -348,6 +348,44 @@ internal object HtmlContentParser {
 
             paint.style = style
             paint.color = color
+        }
+
+        private fun getMaxLineTextWidth(
+                text: CharSequence,
+                spanStart: Int,
+                spanEnd: Int,
+                paint: Paint
+        ): Float {
+            val cacheValid =
+                    cachedMaxLineWidth >= 0f &&
+                            cachedSpanStart == spanStart &&
+                            cachedSpanEnd == spanEnd &&
+                            cachedTextSize == paint.textSize &&
+                            cachedTypeface == paint.typeface
+            if (cacheValid) return cachedMaxLineWidth
+
+            var maxWidth = 0f
+            var lineStart = spanStart
+            var i = spanStart
+            while (i < spanEnd) {
+                if (text[i] == '\n') {
+                    if (i > lineStart) {
+                        maxWidth = maxWidth.coerceAtLeast(paint.measureText(text, lineStart, i))
+                    }
+                    lineStart = i + 1
+                }
+                i++
+            }
+            if (spanEnd > lineStart) {
+                maxWidth = maxWidth.coerceAtLeast(paint.measureText(text, lineStart, spanEnd))
+            }
+
+            cachedMaxLineWidth = maxWidth
+            cachedSpanStart = spanStart
+            cachedSpanEnd = spanEnd
+            cachedTextSize = paint.textSize
+            cachedTypeface = paint.typeface
+            return maxWidth
         }
 
         private fun drawSegmentShape(
