@@ -375,6 +375,18 @@ def get_collections_schema():
                 {"name": "user", "type": "relation", "required": True, "options": {"collectionId": "_pb_users_auth_", "cascadeDelete": False, "maxSelect": 1}},
                 {"name": "bookId", "type": "text", "required": True},
                 {"name": "title", "type": "text", "required": False},
+                {
+                    "name": "bookFile",
+                    "type": "file",
+                    "required": False,
+                    "options": {
+                        "maxSelect": 1,
+                        "maxSize": 104857600,
+                        "mimeTypes": ["application/epub+zip"],
+                        "thumbs": [],
+                        "protected": False
+                    }
+                },
                 {"name": "storagePath", "type": "text", "required": False},
                 {"name": "fileHash", "type": "text", "required": False},
                 {"name": "deleted", "type": "bool", "required": False},

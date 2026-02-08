@@ -54,6 +54,11 @@ class UserSyncRepository(
         baseUrl: String? = null,
         tokenManager: TokenManager? = null
 ) {
+        private companion object {
+                val BOOK_FILE_FIELD_CANDIDATES =
+                        listOf("bookFile", "file", "epubFile", "epub", "asset", "book")
+        }
+
         private val appContext = context.applicationContext
         private val prefs: SharedPreferences =
                 context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
@@ -569,6 +574,8 @@ class UserSyncRepository(
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
                                 val existingItem = checkResponse.items.firstOrNull()
+                                val remoteHasFilePath =
+                                        !resolveStoragePathFromRecord(existingItem).isNullOrBlank()
                                 var recordId = existingItem?.get("id") as? String
 
                                 if (existingItem != null) {
@@ -606,7 +613,7 @@ class UserSyncRepository(
                                         recordId = created["id"] as? String
                                 }
 
-                                if (uploadFile && contentResolver != null) {
+                                if (uploadFile && contentResolver != null && !remoteHasFilePath) {
                                         val uploadStoragePath =
                                                 tryUploadBookFile(
                                                         recordId = recordId,
@@ -703,7 +710,12 @@ class UserSyncRepository(
                                 val localBooks = db.bookDao().getAllBooks()
                                 var syncedCount = 0
                                 for (book in localBooks) {
-                                        val synced = pushBook(book, uploadFile = false)
+                                        val synced =
+                                                pushBook(
+                                                        book,
+                                                        uploadFile = true,
+                                                        contentResolver = appContext.contentResolver
+                                                )
                                         if (synced) {
                                                 syncedCount++
                                         }
@@ -746,7 +758,7 @@ class UserSyncRepository(
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val title = item["title"] as? String
-                                        val storagePath = item["storagePath"] as? String
+                                        val resolvedStoragePath = resolveStoragePathFromRecord(item)
                                         val deleted = item["deleted"] as? Boolean ?: false
                                         val updatedAt =
                                                 (item["updatedAt"] as? Double)?.toLong()
@@ -764,7 +776,7 @@ class UserSyncRepository(
                                         if (existingBook == null) {
                                                 // New book from cloud
                                                 val remoteFileUri =
-                                                        storagePath
+                                                        resolvedStoragePath
                                                                 ?.takeIf { it.isNotBlank() }
                                                                 ?.let { "pocketbase://$it" }
                                                                 ?: "pocketbase://$bookId"
@@ -781,7 +793,7 @@ class UserSyncRepository(
                                                 syncedCount++
                                         } else {
                                                 val remoteFileUri =
-                                                        storagePath
+                                                        resolvedStoragePath
                                                                 ?.takeIf { it.isNotBlank() }
                                                                 ?.let { "pocketbase://$it" }
                                                 val shouldUpdateTitle =
@@ -1330,6 +1342,17 @@ class UserSyncRepository(
 
                                 var recordId: String? = null
                                 var effectiveStoragePath = normalizeStoragePath(storagePath)
+                                if (effectiveStoragePath == bookId) {
+                                        // Placeholder path from "pocketbase://<bookId>".
+                                        // It is not a downloadable file path.
+                                        effectiveStoragePath = null
+                                }
+                                if (effectiveStoragePath.isNullOrBlank()) {
+                                        effectiveStoragePath = storagePathFromPseudoUri(originalUri)
+                                        if (effectiveStoragePath == bookId) {
+                                                effectiveStoragePath = null
+                                        }
+                                }
                                 if (effectiveStoragePath.isNullOrBlank()) {
                                         val userId = getUserId() ?: return@withContext null
                                         val remoteRecord = fetchBookRecord(userId, bookId)
@@ -1686,10 +1709,9 @@ class UserSyncRepository(
                                         "$nonEmptyBaseName.epub"
                                 }
                         val mediaType = "application/epub+zip".toMediaType()
-                        val fieldCandidates = listOf("bookFile", "file", "epubFile", "epub", "asset")
                         val uploadUrl = "$pocketBaseUrl/api/collections/books/records/$recordId"
 
-                        for (field in fieldCandidates) {
+                        for (field in BOOK_FILE_FIELD_CANDIDATES) {
                                 val multipartBody =
                                         MultipartBody.Builder()
                                                 .setType(MultipartBody.FORM)
@@ -1801,14 +1823,19 @@ class UserSyncRepository(
                 }
 
                 val recordId = record["id"] as? String ?: return null
-                val fileFieldCandidates = listOf("bookFile", "file", "epubFile", "epub", "asset")
-                for (field in fileFieldCandidates) {
+                for (field in BOOK_FILE_FIELD_CANDIDATES) {
                         val fileName = extractUploadedFileName(record, field)
                         if (!fileName.isNullOrBlank()) {
                                 return "$recordId/$fileName"
                         }
                 }
                 return null
+        }
+
+        private fun storagePathFromPseudoUri(uri: String?): String? {
+                if (uri.isNullOrBlank()) return null
+                if (!uri.startsWith("pocketbase://")) return null
+                return normalizeStoragePath(uri.removePrefix("pocketbase://"))
         }
 
         private fun buildDownloadUrl(storagePath: String, recordId: String?): String? {

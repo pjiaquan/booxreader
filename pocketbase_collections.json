@@ -430,6 +430,20 @@
                     "required": false
                 },
                 {
+                    "name": "bookFile",
+                    "type": "file",
+                    "required": false,
+                    "options": {
+                        "maxSelect": 1,
+                        "maxSize": 104857600,
+                        "mimeTypes": [
+                            "application/epub+zip"
+                        ],
+                        "thumbs": [],
+                        "protected": false
+                    }
+                },
+                {
                     "name": "storagePath",
                     "type": "text",
                     "required": false

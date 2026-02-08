@@ -396,13 +396,29 @@ class MainActivity : BaseActivity() {
                 } else {
                     // Try to download from cloud
                     val syncRepo = UserSyncRepository(applicationContext)
+                    val storagePath =
+                            if (entity.fileUri.startsWith("pocketbase://")) {
+                                entity.fileUri
+                                        .removePrefix("pocketbase://")
+                                        .takeIf { it.contains("/") }
+                            } else {
+                                null
+                            }
                     val localUri =
                             syncRepo.ensureBookFileAvailable(
                                     entity.bookId,
+                                    storagePath = storagePath,
                                     originalUri = entity.fileUri
                             )
                     if (localUri != null) {
                         ReaderActivity.open(this@MainActivity, localUri)
+                    } else {
+                        android.widget.Toast.makeText(
+                                        this@MainActivity,
+                                        getString(R.string.book_file_not_found),
+                                        android.widget.Toast.LENGTH_SHORT
+                                )
+                                .show()
                     }
                 }
             } catch (e: Exception) {

@@ -65,7 +65,7 @@ Follow the detailed instructions in [`pocketbase_schema.md`](./pocketbase_schema
 3. `bookmarks` - 5 fields - User bookmarks
 4. `ai_notes` - 9 fields - AI conversation notes
 5. `ai_profiles` - 17 fields - AI configuration profiles
-6. `books` - 8 fields - Book metadata
+6. `books` - 9 fields - Book metadata + EPUB file
 7. `crash_reports` - 7 fields - Crash reports (optional)
 
 ### Step 3: Verify Setup
@@ -76,6 +76,7 @@ After creating all collections, verify:
 2. ✅ Each collection has a `user` relation field (except crash_reports)
 3. ✅ API rules are set correctly (users can only access their own data)
 4. ✅ Unique indexes are created where specified
+5. ✅ `books.bookFile` (File, single) exists for cross-device EPUB download
 
 ### Step 4: Configure App
 
@@ -122,6 +123,18 @@ buildConfigField("String", "POCKETBASE_URL", "\"${project.findProperty("POCKETBA
 2. Verify PocketBase URL is correct
 3. Ensure user is authenticated
 4. Check network connectivity
+
+### Issue: Books show on other devices but cannot be opened
+
+**Cause:** Existing `books` collection was created without a `bookFile` file field, so EPUB binaries were never uploaded.
+
+**Solution:**
+1. In PocketBase Admin, open collection `books`
+2. Add field `bookFile` with type `File`
+3. Set `Max files` to `1`
+4. Add `application/epub+zip` to allowed MIME types
+5. Save schema changes
+6. Re-open books once on source device so files upload, then sync on target device
 
 ## Files
 

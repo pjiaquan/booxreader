@@ -193,6 +193,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 | `user` | Relation | ✅ | Related to `_pb_users_auth_` (Single) |
 | `bookId` | Text | ✅ | |
 | `title` | Text | ❌ | |
+| `bookFile` | File | ❌ | Single EPUB file (`application/epub+zip`) |
 | `storagePath` | Text | ❌ | S3/R2 path if uploaded |
 | `fileHash` | Text | ❌ | For deduplication |
 | `deleted` | Bool | ❌ | Default: `false` |
