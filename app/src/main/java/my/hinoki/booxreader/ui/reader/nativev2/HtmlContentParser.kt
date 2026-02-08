@@ -223,7 +223,7 @@ internal object HtmlContentParser {
         private val accentWidth = 2f * density
         private val textGap = 10f * density
         private val cardVerticalInset = 1.25f * density
-        private val firstLineTopPadding = 6f * density
+        private val firstLineTopPadding = 10f * density
 
         private val accentColor: Int
             get() = (textColor and 0x00FFFFFF) or 0xA6000000.toInt()
@@ -308,9 +308,17 @@ internal object HtmlContentParser {
             val isFirstLine = start <= spanStart
             val isLastLine = end >= spanEnd
 
+            val lineStart = start.coerceAtLeast(spanStart)
+            val lineEnd = end.coerceAtMost(spanEnd)
+            val measuredEnd =
+                    if (lineEnd > lineStart && text[lineEnd - 1] == '\n') lineEnd - 1 else lineEnd
+            val lineTextWidth =
+                    if (measuredEnd > lineStart) paint.measureText(text, lineStart, measuredEnd)
+                    else 0f
+            val textStart = left + getLeadingMargin(isFirstLine)
             val panelRight =
-                    (canvas.clipBounds.right.toFloat() - cardInsetEnd)
-                            .coerceAtLeast(right - cardInsetEnd)
+                    (textStart + lineTextWidth + cardInsetEnd)
+                            .coerceAtMost((right - cardInsetEnd).toFloat())
             val panelTop =
                     if (isFirstLine) {
                         top - firstLineTopPadding + cardVerticalInset
