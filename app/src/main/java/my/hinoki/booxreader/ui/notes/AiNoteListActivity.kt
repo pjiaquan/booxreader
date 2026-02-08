@@ -38,6 +38,9 @@ import android.os.Build
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.widget.BaseAdapter
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 
 class AiNoteListActivity : BaseActivity() {
 
@@ -65,6 +68,7 @@ class AiNoteListActivity : BaseActivity() {
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
+    private var baseListPaddingTop: Int = 0
     private var notes: List<AiNoteEntity> = emptyList()
     private val selectedNoteIds = linkedSetOf<Long>()
     private var selectionActionMode: ActionMode? = null
@@ -97,7 +101,8 @@ class AiNoteListActivity : BaseActivity() {
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        applyActionBarPadding(binding.listAiNotes)
+        baseListPaddingTop = binding.listAiNotes.paddingTop
+        adjustListTopInsetForActionBar()
         setupList()
         applyThemeFromSettings()
 
@@ -106,7 +111,30 @@ class AiNoteListActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        adjustListTopInsetForActionBar()
         applyThemeFromSettings()
+    }
+
+    private fun adjustListTopInsetForActionBar() {
+        binding.listAiNotes.post {
+            val actionBarView =
+                    findViewById<View>(androidx.appcompat.R.id.action_bar_container)
+                            ?: findViewById(androidx.appcompat.R.id.action_bar)
+                            ?: return@post
+            val actionBarLocation = IntArray(2)
+            val listLocation = IntArray(2)
+            actionBarView.getLocationInWindow(actionBarLocation)
+            binding.listAiNotes.getLocationInWindow(listLocation)
+
+            val actionBarBottom = actionBarLocation[1] + actionBarView.height
+            val overlap = (actionBarBottom - listLocation[1]).coerceAtLeast(0)
+            binding.listAiNotes.setPadding(
+                    binding.listAiNotes.paddingLeft,
+                    baseListPaddingTop + overlap,
+                    binding.listAiNotes.paddingRight,
+                    binding.listAiNotes.paddingBottom
+            )
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -364,6 +392,7 @@ class AiNoteListActivity : BaseActivity() {
                     updateSelectionTitle()
                     exportMenuItem?.isVisible = false
                     applySelectionBarTheme()
+                    tintActionModeMenuText(mode, listTextColor)
                     adapter.notifyDataSetChanged()
                     return true
                 }
@@ -410,6 +439,24 @@ class AiNoteListActivity : BaseActivity() {
                         ?: return
         contextBar.setBackgroundColor(listBackgroundColor)
         tintViewTree(contextBar, listTextColor)
+        // Ensure menu/title colors are applied after ActionMode children are attached.
+        contextBar.post { tintViewTree(contextBar, listTextColor) }
+        selectionActionMode?.let { tintActionModeMenuText(it, listTextColor) }
+    }
+
+    private fun tintActionModeMenuText(mode: ActionMode, tintColor: Int) {
+        for (index in 0 until mode.menu.size()) {
+            val item = mode.menu.getItem(index)
+            val title = item.title ?: continue
+            val styled = SpannableString(title)
+            styled.setSpan(
+                    ForegroundColorSpan(tintColor),
+                    0,
+                    styled.length,
+                    Spannable.SPAN_INCLUSIVE_INCLUSIVE
+            )
+            item.title = styled
+        }
     }
 
     private fun tintViewTree(view: View, tintColor: Int) {

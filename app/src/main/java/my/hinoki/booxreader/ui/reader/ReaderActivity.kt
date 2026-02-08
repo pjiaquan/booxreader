@@ -110,6 +110,7 @@ class ReaderActivity : BaseActivity() {
 
     private var nativeNavigatorFragment: NativeNavigatorFragment? = null
     private var currentBookId: String? = null
+    private var pendingLocatorFromIntent: Locator? = null
     private var searchJob: Job? = null
 
     // Activity local state for UI interaction
@@ -415,6 +416,11 @@ class ReaderActivity : BaseActivity() {
         applyContrastMode(currentContrastMode)
 
         observeLocatorUpdates() // Start observing native locator
+
+        pendingLocatorFromIntent?.let { locator ->
+            nativeFrag.go(locator)
+            pendingLocatorFromIntent = null
+        }
 
         // Standard E-Ink refresh request only
         binding.root.post { requestEinkRefresh() }
@@ -1596,7 +1602,12 @@ class ReaderActivity : BaseActivity() {
         if (!locatorJson.isNullOrBlank()) {
             val locator = LocatorJsonHelper.fromJson(locatorJson)
             if (locator != null) {
-                nativeNavigatorFragment?.go(locator)
+                val navigator = nativeNavigatorFragment
+                if (navigator != null) {
+                    navigator.go(locator)
+                } else {
+                    pendingLocatorFromIntent = locator
+                }
             }
         }
     }

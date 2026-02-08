@@ -4,9 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="10dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="2dp"
-    app:cardUseCompatPadding="true">
+    app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+    app:cardCornerRadius="18dp"
+    app:cardElevation="0dp"
+    app:cardUseCompatPadding="false"
+    app:strokeColor="?attr/colorOutlineVariant"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -26,7 +29,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/recent_book_title_placeholder"
-                android:textColor="@color/recent_book_title"
+                android:textColor="?attr/colorOnSurface"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
@@ -38,7 +41,7 @@
                 android:contentDescription="@string/recent_book_more_actions"
                 android:padding="6dp"
                 android:src="@drawable/ic_more_vert"
-                android:tint="@color/recent_book_menu" />
+                android:tint="?attr/colorOnSurfaceVariant" />
         </LinearLayout>
 
 
@@ -48,7 +51,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/recent_book_last_opened"
-            android:textColor="@color/recent_book_secondary"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="12sp"
             android:layout_marginTop="4dp" />
 
@@ -65,7 +68,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/recent_book_progress_zero"
-                android:textColor="@color/recent_book_progress"
+                android:textColor="@color/main_accent"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 

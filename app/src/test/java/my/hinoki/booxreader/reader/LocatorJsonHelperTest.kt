@@ -88,4 +88,36 @@ class LocatorJsonHelperTest {
         assertEquals(0.8, locator?.locations?.progression ?: 0.0, 0.001)
         assertEquals(0.4, locator?.locations?.totalProgression ?: 0.0, 0.001)
     }
+
+    @Test
+    fun `fromJson preserves custom selection offsets in otherLocations`() {
+        val locator =
+                Locator(
+                        href = Url("OEBPS/ch3.xhtml")!!,
+                        mediaType = MediaType.XHTML,
+                        locations =
+                                Locator.Locations(
+                                        progression = 0.33,
+                                        otherLocations =
+                                                mapOf(
+                                                        "selectionStart" to 123,
+                                                        "selectionEnd" to 150
+                                                )
+                                ),
+                        text =
+                                Locator.Text(
+                                        before = "before context",
+                                        highlight = "target text",
+                                        after = "after context"
+                                )
+                )
+
+        val json = LocatorJsonHelper.toJson(locator)
+        val parsed = LocatorJsonHelper.fromJson(json)
+
+        assertNotNull(parsed)
+        assertEquals(123, (parsed?.locations?.get("selectionStart") as? Number)?.toInt())
+        assertEquals(150, (parsed?.locations?.get("selectionEnd") as? Number)?.toInt())
+        assertEquals("target text", parsed?.text?.highlight)
+    }
 }

@@ -3,12 +3,17 @@ package my.hinoki.booxreader.ui.main
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.AttrRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.Dispatchers
@@ -95,6 +100,8 @@ class MainActivity : BaseActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        applyTopInsets(binding.rootMain)
+        applyMainPageSystemBars()
         setupSwipeRefresh()
 
         binding.btnOpenEpub.setOnClickListener { pickEpub.launch(arrayOf("application/epub+zip")) }
@@ -120,7 +127,14 @@ class MainActivity : BaseActivity() {
     }
 
     private fun setupSwipeRefresh() {
-        binding.swipeRefreshLayout.setColorSchemeResources(R.color.purple_500)
+        val primaryColor = ContextCompat.getColor(this, R.color.main_accent)
+        val surfaceColor =
+                resolveThemeColor(
+                        com.google.android.material.R.attr.colorSurface,
+                        ContextCompat.getColor(this, android.R.color.white)
+                )
+        binding.swipeRefreshLayout.setColorSchemeColors(primaryColor)
+        binding.swipeRefreshLayout.setProgressBackgroundColorSchemeColor(surfaceColor)
         binding.swipeRefreshLayout.setOnRefreshListener {
             lifecycleScope.launch {
                 try {
@@ -129,6 +143,35 @@ class MainActivity : BaseActivity() {
                     binding.swipeRefreshLayout.isRefreshing = false
                 }
             }
+        }
+    }
+
+    private fun applyMainPageSystemBars() {
+        val surfaceColor =
+                resolveThemeColor(
+                        com.google.android.material.R.attr.colorSurface,
+                        Color.BLACK
+                )
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = surfaceColor
+            window.navigationBarColor = surfaceColor
+        }
+        val useLightIcons = ColorUtils.calculateLuminance(surfaceColor) > 0.5
+        val insetsController = WindowInsetsControllerCompat(window, window.decorView)
+        insetsController.isAppearanceLightStatusBars = useLightIcons
+        insetsController.isAppearanceLightNavigationBars = useLightIcons
+    }
+
+    private fun resolveThemeColor(@AttrRes attrRes: Int, fallbackColor: Int): Int {
+        val typedValue = TypedValue()
+        if (!theme.resolveAttribute(attrRes, typedValue, true)) {
+            return fallbackColor
+        }
+        return if (typedValue.resourceId != 0) {
+            ContextCompat.getColor(this, typedValue.resourceId)
+        } else {
+            typedValue.data
         }
     }
 

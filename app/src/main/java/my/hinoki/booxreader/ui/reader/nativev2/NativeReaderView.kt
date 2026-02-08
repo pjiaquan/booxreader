@@ -34,7 +34,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 alpha = 40 // Light grey on E-ink
             }
 
+    private val focusSelectionPaint =
+            Paint().apply {
+                color = Color.parseColor("#F9A825")
+                alpha = 120
+            }
+
     private val selectionPath = Path()
+    private val focusSelectionPath = Path()
 
     private val handlePaint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -54,6 +61,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     // Selection state
     private var selectionStart: Int = -1
     private var selectionEnd: Int = -1
+    private var focusSelectionStart: Int = -1
+    private var focusSelectionEnd: Int = -1
     private var isSelecting = false
     private var activeHandle: Int = 0 // 0: none, 1: start, 2: end
 
@@ -108,6 +117,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         selectionPaint.color = textColor
         selectionPaint.alpha = 40
 
+        focusSelectionPaint.color =
+                if (isDark) {
+                    Color.parseColor("#FFD54F")
+                } else {
+                    Color.parseColor("#F9A825")
+                }
+        focusSelectionPaint.alpha = if (isDark) 140 else 120
+
         magnifierPaint.color =
                 if (Color.luminance(backgroundColor) > 0.5) Color.LTGRAY else Color.DKGRAY
 
@@ -151,6 +168,22 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     }
 
     fun hasSelection(): Boolean = selectionStart != -1 && selectionEnd != -1
+
+    fun setFocusSelectionRange(start: Int, end: Int) {
+        if (start < 0 || end <= start) {
+            clearFocusSelectionRange()
+            return
+        }
+        focusSelectionStart = start
+        focusSelectionEnd = end
+        invalidate()
+    }
+
+    fun clearFocusSelectionRange() {
+        focusSelectionStart = -1
+        focusSelectionEnd = -1
+        invalidate()
+    }
 
     fun getSelectionLocator(): Locator? {
         val text = getSelectedText() ?: return null
@@ -423,7 +456,36 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
         val l = layout ?: return
 
-        // 1. Draw Selection Background
+        // 1. Draw Ask AI focus range highlight (jump target).
+        val localFocus = getLocalRange(focusSelectionStart, focusSelectionEnd)
+        if (localFocus != null) {
+            val start = localFocus.first
+            val end = localFocus.second
+            val startLine = l.getLineForOffset(start)
+            val endLine = l.getLineForOffset(end)
+            focusSelectionPath.reset()
+            for (line in startLine..endLine) {
+                val lineStart = if (line == startLine) start else l.getLineStart(line)
+                val lineEnd = if (line == endLine) end else l.getLineEnd(line)
+
+                val left =
+                        (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
+                                selectionPaddingHorizontal
+                val right =
+                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd)
+                        else l.width.toFloat()) + selectionPaddingHorizontal
+
+                val baseline = l.getLineBaseline(line).toFloat()
+                val fm = textPaint.fontMetrics
+                val top = baseline + fm.ascent - selectionPaddingVertical
+                val bottom = baseline + fm.descent + selectionPaddingVertical
+
+                focusSelectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
+            }
+            canvas.drawPath(focusSelectionPath, focusSelectionPaint)
+        }
+
+        // 2. Draw Selection Background
         val localSelection = getLocalSelectionRange()
         if (localSelection != null) {
             val start = localSelection.first
@@ -453,15 +515,15 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             }
             canvas.drawPath(selectionPath, selectionPaint)
 
-            // 2. Draw Handles (Premium Pill Style)
+            // 3. Draw Handles (Premium Pill Style)
             drawHandles(canvas)
         }
 
-        // 3. Draw Text
+        // 4. Draw Text
         l.draw(canvas)
         canvas.restore()
 
-        // 4. Draw Magnifier Overlay
+        // 5. Draw Magnifier Overlay
         if (isMagnifying && (selectionStart != -1 || selectionEnd != -1)) {
             val focusOffset = getActiveHandleLocalOffset()
             if (focusOffset == null) {
@@ -844,10 +906,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     private fun getLocalSelectionRange(): Pair<Int, Int>? {
         if (!hasSelection()) return null
-        val start = min(selectionStart, selectionEnd)
-        val end = max(selectionStart, selectionEnd)
-        val localStart = (start.coerceAtLeast(pageStartOffset) - pageStartOffset)
-        val localEnd = (end.coerceAtMost(pageEndOffset) - pageStartOffset)
+        return getLocalRange(min(selectionStart, selectionEnd), max(selectionStart, selectionEnd))
+    }
+
+    private fun getLocalRange(globalStart: Int, globalEnd: Int): Pair<Int, Int>? {
+        if (globalStart < 0 || globalEnd <= globalStart) return null
+        val localStart = (globalStart.coerceAtLeast(pageStartOffset) - pageStartOffset)
+        val localEnd = (globalEnd.coerceAtMost(pageEndOffset) - pageStartOffset)
         return if (localStart < localEnd) localStart to localEnd else null
     }
 

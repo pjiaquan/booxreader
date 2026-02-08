@@ -7,9 +7,13 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.R
@@ -33,6 +37,16 @@ class LoginActivity : BaseActivity() {
         val btnResend = findViewById<Button>(R.id.btnResendVerification)
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
+        val loginScroll = findViewById<ScrollView>(R.id.loginScroll)
+
+        val baseBottomPadding = loginScroll.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(loginScroll) { view, insets ->
+            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val systemBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            view.updatePadding(bottom = baseBottomPadding + maxOf(imeBottom, systemBottom))
+            insets
+        }
+        ViewCompat.requestApplyInsets(loginScroll)
 
         if (!googleHelper.isSupported()) {
             btnGoogle.visibility = android.view.View.GONE

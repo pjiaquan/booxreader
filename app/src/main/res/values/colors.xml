@@ -21,4 +21,10 @@
     <color name="main_card_bg">#FFFFFF</color>
     <color name="main_card_title">#222222</color>
     <color name="main_card_subtitle">#7A7A7A</color>
+    <color name="main_accent">#0A84FF</color>
+    <color name="main_bar_bg">#F5F6F8</color>
+    <color name="main_bar_stroke">#DCE1E8</color>
+    <color name="main_bg_start">#F8F9FC</color>
+    <color name="main_bg_mid">#F2F4F8</color>
+    <color name="main_bg_end">#ECEFF4</color>
 </resources>

@@ -37,6 +37,9 @@ import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.databinding.FragmentNativeReaderBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import java.net.URI
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
 import org.readium.r2.shared.util.Url
@@ -47,6 +50,14 @@ private const val TAG = "NativeNavigator"
 class NativeNavigatorFragment : Fragment() {
 
     private data class NavigationTarget(val index: Int, val fragment: String?)
+    private data class TextRange(val start: Int, val end: Int)
+    private data class SelectionFocusTarget(
+            val highlight: String,
+            val before: String?,
+            val after: String?,
+            val startOffset: Int?,
+            val endOffset: Int?
+    )
 
     private var _binding: FragmentNativeReaderBinding? = null
     private val binding
@@ -66,6 +77,8 @@ class NativeNavigatorFragment : Fragment() {
     private var currentAnchorOffsets: Map<String, Int> = emptyMap()
     private var pendingNavigationFragment: String? = null
     private var pendingNavigationProgression: Double? = null
+    private var pendingSelectionFocusTarget: SelectionFocusTarget? = null
+    private var activeSelectionFocusRange: TextRange? = null
     private var convertToTraditionalChinese: Boolean = false
 
     private val _currentLocator = run {
@@ -171,15 +184,8 @@ class NativeNavigatorFragment : Fragment() {
     data class Selection(val locator: Locator)
 
     fun currentSelection(): Selection? {
-        val text = getSelectedTextFromRange() ?: return null
-        val href = currentResourceHref ?: return null
-        return Selection(
-                Locator(
-                        href = Url(href)!!,
-                        mediaType = MediaType.HTML,
-                        text = Locator.Text(highlight = text)
-                )
-        )
+        val locator = buildSelectionLocator() ?: return null
+        return Selection(locator)
     }
 
     override fun onCreateView(
@@ -207,6 +213,7 @@ class NativeNavigatorFragment : Fragment() {
         // Selection Menu Logic
         binding.nativeReaderView.setOnSelectionListener { active, x, menuY ->
             if (active) {
+                clearActiveSelectionFocus()
                 showSelectionMenu(x, menuY)
             } else {
                 hideSelectionMenu()
@@ -247,7 +254,7 @@ class NativeNavigatorFragment : Fragment() {
         binding.btnAskAi.setOnClickListener {
             val text = getSelectedTextFromRange()
             if (!text.isNullOrBlank()) {
-                val locator = buildSelectionLocator(text)
+                val locator = buildSelectionLocator()
                 val locatorJson = LocatorJsonHelper.toJson(locator)
 
                 // Sanitize similar to ReaderActivity
@@ -495,6 +502,8 @@ class NativeNavigatorFragment : Fragment() {
         this.initialLocator = initialLocator
         pendingNavigationFragment = null
         pendingNavigationProgression = null
+        pendingSelectionFocusTarget = null
+        activeSelectionFocusRange = null
         currentAnchorOffsets = emptyMap()
         initialLocator?.let { loc ->
             val target = resolveNavigationTarget(loc.href.toString())
@@ -504,6 +513,7 @@ class NativeNavigatorFragment : Fragment() {
                 pendingNavigationProgression = loc.locations.progression
             }
         }
+        _binding?.nativeReaderView?.clearFocusSelectionRange()
         if (isResumed && pager != null) {
             lifecycleScope.launch { loadCurrentResource() }
         }
@@ -557,6 +567,9 @@ class NativeNavigatorFragment : Fragment() {
             Log.w(TAG, "go: could not resolve locator href=${locator.href}")
             return
         }
+        pendingSelectionFocusTarget = parseSelectionFocusTarget(locator)
+        activeSelectionFocusRange = null
+        binding.nativeReaderView.clearFocusSelectionRange()
         lifecycleScope.launch {
             currentResourceIndex = target.index
             pendingNavigationFragment = target.fragment
@@ -630,10 +643,23 @@ class NativeNavigatorFragment : Fragment() {
             val pageCount = p?.pageCount ?: 0
             val pendingFragment = pendingNavigationFragment
             val pendingProgression = pendingNavigationProgression
+            val selectionTarget = pendingSelectionFocusTarget
             pendingNavigationFragment = null
             pendingNavigationProgression = null
             val loc = initialLocator
-            if (!pendingFragment.isNullOrBlank() && pageCount > 0) {
+            val focusedRange =
+                    if (selectionTarget != null) {
+                        resolveSelectionFocusRange(selectionTarget)
+                    } else {
+                        null
+                    }
+            if (focusedRange != null && pageCount > 0) {
+                currentPageInResource =
+                        (p?.findPageForOffset(focusedRange.start) ?: 0).coerceIn(0, pageCount - 1)
+                activeSelectionFocusRange = focusedRange
+                pendingSelectionFocusTarget = null
+                initialLocator = null
+            } else if (!pendingFragment.isNullOrBlank() && pageCount > 0) {
                 val pageForAnchor = findPageForFragment(pendingFragment)
                 if (pageForAnchor != null) {
                     currentPageInResource = pageForAnchor
@@ -692,6 +718,7 @@ class NativeNavigatorFragment : Fragment() {
         // `resourceText` is already converted once in `loadCurrentResource()`.
         // Re-converting page slices can drop spans (e.g., image/link spans).
         binding.nativeReaderView.setContent(text, resetSelection = !preserveSelection)
+        applyActiveSelectionFocus()
         updatePageIndicator()
         updateLocator()
     }
@@ -1023,6 +1050,7 @@ class NativeNavigatorFragment : Fragment() {
         if (clearSelection) {
             binding.nativeReaderView.clearSelection()
         }
+        clearActiveSelectionFocus()
         val p = pager ?: return
         if (currentPageInResource < p.pageCount - 1) {
             // Same resource, next page
@@ -1051,6 +1079,7 @@ class NativeNavigatorFragment : Fragment() {
         if (clearSelection) {
             binding.nativeReaderView.clearSelection()
         }
+        clearActiveSelectionFocus()
         if (currentPageInResource > 0) {
             // Same resource, previous page
             if (pageAnimationEnabled) {
@@ -1202,13 +1231,142 @@ class NativeNavigatorFragment : Fragment() {
         return resourceText.subSequence(start, end).toString()
     }
 
-    private fun buildSelectionLocator(text: String): Locator? {
+    private fun buildSelectionLocator(): Locator? {
+        val view = _binding?.nativeReaderView ?: return null
+        val range = view.getSelectionRange() ?: return null
+        if (resourceText.isEmpty()) return null
         val href = currentResourceHref ?: return null
+        val start = range.start.coerceIn(0, resourceText.length)
+        val end = range.end.coerceIn(start, resourceText.length)
+        if (start >= end) return null
+
+        val before = resourceText.subSequence(max(0, start - 32), start).toString()
+        val highlight = resourceText.subSequence(start, end).toString()
+        val after = resourceText.subSequence(end, min(resourceText.length, end + 32)).toString()
+        val progression =
+                if (resourceText.isNotEmpty()) {
+                    (start.toDouble() / resourceText.length.toDouble()).coerceIn(0.0, 1.0)
+                } else {
+                    null
+                }
+        val otherLocations =
+                mapOf<String, Any>(
+                        "selectionStart" to start,
+                        "selectionEnd" to end,
+                        "selectionBefore" to before,
+                        "selectionAfter" to after
+                )
+
         return Locator(
                 href = Url(href)!!,
                 mediaType = MediaType.HTML,
-                text = Locator.Text(highlight = text)
+                locations =
+                        Locator.Locations(progression = progression, otherLocations = otherLocations),
+                text = Locator.Text(before = before, highlight = highlight, after = after)
         )
+    }
+
+    private fun parseSelectionFocusTarget(locator: Locator): SelectionFocusTarget? {
+        val highlight = locator.text?.highlight?.takeIf { it.isNotBlank() } ?: return null
+        val before =
+                locator.text?.before?.takeIf { it.isNotBlank() }
+                        ?: (locator.locations.get("selectionBefore") as? String)
+        val after =
+                locator.text?.after?.takeIf { it.isNotBlank() }
+                        ?: (locator.locations.get("selectionAfter") as? String)
+        val startOffset = (locator.locations.get("selectionStart") as? Number)?.toInt()
+        val endOffset = (locator.locations.get("selectionEnd") as? Number)?.toInt()
+        return SelectionFocusTarget(highlight, before, after, startOffset, endOffset)
+    }
+
+    private fun resolveSelectionFocusRange(target: SelectionFocusTarget): TextRange? {
+        val length = resourceText.length
+        if (length <= 0) return null
+
+        val start = target.startOffset
+        val end = target.endOffset
+        if (start != null && end != null && start >= 0 && end > start && end <= length) {
+            val candidate = resourceText.subSequence(start, end).toString()
+            if (candidate == target.highlight) {
+                return TextRange(start = start, end = end)
+            }
+        }
+
+        val highlight = target.highlight
+        if (highlight.isBlank() || highlight.length > length) return null
+
+        val matches = mutableListOf<TextRange>()
+        var cursor = 0
+        while (cursor <= length - highlight.length) {
+            val index = resourceText.toString().indexOf(highlight, startIndex = cursor)
+            if (index < 0) break
+            matches += TextRange(index, index + highlight.length)
+            cursor = index + 1
+        }
+        if (matches.isEmpty()) return null
+        if (matches.size == 1) return matches.first()
+
+        val preferredStart = target.startOffset
+        val before = target.before
+        val after = target.after
+
+        return matches
+                .maxWithOrNull(
+                        compareBy<TextRange> {
+                                    var score = 0
+                                    if (!before.isNullOrBlank()) {
+                                        val beforeSlice =
+                                                resourceText
+                                                        .subSequence(
+                                                                max(0, it.start - before.length),
+                                                                it.start
+                                                        )
+                                                        .toString()
+                                        if (beforeSlice == before) {
+                                            score += 2
+                                        } else if (beforeSlice.endsWith(before.takeLast(12))) {
+                                            score += 1
+                                        }
+                                    }
+                                    if (!after.isNullOrBlank()) {
+                                        val afterSlice =
+                                                resourceText
+                                                        .subSequence(
+                                                                it.end,
+                                                                min(length, it.end + after.length)
+                                                        )
+                                                        .toString()
+                                        if (afterSlice == after) {
+                                            score += 2
+                                        } else if (afterSlice.startsWith(after.take(12))) {
+                                            score += 1
+                                        }
+                                    }
+                                    score
+                                }
+                                .thenBy {
+                                    if (preferredStart == null) {
+                                        Int.MAX_VALUE
+                                    } else {
+                                        abs(it.start - preferredStart)
+                                    }
+                                }
+                )
+    }
+
+    private fun applyActiveSelectionFocus() {
+        val range = activeSelectionFocusRange
+        if (range == null) {
+            binding.nativeReaderView.clearFocusSelectionRange()
+            return
+        }
+        binding.nativeReaderView.setFocusSelectionRange(range.start, range.end)
+    }
+
+    private fun clearActiveSelectionFocus() {
+        pendingSelectionFocusTarget = null
+        activeSelectionFocusRange = null
+        _binding?.nativeReaderView?.clearFocusSelectionRange()
     }
 
     override fun onDestroyView() {
