@@ -11,7 +11,7 @@ import my.hinoki.booxreader.BuildConfig
 
 /**
  * Crash handler that captures uncaught exceptions and stores them locally for later upload to
- * Supabase when the app restarts.
+ * PocketBase when the app restarts.
  */
 class CrashReportHandler private constructor(private val context: Context) :
         Thread.UncaughtExceptionHandler {
@@ -26,19 +26,7 @@ class CrashReportHandler private constructor(private val context: Context) :
 
     override fun uncaughtException(thread: Thread, throwable: Throwable) {
         try {
-            val report =
-                    CrashReport(
-                            appVersion = BuildConfig.VERSION_NAME,
-                            versionCode = BuildConfig.VERSION_CODE,
-                            osVersion = Build.VERSION.SDK_INT.toString(),
-                            deviceModel = Build.MODEL,
-                            deviceManufacturer = Build.MANUFACTURER,
-                            stacktrace = Log.getStackTraceString(throwable),
-                            message = throwable.message,
-                            threadName = thread.name,
-                            createdAt = System.currentTimeMillis()
-                    )
-
+            val report = buildReport(thread.name, throwable.message, throwable)
             saveCrashReport(report)
             Log.e(TAG, "Crash saved for later upload", throwable)
         } catch (e: Exception) {
@@ -48,6 +36,47 @@ class CrashReportHandler private constructor(private val context: Context) :
 
         // Chain to default handler (usually crashes the app)
         defaultHandler?.uncaughtException(thread, throwable)
+    }
+
+    /**
+     * Record a handled error (non-fatal) so it can be uploaded to crash_reports.
+     * Returns the created report instance.
+     */
+    fun reportHandledException(source: String, message: String?, throwable: Throwable? = null): CrashReport {
+        val summary =
+                buildString {
+                    append("[")
+                    append(source)
+                    append("] ")
+                    append(message ?: "Non-fatal error")
+                }
+        val report = buildReport(Thread.currentThread().name, summary, throwable)
+        saveCrashReport(report)
+        return report
+    }
+
+    private fun buildReport(
+            threadName: String,
+            message: String?,
+            throwable: Throwable?
+    ): CrashReport {
+        val stack =
+                if (throwable != null) {
+                    Log.getStackTraceString(throwable)
+                } else {
+                    (message ?: "No stack trace").take(4000)
+                }
+        return CrashReport(
+                appVersion = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                osVersion = Build.VERSION.SDK_INT.toString(),
+                deviceModel = Build.MODEL,
+                deviceManufacturer = Build.MANUFACTURER,
+                stacktrace = stack,
+                message = message,
+                threadName = threadName,
+                createdAt = System.currentTimeMillis()
+        )
     }
 
     private fun saveCrashReport(report: CrashReport) {

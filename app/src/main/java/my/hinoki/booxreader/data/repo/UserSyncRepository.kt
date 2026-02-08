@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.core.CrashReport
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
@@ -134,12 +135,21 @@ class UserSyncRepository(
          * Execute a request and return the response body as a string. Throws exception if request
          * fails.
          */
-        private fun executeRequest(request: Request): String {
+        private fun executeRequest(request: Request, reportError: Boolean = true): String {
                 val response = httpClient.newCall(request).execute()
                 val body = response.body?.string() ?: ""
 
                 if (!response.isSuccessful) {
-                        Log.e("UserSyncRepository", "Request failed: ${response.code} $body")
+                        val message =
+                                "Request failed: ${response.code} ${request.method} ${request.url}"
+                        Log.e("UserSyncRepository", "$message body=$body")
+                        if (reportError) {
+                                ErrorReporter.report(
+                                        appContext,
+                                        "UserSyncRepository.executeRequest",
+                                        message
+                                )
+                        }
                         throw Exception("PocketBase request failed: ${response.code}")
                 }
 
@@ -1294,11 +1304,42 @@ class UserSyncRepository(
 
         suspend fun pushCrashReport(report: CrashReport): Boolean =
                 withContext(io) {
-                        Log.d(
-                                "UserSyncRepository",
-                                "pushCrashReport - STUB: Not implemented for PocketBase yet"
-                        )
-                        false
+                        try {
+                                val token = accessToken()
+                                if (token.isNullOrBlank()) {
+                                        return@withContext false
+                                }
+
+                                val userId = runCatching { getUserId() }.getOrNull()
+                                val payload =
+                                        mutableMapOf<String, Any>(
+                                                "appVersion" to report.appVersion,
+                                                "androidVersion" to report.osVersion,
+                                                "deviceModel" to
+                                                        "${report.deviceManufacturer} ${report.deviceModel}"
+                                                                .trim(),
+                                                "stackTrace" to report.stacktrace.take(50000),
+                                                "timestamp" to report.createdAt
+                                        )
+                                if (!report.message.isNullOrBlank()) {
+                                        payload["message"] = report.message.take(4000)
+                                }
+                                if (!userId.isNullOrBlank()) {
+                                        payload["user"] = userId
+                                }
+
+                                val requestBody =
+                                        gson.toJson(payload)
+                                                .toRequestBody("application/json".toMediaType())
+                                val url = "$pocketBaseUrl/api/collections/crash_reports/records"
+                                val request =
+                                        buildAuthenticatedRequest(url).post(requestBody).build()
+                                executeRequest(request, reportError = false)
+                                true
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "pushCrashReport failed", e)
+                                false
+                        }
                 }
 
         suspend fun pullAllProgress(): Int =
@@ -1753,6 +1794,12 @@ class UserSyncRepository(
                         }
                 } catch (e: Exception) {
                         Log.e("UserSyncRepository", "tryUploadBookFile failed", e)
+                        ErrorReporter.report(
+                                appContext,
+                                "UserSyncRepository.tryUploadBookFile",
+                                "Failed to upload book file for ${book.bookId}",
+                                e
+                        )
                 } finally {
                         runCatching { tmpFile.delete() }
                 }
@@ -1907,6 +1954,12 @@ class UserSyncRepository(
                         }
                 } catch (e: Exception) {
                         Log.e("UserSyncRepository", "downloadRemoteFile failed for $url", e)
+                        ErrorReporter.report(
+                                appContext,
+                                "UserSyncRepository.downloadRemoteFile",
+                                "Failed to download remote file: $url",
+                                e
+                        )
                         false
                 }
         }

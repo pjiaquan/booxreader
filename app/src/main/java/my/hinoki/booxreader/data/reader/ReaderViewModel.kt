@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.remote.ProgressPublisher
 import my.hinoki.booxreader.data.repo.AiNoteRepository
@@ -151,7 +152,15 @@ class ReaderViewModel(
                                 contentResolver = contentResolver
                         )
                     }
-                    result.onFailure { e -> android.util.Log.e("ReaderViewModel", "Failed to auto-upload book", e) }
+                    result.onFailure { e ->
+                        android.util.Log.e("ReaderViewModel", "Failed to auto-upload book", e)
+                        ErrorReporter.report(
+                                getApplication(),
+                                "ReaderViewModel.openBook",
+                                "Failed to auto-upload opened book",
+                                e
+                        )
+                    }
                     result.onSuccess { android.util.Log.d("ReaderViewModel", "Auto-upload book success") }
                 }
 
@@ -164,6 +173,12 @@ class ReaderViewModel(
                 loadHighlights()
             } catch (e: Exception) {
                 e.printStackTrace()
+                ErrorReporter.report(
+                        getApplication(),
+                        "ReaderViewModel.openBook",
+                        "Failed to open book: $uri",
+                        e
+                )
                 _toastMessage.emit("Failed to open book: ${e.message}")
             } finally {
                 _isLoading.value = false
@@ -199,6 +214,12 @@ class ReaderViewModel(
             try {
                 progressPublisher.publishProgress(key, json)
             } catch (e: Exception) {
+                ErrorReporter.report(
+                        getApplication(),
+                        "ReaderViewModel.saveProgress",
+                        "Failed to save progress",
+                        e
+                )
                 // Ignore
             }
 
@@ -228,6 +249,12 @@ class ReaderViewModel(
                 bookmarkRepo.add(key, locator)
                 _toastMessage.emit("Bookmark saved")
             } catch (e: Exception) {
+                ErrorReporter.report(
+                        getApplication(),
+                        "ReaderViewModel.addBookmark",
+                        "Failed to add bookmark",
+                        e
+                )
                 _toastMessage.emit("Failed to save bookmark")
             }
         }
@@ -301,6 +328,12 @@ class ReaderViewModel(
                     _navigateToNote.emit(NavigateToNote(noteId))
                 }
             } catch (e: Exception) {
+                ErrorReporter.report(
+                        getApplication(),
+                        "ReaderViewModel.postTextToServer",
+                        "Failed to post text to server",
+                        e
+                )
                 _toastMessage.emit("Error: ${e.message}")
             }
         }

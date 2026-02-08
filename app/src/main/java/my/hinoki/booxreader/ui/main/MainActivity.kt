@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.GitHubRelease
@@ -163,7 +164,14 @@ class MainActivity : BaseActivity() {
                         try {
                             val updated = syncRepo.pullAllProgress()
                             if (updated > 0) {}
-                        } catch (e: Exception) {}
+                        } catch (e: Exception) {
+                            ErrorReporter.report(
+                                    this@MainActivity,
+                                    "MainActivity.startPeriodicProgressSync",
+                                    "Periodic progress sync failed",
+                                    e
+                            )
+                        }
                     }
                 }
     }
@@ -217,7 +225,12 @@ class MainActivity : BaseActivity() {
                     recentAdapter.submitList(recentBooks)
                 }
             } catch (e: Exception) {
-                // Silently fail
+                ErrorReporter.report(
+                        this@MainActivity,
+                        "MainActivity.executeFullSync",
+                        "Full sync failed",
+                        e
+                )
             }
         }
     }
@@ -356,14 +369,26 @@ class MainActivity : BaseActivity() {
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            ErrorReporter.report(
+                    this,
+                    "MainActivity.takePersistable",
+                    "Failed to persist URI permission: $uri",
+                    e
+            )
+        }
     }
 
     private fun openBookFromUri(uri: Uri) {
         try {
             ReaderActivity.open(this, uri)
         } catch (e: Exception) {
-            // Silently fail
+            ErrorReporter.report(
+                    this,
+                    "MainActivity.openBookFromUri",
+                    "Failed to open selected book URI: $uri",
+                    e
+            )
         }
     }
 
@@ -422,7 +447,12 @@ class MainActivity : BaseActivity() {
                     }
                 }
             } catch (e: Exception) {
-                // Silently fail
+                ErrorReporter.report(
+                        this@MainActivity,
+                        "MainActivity.openBook",
+                        "Failed to open recent book ${entity.bookId}",
+                        e
+                )
             }
         }
     }
@@ -456,6 +486,12 @@ class MainActivity : BaseActivity() {
         return try {
             contentResolver.openInputStream(uri)?.use { true } ?: false
         } catch (e: Exception) {
+            ErrorReporter.report(
+                    this,
+                    "MainActivity.isUriAccessible",
+                    "Failed to access URI: $uri",
+                    e
+            )
             false
         }
     }

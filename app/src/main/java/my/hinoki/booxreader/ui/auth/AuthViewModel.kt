@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.BooxReaderApp
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.repo.AuthRepository
 
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
@@ -26,6 +27,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val result = authRepo.login(email, pass)
             result.fold(
                     onSuccess = {
+                        ErrorReporter.flushPending(getApplication<Application>())
                         (getApplication<Application>() as BooxReaderApp).startRealtimeBookSync()
                         _authState.value = AuthState.Success
                     },
@@ -86,6 +88,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             val result = authRepo.googleLogin(idToken)
             result.fold(
                     onSuccess = {
+                        ErrorReporter.flushPending(getApplication<Application>())
                         (getApplication<Application>() as BooxReaderApp).startRealtimeBookSync()
                         _authState.value = AuthState.Success
                     },

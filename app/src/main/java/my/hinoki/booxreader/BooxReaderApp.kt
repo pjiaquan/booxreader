@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.data.core.CrashReportHandler
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
@@ -85,6 +86,12 @@ class BooxReaderApp : Application() {
                 setupPeriodicSync(profileRepo)
             } catch (e: Exception) {
                 // Don't crash the app if sync fails - it's not critical
+                ErrorReporter.report(
+                        applicationContext,
+                        "BooxReaderApp.initializeAiProfileSync",
+                        "Initial AI profile sync failed",
+                        e
+                )
             }
         }
     }
@@ -104,7 +111,14 @@ class BooxReaderApp : Application() {
                         applicationScope.launch {
                             try {
                                 val syncedCount = profileRepo.sync()
-                            } catch (e: Exception) {}
+                            } catch (e: Exception) {
+                                ErrorReporter.report(
+                                        applicationContext,
+                                        "BooxReaderApp.periodicProfileSync",
+                                        "Periodic AI profile sync failed",
+                                        e
+                                )
+                            }
                         }
 
                         // Schedule next sync in 30 minutes
@@ -142,24 +156,6 @@ class BooxReaderApp : Application() {
     }
 
     private fun uploadPendingCrashReports() {
-        applicationScope.launch {
-            try {
-                val crashHandler = CrashReportHandler.getInstance() ?: return@launch
-                val pendingReports = crashHandler.getPendingReports()
-
-                if (pendingReports.isEmpty()) return@launch
-
-                val syncRepo = UserSyncRepository(applicationContext)
-
-                for (report in pendingReports) {
-                    val success = syncRepo.pushCrashReport(report)
-                    if (success) {
-                        crashHandler.markReportAsUploaded(report.createdAt)
-                    }
-                }
-            } catch (e: Exception) {
-                // Don't crash the app if crash upload fails
-            }
-        }
+        ErrorReporter.flushPending(applicationContext)
     }
 }
