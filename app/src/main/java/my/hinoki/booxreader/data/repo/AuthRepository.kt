@@ -143,9 +143,9 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun logout(): Result<Unit> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                // Clear local data
                                 tokenManager.clearTokens()
-                                userDao.clearAllUsers()
+                                UserSyncRepository(context, tokenManager = tokenManager)
+                                        .clearLocalUserData()
                         }
                 }
 

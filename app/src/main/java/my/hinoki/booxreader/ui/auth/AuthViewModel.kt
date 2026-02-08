@@ -3,6 +3,7 @@ package my.hinoki.booxreader.ui.auth
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -154,8 +155,8 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun logout() {
-        viewModelScope.launch {
+    fun logout(): Job {
+        return viewModelScope.launch {
             authRepo.logout()
             (getApplication<Application>() as BooxReaderApp).stopRealtimeBookSync()
             _authState.value = AuthState.Idle

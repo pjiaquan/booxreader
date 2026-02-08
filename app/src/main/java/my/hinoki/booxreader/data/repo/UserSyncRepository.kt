@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -1546,12 +1547,48 @@ class UserSyncRepository(
                 db.clearAllTables()
                 prefs.edit().clear().apply()
                 syncPrefs.edit().clear().apply()
+                clearSyncedBookCache()
+                clearPersistedBookUriPermissions()
                 cachedUserId = null
         }
 
         // --- Private Helpers ---
 
         private fun localBooksCacheDir(): File = File(appContext.filesDir, "synced_books")
+
+        private fun clearSyncedBookCache() {
+                val cacheDir = localBooksCacheDir()
+                if (!cacheDir.exists()) return
+                runCatching { cacheDir.deleteRecursively() }
+                        .onFailure { Log.w("UserSyncRepository", "Failed to clear synced_books", it) }
+        }
+
+        private fun clearPersistedBookUriPermissions() {
+                val resolver = appContext.contentResolver
+                resolver.persistedUriPermissions.forEach { permission ->
+                        val modeFlags =
+                                (if (permission.isReadPermission)
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        else 0) or
+                                        (if (permission.isWritePermission)
+                                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                                else 0)
+                        if (modeFlags == 0) return@forEach
+                        runCatching {
+                                        resolver.releasePersistableUriPermission(
+                                                permission.uri,
+                                                modeFlags
+                                        )
+                                }
+                                .onFailure {
+                                        Log.w(
+                                                "UserSyncRepository",
+                                                "Failed to revoke persisted URI permission: ${permission.uri}",
+                                                it
+                                        )
+                                }
+                }
+        }
 
         private fun localBookCacheFile(bookId: String): File {
                 val safeBookId = bookId.replace(Regex("[^A-Za-z0-9._-]"), "_")

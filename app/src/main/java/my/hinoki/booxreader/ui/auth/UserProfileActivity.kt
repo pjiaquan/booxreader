@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.ui.auth
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -30,9 +31,19 @@ class UserProfileActivity : BaseActivity() {
                 )
 
         btnLogout.setOnClickListener {
-            viewModel.logout()
-            // Navigate back to login or main activity
-            finish()
+            btnLogout.isEnabled = false
+            viewModel.logout().invokeOnCompletion {
+                runOnUiThread {
+                    val intent =
+                            Intent(this@UserProfileActivity, LoginActivity::class.java).apply {
+                                flags =
+                                        Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            }
+                    startActivity(intent)
+                    finish()
+                }
+            }
         }
 
         lifecycleScope.launch {
