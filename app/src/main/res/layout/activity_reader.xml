@@ -6,110 +6,18 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <!-- 閱讀區 -->
     <FrameLayout
-        android:id="@+id/readerStage"
+        android:id="@+id/readerContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipChildren="false"
-        android:clipToPadding="false">
+        android:clipChildren="true"
+        android:clipToPadding="true">
 
-        <!-- 閱讀區 -->
-        <FrameLayout
-            android:id="@+id/readerContainer"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipChildren="true"
-            android:clipToPadding="true" />
-
-        <FrameLayout
-            android:id="@+id/readerHeaderContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top"
-            android:paddingStart="12dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="12dp">
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/readerHeaderCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardElevation="2dp"
-                app:cardUseCompatPadding="false"
-                app:strokeColor="@android:color/transparent"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="8dp"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="8dp">
-
-                    <ImageButton
-                        android:id="@+id/btnHeaderBack"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_reader_header_action"
-                        android:contentDescription="@string/reader_header_back"
-                        android:padding="8dp"
-                        android:scaleType="centerInside"
-                        android:src="@android:drawable/ic_media_previous"
-                        android:tint="?attr/colorControlNormal" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_marginEnd="8dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tvHeaderTitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:fontFamily="sans-serif-medium"
-                            android:includeFontPadding="false"
-                            android:maxLines="1"
-                            android:text="@string/book_title_untitled"
-                            android:textSize="15sp" />
-
-                        <TextView
-                            android:id="@+id/tvHeaderSubtitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:ellipsize="end"
-                            android:fontFamily="sans-serif"
-                            android:includeFontPadding="false"
-                            android:letterSpacing="0.02"
-                            android:maxLines="1"
-                            android:text="@string/reader_header_subtitle_placeholder"
-                            android:textSize="12sp" />
-                    </LinearLayout>
-
-                    <ImageButton
-                        android:id="@+id/btnHeaderChapters"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_reader_header_action"
-                        android:contentDescription="@string/reader_table_of_contents"
-                        android:padding="8dp"
-                        android:scaleType="centerInside"
-                        android:src="@android:drawable/ic_menu_agenda"
-                        android:tint="?attr/colorControlNormal" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </FrameLayout>
     </FrameLayout>
 
+  
     <!-- 底部工具列：返回 / 加書籤 / 書籤列表 -->
     <LinearLayout
         android:id="@+id/bottomBar"

@@ -37,7 +37,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.gson.Gson
 import java.util.concurrent.TimeUnit
 import kotlin.OptIn
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -122,7 +121,6 @@ class ReaderActivity : BaseActivity() {
     private var pageAnimationEnabled: Boolean = false
     private var showPageIndicator: Boolean = true
     private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
-    private var headerBookTitle: String = ""
     private var refreshJob: Job? = null
     private val refreshDelayMs = 250L
     private val pageNavigationRefreshDelayMs = 300L // 頁面導航專用延遲
@@ -290,7 +288,6 @@ class ReaderActivity : BaseActivity() {
             return
         }
         currentBookId = key
-        headerBookTitle = title?.takeIf { it.isNotBlank() } ?: getString(R.string.book_title_untitled)
 
         setupUI()
 
@@ -336,9 +333,6 @@ class ReaderActivity : BaseActivity() {
         // 載入本地設置（包括對比模式）
         val contrastModeOrdinal = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal)
         currentContrastMode = ContrastMode.values()[contrastModeOrdinal]
-        applyTopInsets(binding.readerHeaderContainer)
-        updateHeaderTitle(headerBookTitle)
-        binding.tvHeaderSubtitle.setText(R.string.reader_header_subtitle_placeholder)
 
         // Fetch cloud settings (best effort) and apply if newer
         lifecycleScope.launch {
@@ -360,8 +354,6 @@ class ReaderActivity : BaseActivity() {
                 AiNoteListActivity.open(this, key)
             }
         }
-        binding.btnHeaderBack.setOnClickListener { onBackPressedDispatcher.onBackPressed() }
-        binding.btnHeaderChapters.setOnClickListener { openChapterPicker() }
 
         binding.btnAddBookmark.visibility = android.view.View.GONE
 
@@ -374,10 +366,6 @@ class ReaderActivity : BaseActivity() {
         lifecycleScope.launch {
             viewModel.publication.collectLatest {
                 if (it != null) {
-                    val publicationTitle = it.metadata.title?.trim().orEmpty()
-                    if (publicationTitle.isNotEmpty()) {
-                        updateHeaderTitle(publicationTitle)
-                    }
                     // Load saved locator
                     val key = viewModel.currentBookKey.value
                     val savedJson = key?.let { syncRepo.getCachedProgress(it) }
@@ -460,7 +448,6 @@ class ReaderActivity : BaseActivity() {
 
                 syncRepo.cacheProgress(key, json)
                 viewModel.saveProgress(json)
-                updateHeaderSubtitle(enhancedLocator)
                 requestEinkRefresh()
             }
         }
@@ -1503,29 +1490,10 @@ class ReaderActivity : BaseActivity() {
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
-        val headerBackgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F4FFFFFF")
-                    ContrastMode.DARK -> Color.parseColor("#E61A1A1A")
-                    ContrastMode.SEPIA -> Color.parseColor("#F5F6EAD5")
-                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#E6101010")
-                }
-        val headerStrokeColor = ColorUtils.setAlphaComponent(textColor, 50)
-        val headerActionColor =
-                when (mode) {
-                    ContrastMode.DARK, ContrastMode.HIGH_CONTRAST ->
-                            ColorUtils.setAlphaComponent(textColor, 40)
-                    else -> ColorUtils.setAlphaComponent(textColor, 26)
-                }
 
         binding.root.setBackgroundColor(backgroundColor)
         binding.readerContainer.setBackgroundColor(backgroundColor)
         binding.bottomBar.setBackgroundColor(backgroundColor)
-        binding.readerHeaderCard.setCardBackgroundColor(headerBackgroundColor)
-        binding.readerHeaderCard.strokeColor = headerStrokeColor
-        binding.readerHeaderCard.strokeWidth = resources.displayMetrics.density.roundToInt().coerceAtLeast(1)
-        binding.tvHeaderTitle.setTextColor(textColor)
-        binding.tvHeaderSubtitle.setTextColor(ColorUtils.setAlphaComponent(textColor, 170))
         nativeNavigatorFragment?.view?.setBackgroundColor(backgroundColor)
         window.decorView.setBackgroundColor(backgroundColor)
         applyReaderContainerBackground(binding.readerContainer, backgroundColor)
@@ -1541,11 +1509,6 @@ class ReaderActivity : BaseActivity() {
                 )
         buttons.forEach { button ->
             button.backgroundTintList = buttonTint
-            button.imageTintList = ColorStateList.valueOf(textColor)
-        }
-        val headerButtons = listOf(binding.btnHeaderBack, binding.btnHeaderChapters)
-        headerButtons.forEach { button ->
-            button.backgroundTintList = ColorStateList.valueOf(headerActionColor)
             button.imageTintList = ColorStateList.valueOf(textColor)
         }
 
@@ -1575,30 +1538,6 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
-    private fun updateHeaderTitle(title: String) {
-        headerBookTitle = title
-        binding.tvHeaderTitle.text = title
-    }
-
-    private fun updateHeaderSubtitle(locator: Locator?) {
-        if (locator == null) {
-            binding.tvHeaderSubtitle.setText(R.string.reader_header_subtitle_placeholder)
-            return
-        }
-
-        val chapterTitle =
-                locator.title?.trim()?.takeIf { it.isNotEmpty() }
-                        ?: locator.href.toString().substringAfterLast('/').substringBefore('#')
-                                .ifBlank { getString(R.string.reader_header_subtitle_placeholder) }
-        val progression = locator.locations?.progression
-        val percent =
-                progression
-                        ?.takeIf { it >= 0.0 && it <= 1.0 }
-                        ?.let { "${(it * 100).roundToInt()}%" }
-        binding.tvHeaderSubtitle.text =
-                if (percent != null) "$chapterTitle  •  $percent" else chapterTitle
-    }
-
     // --- Selection Handling ---
     // Native reader handles selection internally.
 
@@ -1622,11 +1561,6 @@ class ReaderActivity : BaseActivity() {
         val bottomBarRect = Rect()
         binding.bottomBar.getGlobalVisibleRect(bottomBarRect)
         if (bottomBarRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
-            return super.dispatchTouchEvent(ev)
-        }
-        val headerRect = Rect()
-        binding.readerHeaderContainer.getGlobalVisibleRect(headerRect)
-        if (headerRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
             return super.dispatchTouchEvent(ev)
         }
 

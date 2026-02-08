@@ -32,6 +32,55 @@ class HtmlContentParserTest {
     }
 
     @Test
+    fun parseHtml_promotesChapterTitleClassToHeadingSpans() {
+        val parsed =
+                HtmlContentParser.parseHtml(
+                        "<p class='chapter-title'>Chapter 1</p><p>Body</p>",
+                        Color.BLACK
+                )
+        assertTrue(parsed is Spanned)
+        val spanned = parsed as Spanned
+        val titleStart = spanned.toString().indexOf("Chapter 1")
+        val titleEnd = titleStart + "Chapter 1".length
+        assertTrue(titleStart >= 0)
+        val titleSizeSpans = spanned.getSpans(titleStart, titleEnd, RelativeSizeSpan::class.java)
+        val titleStyleSpans = spanned.getSpans(titleStart, titleEnd, StyleSpan::class.java)
+        assertTrue(titleSizeSpans.isNotEmpty() || titleStyleSpans.isNotEmpty())
+    }
+
+    @Test
+    fun parseHtml_convertsBoldClassSpanToBoldStyleSpan() {
+        val parsed =
+                HtmlContentParser.parseHtml(
+                        "<p><span class='bold'>Bold text</span> normal</p>",
+                        Color.BLACK
+                )
+        assertTrue(parsed is Spanned)
+        val spanned = parsed as Spanned
+        val start = spanned.toString().indexOf("Bold text")
+        val end = start + "Bold text".length
+        assertTrue(start >= 0)
+        val styleSpans = spanned.getSpans(start, end, StyleSpan::class.java)
+        assertTrue(styleSpans.isNotEmpty())
+    }
+
+    @Test
+    fun parseHtml_appliesChapterHeadingHeuristicOnFirstLine() {
+        val parsed =
+                HtmlContentParser.parseHtml(
+                        "<p><span class='bold'>第五章 军事</span></p><p>正文内容</p>",
+                        Color.BLACK
+                )
+        assertTrue(parsed is Spanned)
+        val spanned = parsed as Spanned
+        val start = spanned.toString().indexOf("第五章 军事")
+        val end = start + "第五章 军事".length
+        assertTrue(start >= 0)
+        val sizeSpans = spanned.getSpans(start, end, RelativeSizeSpan::class.java)
+        assertTrue(sizeSpans.any { it.sizeChange > 1f })
+    }
+
+    @Test
     fun parseHtml_onlyConvertsSuperSpan() {
         val parsed =
                 HtmlContentParser.parseHtml(

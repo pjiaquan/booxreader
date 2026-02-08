@@ -12,6 +12,8 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 
 internal object HtmlContentParser {
     private val scriptRegex =
@@ -23,6 +25,24 @@ internal object HtmlContentParser {
                     "<span[^>]*class=[\"'][^\"']*\\bsuper\\b[^\"']*[\"'][^>]*>(.*?)</span>",
                     setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
             )
+    private val boldSpanRegex =
+            Regex(
+                    "<span[^>]*\\bclass\\s*=\\s*([\"'])[^\"']*\\bbold\\b[^\"']*\\1[^>]*>(.*?)</span>",
+                    setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+            )
+    private val classBasedHeadingRegex =
+            Regex(
+                    "<(p|div)([^>]*?\\bclass\\s*=\\s*([\"'])([^\"']*)\\3[^>]*)>(.*?)</\\1>",
+                    setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+            )
+    private val epubTypeHeadingRegex =
+            Regex(
+                    "<(p|div)([^>]*?\\bepub:type\\s*=\\s*([\"'])([^\"']*)\\3[^>]*)>(.*?)</\\1>",
+                    setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+            )
+    private val htmlTagRegex = Regex("<[^>]+>")
+    private val whitespaceRegex = Regex("\\s+")
+    private val chapterMarkerRegex = Regex("[章节回卷篇部集]")
     private val tagWithIdRegex =
             Regex(
                     "<([a-zA-Z][\\w:-]*)([^>]*?)\\bid\\s*=\\s*([\"'])([^\"']+)\\3([^>]*)>",
@@ -47,9 +67,12 @@ internal object HtmlContentParser {
             imageGetter: Html.ImageGetter? = null
     ): ParsedResult {
         val cleaned =
-                html.replace(scriptRegex, "")
+                promoteLikelyChapterHeadings(
+                        html.replace(scriptRegex, "")
                         .replace(styleRegex, "")
+                        .replace(boldSpanRegex, "<b>$2</b>")
                         .replace(superSpanRegex, "<sup>$1</sup>")
+                )
         val (annotatedHtml, tokenToAnchorId) = injectAnchorTokens(cleaned)
 
         val effectiveImageGetter = imageGetter ?: Html.ImageGetter { null }
@@ -78,8 +101,114 @@ internal object HtmlContentParser {
         }
         collapseWhitespace(builder)
         trimWhitespace(builder)
+        applyHeuristicChapterHeadingStyle(builder)
         val anchorOffsets = extractAnchorOffsets(builder, tokenToAnchorId)
         return ParsedResult(content = builder, anchorOffsets = anchorOffsets)
+    }
+
+    private fun applyHeuristicChapterHeadingStyle(builder: SpannableStringBuilder) {
+        if (builder.isEmpty()) return
+
+        var lineStart = 0
+        while (lineStart < builder.length) {
+            var lineEnd = builder.indexOf("\n", lineStart)
+            if (lineEnd < 0) lineEnd = builder.length
+            val rawLine = builder.subSequence(lineStart, lineEnd).toString()
+            val trimmedLine = rawLine.replace('\u00A0', ' ').trim()
+            if (trimmedLine.isNotEmpty()) {
+                if (isLikelyChapterHeading(trimmedLine)) {
+                    val leadingSpaces = rawLine.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
+                    val trailingSpaces = rawLine.reversed().indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
+                    val start = lineStart + leadingSpaces
+                    val end = lineEnd - trailingSpaces
+                    if (start in 0 until end && end <= builder.length) {
+                        builder.setSpan(
+                                StyleSpan(android.graphics.Typeface.BOLD),
+                                start,
+                                end,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                        builder.setSpan(
+                                RelativeSizeSpan(1.28f),
+                                start,
+                                end,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
+                }
+                // Only inspect the first non-empty line to avoid false positives in body text.
+                return
+            }
+            lineStart = lineEnd + 1
+        }
+    }
+
+    private fun isLikelyChapterHeading(text: String): Boolean {
+        val normalized = text.replace(whitespaceRegex, "")
+        if (normalized.length !in 4..40) return false
+        if (!normalized.startsWith("第")) return false
+        val markerMatch = chapterMarkerRegex.find(normalized) ?: return false
+        // Markers usually appear early, e.g. "第五章..."
+        if (markerMatch.range.first !in 1..10) return false
+        return true
+    }
+
+    private fun promoteLikelyChapterHeadings(html: String): String {
+        val promotedByClass =
+                classBasedHeadingRegex.replace(html) { match ->
+                    promoteToHeadingIfLikelyTitle(
+                            attributes = match.groupValues[2],
+                            markerValue = match.groupValues[4],
+                            innerHtml = match.groupValues[5],
+                            isLikelyHeading = ::isLikelyHeadingClass
+                    ) ?: match.value
+                }
+        return epubTypeHeadingRegex.replace(promotedByClass) { match ->
+            promoteToHeadingIfLikelyTitle(
+                    attributes = match.groupValues[2],
+                    markerValue = match.groupValues[4],
+                    innerHtml = match.groupValues[5],
+                    isLikelyHeading = ::isLikelyHeadingEpubType
+            ) ?: match.value
+        }
+    }
+
+    private fun promoteToHeadingIfLikelyTitle(
+            attributes: String,
+            markerValue: String,
+            innerHtml: String,
+            isLikelyHeading: (String) -> Boolean
+    ): String? {
+        if (!isLikelyHeading(markerValue)) return null
+        val plainText = innerHtml.replace(htmlTagRegex, " ").replace(whitespaceRegex, " ").trim()
+        if (plainText.isEmpty() || plainText.length > 80) return null
+        return "<h2$attributes>$innerHtml</h2>"
+    }
+
+    private fun isLikelyHeadingClass(classValue: String): Boolean {
+        val classTokens =
+                classValue.lowercase().split(whitespaceRegex).map { it.trim() }.filter { it.isNotEmpty() }
+        return classTokens.any { token ->
+            val normalized = token.replace('_', '-')
+            (normalized.contains("chapter") &&
+                    (normalized.contains("title") ||
+                            normalized.contains("heading") ||
+                            normalized.endsWith("head"))) ||
+                    (normalized.contains("section") && normalized.contains("title")) ||
+                    (normalized.contains("part") && normalized.contains("title"))
+        }
+    }
+
+    private fun isLikelyHeadingEpubType(epubTypeValue: String): Boolean {
+        val tokens =
+                epubTypeValue
+                        .lowercase()
+                        .split(whitespaceRegex)
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+        return tokens.any {
+            it == "title" || it == "chapter-title" || it == "section-title" || it == "part-title"
+        }
     }
 
     private fun injectAnchorTokens(cleanedHtml: String): Pair<String, Map<String, String>> {
