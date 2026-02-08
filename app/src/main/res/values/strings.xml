@@ -71,6 +71,8 @@
     <string name="reader_publish">Ask AI</string>
     <string name="reader_table_of_contents">Contents</string>
     <string name="reader_settings">Settings</string>
+    <string name="reader_header_back">Back</string>
+    <string name="reader_header_subtitle_placeholder">Preparing chapter...</string>
     <string name="login_title">BooxReader Login</string>
     <string name="login_sign_in">Sign In</string>
     <string name="login_sign_in_google">Sign In with Google</string>

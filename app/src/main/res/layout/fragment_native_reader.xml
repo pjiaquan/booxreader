@@ -16,7 +16,7 @@
             android:layout_height="match_parent"
             android:paddingHorizontal="24dp"
             android:paddingBottom="24dp"
-            android:paddingTop="48dp" />
+            android:paddingTop="72dp" />
 
         <!-- Secondary view for page curl animation -->
         <my.hinoki.booxreader.ui.reader.nativev2.NativeReaderView
@@ -25,7 +25,7 @@
             android:layout_height="match_parent"
             android:paddingHorizontal="24dp"
             android:paddingBottom="24dp"
-            android:paddingTop="48dp"
+            android:paddingTop="72dp"
             android:visibility="gone" />
 
     </FrameLayout>
