@@ -65,6 +65,15 @@
     <string name="ai_note_related_loading">Searching related notes...</string>
     <string name="ai_note_related_empty">No related historical notes found yet.</string>
     <string name="ai_note_related_reason_default">Semantic similarity</string>
+    <string name="ai_note_back_to_linked_note">Back To Linked Note</string>
+    <string name="ai_note_semantic_search_hint">Search by concept, person, era...</string>
+    <string name="ai_note_semantic_search_button">Search</string>
+    <string name="ai_note_semantic_search_clear">Clear semantic search</string>
+    <string name="ai_note_semantic_search_running">Searching embeddings...</string>
+    <string name="ai_note_semantic_search_status_results">Semantic search: "%1$s" (%2$d)</string>
+    <string name="ai_note_semantic_search_status_none">No semantic matches for "%1$s"</string>
+    <string name="ai_note_semantic_search_failed">Semantic search failed</string>
+    <string name="ai_note_semantic_item_meta">Similarity %1$.1f%% • %2$s</string>
     <string name="profile_username_placeholder">User Name</string>
     <string name="profile_email_placeholder">user@example.com</string>
     <string name="profile_logout">Logout</string>

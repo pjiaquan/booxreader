@@ -12,6 +12,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.ImageView
 import android.widget.ImageButton
 import android.widget.Toast
@@ -41,6 +42,7 @@ import android.widget.BaseAdapter
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import kotlin.math.roundToInt
 
 class AiNoteListActivity : BaseActivity() {
 
@@ -63,13 +65,17 @@ class AiNoteListActivity : BaseActivity() {
     private lateinit var adapter: NoteListAdapter
     private var bookId: String? = null
     private var exportMenuItem: MenuItem? = null
+    private var isExportInProgress: Boolean = false
+    private var isSemanticSearchInProgress: Boolean = false
     private var pendingExportAllAfterPermission: Boolean = false
     private var pendingExportSelectedIds: Set<Long>? = null
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
-    private var baseListPaddingTop: Int = 0
     private var notes: List<AiNoteEntity> = emptyList()
+    private var allNotes: List<AiNoteEntity> = emptyList()
+    private var semanticQueryInEffect: String? = null
+    private val semanticMetaByNoteId = mutableMapOf<Long, AiNoteRepository.SemanticRelatedNote>()
     private val selectedNoteIds = linkedSetOf<Long>()
     private var selectionActionMode: ActionMode? = null
 
@@ -101,9 +107,9 @@ class AiNoteListActivity : BaseActivity() {
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        baseListPaddingTop = binding.listAiNotes.paddingTop
-        adjustListTopInsetForActionBar()
+        applyActionBarPadding(binding.llSemanticSearch)
         setupList()
+        setupSemanticSearch()
         applyThemeFromSettings()
 
         loadNotes()
@@ -111,30 +117,7 @@ class AiNoteListActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        adjustListTopInsetForActionBar()
         applyThemeFromSettings()
-    }
-
-    private fun adjustListTopInsetForActionBar() {
-        binding.listAiNotes.post {
-            val actionBarView =
-                    findViewById<View>(androidx.appcompat.R.id.action_bar_container)
-                            ?: findViewById(androidx.appcompat.R.id.action_bar)
-                            ?: return@post
-            val actionBarLocation = IntArray(2)
-            val listLocation = IntArray(2)
-            actionBarView.getLocationInWindow(actionBarLocation)
-            binding.listAiNotes.getLocationInWindow(listLocation)
-
-            val actionBarBottom = actionBarLocation[1] + actionBarView.height
-            val overlap = (actionBarBottom - listLocation[1]).coerceAtLeast(0)
-            binding.listAiNotes.setPadding(
-                    binding.listAiNotes.paddingLeft,
-                    baseListPaddingTop + overlap,
-                    binding.listAiNotes.paddingRight,
-                    binding.listAiNotes.paddingBottom
-            )
-        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -162,10 +145,24 @@ class AiNoteListActivity : BaseActivity() {
     }
 
     private fun setExportInProgress(inProgress: Boolean) {
-        binding.progressBar.visibility = if (inProgress) View.VISIBLE else View.GONE
-        binding.listAiNotes.isEnabled = !inProgress
-        exportMenuItem?.isEnabled = !inProgress
+        isExportInProgress = inProgress
+        applyBusyState()
         supportActionBar?.subtitle = if (inProgress) "Exporting..." else null
+    }
+
+    private fun setSemanticSearchInProgress(inProgress: Boolean) {
+        isSemanticSearchInProgress = inProgress
+        binding.btnSemanticSearch.isEnabled = !inProgress
+        binding.btnSemanticSearchClear.isEnabled = !inProgress
+        binding.etSemanticSearch.isEnabled = !inProgress
+        applyBusyState()
+    }
+
+    private fun applyBusyState() {
+        val busy = isExportInProgress || isSemanticSearchInProgress
+        binding.progressBar.visibility = if (busy) View.VISIBLE else View.GONE
+        binding.listAiNotes.isEnabled = !busy
+        exportMenuItem?.isEnabled = !busy
     }
 
     private fun setupList() {
@@ -186,6 +183,24 @@ class AiNoteListActivity : BaseActivity() {
             }
             toggleSelection(note.id)
             true
+        }
+    }
+
+    private fun setupSemanticSearch() {
+        binding.btnSemanticSearch.setOnClickListener { submitSemanticSearch() }
+        binding.btnSemanticSearchClear.setOnClickListener { clearSemanticSearch() }
+        binding.etSemanticSearch.setOnEditorActionListener { _, actionId, event ->
+            val shouldSearch =
+                    actionId == EditorInfo.IME_ACTION_SEARCH ||
+                            actionId == EditorInfo.IME_ACTION_DONE ||
+                            (event?.keyCode == KeyEvent.KEYCODE_ENTER &&
+                                    event.action == KeyEvent.ACTION_DOWN)
+            if (shouldSearch) {
+                submitSemanticSearch()
+                true
+            } else {
+                false
+            }
         }
     }
 
@@ -216,9 +231,15 @@ class AiNoteListActivity : BaseActivity() {
         listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, 170)
 
         binding.root.setBackgroundColor(listBackgroundColor)
+        binding.llSemanticSearch.setBackgroundColor(listBackgroundColor)
         binding.listAiNotes.setBackgroundColor(listBackgroundColor)
         binding.progressBar.indeterminateTintList =
                 ColorStateList.valueOf(listTextColor)
+        binding.etSemanticSearch.setTextColor(listTextColor)
+        binding.etSemanticSearch.setHintTextColor(ColorUtils.setAlphaComponent(listTextColor, 140))
+        binding.btnSemanticSearch.setTextColor(listTextColor)
+        binding.btnSemanticSearchClear.imageTintList = ColorStateList.valueOf(listTextColor)
+        binding.tvSemanticSearchStatus.setTextColor(listSecondaryTextColor)
 
         @Suppress("DEPRECATION")
         run {
@@ -240,11 +261,15 @@ class AiNoteListActivity : BaseActivity() {
             runCatching { syncRepo.pullNotes() }
 
             if (isFinishing || isDestroyed) return@launch
-            notes = if (bookId != null) {
+            allNotes = if (bookId != null) {
                 repo.getByBook(bookId!!)
             } else {
                 repo.getAll()
             }
+            notes = allNotes
+            semanticMetaByNoteId.clear()
+            semanticQueryInEffect = null
+            binding.tvSemanticSearchStatus.visibility = View.GONE
             val validIds = notes.map { it.id }.toSet()
             selectedNoteIds.retainAll(validIds)
             if (selectedNoteIds.isEmpty()) {
@@ -254,6 +279,112 @@ class AiNoteListActivity : BaseActivity() {
             }
             adapter.notifyDataSetChanged()
         }
+    }
+
+    private fun submitSemanticSearch() {
+        val query = binding.etSemanticSearch.text?.toString()?.trim().orEmpty()
+        if (query.isEmpty()) {
+            clearSemanticSearch()
+            return
+        }
+        semanticQueryInEffect = query
+        lifecycleScope.launch {
+            setSemanticSearchInProgress(true)
+            binding.tvSemanticSearchStatus.visibility = View.VISIBLE
+            binding.tvSemanticSearchStatus.text =
+                    getString(R.string.ai_note_semantic_search_running)
+            try {
+                val semanticResults =
+                        repo.searchNotesBySemanticQuery(
+                                queryText = query,
+                                limit = 20,
+                                bookId = null
+                        )
+                val matchedNotes = mutableListOf<AiNoteEntity>()
+                val seenIds = mutableSetOf<Long>()
+                semanticMetaByNoteId.clear()
+
+                suspend fun mapSemanticResultsToLocalNotes() {
+                    for (result in semanticResults) {
+                        val byLocalId = result.localId?.let { localId -> repo.getById(localId) }
+                        val byRemoteId =
+                                byLocalId
+                                        ?: result.remoteId?.let { remoteId ->
+                                            repo.getByRemoteId(remoteId)
+                                        }
+                        val byNoteId =
+                                byRemoteId
+                                        ?: result.noteId.toLongOrNull()?.let { id ->
+                                            repo.getById(id)
+                                        }
+                        val local = byNoteId ?: continue
+                        if (bookId != null && local.bookId != bookId) continue
+                        if (!seenIds.add(local.id)) continue
+                        matchedNotes.add(local)
+                        semanticMetaByNoteId[local.id] = result
+                    }
+                }
+
+                mapSemanticResultsToLocalNotes()
+                if (semanticResults.isNotEmpty() && matchedNotes.isEmpty()) {
+                    // If remote semantic hits exist but local mapping is empty, refresh notes once.
+                    runCatching { syncRepo.pullNotes() }
+                    mapSemanticResultsToLocalNotes()
+                }
+
+                notes = matchedNotes
+                val validIds = notes.map { it.id }.toSet()
+                selectedNoteIds.retainAll(validIds)
+                if (selectedNoteIds.isEmpty()) {
+                    selectionActionMode?.finish()
+                } else {
+                    updateSelectionTitle()
+                }
+                adapter.notifyDataSetChanged()
+
+                binding.tvSemanticSearchStatus.visibility = View.VISIBLE
+                binding.tvSemanticSearchStatus.text =
+                        if (notes.isEmpty()) {
+                            getString(R.string.ai_note_semantic_search_status_none, query)
+                        } else {
+                            getString(
+                                    R.string.ai_note_semantic_search_status_results,
+                                    query,
+                                    notes.size
+                            )
+                        }
+            } catch (e: Exception) {
+                semanticQueryInEffect = null
+                semanticMetaByNoteId.clear()
+                notes = allNotes
+                adapter.notifyDataSetChanged()
+                binding.tvSemanticSearchStatus.visibility = View.GONE
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(R.string.ai_note_semantic_search_failed),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+            } finally {
+                setSemanticSearchInProgress(false)
+            }
+        }
+    }
+
+    private fun clearSemanticSearch() {
+        semanticQueryInEffect = null
+        semanticMetaByNoteId.clear()
+        binding.etSemanticSearch.setText("")
+        notes = allNotes
+        val validIds = notes.map { it.id }.toSet()
+        selectedNoteIds.retainAll(validIds)
+        if (selectedNoteIds.isEmpty()) {
+            selectionActionMode?.finish()
+        } else {
+            updateSelectionTitle()
+        }
+        binding.tvSemanticSearchStatus.visibility = View.GONE
+        adapter.notifyDataSetChanged()
     }
 
     private fun requestExportAllNotes() {
@@ -526,6 +657,21 @@ class AiNoteListActivity : BaseActivity() {
             holder.tvTime.text = DateFormat.format("yyyy-MM-dd HH:mm", note.createdAt).toString()
             holder.tvText.setTextColor(listTextColor)
             holder.tvTime.setTextColor(listSecondaryTextColor)
+            val semantic = semanticMetaByNoteId[note.id]
+            if (semantic != null) {
+                val reason =
+                        semantic.reason?.takeIf { it.isNotBlank() }
+                                ?: getString(R.string.ai_note_related_reason_default)
+                val scorePercent =
+                        ((semantic.score.coerceIn(0.0, 1.0) * 1000).roundToInt().toDouble() / 10.0)
+                holder.tvSemanticMeta.visibility = View.VISIBLE
+                holder.tvSemanticMeta.text =
+                        getString(R.string.ai_note_semantic_item_meta, scorePercent, reason)
+                holder.tvSemanticMeta.setTextColor(listSecondaryTextColor)
+            } else {
+                holder.tvSemanticMeta.visibility = View.GONE
+                holder.tvSemanticMeta.text = ""
+            }
             holder.cbSelect.buttonTintList = ColorStateList.valueOf(listTextColor)
             holder.cbSelect.visibility = if (selectionActionMode != null) View.VISIBLE else View.GONE
             holder.cbSelect.isChecked = selectedNoteIds.contains(note.id)

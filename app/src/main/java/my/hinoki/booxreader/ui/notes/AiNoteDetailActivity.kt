@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.text.method.LinkMovementMethod
 import android.text.Selection
 import android.text.Spannable
 import android.view.ActionMode
@@ -24,10 +25,13 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.chip.Chip
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
+import io.noties.markwon.MarkwonConfiguration
 import io.noties.markwon.ext.latex.JLatexMathPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
+import java.net.URLEncoder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -51,13 +55,22 @@ class AiNoteDetailActivity : BaseActivity() {
         private const val EXTRA_NOTE_ID = "extra_note_id"
 
         private const val EXTRA_AUTO_STREAM_TEXT = "extra_auto_stream_text"
+        private const val EXTRA_SOURCE_NOTE_ID = "extra_source_note_id"
 
-        fun open(context: Context, noteId: Long, autoStreamText: String? = null) {
+        fun open(
+                context: Context,
+                noteId: Long,
+                autoStreamText: String? = null,
+                sourceNoteId: Long? = null
+        ) {
             val intent =
                     Intent(context, AiNoteDetailActivity::class.java).apply {
                         putExtra(EXTRA_NOTE_ID, noteId)
                         if (autoStreamText != null) {
                             putExtra(EXTRA_AUTO_STREAM_TEXT, autoStreamText)
+                        }
+                        if (sourceNoteId != null) {
+                            putExtra(EXTRA_SOURCE_NOTE_ID, sourceNoteId)
                         }
                     }
             context.startActivity(intent)
@@ -71,11 +84,45 @@ class AiNoteDetailActivity : BaseActivity() {
         AiNoteRepository(app, app.okHttpClient, syncRepo)
     }
     private var currentNote: AiNoteEntity? = null
+    private var sourceNoteId: Long? = null
     private val markwon by lazy {
         Markwon.builder(this)
                 .usePlugin(TablePlugin.create(this))
                 .usePlugin(JLatexMathPlugin.create(binding.tvAiResponse.textSize))
                 .usePlugin(MarkwonInlineParserPlugin.create())
+                .usePlugin(
+                        object : AbstractMarkwonPlugin() {
+                            override fun configureConfiguration(
+                                    builder: MarkwonConfiguration.Builder
+                            ) {
+                                builder.linkResolver { _, link ->
+                                    if (link.startsWith("booxreader://ai-note")) {
+                                        openRelatedNoteByLink(link)
+                                    } else {
+                                        runCatching {
+                                                    startActivity(
+                                                            Intent(
+                                                                    Intent.ACTION_VIEW,
+                                                                    Uri.parse(link)
+                                                            )
+                                                    )
+                                                }
+                                                .onFailure {
+                                                    Toast.makeText(
+                                                                    this@AiNoteDetailActivity,
+                                                                    getString(
+                                                                            R.string
+                                                                                    .action_web_search_failed
+                                                                    ),
+                                                                    Toast.LENGTH_SHORT
+                                                            )
+                                                            .show()
+                                                }
+                                    }
+                                }
+                            }
+                        }
+                )
                 .build()
     }
     private var autoStreamText: String? = null
@@ -133,9 +180,12 @@ class AiNoteDetailActivity : BaseActivity() {
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
         binding.tvAiResponse.customSelectionActionModeCallback = selectionActionModeCallback
+        binding.tvRelatedNotes.movementMethod = LinkMovementMethod.getInstance()
 
         val noteId = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
         autoStreamText = intent.getStringExtra(EXTRA_AUTO_STREAM_TEXT)
+        val sourceId = intent.getLongExtra(EXTRA_SOURCE_NOTE_ID, -1L)
+        sourceNoteId = sourceId.takeIf { it > 0L && it != noteId }
         if (noteId == -1L) {
             Toast.makeText(this, getString(R.string.ai_note_invalid_id), Toast.LENGTH_SHORT).show()
             finish()
@@ -168,6 +218,16 @@ class AiNoteDetailActivity : BaseActivity() {
                 return@setOnClickListener
             }
             sendFollowUp(note, question)
+        }
+        binding.btnBackToLinkedNote.setOnClickListener {
+            val fromId = sourceNoteId ?: return@setOnClickListener
+            val currentId = currentNote?.id ?: return@setOnClickListener
+            if (fromId == currentId) return@setOnClickListener
+            AiNoteDetailActivity.open(
+                    this@AiNoteDetailActivity,
+                    fromId,
+                    sourceNoteId = currentId
+            )
         }
 
         // 初始化快速滾動到底按鈕
@@ -587,6 +647,9 @@ class AiNoteDetailActivity : BaseActivity() {
         } else {
             binding.btnGoToPage.visibility = View.GONE
         }
+        val shouldShowBackToLinked = sourceNoteId != null && sourceNoteId != note.id
+        binding.btnBackToLinkedNote.visibility =
+                if (shouldShowBackToLinked) View.VISIBLE else View.GONE
 
         if (scrollToQuestionHeader) {
             binding.scrollView.post {
@@ -1255,12 +1318,69 @@ class AiNoteDetailActivity : BaseActivity() {
             if (snippet.isNotBlank()) {
                 builder.append("Excerpt: $snippet  \n")
             }
+            val relatedUrl = buildRelatedNoteUrl(item)
+            builder.append("[Open this note]($relatedUrl)  \n")
             builder.append("ID: `${item.noteId}`")
             if (index < items.lastIndex) {
                 builder.append("\n\n")
             }
         }
         return builder.toString()
+    }
+
+    private fun buildRelatedNoteUrl(item: AiNoteRepository.SemanticRelatedNote): String {
+        val params = mutableListOf<String>()
+        item.localId?.let { params.add("localId=$it") }
+        item.remoteId
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    params.add(
+                            "remoteId=${URLEncoder.encode(it, Charsets.UTF_8.name())}"
+                    )
+                }
+        if (params.isEmpty()) {
+            params.add("noteId=${URLEncoder.encode(item.noteId, Charsets.UTF_8.name())}")
+        }
+        return "booxreader://ai-note?${params.joinToString("&")}"
+    }
+
+    private fun openRelatedNoteByLink(link: String) {
+        val uri = runCatching { Uri.parse(link) }.getOrNull() ?: return
+        val localId = uri.getQueryParameter("localId")?.toLongOrNull()
+        val remoteId = uri.getQueryParameter("remoteId")?.trim().orEmpty()
+        val noteId = uri.getQueryParameter("noteId")?.trim().orEmpty()
+
+        lifecycleScope.launch {
+            val target =
+                    when {
+                        localId != null -> repository.getById(localId)
+                        remoteId.isNotEmpty() -> repository.getByRemoteId(remoteId)
+                        else -> {
+                            val parsedLocal = noteId.toLongOrNull()
+                            if (parsedLocal != null) {
+                                repository.getById(parsedLocal)
+                            } else {
+                                repository.getByRemoteId(noteId)
+                            }
+                        }
+                    }
+
+            if (target == null) {
+                Toast.makeText(
+                                this@AiNoteDetailActivity,
+                                getString(R.string.ai_note_not_found),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+                return@launch
+            }
+            if (target.id == currentNote?.id) return@launch
+            AiNoteDetailActivity.open(
+                    this@AiNoteDetailActivity,
+                    target.id,
+                    sourceNoteId = currentNote?.id
+            )
+        }
     }
 
     private fun updateNoteFromStrings(

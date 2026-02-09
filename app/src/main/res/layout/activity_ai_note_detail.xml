@@ -53,6 +53,14 @@
                     android:textColor="#FFFFFF"
                     android:visibility="gone" />
 
+                <Button
+                    android:id="@+id/btnBackToLinkedNote"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="@string/ai_note_back_to_linked_note"
+                    android:visibility="gone" />
+
                 <TextView
                     android:id="@+id/tvResponseLabel"
                     android:layout_width="wrap_content"

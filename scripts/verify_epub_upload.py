@@ -76,12 +76,15 @@ def auth_user(base_url: str, email: str, password: str, verify_ssl: bool) -> Tup
         {"identity": email, "password": password},
         {"email": email, "password": password},
     )
+    print(f"[info] authenticating user {email}")
+    print(f"[info] authenticating user {password}")
     last_error = ""
     for payload in payloads:
         resp = requests.post(endpoint, json=payload, timeout=30, verify=verify_ssl)
         if resp.status_code == 200:
             data = resp.json()
             token = data.get("token")
+            print(f"[debug] auth token: {token}")
             user_id = ((data.get("record") or {}).get("id") or "").strip()
             if not token or not user_id:
                 raise RuntimeError("Auth succeeded but token/user id missing in response")

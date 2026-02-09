@@ -14,6 +14,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
@@ -60,6 +61,14 @@ class AiNoteRepository(
                 prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                         ?: HttpConfig.DEFAULT_BASE_URL
         return if (url.endsWith("/")) url.dropLast(1) else url
+    }
+
+    private fun getSemanticSearchBaseUrl(): String {
+        val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trim()
+        if (pocketBaseUrl.isNotEmpty()) {
+            return pocketBaseUrl.trimEnd('/')
+        }
+        return getBaseUrl()
     }
 
     private fun isGoogleNative(url: String): Boolean {
@@ -302,6 +311,11 @@ class AiNoteRepository(
         return dao.getById(id)?.let { normalizeForRead(it) }
     }
 
+    suspend fun getByRemoteId(remoteId: String): AiNoteEntity? {
+        if (remoteId.isBlank()) return null
+        return dao.getByRemoteId(remoteId)?.let { normalizeForRead(it) }
+    }
+
     suspend fun getAll(): List<AiNoteEntity> {
         return dao.getAll().map { normalizeForRead(it) }
     }
@@ -473,7 +487,7 @@ class AiNoteRepository(
                 val query = buildSemanticQuery(note)
                 if (query.isBlank()) return@withContext emptyList()
 
-                val baseUrl = getBaseUrl()
+                val baseUrl = getSemanticSearchBaseUrl()
                 if (baseUrl.isBlank()) return@withContext emptyList()
 
                 val url = baseUrl + HttpConfig.PATH_AI_NOTES_SEMANTIC_SEARCH
@@ -581,6 +595,111 @@ class AiNoteRepository(
                         }
                         .onFailure { error ->
                             Log.e(TAG, "searchRelatedNotesFromQdrant failed", error)
+                        }
+                        .getOrDefault(emptyList())
+            }
+
+    suspend fun searchNotesBySemanticQuery(
+            queryText: String,
+            limit: Int = 20,
+            bookId: String? = null
+    ): List<SemanticRelatedNote> =
+            withContext(Dispatchers.IO) {
+                val query = queryText.trim()
+                if (query.isBlank()) return@withContext emptyList()
+                val boundedLimit = limit.coerceIn(1, 50)
+
+                val baseUrl = getSemanticSearchBaseUrl()
+                if (baseUrl.isBlank()) return@withContext emptyList()
+
+                val url = baseUrl + HttpConfig.PATH_AI_NOTES_SEMANTIC_SEARCH
+                val requestPayload =
+                        JSONObject().apply {
+                            put("query", query)
+                            put("limit", boundedLimit)
+                            if (!bookId.isNullOrBlank()) {
+                                put("bookId", bookId)
+                            }
+                        }
+                val requestBody =
+                        requestPayload
+                                .toString()
+                                .toRequestBody("application/json; charset=utf-8".toMediaType())
+                val request = Request.Builder().url(url).post(requestBody).build()
+
+                return@withContext runCatching {
+                            client.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) return@use emptyList()
+                                val responseBody = response.body?.string().orEmpty()
+                                val results = parseSemanticResultsArray(responseBody)
+                                if (results == null || results.length() == 0) return@use emptyList()
+
+                                val parsed = mutableListOf<SemanticRelatedNote>()
+                                for (i in 0 until results.length()) {
+                                    val item = results.optJSONObject(i) ?: continue
+                                    val payload = item.optJSONObject("payload")
+                                    val remoteId =
+                                            firstNonBlank(
+                                                    item.optString("remoteId", ""),
+                                                    item.optString("recordId", ""),
+                                                    payload?.optString("remoteId", ""),
+                                                    payload?.optString("recordId", ""),
+                                                    payload?.optString("id", "")
+                                            )
+                                    val localId =
+                                            firstPresentLong(
+                                                    optLongOrNull(item, "localId"),
+                                                    optLongOrNull(item, "noteLocalId"),
+                                                    optLongOrNull(payload, "localId"),
+                                                    optLongOrNull(payload, "noteLocalId"),
+                                                    optLongOrNull(payload, "id")
+                                            )
+                                    val noteId =
+                                            firstNonBlank(
+                                                    item.optString("noteId", ""),
+                                                    item.optString("id", ""),
+                                                    payload?.optString("noteId", ""),
+                                                    payload?.optString("id", ""),
+                                                    remoteId,
+                                                    localId?.toString()
+                                            )
+                                                    ?: continue
+
+                                    val score = item.optDouble("score", 0.0)
+                                    val reason = parseReason(item, payload)
+                                    val originalText =
+                                            firstNonBlank(
+                                                    payload?.optString("originalText", ""),
+                                                    item.optString("originalText", "")
+                                            )
+                                    val aiResponse =
+                                            firstNonBlank(
+                                                    payload?.optString("aiResponse", ""),
+                                                    item.optString("aiResponse", "")
+                                            )
+                                    val title =
+                                            firstNonBlank(
+                                                    payload?.optString("bookTitle", ""),
+                                                    item.optString("bookTitle", "")
+                                            )
+                                    parsed.add(
+                                            SemanticRelatedNote(
+                                                    noteId = noteId,
+                                                    score = score,
+                                                    reason = reason,
+                                                    bookTitle = title,
+                                                    originalText = originalText,
+                                                    aiResponse = aiResponse,
+                                                    remoteId = remoteId,
+                                                    localId = localId
+                                            )
+                                    )
+                                }
+                                parsed.sortedByDescending { it.score }.take(boundedLimit)
+                            }
+                        }
+                        .onFailure { error ->
+                            Log.e(TAG, "searchNotesBySemanticQuery failed", error)
                         }
                         .getOrDefault(emptyList())
             }
