@@ -5,16 +5,19 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
-import android.text.method.LinkMovementMethod
 import android.text.Selection
 import android.text.Spannable
 import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
@@ -24,6 +27,7 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.chip.Chip
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
@@ -31,7 +35,6 @@ import io.noties.markwon.MarkwonConfiguration
 import io.noties.markwon.ext.latex.JLatexMathPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
-import java.net.URLEncoder
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -180,8 +183,6 @@ class AiNoteDetailActivity : BaseActivity() {
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
         binding.tvAiResponse.customSelectionActionModeCallback = selectionActionModeCallback
-        binding.tvRelatedNotes.movementMethod = LinkMovementMethod.getInstance()
-
         val noteId = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
         autoStreamText = intent.getStringExtra(EXTRA_AUTO_STREAM_TEXT)
         val sourceId = intent.getLongExtra(EXTRA_SOURCE_NOTE_ID, -1L)
@@ -322,7 +323,8 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvAiDisclaimer.setTextColor(secondaryTextColor)
         binding.tvAiInputDisclaimer.setTextColor(secondaryTextColor)
         binding.tvRelatedNotesLabel.setTextColor(textColor)
-        binding.tvRelatedNotes.setTextColor(secondaryTextColor)
+        binding.tvRelatedNotesHint.setTextColor(secondaryTextColor)
+        binding.tvRelatedNotesStatus.setTextColor(secondaryTextColor)
         binding.tvAutoScrollHint.setTextColor(secondaryTextColor)
         binding.etFollowUp.setTextColor(textColor)
         binding.etFollowUp.setHintTextColor(hintColor)
@@ -1261,8 +1263,11 @@ class AiNoteDetailActivity : BaseActivity() {
         relatedNotesJob = null
         lastRelatedLookupKey = null
         binding.tvRelatedNotesLabel.visibility = View.GONE
-        binding.tvRelatedNotes.visibility = View.GONE
-        binding.tvRelatedNotes.text = ""
+        binding.tvRelatedNotesHint.visibility = View.GONE
+        binding.tvRelatedNotesStatus.visibility = View.GONE
+        binding.tvRelatedNotesStatus.text = ""
+        binding.llRelatedNotesContainer.visibility = View.GONE
+        binding.llRelatedNotesContainer.removeAllViews()
     }
 
     private fun triggerRelatedNotesLookup(note: AiNoteEntity, force: Boolean = false) {
@@ -1277,8 +1282,11 @@ class AiNoteDetailActivity : BaseActivity() {
         lastRelatedLookupKey = key
 
         binding.tvRelatedNotesLabel.visibility = View.VISIBLE
-        binding.tvRelatedNotes.visibility = View.VISIBLE
-        binding.tvRelatedNotes.text = getString(R.string.ai_note_related_loading)
+        binding.tvRelatedNotesHint.visibility = View.GONE
+        binding.tvRelatedNotesStatus.visibility = View.VISIBLE
+        binding.tvRelatedNotesStatus.text = getString(R.string.ai_note_related_loading)
+        binding.llRelatedNotesContainer.visibility = View.GONE
+        binding.llRelatedNotesContainer.removeAllViews()
 
         relatedNotesJob?.cancel()
         relatedNotesJob =
@@ -1287,61 +1295,174 @@ class AiNoteDetailActivity : BaseActivity() {
                     if (currentNote?.id != note.id) return@launch
 
                     binding.tvRelatedNotesLabel.visibility = View.VISIBLE
-                    binding.tvRelatedNotes.visibility = View.VISIBLE
                     if (results.isEmpty()) {
-                        binding.tvRelatedNotes.text = getString(R.string.ai_note_related_empty)
+                        binding.tvRelatedNotesHint.visibility = View.GONE
+                        binding.tvRelatedNotesStatus.visibility = View.VISIBLE
+                        binding.tvRelatedNotesStatus.text = getString(R.string.ai_note_related_empty)
+                        binding.llRelatedNotesContainer.visibility = View.GONE
                         return@launch
                     }
-                    markwon.setMarkdown(binding.tvRelatedNotes, buildRelatedNotesMarkdown(results))
+                    binding.tvRelatedNotesHint.visibility = View.VISIBLE
+                    binding.tvRelatedNotesStatus.visibility = View.GONE
+                    renderRelatedNoteCards(results)
                 }
     }
 
-    private fun buildRelatedNotesMarkdown(
-            items: List<AiNoteRepository.SemanticRelatedNote>
-    ): String {
-        val builder = StringBuilder()
-        for ((index, item) in items.withIndex()) {
+    private fun renderRelatedNoteCards(items: List<AiNoteRepository.SemanticRelatedNote>) {
+        val container = binding.llRelatedNotesContainer
+        container.removeAllViews()
+        container.visibility = View.VISIBLE
+
+        val titleColor = binding.tvResponseLabel.currentTextColor
+        val secondaryColor = binding.tvAiModelInfo.currentTextColor
+        val primaryColor =
+                MaterialColors.getColor(
+                        container,
+                        com.google.android.material.R.attr.colorPrimary,
+                        Color.parseColor("#1565C0")
+                )
+        val outlineColor = ColorUtils.setAlphaComponent(primaryColor, 60)
+        val surfaceColor =
+                MaterialColors.getColor(
+                        container,
+                        com.google.android.material.R.attr.colorSurface,
+                        Color.WHITE
+                )
+        val pillColor = ColorUtils.setAlphaComponent(primaryColor, 28)
+
+        items.forEachIndexed { index, item ->
             val title = item.bookTitle?.takeIf { it.isNotBlank() } ?: "Note ${index + 1}"
-            val scorePercent =
-                    ((item.score.coerceIn(0.0, 1.0) * 1000).roundToInt().toDouble() / 10.0)
             val reason = item.reason ?: getString(R.string.ai_note_related_reason_default)
             val snippet =
                     (item.originalText ?: item.aiResponse)
                             ?.replace(Regex("\\s+"), " ")
                             ?.trim()
-                            ?.take(120)
+                            ?.take(130)
                             .orEmpty()
+            val scorePercent =
+                    ((item.score.coerceIn(0.0, 1.0) * 1000).roundToInt().toDouble() / 10.0)
 
-            builder.append("${index + 1}. **$title**  \n")
-            builder.append("Similarity: $scorePercent%  \n")
-            builder.append("Reason: $reason  \n")
+            val card =
+                    MaterialCardView(this).apply {
+                        layoutParams =
+                                LinearLayout.LayoutParams(
+                                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                                LinearLayout.LayoutParams.WRAP_CONTENT
+                                        )
+                                        .apply {
+                                            if (index > 0) topMargin = dp(10)
+                                        }
+                        radius = dp(14).toFloat()
+                        strokeWidth = dp(1)
+                        strokeColor = outlineColor
+                        cardElevation = dp(1).toFloat()
+                        setCardBackgroundColor(surfaceColor)
+                        rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(primaryColor, 44))
+                        isClickable = true
+                        isFocusable = true
+                        setOnClickListener { openRelatedNote(item) }
+                    }
+
+            val content =
+                    LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(14), dp(12), dp(14), dp(12))
+                    }
+
+            val titleView =
+                    TextView(this).apply {
+                        text = title
+                        setTextColor(titleColor)
+                        setTypeface(typeface, Typeface.BOLD)
+                        textSize = 16f
+                    }
+            content.addView(titleView)
+
+            val metaView =
+                    TextView(this).apply {
+                        text = getString(R.string.ai_note_related_similarity, scorePercent)
+                        setTextColor(primaryColor)
+                        textSize = 12f
+                        setPadding(dp(10), dp(4), dp(10), dp(4))
+                        background = pillBackground(pillColor)
+                    }
+            val metaParams =
+                    LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            .apply {
+                                topMargin = dp(8)
+                            }
+            content.addView(metaView, metaParams)
+
+            val reasonView =
+                    TextView(this).apply {
+                        text = reason
+                        setTextColor(secondaryColor)
+                        textSize = 14f
+                    }
+            val reasonParams =
+                    LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.MATCH_PARENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            .apply {
+                                topMargin = dp(8)
+                            }
+            content.addView(reasonView, reasonParams)
+
             if (snippet.isNotBlank()) {
-                builder.append("Excerpt: $snippet  \n")
+                val snippetView =
+                        TextView(this).apply {
+                            text = snippet
+                            setTextColor(secondaryColor)
+                            textSize = 14f
+                            maxLines = 3
+                        }
+                val snippetParams =
+                        LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                        LinearLayout.LayoutParams.WRAP_CONTENT
+                                )
+                                .apply {
+                                    topMargin = dp(6)
+                                }
+                content.addView(snippetView, snippetParams)
             }
-            val relatedUrl = buildRelatedNoteUrl(item)
-            builder.append("[Open this note]($relatedUrl)  \n")
-            builder.append("ID: `${item.noteId}`")
-            if (index < items.lastIndex) {
-                builder.append("\n\n")
-            }
+
+            val actionView =
+                    TextView(this).apply {
+                        text = getString(R.string.ai_note_related_open_action)
+                        setTextColor(primaryColor)
+                        setTypeface(typeface, Typeface.BOLD)
+                        textSize = 13f
+                    }
+            val actionParams =
+                    LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            .apply {
+                                topMargin = dp(10)
+                            }
+            content.addView(actionView, actionParams)
+
+            card.addView(content)
+            container.addView(card)
         }
-        return builder.toString()
     }
 
-    private fun buildRelatedNoteUrl(item: AiNoteRepository.SemanticRelatedNote): String {
-        val params = mutableListOf<String>()
-        item.localId?.let { params.add("localId=$it") }
-        item.remoteId
-                ?.takeIf { it.isNotBlank() }
-                ?.let {
-                    params.add(
-                            "remoteId=${URLEncoder.encode(it, Charsets.UTF_8.name())}"
-                    )
-                }
-        if (params.isEmpty()) {
-            params.add("noteId=${URLEncoder.encode(item.noteId, Charsets.UTF_8.name())}")
+    private fun pillBackground(color: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(999).toFloat()
+            setColor(color)
         }
-        return "booxreader://ai-note?${params.joinToString("&")}"
+    }
+
+    private fun openRelatedNote(item: AiNoteRepository.SemanticRelatedNote) {
+        openRelatedNoteTarget(item.localId, item.remoteId?.trim().orEmpty(), item.noteId.trim())
     }
 
     private fun openRelatedNoteByLink(link: String) {
@@ -1349,8 +1470,12 @@ class AiNoteDetailActivity : BaseActivity() {
         val localId = uri.getQueryParameter("localId")?.toLongOrNull()
         val remoteId = uri.getQueryParameter("remoteId")?.trim().orEmpty()
         val noteId = uri.getQueryParameter("noteId")?.trim().orEmpty()
+        openRelatedNoteTarget(localId, remoteId, noteId)
+    }
 
+    private fun openRelatedNoteTarget(localId: Long?, remoteId: String, noteId: String) {
         lifecycleScope.launch {
+            if (localId == null && remoteId.isBlank() && noteId.isBlank()) return@launch
             val target =
                     when {
                         localId != null -> repository.getById(localId)
@@ -1382,6 +1507,8 @@ class AiNoteDetailActivity : BaseActivity() {
             )
         }
     }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
 
     private fun updateNoteFromStrings(
             note: AiNoteEntity,

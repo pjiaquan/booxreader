@@ -44,9 +44,12 @@
     <string name="ai_note_follow_up_hint">輸入後續提問</string>
     <string name="ai_note_scroll_to_bottom">快速滾動到底</string>
     <string name="ai_note_related_label">相關歷史筆記</string>
+    <string name="ai_note_related_tap_hint">點按卡片即可查看關聯筆記</string>
     <string name="ai_note_related_loading">正在搜尋相關筆記...</string>
     <string name="ai_note_related_empty">暫無可參考的相關歷史筆記</string>
     <string name="ai_note_related_reason_default">語義相近</string>
+    <string name="ai_note_related_similarity">相似度 %1$.1f%%</string>
+    <string name="ai_note_related_open_action">查看筆記</string>
     <string name="ai_note_back_to_linked_note">返回關聯來源筆記</string>
     <string name="ai_note_semantic_search_hint">輸入概念、人物、時代等關鍵詞</string>
     <string name="ai_note_semantic_search_button">搜尋</string>

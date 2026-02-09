@@ -62,9 +62,12 @@
     <string name="ai_note_scroll_to_bottom">Scroll to Bottom</string>
     <string name="ai_note_auto_scroll_paused">Auto-scroll paused</string>
     <string name="ai_note_related_label">Related Notes</string>
+    <string name="ai_note_related_tap_hint">Tap a card to open the linked note</string>
     <string name="ai_note_related_loading">Searching related notes...</string>
     <string name="ai_note_related_empty">No related historical notes found yet.</string>
     <string name="ai_note_related_reason_default">Semantic similarity</string>
+    <string name="ai_note_related_similarity">Similarity %1$.1f%%</string>
+    <string name="ai_note_related_open_action">Open Note</string>
     <string name="ai_note_back_to_linked_note">Back To Linked Note</string>
     <string name="ai_note_semantic_search_hint">Search by concept, person, era...</string>
     <string name="ai_note_semantic_search_button">Search</string>
