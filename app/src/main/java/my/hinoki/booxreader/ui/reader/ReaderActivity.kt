@@ -19,7 +19,6 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -35,7 +34,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.gson.Gson
-import java.util.concurrent.TimeUnit
 import kotlin.OptIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -47,9 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
-import my.hinoki.booxreader.data.billing.BillingStatusParser
 import my.hinoki.booxreader.data.reader.ReaderViewModel
-import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
@@ -66,8 +62,6 @@ import my.hinoki.booxreader.ui.notes.AiNoteDetailActivity
 import my.hinoki.booxreader.ui.notes.AiNoteListActivity
 import my.hinoki.booxreader.ui.reader.nativev2.NativeNavigatorFragment
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -687,9 +681,6 @@ class ReaderActivity : BaseActivity() {
         val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
         val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
         val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
-        val btnUpgradePlan = dialogView.findViewById<Button>(R.id.btnUpgradePlan)
-        val tvPlanSummary = dialogView.findViewById<TextView>(R.id.tvPlanSummary)
-        val pbPlanSummary = dialogView.findViewById<ProgressBar>(R.id.pbPlanSummary)
 
         // dialogView is a ScrollView, so we need to get its child LinearLayout
         val layout =
@@ -701,10 +692,6 @@ class ReaderActivity : BaseActivity() {
         layout?.addView(btnAiProfiles, 2)
 
         btnManageMagicTags.setOnClickListener { showMagicTagManager() }
-        btnUpgradePlan.setOnClickListener {
-            startActivity(Intent(this, my.hinoki.booxreader.ui.billing.UpgradeActivity::class.java))
-        }
-        updatePlanSummary(tvPlanSummary, pbPlanSummary)
 
         // --- Reading Theme ---
         val themeTitle =
@@ -1072,76 +1059,6 @@ class ReaderActivity : BaseActivity() {
         }
 
         dialog.show()
-    }
-
-    private fun updatePlanSummary(target: TextView, spinner: ProgressBar) {
-        val baseUrl = billingBaseUrl()
-        if (baseUrl.isBlank()) {
-            target.text =
-                    getString(
-                            R.string.reader_settings_plan_summary_simple,
-                            getString(R.string.reader_settings_plan_free)
-                    )
-            spinner.visibility = View.GONE
-            return
-        }
-
-        lifecycleScope.launch {
-            target.setText(R.string.reader_settings_plan_summary_loading)
-            spinner.visibility = View.VISIBLE
-            val tokenManager = (application as BooxReaderApp).tokenManager
-            val client =
-                    OkHttpClient.Builder()
-                            .addInterceptor(AuthInterceptor(tokenManager))
-                            .callTimeout(8, TimeUnit.SECONDS)
-                            .connectTimeout(5, TimeUnit.SECONDS)
-                            .readTimeout(5, TimeUnit.SECONDS)
-                            .build()
-            val result =
-                    withContext(Dispatchers.IO) {
-                        val request = Request.Builder().url("$baseUrl/billing/status").get().build()
-                        try {
-                            client.newCall(request).execute().use { response ->
-                                if (!response.isSuccessful) return@withContext null
-                                val body = response.body?.string().orEmpty()
-                                val status =
-                                        BillingStatusParser.parse(body) ?: return@withContext null
-                                return@withContext Pair(status.planType, status.dailyRemaining)
-                            }
-                        } catch (e: Exception) {
-                            return@withContext null
-                        }
-                    }
-
-            if (result == null) {
-                target.text =
-                        getString(
-                                R.string.reader_settings_plan_summary_simple,
-                                getString(R.string.reader_settings_plan_free)
-                        )
-                spinner.visibility = View.GONE
-                return@launch
-            }
-
-            val planName =
-                    when (result.first?.lowercase()) {
-                        "monthly" -> getString(R.string.reader_settings_plan_monthly)
-                        "lifetime" -> getString(R.string.reader_settings_plan_lifetime)
-                        else -> getString(R.string.reader_settings_plan_free)
-                    }
-            val remaining = result.second
-            if (remaining != null) {
-                target.text =
-                        getString(R.string.reader_settings_plan_summary_format, planName, remaining)
-            } else {
-                target.text = getString(R.string.reader_settings_plan_summary_simple, planName)
-            }
-        }
-    }
-
-    private fun billingBaseUrl(): String {
-        // TODO: Update for PocketBase billing endpoints
-        return ""
     }
 
     private fun applySettingsDialogTheme(root: View, mode: ContrastMode) {

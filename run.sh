@@ -541,7 +541,7 @@ check_signing_key_difference() {
     fi
     
     # Check if app is already installed
-    if ! $adb_cmd shell pm list packages | grep -q "$package_name"; then
+    if ! $adb_cmd shell pm list packages --user 0 | grep -q "$package_name"; then
         echo "App not currently installed, no need to check signing keys"
         return 1  # No uninstall needed
     fi
@@ -585,7 +585,7 @@ check_signing_key_difference() {
     
     # Try to get the APK path from the device
     local apk_on_device
-    apk_on_device="$($adb_cmd shell pm path "$package_name" | tr -d '\r' | grep -o '/[^ ]*.apk' | head -1 || true)"
+    apk_on_device="$($adb_cmd shell pm path --user 0 "$package_name" | tr -d '\r' | grep -o '/[^ ]*.apk' | head -1 || true)"
     
     if [ -z "$apk_on_device" ]; then
         echo "Could not find APK path on device, skipping uninstall"
@@ -1450,7 +1450,7 @@ main() {
         sleep 2
         
         # Check if package is installed
-        if ! adb -s "$selected_device" shell pm list packages | grep -q "my.hinoki.booxreader"; then
+        if ! adb -s "$selected_device" shell pm list packages --user 0 | grep -q "my.hinoki.booxreader"; then
             echo "Error: Package not installed after installation attempt"
             exit 1
         fi

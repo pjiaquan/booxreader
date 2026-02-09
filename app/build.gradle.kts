@@ -91,8 +91,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 192
-        versionName = "1.1.191"
+        versionCode = 193
+        versionName = "1.1.192"
 
         buildConfigField("String", "POCKETBASE_URL", "\"$pocketbaseUrl\"")
         buildConfigField("String", "R2_ENDPOINT", "\"$r2Endpoint\"")
@@ -232,7 +232,6 @@ dependencies {
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
     implementation(libs.play.services.auth)
-    implementation("com.android.billingclient:billing-ktx:6.2.1")
 
     // --- Cloudflare R2 (S3) - REMOVED, Replaced by Supabase Storage REST ---
     // implementation(libs.aws.sdk.s3)

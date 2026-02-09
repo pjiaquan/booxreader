@@ -80,6 +80,10 @@ class AiNoteDetailActivity : BaseActivity() {
     }
     private var autoStreamText: String? = null
     private val selectionSanitizeRegex = Regex("^[\\p{P}\\s]+|[\\p{P}\\s]+$")
+    private val wrappedStrongWithBoundaryPunctuationRegex =
+            Regex(
+                    """\*\*([“”"'‘’「」『』《》〈〉【】〔〕（）()\[\]{}])([^*\n]+?)([“”"'‘’「」『』《》〈〉【】〔〕（）()\[\]{}])\*\*"""
+            )
     private var isLoading = false
     private var scrollToBottomButton: FloatingActionButton? = null
     private var streamingRenderJob: Job? = null
@@ -532,9 +536,10 @@ class AiNoteDetailActivity : BaseActivity() {
                     null
                 }
 
-        markwon.setMarkdown(binding.tvOriginalText, getOriginalText(note))
+        val originalText = normalizeMarkdownForDisplay(getOriginalText(note))
+        markwon.setMarkdown(binding.tvOriginalText, originalText)
 
-        val aiResponse = getAiResponse(note)
+        val aiResponse = normalizeMarkdownForDisplay(getAiResponse(note))
 
         if (aiResponse.isBlank()) {
             binding.tvAiResponse.text = getString(R.string.ai_note_draft_status)
@@ -1022,7 +1027,8 @@ class AiNoteDetailActivity : BaseActivity() {
                 lifecycleScope.launch(Dispatchers.Default) {
                     try {
                         // Parsing is pure logic, usually safe on BG
-                        val node = markwon.parse(markdown)
+                        val normalizedMarkdown = normalizeMarkdownForDisplay(markdown)
+                        val node = markwon.parse(normalizedMarkdown)
 
                         // Rendering (creating Spans) might touch UI resources/plugins, safer on
                         // Main
@@ -1056,6 +1062,23 @@ class AiNoteDetailActivity : BaseActivity() {
         streamingRenderJob?.cancel()
         streamingRenderJob = null
         pendingStreamingMarkdown = null
+    }
+
+    private fun normalizeMarkdownForDisplay(markdown: String): String {
+        if (!markdown.contains("**")) return markdown
+        var normalized = markdown
+        repeat(4) {
+            val updated =
+                    wrappedStrongWithBoundaryPunctuationRegex.replace(normalized) { match ->
+                        val leading = match.groupValues[1]
+                        val core = match.groupValues[2]
+                        val trailing = match.groupValues[3]
+                        "$leading**$core**$trailing"
+                    }
+            if (updated == normalized) return updated
+            normalized = updated
+        }
+        return normalized
     }
 
     private fun scrollToBottomImmediate() {

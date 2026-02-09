@@ -121,7 +121,6 @@
     <string name="sync_uploading_local_books">上傳本地書籍...</string>
     <string name="sync_downloading_books_again">再次下載雲端書籍...</string>
     <string name="sync_settings">同步設定...</string>
-    <string name="upgrade_missing_server">未設定 Supabase URL。</string>
     <string name="sync_ai_notes">同步 AI 筆記...</string>
     <string name="sync_progress">同步閱讀進度...</string>
     <string name="sync_bookmarks">同步書籤...</string>
@@ -162,7 +161,6 @@
     <string name="ai_note_model_info_format">模型：%1$s</string>
     <string name="ai_note_model_disclaimer">AI 可能會出錯，請務必核實重要資訊。</string>
     <string name="profile_version_format">版本：%1$s</string>
-    <string name="upgrade_product_unavailable">需要訂閱，請先訂閱再繼續。</string>
     <string name="update_available_title">有新版本</string>
     <string name="update_new_version_available">GitHub 上有新版本 %1$s 可供下載！</string>
     <string name="update_action_download_and_install">下載並安裝</string>
