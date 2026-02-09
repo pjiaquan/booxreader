@@ -33,6 +33,17 @@ class AiNoteRepository(
         private val client: OkHttpClient,
         private val syncRepo: UserSyncRepository? = null
 ) {
+    data class SemanticRelatedNote(
+            val noteId: String,
+            val score: Double,
+            val reason: String?,
+            val bookTitle: String?,
+            val originalText: String?,
+            val aiResponse: String?,
+            val remoteId: String?,
+            val localId: Long?
+    )
+
     private val TAG = "AiNoteRepository"
     private val dao = AppDatabase.get(context).aiNoteDao()
     private val bookDao = AppDatabase.get(context).bookDao()
@@ -372,6 +383,207 @@ class AiNoteRepository(
     private fun logPayload(tag: String, payload: JSONObject) {
         try {} catch (_: Exception) {}
     }
+
+    private fun firstNonBlank(vararg values: String?): String? {
+        for (value in values) {
+            val trimmed = value?.trim().orEmpty()
+            if (trimmed.isNotEmpty()) return trimmed
+        }
+        return null
+    }
+
+    private fun firstPresentLong(vararg values: Long?): Long? {
+        for (value in values) {
+            if (value != null) return value
+        }
+        return null
+    }
+
+    private fun optLongOrNull(json: JSONObject?, key: String): Long? {
+        if (json == null || !json.has(key)) return null
+        return runCatching { json.getLong(key) }.getOrNull()
+    }
+
+    private fun parseSemanticResultsArray(body: String): JSONArray? {
+        val trimmed = body.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.startsWith("[")) {
+            return runCatching { JSONArray(trimmed) }.getOrNull()
+        }
+        val root = runCatching { JSONObject(trimmed) }.getOrNull() ?: return null
+        val keys = listOf("results", "matches", "data", "items", "points", "hits")
+        for (key in keys) {
+            val candidate = root.optJSONArray(key)
+            if (candidate != null) return candidate
+        }
+        return null
+    }
+
+    private fun parseReason(item: JSONObject, payload: JSONObject?): String? {
+        val direct =
+                firstNonBlank(
+                        item.optString("reason", ""),
+                        item.optString("matchReason", ""),
+                        payload?.optString("reason", ""),
+                        payload?.optString("matchReason", ""),
+                        payload?.optString("reasoning", "")
+                )
+        if (!direct.isNullOrBlank()) return direct
+
+        val reasonArray = payload?.optJSONArray("reasons") ?: item.optJSONArray("reasons")
+        if (reasonArray != null) {
+            val parts = mutableListOf<String>()
+            for (i in 0 until reasonArray.length()) {
+                val part = reasonArray.optString(i).trim()
+                if (part.isNotEmpty()) parts.add(part)
+            }
+            if (parts.isNotEmpty()) return parts.take(3).joinToString(" / ")
+        }
+
+        val tagArray = payload?.optJSONArray("tags") ?: item.optJSONArray("tags")
+        if (tagArray != null) {
+            val parts = mutableListOf<String>()
+            for (i in 0 until tagArray.length()) {
+                val part = tagArray.optString(i).trim()
+                if (part.isNotEmpty()) parts.add(part)
+            }
+            if (parts.isNotEmpty()) return "Shared themes: ${parts.take(3).joinToString(", ")}"
+        }
+        return null
+    }
+
+    private fun buildSemanticQuery(note: AiNoteEntity): String {
+        val original =
+                note.originalText?.takeIf { it.isNotBlank() }
+                        ?: AiNoteSerialization.originalTextFromMessages(note.messages).orEmpty()
+        val answer =
+                note.aiResponse?.takeIf { it.isNotBlank() }
+                        ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
+        val merged = listOf(original.trim(), answer.trim()).filter { it.isNotBlank() }
+        if (merged.isEmpty()) return ""
+        return merged.joinToString("\n\n").take(2_000)
+    }
+
+    suspend fun searchRelatedNotesFromQdrant(
+            note: AiNoteEntity,
+            limit: Int = 5
+    ): List<SemanticRelatedNote> =
+            withContext(Dispatchers.IO) {
+                val boundedLimit = limit.coerceIn(1, 5)
+                val query = buildSemanticQuery(note)
+                if (query.isBlank()) return@withContext emptyList()
+
+                val baseUrl = getBaseUrl()
+                if (baseUrl.isBlank()) return@withContext emptyList()
+
+                val url = baseUrl + HttpConfig.PATH_AI_NOTES_SEMANTIC_SEARCH
+                val requestPayload =
+                        JSONObject().apply {
+                            put("query", query)
+                            put("limit", boundedLimit)
+                            put("noteId", note.remoteId ?: note.id.toString())
+                            if (!note.bookId.isNullOrBlank()) {
+                                put("bookId", note.bookId)
+                            }
+                            if (!note.remoteId.isNullOrBlank()) {
+                                put("excludeRemoteId", note.remoteId)
+                            }
+                            put("excludeLocalId", note.id)
+                        }
+                val requestBody =
+                        requestPayload
+                                .toString()
+                                .toRequestBody("application/json; charset=utf-8".toMediaType())
+                val request = Request.Builder().url(url).post(requestBody).build()
+
+                return@withContext runCatching {
+                            client.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) return@use emptyList()
+                                val responseBody = response.body?.string().orEmpty()
+                                val results = parseSemanticResultsArray(responseBody)
+                                if (results == null || results.length() == 0) return@use emptyList()
+
+                                val currentRemoteId = note.remoteId?.trim().orEmpty()
+                                val currentLocalId = note.id
+                                val parsed = mutableListOf<SemanticRelatedNote>()
+                                for (i in 0 until results.length()) {
+                                    val item = results.optJSONObject(i) ?: continue
+                                    val payload = item.optJSONObject("payload")
+                                    val remoteId =
+                                            firstNonBlank(
+                                                    item.optString("remoteId", ""),
+                                                    item.optString("recordId", ""),
+                                                    payload?.optString("remoteId", ""),
+                                                    payload?.optString("recordId", ""),
+                                                    payload?.optString("id", "")
+                                            )
+                                    val localId =
+                                            firstPresentLong(
+                                                    optLongOrNull(item, "localId"),
+                                                    optLongOrNull(item, "noteLocalId"),
+                                                    optLongOrNull(payload, "localId"),
+                                                    optLongOrNull(payload, "noteLocalId"),
+                                                    optLongOrNull(payload, "id")
+                                            )
+                                    val noteId =
+                                            firstNonBlank(
+                                                    item.optString("noteId", ""),
+                                                    item.optString("id", ""),
+                                                    payload?.optString("noteId", ""),
+                                                    payload?.optString("id", ""),
+                                                    remoteId,
+                                                    localId?.toString()
+                                            )
+                                                    ?: continue
+
+                                    val isCurrentRemote =
+                                            currentRemoteId.isNotBlank() &&
+                                                    (currentRemoteId == remoteId ||
+                                                            currentRemoteId == noteId)
+                                    val isCurrentLocal =
+                                            (localId != null && localId == currentLocalId) ||
+                                                    noteId == currentLocalId.toString()
+                                    if (isCurrentRemote || isCurrentLocal) continue
+
+                                    val score = item.optDouble("score", 0.0)
+                                    val reason = parseReason(item, payload)
+                                    val originalText =
+                                            firstNonBlank(
+                                                    payload?.optString("originalText", ""),
+                                                    item.optString("originalText", "")
+                                            )
+                                    val aiResponse =
+                                            firstNonBlank(
+                                                    payload?.optString("aiResponse", ""),
+                                                    item.optString("aiResponse", "")
+                                            )
+                                    val bookTitle =
+                                            firstNonBlank(
+                                                    payload?.optString("bookTitle", ""),
+                                                    item.optString("bookTitle", "")
+                                            )
+                                    parsed.add(
+                                            SemanticRelatedNote(
+                                                    noteId = noteId,
+                                                    score = score,
+                                                    reason = reason,
+                                                    bookTitle = bookTitle,
+                                                    originalText = originalText,
+                                                    aiResponse = aiResponse,
+                                                    remoteId = remoteId,
+                                                    localId = localId
+                                            )
+                                    )
+                                    if (parsed.size >= boundedLimit) break
+                                }
+                                parsed.sortedByDescending { it.score }.take(boundedLimit)
+                            }
+                        }
+                        .onFailure { error ->
+                            Log.e(TAG, "searchRelatedNotesFromQdrant failed", error)
+                        }
+                        .getOrDefault(emptyList())
+            }
 
     suspend fun fetchRemainingCredits(): Int? =
             withContext(Dispatchers.IO) {

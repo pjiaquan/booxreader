@@ -12,6 +12,7 @@ object HttpConfig {
     const val PATH_TEXT_AI_CONTINUE = "/boox-text-ai-continue"
     const val PATH_TEXT_AI_CONTINUE_STREAM = "/boox-text-ai-continue-stream"
     const val PATH_AI_NOTES_EXPORT = "/boox-ai-notes-export"
+    const val PATH_AI_NOTES_SEMANTIC_SEARCH = "/boox-ai-notes-semantic-search"
 
     // Deprecated: Kept for compatibility if referenced elsewhere, but prefer building dynamically
     val BOOKMARK_ENDPOINT = "$DEFAULT_BASE_URL$PATH_BOOKMARK"

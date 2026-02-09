@@ -97,6 +97,8 @@ class AiNoteDetailActivity : BaseActivity() {
     private var isScrollButtonPressed = false
     private var isScrollButtonHovered = false
     private var scrollButtonHideJob: Job? = null
+    private var relatedNotesJob: Job? = null
+    private var lastRelatedLookupKey: String? = null
     private var selectionActionMode: ActionMode? = null
     private val settingsPrefs by lazy {
         getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
@@ -211,6 +213,7 @@ class AiNoteDetailActivity : BaseActivity() {
 
     override fun onDestroy() {
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
+        relatedNotesJob?.cancel()
         super.onDestroy()
     }
 
@@ -258,6 +261,8 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvAiModelInfo.setTextColor(secondaryTextColor)
         binding.tvAiDisclaimer.setTextColor(secondaryTextColor)
         binding.tvAiInputDisclaimer.setTextColor(secondaryTextColor)
+        binding.tvRelatedNotesLabel.setTextColor(textColor)
+        binding.tvRelatedNotes.setTextColor(secondaryTextColor)
         binding.tvAutoScrollHint.setTextColor(secondaryTextColor)
         binding.etFollowUp.setTextColor(textColor)
         binding.etFollowUp.setHintTextColor(hintColor)
@@ -510,6 +515,8 @@ class AiNoteDetailActivity : BaseActivity() {
                         setLoading(true)
                         startStreaming(note, text)
                     }
+                } else {
+                    triggerRelatedNotesLookup(note, force = true)
                 }
             } else {
                 Toast.makeText(
@@ -547,6 +554,7 @@ class AiNoteDetailActivity : BaseActivity() {
             binding.btnPublish.isEnabled = true
             binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             binding.btnRepublishSelection.isEnabled = false
+            clearRelatedNotes()
             setLoading(false)
         } else {
             markwon.setMarkdown(binding.tvAiResponse, aiResponse)
@@ -629,6 +637,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
+                triggerRelatedNotesLookup(updatedNote, force = true)
                 showRemainingCreditsToast()
                 Toast.makeText(
                                 this@AiNoteDetailActivity,
@@ -689,6 +698,7 @@ class AiNoteDetailActivity : BaseActivity() {
                     currentNote = updated
                     // Avoid jumping the viewport after publish to keep the reader in place.
                     updateUI(updated, scrollToQuestionHeader = false, preserveScroll = false)
+                    triggerRelatedNotesLookup(updated, force = true)
                     showRemainingCreditsToast()
                     binding.etFollowUp.setText("")
                 } else {
@@ -729,6 +739,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
+                triggerRelatedNotesLookup(updatedNote, force = true)
                 Toast.makeText(
                                 this@AiNoteDetailActivity,
                                 getString(R.string.ai_note_republish_success),
@@ -787,6 +798,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updated)
                 currentNote = updated
                 updateUI(updated)
+                triggerRelatedNotesLookup(updated, force = true)
                 showRemainingCreditsToast()
             } else {
                 Toast.makeText(
@@ -1176,6 +1188,81 @@ class AiNoteDetailActivity : BaseActivity() {
                 ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
     }
 
+    private fun relatedLookupKey(note: AiNoteEntity): String {
+        val response = getAiResponse(note)
+        return "${note.id}:${note.updatedAt}:${response.hashCode()}"
+    }
+
+    private fun clearRelatedNotes() {
+        relatedNotesJob?.cancel()
+        relatedNotesJob = null
+        lastRelatedLookupKey = null
+        binding.tvRelatedNotesLabel.visibility = View.GONE
+        binding.tvRelatedNotes.visibility = View.GONE
+        binding.tvRelatedNotes.text = ""
+    }
+
+    private fun triggerRelatedNotesLookup(note: AiNoteEntity, force: Boolean = false) {
+        val response = getAiResponse(note)
+        if (response.isBlank()) {
+            clearRelatedNotes()
+            return
+        }
+
+        val key = relatedLookupKey(note)
+        if (!force && key == lastRelatedLookupKey) return
+        lastRelatedLookupKey = key
+
+        binding.tvRelatedNotesLabel.visibility = View.VISIBLE
+        binding.tvRelatedNotes.visibility = View.VISIBLE
+        binding.tvRelatedNotes.text = getString(R.string.ai_note_related_loading)
+
+        relatedNotesJob?.cancel()
+        relatedNotesJob =
+                lifecycleScope.launch {
+                    val results = repository.searchRelatedNotesFromQdrant(note, limit = 5)
+                    if (currentNote?.id != note.id) return@launch
+
+                    binding.tvRelatedNotesLabel.visibility = View.VISIBLE
+                    binding.tvRelatedNotes.visibility = View.VISIBLE
+                    if (results.isEmpty()) {
+                        binding.tvRelatedNotes.text = getString(R.string.ai_note_related_empty)
+                        return@launch
+                    }
+                    markwon.setMarkdown(binding.tvRelatedNotes, buildRelatedNotesMarkdown(results))
+                }
+    }
+
+    private fun buildRelatedNotesMarkdown(
+            items: List<AiNoteRepository.SemanticRelatedNote>
+    ): String {
+        val builder = StringBuilder()
+        for ((index, item) in items.withIndex()) {
+            val title = item.bookTitle?.takeIf { it.isNotBlank() } ?: "Note ${index + 1}"
+            val scorePercent =
+                    ((item.score.coerceIn(0.0, 1.0) * 1000).roundToInt().toDouble() / 10.0)
+            val reason = item.reason ?: getString(R.string.ai_note_related_reason_default)
+            val snippet =
+                    (item.originalText ?: item.aiResponse)
+                            ?.replace(Regex("\\s+"), " ")
+                            ?.trim()
+                            ?.take(120)
+                            .orEmpty()
+
+            builder.append("${index + 1}. **$title**  \n")
+            builder.append("Similarity: $scorePercent%  \n")
+            builder.append("Reason: $reason  \n")
+            if (snippet.isNotBlank()) {
+                builder.append("Excerpt: $snippet  \n")
+            }
+            builder.append("ID: `${item.noteId}`")
+            if (index < items.lastIndex) {
+                builder.append("\n\n")
+            }
+        }
+        return builder.toString()
+    }
+
     private fun updateNoteFromStrings(
             note: AiNoteEntity,
             original: String?,
@@ -1268,6 +1355,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 repository.update(updatedNote)
                 currentNote = updatedNote
                 updateUI(updatedNote)
+                triggerRelatedNotesLookup(updatedNote, force = true)
                 showRemainingCreditsToast()
                 Toast.makeText(
                                 this@AiNoteDetailActivity,

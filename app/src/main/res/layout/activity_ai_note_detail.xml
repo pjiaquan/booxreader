@@ -94,6 +94,25 @@
                         android:textSize="14sp" />
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/tvRelatedNotesLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="6dp"
+                    android:text="@string/ai_note_related_label"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvRelatedNotes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:textSize="18sp"
+                    android:visibility="gone" />
+
                 <Button
                     android:id="@+id/btnPublish"
                     android:layout_width="match_parent"
