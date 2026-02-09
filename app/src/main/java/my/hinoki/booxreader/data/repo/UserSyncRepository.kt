@@ -1114,6 +1114,12 @@ class UserSyncRepository(
                                                 "messages" to note.messages,
                                                 "originalText" to (note.originalText ?: ""),
                                                 "aiResponse" to (note.aiResponse ?: ""),
+                                                "status" to
+                                                        if (note.aiResponse.isNullOrBlank()) {
+                                                                "generating"
+                                                        } else {
+                                                                "done"
+                                                        },
                                                 "locatorJson" to (note.locatorJson ?: ""),
                                                 "createdAt" to note.createdAt,
                                                 "updatedAt" to System.currentTimeMillis()
