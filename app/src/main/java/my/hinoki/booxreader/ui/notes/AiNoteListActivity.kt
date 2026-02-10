@@ -38,10 +38,13 @@ import androidx.core.content.ContextCompat
 import android.os.Build
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.widget.BaseAdapter
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.graphics.drawable.DrawableCompat
 import kotlin.math.roundToInt
 
 class AiNoteListActivity : BaseActivity() {
@@ -72,6 +75,7 @@ class AiNoteListActivity : BaseActivity() {
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
+    private var topBarContentColor: Int = Color.WHITE
     private var notes: List<AiNoteEntity> = emptyList()
     private var allNotes: List<AiNoteEntity> = emptyList()
     private var semanticQueryInEffect: String? = null
@@ -123,7 +127,13 @@ class AiNoteListActivity : BaseActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_ai_note_list, menu)
         exportMenuItem = menu.findItem(R.id.action_export_ai_notes)
+        applyActionBarMenuColors(menu)
         return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        applyActionBarMenuColors(menu)
+        return super.onPrepareOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -148,6 +158,8 @@ class AiNoteListActivity : BaseActivity() {
         isExportInProgress = inProgress
         applyBusyState()
         supportActionBar?.subtitle = if (inProgress) "Exporting..." else null
+        applyActionBarContentColor(topBarContentColor)
+        invalidateOptionsMenu()
     }
 
     private fun setSemanticSearchInProgress(inProgress: Boolean) {
@@ -224,11 +236,28 @@ class AiNoteListActivity : BaseActivity() {
         listTextColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
-        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, 170)
+        val secondaryTextAlpha =
+                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 215 else 170
+        val hintTextAlpha =
+                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190 else 140
+        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, secondaryTextAlpha)
+        val topBarColor =
+                when (mode) {
+                    ContrastMode.DARK -> Color.parseColor("#0A0D12")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                    else -> ContextCompat.getColor(this, R.color.action_bar_surface)
+                }
+        topBarContentColor =
+                when (mode) {
+                    ContrastMode.DARK, ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                    else ->
+                            if (ColorUtils.calculateLuminance(topBarColor) > 0.5) Color.BLACK
+                            else Color.WHITE
+                }
 
         binding.root.setBackgroundColor(listBackgroundColor)
         binding.llSemanticSearch.setBackgroundColor(listBackgroundColor)
@@ -236,23 +265,86 @@ class AiNoteListActivity : BaseActivity() {
         binding.progressBar.indeterminateTintList =
                 ColorStateList.valueOf(listTextColor)
         binding.etSemanticSearch.setTextColor(listTextColor)
-        binding.etSemanticSearch.setHintTextColor(ColorUtils.setAlphaComponent(listTextColor, 140))
+        binding.etSemanticSearch.setHintTextColor(
+                ColorUtils.setAlphaComponent(listTextColor, hintTextAlpha)
+        )
         binding.btnSemanticSearch.setTextColor(listTextColor)
         binding.btnSemanticSearchClear.imageTintList = ColorStateList.valueOf(listTextColor)
         binding.tvSemanticSearchStatus.setTextColor(listSecondaryTextColor)
+        supportActionBar?.setBackgroundDrawable(ColorDrawable(topBarColor))
+        applyActionBarContentColor(topBarContentColor)
+        invalidateOptionsMenu()
 
         @Suppress("DEPRECATION")
         run {
-            window.statusBarColor = listBackgroundColor
+            window.decorView.setBackgroundColor(listBackgroundColor)
+            window.statusBarColor = topBarColor
             window.navigationBarColor = listBackgroundColor
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
-        insetsController.isAppearanceLightStatusBars = useLightIcons
-        insetsController.isAppearanceLightNavigationBars = useLightIcons
+        val useLightStatusIcons =
+                mode != ContrastMode.DARK &&
+                        mode != ContrastMode.HIGH_CONTRAST &&
+                        ColorUtils.calculateLuminance(topBarColor) > 0.5
+        val useLightNavIcons = ColorUtils.calculateLuminance(listBackgroundColor) > 0.5
+        insetsController.isAppearanceLightStatusBars = useLightStatusIcons
+        insetsController.isAppearanceLightNavigationBars = useLightNavIcons
 
         applySelectionBarTheme()
         adapter.notifyDataSetChanged()
+    }
+
+    private fun applyActionBarContentColor(contentColor: Int) {
+        val actionTitle = supportActionBar?.title?.toString()?.takeIf { it.isNotBlank() } ?: title.toString()
+        if (actionTitle.isNotBlank()) {
+            val styledTitle = SpannableString(actionTitle).apply {
+                setSpan(ForegroundColorSpan(contentColor), 0, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            supportActionBar?.title = styledTitle
+        }
+        val actionSubtitle = supportActionBar?.subtitle?.toString().orEmpty()
+        if (actionSubtitle.isNotBlank()) {
+            val styledSubtitle = SpannableString(actionSubtitle).apply {
+                setSpan(ForegroundColorSpan(contentColor), 0, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            supportActionBar?.subtitle = styledSubtitle
+        }
+        val backDrawable =
+                AppCompatResources.getDrawable(this, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+                        ?.mutate()
+                        ?.let { drawable ->
+                            DrawableCompat.setTint(drawable, contentColor)
+                            drawable
+                        }
+        if (backDrawable != null) {
+            supportActionBar?.setHomeAsUpIndicator(backDrawable)
+        }
+    }
+
+    private fun applyActionBarMenuColors(menu: Menu) {
+        for (i in 0 until menu.size()) {
+            val item = menu.getItem(i)
+            item.icon =
+                    item.icon?.mutate()?.also { icon ->
+                        DrawableCompat.setTint(icon, topBarContentColor)
+                    }
+            val title = item.title?.toString().orEmpty()
+            if (title.isNotBlank()) {
+                val styledTitle = SpannableString(title).apply {
+                    setSpan(
+                            ForegroundColorSpan(topBarContentColor),
+                            0,
+                            length,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
+                item.title = styledTitle
+            }
+        }
     }
 
     private fun loadNotes() {

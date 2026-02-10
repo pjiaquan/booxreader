@@ -6,6 +6,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Rect
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.GestureDetector
@@ -1095,16 +1096,26 @@ class ReaderActivity : BaseActivity() {
         val textColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
-        val hintColor = ColorUtils.setAlphaComponent(textColor, 140)
-        val dividerColor = ColorUtils.setAlphaComponent(textColor, 60)
+        val hintColor =
+                ColorUtils.setAlphaComponent(
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190
+                        else 140
+                )
+        val dividerColor =
+                ColorUtils.setAlphaComponent(
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 90
+                        else 60
+                )
         val buttonColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#E0E0E0")
-                    ContrastMode.DARK -> Color.parseColor("#333333")
+                    ContrastMode.DARK -> Color.parseColor("#2B323C")
                     ContrastMode.SEPIA -> Color.parseColor("#D9C5A3")
                     ContrastMode.HIGH_CONTRAST -> Color.DKGRAY
                 }
@@ -1432,7 +1443,7 @@ class ReaderActivity : BaseActivity() {
         val textColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
@@ -1460,8 +1471,13 @@ class ReaderActivity : BaseActivity() {
 
         @Suppress("DEPRECATION")
         run {
+            window.decorView.setBackgroundColor(backgroundColor)
             window.statusBarColor = backgroundColor
             window.navigationBarColor = backgroundColor
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
         }
         Log.d(
                 "ReaderActivity",
@@ -1469,7 +1485,7 @@ class ReaderActivity : BaseActivity() {
         )
         nativeNavigatorFragment?.setThemeColors(backgroundColor, textColor, buttonColor)
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        val useLightIcons = ColorUtils.calculateLuminance(backgroundColor) > 0.5
         insetsController.isAppearanceLightStatusBars = useLightIcons
         insetsController.isAppearanceLightNavigationBars = useLightIcons
     }

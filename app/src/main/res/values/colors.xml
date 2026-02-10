@@ -27,4 +27,9 @@
     <color name="main_bg_start">#F8F9FC</color>
     <color name="main_bg_mid">#F2F4F8</color>
     <color name="main_bg_end">#ECEFF4</color>
+
+    <!-- Shared ActionBar Colors -->
+    <color name="action_bar_surface">#0C0F14</color>
+    <color name="action_bar_on_surface">#E7EDF6</color>
+    <color name="ai_note_top_bar">#0C0F14</color>
 </resources>

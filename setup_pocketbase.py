@@ -13,9 +13,14 @@ Requirements:
 """
 
 import argparse
-import requests
 import json
+import os
 import sys
+from pathlib import Path
+
+import requests
+
+DEFAULT_SCHEMA_FILE = "pocketbase_collections.json"
 
 
 def authenticate_admin(base_url, email, password, verify_ssl=True):
@@ -245,7 +250,76 @@ def create_collection(base_url, token, collection_data):
         return False
 
 
-def get_collections_schema():
+def fetch_remote_schema(base_url, token, verify_ssl=True):
+    """Return the PocketBase collections definition from the server."""
+
+    collections_url = f"{base_url}/api/collections"
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(collections_url, headers=headers, verify=verify_ssl)
+    response.raise_for_status()
+
+    data = response.json()
+    items = data.get("items", data) if isinstance(data, dict) else data
+
+    normalized = []
+    for entry in items:
+        normalized.append({
+            "name": entry.get("name"),
+            "type": entry.get("type"),
+            "schema": entry.get("schema") or entry.get("fields") or [],
+            "indexes": entry.get("indexes"),
+            "listRule": entry.get("listRule"),
+            "viewRule": entry.get("viewRule"),
+            "createRule": entry.get("createRule"),
+            "updateRule": entry.get("updateRule"),
+            "deleteRule": entry.get("deleteRule")
+        })
+    return normalized
+
+
+def save_schema_to_file(collections, file_path):
+    """Persist a schema snapshot to disk."""
+
+    dest = Path(file_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"collections": collections}
+    with dest.open("w", encoding="utf-8") as schema_file:
+        json.dump(payload, schema_file, ensure_ascii=False, indent=2)
+
+
+def load_schema_from_file(path):
+    """Load a schema file and normalize it for apply/create logic."""
+
+    with open(path, "r", encoding="utf-8") as schema_file:
+        content = json.load(schema_file)
+
+    if isinstance(content, dict) and "collections" in content:
+        collections = content["collections"]
+    elif isinstance(content, list):
+        collections = content
+    elif isinstance(content, dict):
+        collections = [content]
+    else:
+        raise ValueError("Schema file format is not supported")
+
+    normalized = []
+    for entry in collections:
+        fields = entry.get("fields") or entry.get("schema") or []
+        if not isinstance(fields, list):
+            fields = []
+        normalized.append({
+            "name": entry.get("name"),
+            "type": entry.get("type", entry.get("collectionType", "base")),
+            "fields": fields,
+            "indexes": entry.get("indexes"),
+            "listRule": entry.get("listRule"),
+            "viewRule": entry.get("viewRule"),
+            "createRule": entry.get("createRule"),
+            "updateRule": entry.get("updateRule"),
+            "deleteRule": entry.get("deleteRule")
+        })
+    return normalized
+def get_default_collections_schema():
     """Return all collection schemas."""
     return [
         {
@@ -445,6 +519,18 @@ def main():
         action="store_true",
         help="Disable SSL certificate verification (use for self-signed certs)"
     )
+    parser.add_argument(
+        "--schema-file",
+        default=DEFAULT_SCHEMA_FILE,
+        help="Local schema JSON used to create/update PocketBase (default: pocketbase_collections.json)"
+    )
+    parser.add_argument(
+        "--pull-schema",
+        nargs="?",
+        const=DEFAULT_SCHEMA_FILE,
+        metavar="FILE",
+        help="Fetch the existing PocketBase schema and save it to FILE (default: pocketbase_collections.json) without applying changes"
+    )
     
     args = parser.parse_args()
     
@@ -465,9 +551,33 @@ def main():
     token = authenticate_admin(base_url, args.email, args.password, verify_ssl)
     print("✅ Authentication successful\n")
     
+    if args.pull_schema:
+        destination = args.pull_schema or DEFAULT_SCHEMA_FILE
+        print("🧭 Pulling schema from server...")
+        remote_schema = fetch_remote_schema(base_url, token, verify_ssl)
+        save_schema_to_file(remote_schema, destination)
+        print(f"✅ Schema snapshot saved to {destination}")
+        print(f"   Re-run without --pull-schema (and optionally --schema-file {destination}) to apply these changes.")
+        return
+
     # Create collections
     print("📦 Creating collections...")
-    collections = get_collections_schema()
+    schema_path = Path(args.schema_file)
+    if schema_path.exists():
+        print(f"📄 Loading schema from {schema_path}")
+        try:
+            collections = load_schema_from_file(schema_path)
+        except (ValueError, json.JSONDecodeError) as e:
+            print(f"⚠️  Failed to load schema file: {e}")
+            print("   Falling back to bundled schema definitions.")
+            collections = get_default_collections_schema()
+    else:
+        print(f"⚠️  Schema file {schema_path} not found, using bundled defaults.")
+        collections = get_default_collections_schema()
+
+    if not collections:
+        print("⚠️  No collections defined in schema file, using bundled defaults.")
+        collections = get_default_collections_schema()
     
     created_count = 0
     for collection_data in collections:

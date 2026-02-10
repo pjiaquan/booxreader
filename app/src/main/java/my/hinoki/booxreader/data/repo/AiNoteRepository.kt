@@ -375,6 +375,19 @@ class AiNoteRepository(
                 return@withContext parseExtraParamsJson(profile?.extraParamsJson)
             }
 
+    suspend fun fetchMagicTagSuggestions(
+            note: AiNoteEntity,
+            relatedNotes: List<SemanticRelatedNote> = emptyList(),
+            limit: Int = 5,
+            settingsOverride: ReaderSettings? = null
+    ): List<MagicTag> {
+        val prompt = buildMagicTagSuggestionPrompt(note, relatedNotes, limit)
+        val response = fetchAiExplanation(prompt, settingsOverride = settingsOverride)
+        val raw = response?.first?.trim().orEmpty()
+        if (raw.isBlank()) return emptyList()
+        return parseMagicTagSuggestions(raw, limit)
+    }
+
     private fun mergeJson(target: JSONObject, extra: JSONObject) {
         val keys = extra.keys()
         while (keys.hasNext()) {
@@ -416,6 +429,179 @@ class AiNoteRepository(
     private fun optLongOrNull(json: JSONObject?, key: String): Long? {
         if (json == null || !json.has(key)) return null
         return runCatching { json.getLong(key) }.getOrNull()
+    }
+
+    private fun extractOriginalTextForPrompt(note: AiNoteEntity): String {
+        return note.originalText?.takeIf { it.isNotBlank() }
+                ?: AiNoteSerialization.originalTextFromMessages(note.messages).orEmpty()
+    }
+
+    private fun extractAiResponseForPrompt(note: AiNoteEntity): String {
+        return note.aiResponse?.takeIf { it.isNotBlank() }
+                ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
+    }
+
+    private fun buildMagicTagSuggestionPrompt(
+            note: AiNoteEntity,
+            relatedNotes: List<SemanticRelatedNote>,
+            limit: Int
+    ): String {
+        val original = extractOriginalTextForPrompt(note).trim().takeIf { it.isNotBlank() }
+        val response = extractAiResponseForPrompt(note).trim().takeIf { it.isNotBlank() }
+        val builder = StringBuilder()
+        builder.append(
+                """
+        請扮演一位會產生追問方向的標籤策展人，根據下面的 AI Note 內容與相關歷史筆記，產出最多 $limit 筆可以繼續追問的 Magic Tag 建議。
+        請直接回傳 JSON 陣列，格式例如：
+        [
+          {"label": "關鍵概念", "description": "補充說明", "role": "user", "content": "關鍵概念"},
+          ...
+        ]
+        不要額外加說明文字，若無法產出就回傳 []。
+        """.trimIndent()
+        )
+
+        if (!original.isNullOrBlank()) {
+            builder.append("\n\n問題：\n$original")
+        }
+        if (!response.isNullOrBlank()) {
+            builder.append("\n\n回答：\n$response")
+        }
+        val history = formatRelatedHistoryForPrompt(relatedNotes)
+        if (!history.isNullOrBlank()) {
+            builder.append("\n\n相關歷史筆記：\n$history")
+        }
+        builder.append("\n\n請集中在延伸角度，標籤可以是問題、主題或視角。")
+        return builder.toString()
+    }
+
+    private fun formatRelatedHistoryForPrompt(
+            relatedNotes: List<SemanticRelatedNote>
+    ): String? {
+        if (relatedNotes.isEmpty()) return null
+        return relatedNotes.take(3).mapIndexed { index, note ->
+            val title = note.bookTitle?.takeIf { it.isNotBlank() } ?: "Note ${index + 1}"
+            val reason = note.reason?.takeIf { it.isNotBlank() }?.let { "原因：$it" } ?: ""
+            val snippet =
+                    (note.aiResponse ?: note.originalText)
+                            ?.replace(Regex("\\s+"), " ")
+                            ?.trim()
+                            ?.take(90)
+                            .orEmpty()
+            val snippetText = if (snippet.isNotBlank()) "摘錄：$snippet" else ""
+            "- $title${if (reason.isNotBlank()) " ($reason)" else ""}${
+                    if (snippetText.isNotBlank()) "，$snippetText" else ""
+            }"
+        }.joinToString("\n")
+    }
+
+    private fun parseMagicTagSuggestions(raw: String, limit: Int): List<MagicTag> {
+        val trimmed = raw.trim()
+        val jsonArray = extractFirstJsonArray(trimmed)
+        if (jsonArray != null) {
+            val parsed = parseMagicTagsFromJson(jsonArray, limit)
+            if (parsed.isNotEmpty()) return parsed
+        }
+        return parseMagicTagsFromLines(trimmed, limit)
+    }
+
+    private fun extractFirstJsonArray(raw: String): JSONArray? {
+        val start = raw.indexOf('[')
+        val end = raw.lastIndexOf(']')
+        if (start >= 0 && end > start) {
+            val candidate = raw.substring(start, end + 1)
+            return runCatching { JSONArray(candidate) }.getOrNull()
+        }
+        return null
+    }
+
+    private fun parseMagicTagsFromJson(array: JSONArray, limit: Int): List<MagicTag> {
+        val suggestions = mutableListOf<MagicTag>()
+        val usedIds = mutableSetOf<String>()
+        for (i in 0 until array.length()) {
+            if (suggestions.size >= limit) break
+            val obj = array.optJSONObject(i) ?: continue
+            val label =
+                    firstNonBlank(
+                            obj.optString("label", ""),
+                            obj.optString("name", ""),
+                            obj.optString("tag", ""),
+                            obj.optString("title", "")
+                    )
+                            ?.trim()
+                            ?.takeIf { it.isNotBlank() }
+                            ?: continue
+            val description =
+                    firstNonBlank(
+                            obj.optString("description", ""),
+                            obj.optString("detail", ""),
+                            obj.optString("hint", ""),
+                            obj.optString("context", "")
+                    )
+            val role =
+                    obj.optString("role", "")
+                            .takeIf { it.isNotBlank() }
+                            ?: "user"
+            val content =
+                    firstNonBlank(
+                            obj.optString("content", ""),
+                            label
+                    )
+                            .orEmpty()
+            val id = generateUniqueTagId(label, usedIds)
+            suggestions.add(
+                    MagicTag(
+                            id = id,
+                            label = label,
+                            content = content,
+                            description = description.orEmpty(),
+                            role = role
+                    )
+            )
+        }
+        return suggestions
+    }
+
+    private fun parseMagicTagsFromLines(raw: String, limit: Int): List<MagicTag> {
+        val lines = raw.lines()
+                .map { it.trim().replace(Regex("^\\s*\\d+[\\).\\-]*"), "").trim() }
+                .filter { it.isNotBlank() }
+        val suggestions = mutableListOf<MagicTag>()
+        val usedIds = mutableSetOf<String>()
+        for (line in lines) {
+            if (suggestions.size >= limit) break
+            val parts = line.split(Regex("\\s*[-–—:：]+\\s*"), limit = 2)
+            val label = parts.getOrNull(0)?.takeIf { it.isNotBlank() } ?: continue
+            val description = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+            val id = generateUniqueTagId(label, usedIds)
+            suggestions.add(
+                    MagicTag(
+                            id = id,
+                            label = label,
+                            content = label,
+                            description = description ?: "",
+                            role = "user"
+                    )
+            )
+        }
+        return suggestions
+    }
+
+    private fun generateUniqueTagId(baseLabel: String, used: MutableSet<String>): String {
+        val base =
+                baseLabel.lowercase(Locale.ROOT)
+                        .replace(Regex("[^a-z0-9]+"), "-")
+                        .trim('-')
+                        .takeIf { it.isNotBlank() }
+                        ?: "ai-generated"
+        var candidate = base
+        var suffix = 1
+        while (used.contains(candidate)) {
+            candidate = "$base-$suffix"
+            suffix++
+        }
+        used.add(candidate)
+        return candidate
     }
 
     private fun parseSemanticResultsArray(body: String): JSONArray? {
@@ -729,9 +915,10 @@ class AiNoteRepository(
 
     suspend fun fetchAiExplanation(
             text: String,
-            magicTag: MagicTag? = null
+            magicTag: MagicTag? = null,
+            settingsOverride: ReaderSettings? = null
     ): Pair<String, String>? {
-        val settings = getSettings()
+        val settings = settingsOverride ?: getSettings()
         if (settings.apiKey.isNotBlank()) {
             return withContext(Dispatchers.IO) {
                 try {

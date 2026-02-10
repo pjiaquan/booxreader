@@ -1,533 +1,2219 @@
 {
-    "collections": [
+  "collections": [
+    {
+      "name": "_mfas",
+      "type": "base",
+      "schema": [
         {
-            "name": "settings",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": true,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "pageTapEnabled",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "pageSwipeEnabled",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "contrastMode",
-                    "type": "number",
-                    "required": false,
-                    "options": {
-                        "min": 0,
-                        "max": 3
-                    }
-                },
-                {
-                    "name": "convertToTraditionalChinese",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "serverBaseUrl",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "exportToCustomUrl",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "exportCustomUrl",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "exportToLocalDownloads",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "apiKey",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "aiModelName",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "aiSystemPrompt",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "aiUserPromptTemplate",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "temperature",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "maxTokens",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "topP",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "frequencyPenalty",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "presencePenalty",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "assistantRole",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "enableGoogleSearch",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "useStreaming",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "pageAnimationEnabled",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "showPageIndicator",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "language",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "activeProfileId",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "updatedAt",
-                    "type": "number",
-                    "required": false
-                }
-            ],
-            "indexes": [
-                "CREATE UNIQUE INDEX idx_settings_user ON settings (user)"
-            ],
-            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
         },
         {
-            "name": "progress",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": true,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "bookId",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "bookTitle",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "locatorJson",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "updatedAt",
-                    "type": "number",
-                    "required": false
-                }
-            ],
-            "indexes": [
-                "CREATE UNIQUE INDEX idx_progress_user_book ON progress (user, bookId)"
-            ],
-            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text455797646",
+          "max": 0,
+          "min": 0,
+          "name": "collectionRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
         },
         {
-            "name": "bookmarks",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": true,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "bookId",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "locatorJson",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "createdAt",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "updatedAt",
-                    "type": "number",
-                    "required": false
-                }
-            ],
-            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text127846527",
+          "max": 0,
+          "min": 0,
+          "name": "recordRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
         },
         {
-            "name": "ai_notes",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": true,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "bookId",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "bookTitle",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "messages",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "originalText",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "aiResponse",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "locatorJson",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "createdAt",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "updatedAt",
-                    "type": "number",
-                    "required": false
-                }
-            ],
-            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1582905952",
+          "max": 0,
+          "min": 0,
+          "name": "method",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
         },
         {
-            "name": "ai_profiles",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": true,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "name",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "modelName",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "apiKey",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "serverBaseUrl",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "systemPrompt",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "userPromptTemplate",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "useStreaming",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "temperature",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "maxTokens",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "topP",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "frequencyPenalty",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "presencePenalty",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "assistantRole",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "enableGoogleSearch",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "extraParamsJson",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "createdAt",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "updatedAt",
-                    "type": "number",
-                    "required": false
-                }
-            ],
-            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
         },
         {
-            "name": "books",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": true,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "bookId",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "title",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "bookFile",
-                    "type": "file",
-                    "required": false,
-                    "options": {
-                        "maxSelect": 1,
-                        "maxSize": 104857600,
-                        "mimeTypes": [
-                            "application/epub+zip"
-                        ],
-                        "thumbs": [],
-                        "protected": false
-                    }
-                },
-                {
-                    "name": "storagePath",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "fileHash",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "deleted",
-                    "type": "bool",
-                    "required": false
-                },
-                {
-                    "name": "deletedAt",
-                    "type": "number",
-                    "required": false
-                },
-                {
-                    "name": "updatedAt",
-                    "type": "number",
-                    "required": false
-                }
-            ],
-            "indexes": [
-                "CREATE UNIQUE INDEX idx_books_user_book ON books (user, bookId)"
-            ],
-            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
-            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
-        },
-        {
-            "name": "crash_reports",
-            "type": "base",
-            "schema": [
-                {
-                    "name": "user",
-                    "type": "relation",
-                    "required": false,
-                    "options": {
-                        "collectionId": "_pb_users_auth_",
-                        "cascadeDelete": false,
-                        "maxSelect": 1
-                    }
-                },
-                {
-                    "name": "appVersion",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "androidVersion",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "deviceModel",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "stackTrace",
-                    "type": "text",
-                    "required": true
-                },
-                {
-                    "name": "message",
-                    "type": "text",
-                    "required": false
-                },
-                {
-                    "name": "timestamp",
-                    "type": "number",
-                    "required": true
-                }
-            ],
-            "listRule": null,
-            "viewRule": null,
-            "createRule": "@request.auth.id != \"\"",
-            "updateRule": null,
-            "deleteRule": null
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
         }
-    ]
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_mfas_collectionRef_recordRef` ON `_mfas` (collectionRef,recordRef)"
+      ],
+      "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null
+    },
+    {
+      "name": "_otps",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text455797646",
+          "max": 0,
+          "min": 0,
+          "name": "collectionRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text127846527",
+          "max": 0,
+          "min": 0,
+          "name": "recordRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "cost": 8,
+          "hidden": true,
+          "id": "password901924565",
+          "max": 0,
+          "min": 0,
+          "name": "password",
+          "pattern": "",
+          "presentable": false,
+          "required": true,
+          "system": true,
+          "type": "password"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": true,
+          "id": "text3866985172",
+          "max": 0,
+          "min": 0,
+          "name": "sentTo",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_otps_collectionRef_recordRef` ON `_otps` (collectionRef, recordRef)"
+      ],
+      "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null
+    },
+    {
+      "name": "_externalAuths",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text455797646",
+          "max": 0,
+          "min": 0,
+          "name": "collectionRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text127846527",
+          "max": 0,
+          "min": 0,
+          "name": "recordRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2462348188",
+          "max": 0,
+          "min": 0,
+          "name": "provider",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1044722854",
+          "max": 0,
+          "min": 0,
+          "name": "providerId",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_externalAuths_record_provider` ON `_externalAuths` (collectionRef, recordRef, provider)",
+        "CREATE UNIQUE INDEX `idx_externalAuths_collection_provider` ON `_externalAuths` (collectionRef, provider, providerId)"
+      ],
+      "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
+    },
+    {
+      "name": "_authOrigins",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text455797646",
+          "max": 0,
+          "min": 0,
+          "name": "collectionRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text127846527",
+          "max": 0,
+          "min": 0,
+          "name": "recordRef",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text4228609354",
+          "max": 0,
+          "min": 0,
+          "name": "fingerprint",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_authOrigins_unique_pairs` ON `_authOrigins` (collectionRef, recordRef, fingerprint)"
+      ],
+      "listRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "viewRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId",
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": "@request.auth.id != '' && recordRef = @request.auth.id && collectionRef = @request.auth.collectionId"
+    },
+    {
+      "name": "_superusers",
+      "type": "auth",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "cost": 0,
+          "hidden": true,
+          "id": "password901924565",
+          "max": 0,
+          "min": 8,
+          "name": "password",
+          "pattern": "",
+          "presentable": false,
+          "required": true,
+          "system": true,
+          "type": "password"
+        },
+        {
+          "autogeneratePattern": "[a-zA-Z0-9]{50}",
+          "hidden": true,
+          "id": "text2504183744",
+          "max": 60,
+          "min": 30,
+          "name": "tokenKey",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "exceptDomains": null,
+          "hidden": false,
+          "id": "email3885137012",
+          "name": "email",
+          "onlyDomains": null,
+          "presentable": false,
+          "required": true,
+          "system": true,
+          "type": "email"
+        },
+        {
+          "hidden": false,
+          "id": "bool1547992806",
+          "name": "emailVisibility",
+          "presentable": false,
+          "required": false,
+          "system": true,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "bool256245529",
+          "name": "verified",
+          "presentable": false,
+          "required": false,
+          "system": true,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": true,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey_pbc_3142635823` ON `_superusers` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email_pbc_3142635823` ON `_superusers` (`email`) WHERE `email` != ''"
+      ],
+      "listRule": null,
+      "viewRule": null,
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null
+    },
+    {
+      "name": "users",
+      "type": "auth",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "cost": 0,
+          "hidden": true,
+          "id": "password901924565",
+          "max": 0,
+          "min": 8,
+          "name": "password",
+          "pattern": "",
+          "presentable": false,
+          "required": true,
+          "system": true,
+          "type": "password"
+        },
+        {
+          "autogeneratePattern": "[a-zA-Z0-9]{50}",
+          "hidden": true,
+          "id": "text2504183744",
+          "max": 60,
+          "min": 30,
+          "name": "tokenKey",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "exceptDomains": null,
+          "hidden": false,
+          "id": "email3885137012",
+          "name": "email",
+          "onlyDomains": null,
+          "presentable": false,
+          "required": true,
+          "system": true,
+          "type": "email"
+        },
+        {
+          "hidden": false,
+          "id": "bool1547992806",
+          "name": "emailVisibility",
+          "presentable": false,
+          "required": false,
+          "system": true,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "bool256245529",
+          "name": "verified",
+          "presentable": false,
+          "required": false,
+          "system": true,
+          "type": "bool"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1579384326",
+          "max": 255,
+          "min": 0,
+          "name": "name",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "file376926767",
+          "maxSelect": 1,
+          "maxSize": 0,
+          "mimeTypes": [
+            "image/jpeg",
+            "image/png",
+            "image/svg+xml",
+            "image/gif",
+            "image/webp"
+          ],
+          "name": "avatar",
+          "presentable": false,
+          "protected": false,
+          "required": false,
+          "system": false,
+          "thumbs": null,
+          "type": "file"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
+        "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ],
+      "listRule": "id = @request.auth.id",
+      "viewRule": "id = @request.auth.id",
+      "createRule": "",
+      "updateRule": "id = @request.auth.id",
+      "deleteRule": "id = @request.auth.id"
+    },
+    {
+      "name": "tasks",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1384045349",
+          "max": 0,
+          "min": 0,
+          "name": "task",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [],
+      "listRule": null,
+      "viewRule": null,
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null
+    },
+    {
+      "name": "settings",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool3227978119",
+          "name": "pageTapEnabled",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "json114693912",
+          "maxSize": 0,
+          "name": "magicTags",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "json"
+        },
+        {
+          "hidden": false,
+          "id": "bool3915053753",
+          "name": "pageSwipeEnabled",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "number3518522150",
+          "max": null,
+          "min": null,
+          "name": "contrastMode",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "bool235135227",
+          "name": "convertToTraditionalChinese",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2364538598",
+          "max": 0,
+          "min": 0,
+          "name": "serverBaseUrl",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool2221094220",
+          "name": "exportToCustomUrl",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1766466712",
+          "max": 0,
+          "min": 0,
+          "name": "exportCustomUrl",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool4064841542",
+          "name": "exportToLocalDownloads",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2148143425",
+          "max": 0,
+          "min": 0,
+          "name": "apiKey",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1433330590",
+          "max": 0,
+          "min": 0,
+          "name": "aiModelName",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2438972593",
+          "max": 0,
+          "min": 0,
+          "name": "aiSystemPrompt",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text911616794",
+          "max": 0,
+          "min": 0,
+          "name": "aiUserPromptTemplate",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number3192793708",
+          "max": null,
+          "min": null,
+          "name": "temperature",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number2497181999",
+          "max": null,
+          "min": null,
+          "name": "maxTokens",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3267775688",
+          "max": null,
+          "min": null,
+          "name": "topP",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number1043015411",
+          "max": null,
+          "min": null,
+          "name": "frequencyPenalty",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number1962795223",
+          "max": null,
+          "min": null,
+          "name": "presencePenalty",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3786537043",
+          "max": 0,
+          "min": 0,
+          "name": "assistantRole",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool1575186650",
+          "name": "enableGoogleSearch",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "bool3582543137",
+          "name": "useStreaming",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "bool766893285",
+          "name": "pageAnimationEnabled",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "bool1813494110",
+          "name": "showPageIndicator",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3571151285",
+          "max": 0,
+          "min": 0,
+          "name": "language",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number3449496192",
+          "max": null,
+          "min": null,
+          "name": "activeProfileId",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3175243278",
+          "max": null,
+          "min": null,
+          "name": "updatedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_settings_user ON settings (user)"
+      ],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "progress",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2738847223",
+          "max": 0,
+          "min": 0,
+          "name": "bookId",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2924440700",
+          "max": 0,
+          "min": 0,
+          "name": "bookTitle",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3773585621",
+          "max": 0,
+          "min": 0,
+          "name": "locatorJson",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number3175243278",
+          "max": null,
+          "min": null,
+          "name": "updatedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_progress_user_book ON progress (user, bookId)"
+      ],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "bookmarks",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2738847223",
+          "max": 0,
+          "min": 0,
+          "name": "bookId",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3773585621",
+          "max": 0,
+          "min": 0,
+          "name": "locatorJson",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number2261412156",
+          "max": null,
+          "min": null,
+          "name": "createdAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3175243278",
+          "max": null,
+          "min": null,
+          "name": "updatedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        }
+      ],
+      "indexes": [],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "ai_notes",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2924440700",
+          "max": 0,
+          "min": 0,
+          "name": "bookTitle",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3674349206",
+          "max": 0,
+          "min": 0,
+          "name": "messages",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "select2063623452",
+          "maxSelect": 1,
+          "name": "status",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "select",
+          "values": [
+            "generating",
+            "done"
+          ]
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2736193677",
+          "max": 0,
+          "min": 0,
+          "name": "originalText",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2403370499",
+          "max": 0,
+          "min": 0,
+          "name": "aiResponse",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2738847223",
+          "max": 0,
+          "min": 0,
+          "name": "bookId",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3773585621",
+          "max": 0,
+          "min": 0,
+          "name": "locatorJson",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number2261412156",
+          "max": null,
+          "min": null,
+          "name": "createdAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3175243278",
+          "max": null,
+          "min": null,
+          "name": "updatedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        }
+      ],
+      "indexes": [],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "ai_profiles",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1579384326",
+          "max": 0,
+          "min": 0,
+          "name": "name",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3870925373",
+          "max": 0,
+          "min": 0,
+          "name": "modelName",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2148143425",
+          "max": 0,
+          "min": 0,
+          "name": "apiKey",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2364538598",
+          "max": 0,
+          "min": 0,
+          "name": "serverBaseUrl",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3149143560",
+          "max": 0,
+          "min": 0,
+          "name": "systemPrompt",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text4235332432",
+          "max": 0,
+          "min": 0,
+          "name": "userPromptTemplate",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool3582543137",
+          "name": "useStreaming",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "number3192793708",
+          "max": null,
+          "min": null,
+          "name": "temperature",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number2497181999",
+          "max": null,
+          "min": null,
+          "name": "maxTokens",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3267775688",
+          "max": null,
+          "min": null,
+          "name": "topP",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number1043015411",
+          "max": null,
+          "min": null,
+          "name": "frequencyPenalty",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number1962795223",
+          "max": null,
+          "min": null,
+          "name": "presencePenalty",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3786537043",
+          "max": 0,
+          "min": 0,
+          "name": "assistantRole",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool1575186650",
+          "name": "enableGoogleSearch",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2380989586",
+          "max": 0,
+          "min": 0,
+          "name": "extraParamsJson",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number2261412156",
+          "max": null,
+          "min": null,
+          "name": "createdAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3175243278",
+          "max": null,
+          "min": null,
+          "name": "updatedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        }
+      ],
+      "indexes": [],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "books",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2738847223",
+          "max": 0,
+          "min": 0,
+          "name": "bookId",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text724990059",
+          "max": 0,
+          "min": 0,
+          "name": "title",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2106196935",
+          "max": 0,
+          "min": 0,
+          "name": "storagePath",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text329407205",
+          "max": 0,
+          "min": 0,
+          "name": "fileHash",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "bool3946532403",
+          "name": "deleted",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "bool"
+        },
+        {
+          "hidden": false,
+          "id": "number2598124290",
+          "max": null,
+          "min": null,
+          "name": "deletedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number3175243278",
+          "max": null,
+          "min": null,
+          "name": "updatedAt",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        },
+        {
+          "hidden": false,
+          "id": "file2428238146",
+          "maxSelect": 1,
+          "maxSize": 104857600,
+          "mimeTypes": [
+            "application/epub+zip",
+            "application/zip"
+          ],
+          "name": "bookFile",
+          "presentable": false,
+          "protected": true,
+          "required": false,
+          "system": false,
+          "thumbs": [],
+          "type": "file"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_books_user_book ON books (user, bookId)"
+      ],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "crash_reports",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1821466716",
+          "max": 0,
+          "min": 0,
+          "name": "appVersion",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3492187729",
+          "max": 0,
+          "min": 0,
+          "name": "androidVersion",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3259562236",
+          "max": 0,
+          "min": 0,
+          "name": "deviceModel",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2704261192",
+          "max": 0,
+          "min": 0,
+          "name": "stackTrace",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3065852031",
+          "max": 0,
+          "min": 0,
+          "name": "message",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number2782324286",
+          "max": null,
+          "min": null,
+          "name": "timestamp",
+          "onlyInt": false,
+          "presentable": false,
+          "required": true,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        }
+      ],
+      "indexes": [],
+      "listRule": null,
+      "viewRule": null,
+      "createRule": "@request.auth.id != \"\"",
+      "updateRule": null,
+      "deleteRule": null
+    },
+    {
+      "name": "translations",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1983006679",
+          "max": 0,
+          "min": 0,
+          "name": "cache_key",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": true,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text700514382",
+          "max": 0,
+          "min": 0,
+          "name": "video_id",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text813891937",
+          "max": 0,
+          "min": 0,
+          "name": "source_lang",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text4229010131",
+          "max": 0,
+          "min": 0,
+          "name": "target_lang",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3616895705",
+          "max": 0,
+          "min": 0,
+          "name": "model",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3193474883",
+          "max": 0,
+          "min": 0,
+          "name": "source_text_hash",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3026797935",
+          "max": 0,
+          "min": 0,
+          "name": "translation",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text1130519967",
+          "max": 0,
+          "min": 0,
+          "name": "updated_at",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX `idx_C6hOgzQGxm` ON `translations` (`cache_key`)"
+      ],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "timed_captions",
+      "type": "base",
+      "schema": [
+        {
+          "autogeneratePattern": "[a-z0-9]{15}",
+          "hidden": false,
+          "id": "text3208210256",
+          "max": 15,
+          "min": 15,
+          "name": "id",
+          "pattern": "^[a-z0-9]+$",
+          "presentable": false,
+          "primaryKey": true,
+          "required": true,
+          "system": true,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text700514382",
+          "max": 0,
+          "min": 0,
+          "name": "video_id",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "hidden": false,
+          "id": "number1772928957",
+          "max": null,
+          "min": null,
+          "name": "start_sec",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "hidden": false,
+          "id": "number323380582",
+          "max": null,
+          "min": null,
+          "name": "end_sec",
+          "onlyInt": false,
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "number"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text973152964",
+          "max": 0,
+          "min": 0,
+          "name": "source_text",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text3026797935",
+          "max": 0,
+          "min": 0,
+          "name": "translation",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "autogeneratePattern": "",
+          "hidden": false,
+          "id": "text2195780562",
+          "max": 0,
+          "min": 0,
+          "name": "translation_source",
+          "pattern": "",
+          "presentable": false,
+          "primaryKey": false,
+          "required": false,
+          "system": false,
+          "type": "text"
+        },
+        {
+          "cascadeDelete": false,
+          "collectionId": "_pb_users_auth_",
+          "hidden": false,
+          "id": "relation2375276105",
+          "maxSelect": 1,
+          "minSelect": 0,
+          "name": "user",
+          "presentable": false,
+          "required": false,
+          "system": false,
+          "type": "relation"
+        },
+        {
+          "hidden": false,
+          "id": "autodate2990389176",
+          "name": "created",
+          "onCreate": true,
+          "onUpdate": false,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        },
+        {
+          "hidden": false,
+          "id": "autodate3332085495",
+          "name": "updated",
+          "onCreate": true,
+          "onUpdate": true,
+          "presentable": false,
+          "system": false,
+          "type": "autodate"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX `idx_CuRKGzbigk` ON `timed_captions` (`start_sec`)",
+        "CREATE INDEX `idx_bDwF2Mrg0U` ON `timed_captions` (`video_id`)"
+      ],
+      "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+      "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    }
+  ]
 }

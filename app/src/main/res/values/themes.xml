@@ -4,14 +4,41 @@
     <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="windowActionModeOverlay">true</item>
         <item name="actionModeStyle">@style/Widget.App.ActionMode</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
     </style>
 
     <style name="AppTheme.ActionBar" parent="Theme.MaterialComponents.DayNight">
         <item name="windowActionModeOverlay">true</item>
         <item name="actionModeStyle">@style/Widget.App.ActionMode</item>
+        <item name="colorPrimary">@color/action_bar_surface</item>
+        <item name="colorPrimaryVariant">@color/action_bar_surface</item>
+        <item name="colorPrimaryDark">@color/action_bar_surface</item>
+        <item name="colorOnPrimary">@color/action_bar_on_surface</item>
+        <item name="colorControlNormal">@color/action_bar_on_surface</item>
+        <item name="actionMenuTextColor">@color/action_bar_on_surface</item>
+        <item name="android:statusBarColor">@color/action_bar_surface</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+    </style>
+
+    <style name="AppTheme.ActionBar.AiNoteDetail" parent="AppTheme.ActionBar">
+        <item name="colorPrimary">@color/ai_note_top_bar</item>
+        <item name="colorPrimaryVariant">@color/ai_note_top_bar</item>
+        <item name="colorPrimaryDark">@color/ai_note_top_bar</item>
+        <item name="android:statusBarColor">@color/ai_note_top_bar</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
     
     <style name="Widget.App.ActionMode" parent="Widget.AppCompat.ActionMode">
-        <item name="background">@color/white</item>
+        <item name="background">@color/action_bar_surface</item>
+        <item name="titleTextStyle">@style/TextAppearance.App.ActionMode.Title</item>
+        <item name="subtitleTextStyle">@style/TextAppearance.App.ActionMode.Subtitle</item>
+    </style>
+
+    <style name="TextAppearance.App.ActionMode.Title" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
+        <item name="android:textColor">@color/action_bar_on_surface</item>
+    </style>
+
+    <style name="TextAppearance.App.ActionMode.Subtitle" parent="TextAppearance.AppCompat.Widget.ActionBar.Subtitle">
+        <item name="android:textColor">@color/action_bar_on_surface</item>
     </style>
 </resources>

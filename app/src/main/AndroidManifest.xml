@@ -75,7 +75,7 @@
         <activity
             android:name="my.hinoki.booxreader.ui.notes.AiNoteDetailActivity"
             android:exported="false"
-            android:theme="@style/AppTheme.ActionBar"
+            android:theme="@style/AppTheme.ActionBar.AiNoteDetail"
             android:windowSoftInputMode="adjustResize"
             android:label="AI Note Details" />
 

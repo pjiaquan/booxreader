@@ -6,12 +6,16 @@ import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.Selection
 import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MenuItem
@@ -19,7 +23,10 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -62,12 +69,8 @@ class AiNoteDetailActivity : BaseActivity() {
         private const val EXTRA_SOURCE_NOTE_ID = "extra_source_note_id"
         private const val EXTRA_LINK_DEPTH = "extra_link_depth"
         private const val MAX_BI_LINK_DEPTH = 6
-        private const val RECOMMENDED_TAG_LIMIT = 3
-        private const val TAG_SCORE_SIGNAL_THRESHOLD = 0.01
-        private const val TAG_SCORE_LABEL_EXACT_HIT = 6.0
-        private const val TAG_SCORE_KEYWORD_HIT = 1.15
-        private const val TAG_SCORE_NGRAM_JACCARD_WEIGHT = 4.5
-        private const val TAG_KEYWORD_MAX_COUNT = 8
+        private const val RECOMMENDED_TAG_SECTION_TAG = "recommended_tags_section"
+        private const val RECOMMENDED_TAG_LIMIT = 5
 
         fun open(
                 context: Context,
@@ -160,6 +163,7 @@ class AiNoteDetailActivity : BaseActivity() {
     private var isScrollButtonHovered = false
     private var scrollButtonHideJob: Job? = null
     private var relatedNotesJob: Job? = null
+    private var recommendedTagsJob: Job? = null
     private var lastRelatedLookupKey: String? = null
     private var selectionActionMode: ActionMode? = null
     private val settingsPrefs by lazy {
@@ -290,6 +294,7 @@ class AiNoteDetailActivity : BaseActivity() {
     override fun onDestroy() {
         settingsPrefs.unregisterOnSharedPreferenceChangeListener(settingsListener)
         relatedNotesJob?.cancel()
+        recommendedTagsJob?.cancel()
         super.onDestroy()
     }
 
@@ -307,15 +312,38 @@ class AiNoteDetailActivity : BaseActivity() {
                     ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
+        val topBarColor =
+                when (mode) {
+                    ContrastMode.DARK -> Color.parseColor("#0A0D12")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                    else -> ContextCompat.getColor(this, R.color.ai_note_top_bar)
+                }
+        val topBarContentColor =
+                when (mode) {
+                    ContrastMode.DARK, ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                    else ->
+                            if (ColorUtils.calculateLuminance(topBarColor) > 0.5) Color.BLACK
+                            else Color.WHITE
+                }
         val textColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
-        val secondaryTextColor = ColorUtils.setAlphaComponent(textColor, 170)
-        val hintColor = ColorUtils.setAlphaComponent(textColor, 140)
+        val secondaryTextColor =
+                ColorUtils.setAlphaComponent(
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 215
+                        else 170
+                )
+        val hintColor =
+                ColorUtils.setAlphaComponent(
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190
+                        else 140
+                )
 
         magicTagTextColor = textColor
         magicTagBackgroundColor =
@@ -345,16 +373,69 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.etFollowUp.setHintTextColor(hintColor)
 
         updateMagicTagStyles()
+        supportActionBar?.setBackgroundDrawable(ColorDrawable(topBarColor))
+        applyActionBarContentColor(topBarContentColor)
 
         @Suppress("DEPRECATION")
         run {
-            window.statusBarColor = backgroundColor
+            window.setBackgroundDrawable(ColorDrawable(topBarColor))
+            window.decorView.setBackgroundColor(backgroundColor)
+            window.statusBarColor = topBarColor
             window.navigationBarColor = backgroundColor
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
-        insetsController.isAppearanceLightStatusBars = useLightIcons
-        insetsController.isAppearanceLightNavigationBars = useLightIcons
+        val useLightStatusIcons =
+                mode != ContrastMode.DARK &&
+                        mode != ContrastMode.HIGH_CONTRAST &&
+                        ColorUtils.calculateLuminance(topBarColor) > 0.5
+        val useLightNavIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        insetsController.isAppearanceLightStatusBars = useLightStatusIcons
+        insetsController.isAppearanceLightNavigationBars = useLightNavIcons
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val flags = window.decorView.systemUiVisibility
+            window.decorView.systemUiVisibility =
+                    if (useLightStatusIcons) {
+                        flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                    } else {
+                        flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+                    }
+        }
+    }
+
+    private fun applyActionBarContentColor(contentColor: Int) {
+        val actionTitle = supportActionBar?.title?.toString()?.takeIf { it.isNotBlank() } ?: title.toString()
+        if (actionTitle.isNotBlank()) {
+            val styledTitle = SpannableString(actionTitle).apply {
+                setSpan(ForegroundColorSpan(contentColor), 0, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            supportActionBar?.title = styledTitle
+        }
+        val actionSubtitle = supportActionBar?.subtitle?.toString().orEmpty()
+        if (actionSubtitle.isNotBlank()) {
+            val styledSubtitle = SpannableString(actionSubtitle).apply {
+                setSpan(
+                        ForegroundColorSpan(contentColor),
+                        0,
+                        length,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            supportActionBar?.subtitle = styledSubtitle
+        }
+        val backDrawable =
+                AppCompatResources.getDrawable(this, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+                        ?.mutate()
+                        ?.let { drawable ->
+                            DrawableCompat.setTint(drawable, contentColor)
+                            drawable
+                        }
+        if (backDrawable != null) {
+            supportActionBar?.setHomeAsUpIndicator(backDrawable)
+        }
     }
 
     private fun updateMagicTagStyles() {
@@ -1277,11 +1358,13 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun clearRelatedNotes() {
         relatedNotesJob?.cancel()
         relatedNotesJob = null
+        recommendedTagsJob?.cancel()
         lastRelatedLookupKey = null
         binding.tvRelatedNotesLabel.visibility = View.GONE
         binding.tvRelatedNotesHint.visibility = View.GONE
         binding.tvRelatedNotesStatus.visibility = View.GONE
         binding.tvRelatedNotesStatus.text = ""
+        removeRecommendedTagsSection(binding.llRelatedNotesContainer)
         binding.llRelatedNotesContainer.visibility = View.GONE
         binding.llRelatedNotesContainer.removeAllViews()
     }
@@ -1333,30 +1416,20 @@ class AiNoteDetailActivity : BaseActivity() {
         container.visibility = View.VISIBLE
 
         // Always render related-history cards in an elevated dark style for stronger contrast.
-        val panelTop = Color.parseColor("#182233")
-        val panelBottom = Color.parseColor("#0C111A")
-        val cardBg = Color.parseColor("#1C2738")
-        val cardBorder = Color.parseColor("#304562")
-        val titleColor = Color.parseColor("#F6FAFF")
-        val secondaryColor = Color.parseColor("#C9D4E5")
-        val mutedColor = Color.parseColor("#99ABC5")
-        val accentColor = Color.parseColor("#83D8FF")
-        val actionColor = Color.parseColor("#B4E8FF")
-        val pillColor = Color.parseColor("#294968")
-        val snippetBg = Color.parseColor("#131D2B")
+        val palette = createRelatedNotePalette()
 
         binding.tvRelatedNotesLabel.visibility = View.GONE
         binding.tvRelatedNotesHint.visibility = View.GONE
-        binding.tvRelatedNotesStatus.setTextColor(mutedColor)
+        binding.tvRelatedNotesStatus.setTextColor(palette.mutedColor)
         container.setPadding(dp(10), dp(10), dp(10), dp(10))
         container.background =
                 GradientDrawable(
                                 GradientDrawable.Orientation.TOP_BOTTOM,
-                                intArrayOf(panelTop, panelBottom)
+                                intArrayOf(palette.panelTop, palette.panelBottom)
                         )
                         .apply {
                             cornerRadius = dp(18).toFloat()
-                            setStroke(dp(1), ColorUtils.setAlphaComponent(cardBorder, 170))
+                            setStroke(dp(1), ColorUtils.setAlphaComponent(palette.cardBorder, 170))
                         }
 
         items.forEachIndexed { index, item ->
@@ -1383,12 +1456,12 @@ class AiNoteDetailActivity : BaseActivity() {
                                         }
                         radius = dp(18).toFloat()
                         strokeWidth = dp(1)
-                        strokeColor = cardBorder
+                        strokeColor = palette.cardBorder
                         cardElevation = dp(0).toFloat()
-                        setCardBackgroundColor(cardBg)
+                        setCardBackgroundColor(palette.cardBg)
                         rippleColor =
                                 ColorStateList.valueOf(
-                                        ColorUtils.setAlphaComponent(accentColor, 70)
+                                        ColorUtils.setAlphaComponent(palette.accentColor, 70)
                                 )
                         isClickable = true
                         isFocusable = true
@@ -1404,7 +1477,7 @@ class AiNoteDetailActivity : BaseActivity() {
             val titleView =
                     TextView(this).apply {
                         text = title
-                        setTextColor(titleColor)
+                        setTextColor(palette.titleColor)
                         setTypeface(typeface, Typeface.BOLD)
                         textSize = 17f
                         maxLines = 2
@@ -1415,7 +1488,7 @@ class AiNoteDetailActivity : BaseActivity() {
             val rankView =
                     TextView(this).apply {
                         text = "HISTORY MATCH  #${index + 1}"
-                        setTextColor(mutedColor)
+                        setTextColor(palette.mutedColor)
                         textSize = 11f
                         letterSpacing = 0.08f
                     }
@@ -1432,10 +1505,10 @@ class AiNoteDetailActivity : BaseActivity() {
             val metaView =
                     TextView(this).apply {
                         text = getString(R.string.ai_note_related_similarity, scorePercent)
-                        setTextColor(accentColor)
+                        setTextColor(palette.accentColor)
                         textSize = 12f
                         setPadding(dp(10), dp(4), dp(10), dp(4))
-                        background = pillBackground(pillColor)
+                        background = pillBackground(palette.pillColor)
                         setTypeface(typeface, Typeface.BOLD)
                     }
             val metaParams =
@@ -1451,7 +1524,7 @@ class AiNoteDetailActivity : BaseActivity() {
             val reasonView =
                     TextView(this).apply {
                         text = reason
-                        setTextColor(secondaryColor)
+                        setTextColor(palette.secondaryColor)
                         textSize = 14f
                         maxLines = 3
                         ellipsize = android.text.TextUtils.TruncateAt.END
@@ -1475,17 +1548,17 @@ class AiNoteDetailActivity : BaseActivity() {
                                     GradientDrawable().apply {
                                         shape = GradientDrawable.RECTANGLE
                                         cornerRadius = dp(12).toFloat()
-                                        setColor(snippetBg)
+                                        setColor(palette.snippetBg)
                                         setStroke(
                                                 dp(1),
-                                                ColorUtils.setAlphaComponent(cardBorder, 140)
+                                                ColorUtils.setAlphaComponent(palette.cardBorder, 140)
                                         )
                                     }
                         }
                 val snippetView =
                         TextView(this).apply {
                             text = snippet
-                            setTextColor(secondaryColor)
+                            setTextColor(palette.secondaryColor)
                             textSize = 13f
                             maxLines = 3
                             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -1506,7 +1579,7 @@ class AiNoteDetailActivity : BaseActivity() {
             val actionView =
                     TextView(this).apply {
                         text = getString(R.string.ai_note_related_open_action) + "  ›"
-                        setTextColor(actionColor)
+                        setTextColor(palette.actionColor)
                         setTypeface(typeface, Typeface.BOLD)
                         textSize = 13f
                     }
@@ -1524,88 +1597,159 @@ class AiNoteDetailActivity : BaseActivity() {
             container.addView(card)
         }
 
-        val recommendedTags = recommendTagsForCurrentResponse(limit = RECOMMENDED_TAG_LIMIT)
-        if (recommendedTags.isNotEmpty()) {
-            val recCard =
-                    MaterialCardView(this).apply {
-                        layoutParams =
-                                LinearLayout.LayoutParams(
-                                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                                LinearLayout.LayoutParams.WRAP_CONTENT
-                                        )
-                                        .apply { topMargin = dp(14) }
-                        radius = dp(16).toFloat()
-                        strokeWidth = dp(1)
-                        strokeColor = ColorUtils.setAlphaComponent(cardBorder, 180)
-                        cardElevation = 0f
-                        setCardBackgroundColor(Color.parseColor("#172232"))
-                    }
+        loadRecommendedTags(container, items, palette)
+    }
 
-            val recContent =
-                    LinearLayout(this).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(dp(14), dp(12), dp(14), dp(12))
-                    }
+    private data class RelatedNotePalette(
+            val panelTop: Int,
+            val panelBottom: Int,
+            val cardBg: Int,
+            val cardBorder: Int,
+            val titleColor: Int,
+            val secondaryColor: Int,
+            val mutedColor: Int,
+            val accentColor: Int,
+            val actionColor: Int,
+            val pillColor: Int,
+            val snippetBg: Int
+    )
 
-            val recTitle =
-                    TextView(this).apply {
-                        text = "Recommended Tags"
-                        setTextColor(titleColor)
-                        setTypeface(typeface, Typeface.BOLD)
-                        textSize = 15f
-                    }
-            recContent.addView(recTitle)
+    private fun createRelatedNotePalette(): RelatedNotePalette {
+        return RelatedNotePalette(
+                panelTop = Color.parseColor("#182233"),
+                panelBottom = Color.parseColor("#0C111A"),
+                cardBg = Color.parseColor("#1C2738"),
+                cardBorder = Color.parseColor("#304562"),
+                titleColor = Color.parseColor("#F6FAFF"),
+                secondaryColor = Color.parseColor("#C9D4E5"),
+                mutedColor = Color.parseColor("#99ABC5"),
+                accentColor = Color.parseColor("#83D8FF"),
+                actionColor = Color.parseColor("#B4E8FF"),
+                pillColor = Color.parseColor("#294968"),
+                snippetBg = Color.parseColor("#131D2B")
+        )
+    }
 
-            val recHint =
-                    TextView(this).apply {
-                        text = "根据当前 AI 回答，推荐 3 个可继续追问的标签"
-                        setTextColor(mutedColor)
-                        textSize = 12f
-                    }
-            val recHintParams =
-                    LinearLayout.LayoutParams(
-                                    LinearLayout.LayoutParams.MATCH_PARENT,
-                                    LinearLayout.LayoutParams.WRAP_CONTENT
+    private fun loadRecommendedTags(
+            container: LinearLayout,
+            relatedItems: List<AiNoteRepository.SemanticRelatedNote>,
+            palette: RelatedNotePalette
+    ) {
+        recommendedTagsJob?.cancel()
+        val note = currentNote ?: return
+        val history = relatedItems.take(3)
+        recommendedTagsJob =
+                lifecycleScope.launch {
+                    val suggestions =
+                            repository.fetchMagicTagSuggestions(
+                                    note,
+                                    relatedNotes = history,
+                                    limit = RECOMMENDED_TAG_LIMIT
                             )
-                            .apply { topMargin = dp(4) }
-            recContent.addView(recHint, recHintParams)
-
-            val chipGroup =
-                    ChipGroup(this).apply {
-                        isSingleLine = false
-                        chipSpacingHorizontal = dp(8)
-                        chipSpacingVertical = dp(8)
+                    if (suggestions.isEmpty()) return@launch
+                    if (currentNote?.id != note.id || isDestroyed) return@launch
+                    withContext(Dispatchers.Main) {
+                        addRecommendedTagsSection(container, palette, suggestions)
                     }
+                }
+    }
 
-            recommendedTags.forEach { tag ->
-                val chip =
-                        Chip(this).apply {
-                            text = tag.label
-                            setTextColor(actionColor)
-                            chipBackgroundColor =
-                                    ColorStateList.valueOf(Color.parseColor("#223D5A"))
-                            chipStrokeWidth = dp(1).toFloat()
-                            chipStrokeColor =
-                                    ColorStateList.valueOf(
-                                            ColorUtils.setAlphaComponent(accentColor, 120)
+    private fun addRecommendedTagsSection(
+            container: LinearLayout,
+            palette: RelatedNotePalette,
+            tags: List<MagicTag>
+    ) {
+        removeRecommendedTagsSection(container)
+        val recCard =
+                MaterialCardView(this).apply {
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            LinearLayout.LayoutParams.MATCH_PARENT,
+                                            LinearLayout.LayoutParams.WRAP_CONTENT
                                     )
-                            isClickable = true
-                            isCheckable = false
-                            setOnClickListener { handleMagicTagClick(tag) }
-                        }
-                chipGroup.addView(chip)
-            }
+                                    .apply { topMargin = dp(14) }
+                    radius = dp(16).toFloat()
+                    strokeWidth = dp(1)
+                    strokeColor = ColorUtils.setAlphaComponent(palette.cardBorder, 180)
+                    cardElevation = 0f
+                    setCardBackgroundColor(Color.parseColor("#172232"))
+                    tag = RECOMMENDED_TAG_SECTION_TAG
+                }
 
-            val chipsParams =
-                    LinearLayout.LayoutParams(
-                                    LinearLayout.LayoutParams.MATCH_PARENT,
-                                    LinearLayout.LayoutParams.WRAP_CONTENT
+        val recContent =
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                }
+
+        val recTitle =
+                TextView(this).apply {
+                    text = getString(R.string.ai_note_recommendation_title)
+                    setTextColor(palette.titleColor)
+                    setTypeface(typeface, Typeface.BOLD)
+                    textSize = 15f
+                }
+        recContent.addView(recTitle)
+
+        val recHint =
+                TextView(this).apply {
+                    text =
+                            getString(
+                                    R.string.ai_note_recommendation_hint,
+                                    RECOMMENDED_TAG_LIMIT
                             )
-                            .apply { topMargin = dp(10) }
-            recContent.addView(chipGroup, chipsParams)
+                    setTextColor(palette.mutedColor)
+                    textSize = 12f
+                }
+        val recHintParams =
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply { topMargin = dp(4) }
+        recContent.addView(recHint, recHintParams)
 
-            recCard.addView(recContent)
-            container.addView(recCard)
+        val chipGroup =
+                ChipGroup(this).apply {
+                    isSingleLine = false
+                    chipSpacingHorizontal = dp(8)
+                    chipSpacingVertical = dp(8)
+                }
+
+        tags.forEach { tag ->
+            val chip =
+                    Chip(this).apply {
+                        text = tag.label
+                        setTextColor(palette.actionColor)
+                        chipBackgroundColor = ColorStateList.valueOf(Color.parseColor("#223D5A"))
+                        chipStrokeWidth = dp(1).toFloat()
+                        chipStrokeColor =
+                                ColorStateList.valueOf(
+                                        ColorUtils.setAlphaComponent(palette.accentColor, 120)
+                                )
+                        isClickable = true
+                        isCheckable = false
+                        setOnClickListener { handleMagicTagClick(tag) }
+                    }
+            chipGroup.addView(chip)
+        }
+
+        val chipsParams =
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply { topMargin = dp(10) }
+        recContent.addView(chipGroup, chipsParams)
+
+        recCard.addView(recContent)
+        container.addView(recCard)
+    }
+
+    private fun removeRecommendedTagsSection(container: LinearLayout) {
+        val existing = container.findViewWithTag<View>(RECOMMENDED_TAG_SECTION_TAG)
+        if (existing != null) {
+            container.removeView(existing)
         }
     }
 
@@ -1617,66 +1761,7 @@ class AiNoteDetailActivity : BaseActivity() {
         }
     }
 
-    private fun recommendTagsForCurrentResponse(limit: Int = 3): List<MagicTag> {
-        val note = currentNote ?: return emptyList()
-        val response = getAiResponse(note).trim()
-        val tags = ReaderSettings.fromPrefs(settingsPrefs).magicTags.filter { it.label.isNotBlank() }
-        if (tags.isEmpty()) return emptyList()
-        if (response.isBlank()) return tags.take(limit)
-
-        val responseNormalized = normalizeTagMatchText(response)
-        val scored = tags.map { tag -> tag to scoreTagAgainstResponse(tag, responseNormalized) }
-        val hasSignal = scored.any { it.second > TAG_SCORE_SIGNAL_THRESHOLD }
-        if (!hasSignal) return tags.take(limit)
-        return scored.sortedByDescending { it.second }.take(limit).map { it.first }
-    }
-
-    private fun scoreTagAgainstResponse(tag: MagicTag, responseNormalized: String): Double {
-        val labelText =
-                normalizeTagMatchText(
-                        tag.label
-                                .replace("[", " ")
-                                .replace("]", " ")
-                )
-        val descriptorText = normalizeTagMatchText("${tag.content} ${tag.description}")
-
-        var score = 0.0
-        if (labelText.isNotEmpty() && responseNormalized.contains(labelText)) {
-            score += TAG_SCORE_LABEL_EXACT_HIT
-        }
-
-        val keywords =
-                (labelText + " " + descriptorText)
-                        .split(Regex("\\s+"))
-                        .map { it.trim() }
-                        .filter { it.length >= 2 }
-                        .distinct()
-                        .sortedByDescending { it.length }
-                        .take(TAG_KEYWORD_MAX_COUNT)
-        val keywordHits = keywords.count { kw -> responseNormalized.contains(kw) }
-        score += keywordHits * TAG_SCORE_KEYWORD_HIT
-
-        val overlapSource = (labelText + descriptorText).takeIf { it.isNotBlank() } ?: labelText
-        if (overlapSource.length >= 2 && responseNormalized.length >= 2) {
-            val responsePairs = responseNormalized.windowed(2, 1).toSet()
-            val tagPairs = overlapSource.windowed(2, 1).toSet()
-            if (responsePairs.isNotEmpty() && tagPairs.isNotEmpty()) {
-                val union = responsePairs.union(tagPairs).size.coerceAtLeast(1)
-                val intersect = responsePairs.intersect(tagPairs).size
-                score +=
-                        (intersect.toDouble() / union.toDouble()) *
-                                TAG_SCORE_NGRAM_JACCARD_WEIGHT
-            }
-        }
-
-        return score
-    }
-
-    private fun normalizeTagMatchText(raw: String): String {
-        return raw.lowercase()
-                .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
-                .trim()
-    }
+    // Magic-tag recommendation is now handled server-side.
 
     private fun openRelatedNote(item: AiNoteRepository.SemanticRelatedNote) {
         openRelatedNoteTarget(item.localId, item.remoteId?.trim().orEmpty(), item.noteId.trim())

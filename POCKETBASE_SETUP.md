@@ -143,6 +143,36 @@ buildConfigField("String", "POCKETBASE_URL", "\"${project.findProperty("POCKETBA
 - [`pocketbase_collections.json`](./pocketbase_collections.json) - JSON schema reference
 - This README
 
+## Schema sync workflow
+
+The setup script now doubles as a schema snapshot tool so you can pull the live schema, keep it under version control, and reapply it later:
+
+1. Export the schema from the server you want to mirror:
+
+   ```bash
+   python3 setup_pocketbase.py \
+     --url http://your-pocketbase-url \
+     --email admin@example.com \
+     --password your-admin-password \
+     --pull-schema
+   ```
+
+   By default this writes `pocketbase_collections.json`. Pass `--pull-schema custom-schema.json` to change the filename.
+
+2. Commit the exported JSON and treat it as your canonical schema. When you want to update PocketBase, edit the file locally (e.g., add/remove fields, change rules).
+
+3. Apply the edited schema back to any server:
+
+   ```bash
+   python3 setup_pocketbase.py \
+     --url http://your-pocketbase-url \
+     --email admin@example.com \
+     --password your-admin-password \
+     --schema-file pocketbase_collections.json
+   ```
+
+   If the file is missing, the script still falls back to the built-in schema definition.
+
 ## Need Help?
 
 - Review the [PocketBase Documentation](https://pocketbase.io/docs/)

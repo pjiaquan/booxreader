@@ -3,6 +3,7 @@ package my.hinoki.booxreader.ui.settings
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.LayoutInflater
@@ -190,12 +191,16 @@ class AiProfileListActivity : BaseActivity() {
         listTextColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
-        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, 170)
-        tagBackgroundColor = ColorUtils.setAlphaComponent(listTextColor, 48)
+        val secondaryTextAlpha =
+                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 215 else 170
+        val tagBackgroundAlpha =
+                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 72 else 48
+        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, secondaryTextAlpha)
+        tagBackgroundColor = ColorUtils.setAlphaComponent(listTextColor, tagBackgroundAlpha)
 
         binding.root.setBackgroundColor(listBackgroundColor)
         binding.recyclerView.setBackgroundColor(listBackgroundColor)
@@ -212,11 +217,16 @@ class AiProfileListActivity : BaseActivity() {
 
         @Suppress("DEPRECATION")
         run {
+            window.decorView.setBackgroundColor(listBackgroundColor)
             window.statusBarColor = listBackgroundColor
             window.navigationBarColor = listBackgroundColor
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val useLightIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+        val useLightIcons = ColorUtils.calculateLuminance(listBackgroundColor) > 0.5
         insetsController.isAppearanceLightStatusBars = useLightIcons
         insetsController.isAppearanceLightNavigationBars = useLightIcons
 

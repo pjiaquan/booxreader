@@ -517,16 +517,26 @@ class ReaderSettingsActivity : BaseActivity() {
         val textColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.LTGRAY
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
-        val hintColor = ColorUtils.setAlphaComponent(textColor, 140)
-        val dividerColor = ColorUtils.setAlphaComponent(textColor, 60)
+        val hintColor =
+                ColorUtils.setAlphaComponent(
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190
+                        else 140
+                )
+        val dividerColor =
+                ColorUtils.setAlphaComponent(
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 90
+                        else 60
+                )
         val buttonColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#E0E0E0")
-                    ContrastMode.DARK -> Color.parseColor("#333333")
+                    ContrastMode.DARK -> Color.parseColor("#2B323C")
                     ContrastMode.SEPIA -> Color.parseColor("#D9C5A3")
                     ContrastMode.HIGH_CONTRAST -> Color.DKGRAY
                 }
@@ -594,28 +604,28 @@ class ReaderSettingsActivity : BaseActivity() {
         val pageColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#F8F9FB")
-                    ContrastMode.DARK -> Color.parseColor("#0F1114")
+                    ContrastMode.DARK -> Color.parseColor("#0B0E13")
                     ContrastMode.SEPIA -> Color.parseColor("#F0E6D3")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         val barColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#EEF1F5")
-                    ContrastMode.DARK -> Color.parseColor("#14181D")
+                    ContrastMode.DARK -> Color.parseColor("#0A0D12")
                     ContrastMode.SEPIA -> Color.parseColor("#E7D9BF")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         val footerColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#F2F4F8")
-                    ContrastMode.DARK -> Color.parseColor("#12161A")
+                    ContrastMode.DARK -> Color.parseColor("#0E1217")
                     ContrastMode.SEPIA -> Color.parseColor("#EBDDCA")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         val dividerColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#D9DEE6")
-                    ContrastMode.DARK -> Color.parseColor("#2B3138")
+                    ContrastMode.DARK -> Color.parseColor("#26303A")
                     ContrastMode.SEPIA -> Color.parseColor("#CCBCA0")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
@@ -629,10 +639,12 @@ class ReaderSettingsActivity : BaseActivity() {
         applyActionBarContentColor(barColor)
         @Suppress("DEPRECATION")
         run {
+            window.decorView.setBackgroundColor(pageColor)
             window.statusBarColor = barColor
             window.navigationBarColor = footerColor
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
             window.isNavigationBarContrastEnforced = false
         }
         val useDarkIcons = ColorUtils.calculateLuminance(barColor) > 0.5

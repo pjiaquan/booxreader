@@ -68,6 +68,8 @@
     <string name="ai_note_related_reason_default">Semantic similarity</string>
     <string name="ai_note_related_similarity">Similarity %1$.1f%%</string>
     <string name="ai_note_related_open_action">Open Note</string>
+    <string name="ai_note_recommendation_title">AI 建議延伸標籤</string>
+    <string name="ai_note_recommendation_hint">由 AI 生成最多 %1$d 筆追問方向</string>
     <string name="ai_note_back_to_linked_note">Back To Linked Note</string>
     <string name="ai_note_semantic_search_hint">Search by concept, person, era...</string>
     <string name="ai_note_semantic_search_button">Search</string>
