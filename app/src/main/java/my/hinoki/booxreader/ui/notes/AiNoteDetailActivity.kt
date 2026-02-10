@@ -1297,7 +1297,7 @@ class AiNoteDetailActivity : BaseActivity() {
         if (!force && key == lastRelatedLookupKey) return
         lastRelatedLookupKey = key
 
-        binding.tvRelatedNotesLabel.visibility = View.VISIBLE
+        binding.tvRelatedNotesLabel.visibility = View.GONE
         binding.tvRelatedNotesHint.visibility = View.GONE
         binding.tvRelatedNotesStatus.visibility = View.VISIBLE
         binding.tvRelatedNotesLabel.setTextColor(Color.parseColor("#F6FAFF"))
@@ -1313,7 +1313,7 @@ class AiNoteDetailActivity : BaseActivity() {
                     val results = repository.searchRelatedNotesFromQdrant(note, limit = 5)
                     if (currentNote?.id != note.id) return@launch
 
-                    binding.tvRelatedNotesLabel.visibility = View.VISIBLE
+                    binding.tvRelatedNotesLabel.visibility = View.GONE
                     if (results.isEmpty()) {
                         binding.tvRelatedNotesHint.visibility = View.GONE
                         binding.tvRelatedNotesStatus.visibility = View.VISIBLE
@@ -1321,7 +1321,7 @@ class AiNoteDetailActivity : BaseActivity() {
                         binding.llRelatedNotesContainer.visibility = View.GONE
                         return@launch
                     }
-                    binding.tvRelatedNotesHint.visibility = View.VISIBLE
+                    binding.tvRelatedNotesHint.visibility = View.GONE
                     binding.tvRelatedNotesStatus.visibility = View.GONE
                     renderRelatedNoteCards(results)
                 }
@@ -1345,8 +1345,8 @@ class AiNoteDetailActivity : BaseActivity() {
         val pillColor = Color.parseColor("#294968")
         val snippetBg = Color.parseColor("#131D2B")
 
-        binding.tvRelatedNotesLabel.setTextColor(titleColor)
-        binding.tvRelatedNotesHint.setTextColor(mutedColor)
+        binding.tvRelatedNotesLabel.visibility = View.GONE
+        binding.tvRelatedNotesHint.visibility = View.GONE
         binding.tvRelatedNotesStatus.setTextColor(mutedColor)
         container.setPadding(dp(10), dp(10), dp(10), dp(10))
         container.background =
