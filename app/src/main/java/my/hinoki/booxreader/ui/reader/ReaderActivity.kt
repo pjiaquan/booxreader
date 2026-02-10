@@ -23,6 +23,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
@@ -140,6 +141,24 @@ class ReaderActivity : BaseActivity() {
     private data class ChapterItem(val title: String, val link: Link, val depth: Int)
 
     private val REQ_BOOKMARK = 1001
+    private val settingsLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode != RESULT_OK) return@registerForActivityResult
+
+                val action = result.data?.getStringExtra(ReaderSettingsActivity.EXTRA_ACTION)
+                val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                val settings = ReaderSettings.fromPrefs(prefs)
+                applyReaderSettings(settings)
+                nativeNavigatorFragment?.setChineseConversionEnabled(
+                        settings.convertToTraditionalChinese
+                )
+                requestEinkRefresh()
+
+                when (action) {
+                    ReaderSettingsActivity.ACTION_ADD_BOOKMARK -> addBookmarkFromCurrentPosition()
+                    ReaderSettingsActivity.ACTION_SHOW_BOOKMARKS -> openBookmarkList()
+                }
+            }
 
     private val gestureDetector by lazy {
         GestureDetector(
@@ -354,7 +373,11 @@ class ReaderActivity : BaseActivity() {
 
         binding.btnChapters.setOnClickListener { openChapterPicker() }
 
-        binding.btnSettings.setOnClickListener { showSettingsDialog() }
+        binding.btnSettings.setOnClickListener {
+            settingsLauncher.launch(
+                    ReaderSettingsActivity.newIntent(this, viewModel.currentBookKey.value)
+            )
+        }
     }
 
     private fun setupObservers() {

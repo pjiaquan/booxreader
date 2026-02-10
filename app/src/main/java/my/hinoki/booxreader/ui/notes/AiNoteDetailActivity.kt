@@ -26,6 +26,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -59,12 +60,21 @@ class AiNoteDetailActivity : BaseActivity() {
 
         private const val EXTRA_AUTO_STREAM_TEXT = "extra_auto_stream_text"
         private const val EXTRA_SOURCE_NOTE_ID = "extra_source_note_id"
+        private const val EXTRA_LINK_DEPTH = "extra_link_depth"
+        private const val MAX_BI_LINK_DEPTH = 6
+        private const val RECOMMENDED_TAG_LIMIT = 3
+        private const val TAG_SCORE_SIGNAL_THRESHOLD = 0.01
+        private const val TAG_SCORE_LABEL_EXACT_HIT = 6.0
+        private const val TAG_SCORE_KEYWORD_HIT = 1.15
+        private const val TAG_SCORE_NGRAM_JACCARD_WEIGHT = 4.5
+        private const val TAG_KEYWORD_MAX_COUNT = 8
 
         fun open(
                 context: Context,
                 noteId: Long,
                 autoStreamText: String? = null,
-                sourceNoteId: Long? = null
+                sourceNoteId: Long? = null,
+                linkDepth: Int = 0
         ) {
             val intent =
                     Intent(context, AiNoteDetailActivity::class.java).apply {
@@ -75,6 +85,7 @@ class AiNoteDetailActivity : BaseActivity() {
                         if (sourceNoteId != null) {
                             putExtra(EXTRA_SOURCE_NOTE_ID, sourceNoteId)
                         }
+                        putExtra(EXTRA_LINK_DEPTH, linkDepth.coerceAtLeast(0))
                     }
             context.startActivity(intent)
         }
@@ -88,6 +99,7 @@ class AiNoteDetailActivity : BaseActivity() {
     }
     private var currentNote: AiNoteEntity? = null
     private var sourceNoteId: Long? = null
+    private var linkDepth: Int = 0
     private val markwon by lazy {
         Markwon.builder(this)
                 .usePlugin(TablePlugin.create(this))
@@ -187,6 +199,7 @@ class AiNoteDetailActivity : BaseActivity() {
         autoStreamText = intent.getStringExtra(EXTRA_AUTO_STREAM_TEXT)
         val sourceId = intent.getLongExtra(EXTRA_SOURCE_NOTE_ID, -1L)
         sourceNoteId = sourceId.takeIf { it > 0L && it != noteId }
+        linkDepth = intent.getIntExtra(EXTRA_LINK_DEPTH, 0).coerceAtLeast(0)
         if (noteId == -1L) {
             Toast.makeText(this, getString(R.string.ai_note_invalid_id), Toast.LENGTH_SHORT).show()
             finish()
@@ -224,10 +237,12 @@ class AiNoteDetailActivity : BaseActivity() {
             val fromId = sourceNoteId ?: return@setOnClickListener
             val currentId = currentNote?.id ?: return@setOnClickListener
             if (fromId == currentId) return@setOnClickListener
+            val nextDepth = (linkDepth + 1).coerceAtMost(MAX_BI_LINK_DEPTH)
             AiNoteDetailActivity.open(
                     this@AiNoteDetailActivity,
                     fromId,
-                    sourceNoteId = currentId
+                    sourceNoteId = currentId,
+                    linkDepth = nextDepth
             )
         }
 
@@ -649,7 +664,8 @@ class AiNoteDetailActivity : BaseActivity() {
         } else {
             binding.btnGoToPage.visibility = View.GONE
         }
-        val shouldShowBackToLinked = sourceNoteId != null && sourceNoteId != note.id
+        val shouldShowBackToLinked =
+                sourceNoteId != null && sourceNoteId != note.id && linkDepth < MAX_BI_LINK_DEPTH
         binding.btnBackToLinkedNote.visibility =
                 if (shouldShowBackToLinked) View.VISIBLE else View.GONE
 
@@ -1284,6 +1300,9 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvRelatedNotesLabel.visibility = View.VISIBLE
         binding.tvRelatedNotesHint.visibility = View.GONE
         binding.tvRelatedNotesStatus.visibility = View.VISIBLE
+        binding.tvRelatedNotesLabel.setTextColor(Color.parseColor("#F6FAFF"))
+        binding.tvRelatedNotesHint.setTextColor(Color.parseColor("#99ABC5"))
+        binding.tvRelatedNotesStatus.setTextColor(Color.parseColor("#99ABC5"))
         binding.tvRelatedNotesStatus.text = getString(R.string.ai_note_related_loading)
         binding.llRelatedNotesContainer.visibility = View.GONE
         binding.llRelatedNotesContainer.removeAllViews()
@@ -1313,22 +1332,32 @@ class AiNoteDetailActivity : BaseActivity() {
         container.removeAllViews()
         container.visibility = View.VISIBLE
 
-        val titleColor = binding.tvResponseLabel.currentTextColor
-        val secondaryColor = binding.tvAiModelInfo.currentTextColor
-        val primaryColor =
-                MaterialColors.getColor(
-                        container,
-                        com.google.android.material.R.attr.colorPrimary,
-                        Color.parseColor("#1565C0")
-                )
-        val outlineColor = ColorUtils.setAlphaComponent(primaryColor, 60)
-        val surfaceColor =
-                MaterialColors.getColor(
-                        container,
-                        com.google.android.material.R.attr.colorSurface,
-                        Color.WHITE
-                )
-        val pillColor = ColorUtils.setAlphaComponent(primaryColor, 28)
+        // Always render related-history cards in an elevated dark style for stronger contrast.
+        val panelTop = Color.parseColor("#182233")
+        val panelBottom = Color.parseColor("#0C111A")
+        val cardBg = Color.parseColor("#1C2738")
+        val cardBorder = Color.parseColor("#304562")
+        val titleColor = Color.parseColor("#F6FAFF")
+        val secondaryColor = Color.parseColor("#C9D4E5")
+        val mutedColor = Color.parseColor("#99ABC5")
+        val accentColor = Color.parseColor("#83D8FF")
+        val actionColor = Color.parseColor("#B4E8FF")
+        val pillColor = Color.parseColor("#294968")
+        val snippetBg = Color.parseColor("#131D2B")
+
+        binding.tvRelatedNotesLabel.setTextColor(titleColor)
+        binding.tvRelatedNotesHint.setTextColor(mutedColor)
+        binding.tvRelatedNotesStatus.setTextColor(mutedColor)
+        container.setPadding(dp(10), dp(10), dp(10), dp(10))
+        container.background =
+                GradientDrawable(
+                                GradientDrawable.Orientation.TOP_BOTTOM,
+                                intArrayOf(panelTop, panelBottom)
+                        )
+                        .apply {
+                            cornerRadius = dp(18).toFloat()
+                            setStroke(dp(1), ColorUtils.setAlphaComponent(cardBorder, 170))
+                        }
 
         items.forEachIndexed { index, item ->
             val title = item.bookTitle?.takeIf { it.isNotBlank() } ?: "Note ${index + 1}"
@@ -1350,14 +1379,17 @@ class AiNoteDetailActivity : BaseActivity() {
                                                 LinearLayout.LayoutParams.WRAP_CONTENT
                                         )
                                         .apply {
-                                            if (index > 0) topMargin = dp(10)
+                                            if (index > 0) topMargin = dp(12)
                                         }
-                        radius = dp(14).toFloat()
+                        radius = dp(18).toFloat()
                         strokeWidth = dp(1)
-                        strokeColor = outlineColor
-                        cardElevation = dp(1).toFloat()
-                        setCardBackgroundColor(surfaceColor)
-                        rippleColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(primaryColor, 44))
+                        strokeColor = cardBorder
+                        cardElevation = dp(0).toFloat()
+                        setCardBackgroundColor(cardBg)
+                        rippleColor =
+                                ColorStateList.valueOf(
+                                        ColorUtils.setAlphaComponent(accentColor, 70)
+                                )
                         isClickable = true
                         isFocusable = true
                         setOnClickListener { openRelatedNote(item) }
@@ -1374,17 +1406,37 @@ class AiNoteDetailActivity : BaseActivity() {
                         text = title
                         setTextColor(titleColor)
                         setTypeface(typeface, Typeface.BOLD)
-                        textSize = 16f
+                        textSize = 17f
+                        maxLines = 2
+                        ellipsize = android.text.TextUtils.TruncateAt.END
                     }
             content.addView(titleView)
+
+            val rankView =
+                    TextView(this).apply {
+                        text = "HISTORY MATCH  #${index + 1}"
+                        setTextColor(mutedColor)
+                        textSize = 11f
+                        letterSpacing = 0.08f
+                    }
+            val rankParams =
+                    LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            .apply {
+                                topMargin = dp(4)
+                            }
+            content.addView(rankView, rankParams)
 
             val metaView =
                     TextView(this).apply {
                         text = getString(R.string.ai_note_related_similarity, scorePercent)
-                        setTextColor(primaryColor)
+                        setTextColor(accentColor)
                         textSize = 12f
                         setPadding(dp(10), dp(4), dp(10), dp(4))
                         background = pillBackground(pillColor)
+                        setTypeface(typeface, Typeface.BOLD)
                     }
             val metaParams =
                     LinearLayout.LayoutParams(
@@ -1401,6 +1453,8 @@ class AiNoteDetailActivity : BaseActivity() {
                         text = reason
                         setTextColor(secondaryColor)
                         textSize = 14f
+                        maxLines = 3
+                        ellipsize = android.text.TextUtils.TruncateAt.END
                     }
             val reasonParams =
                     LinearLayout.LayoutParams(
@@ -1413,13 +1467,31 @@ class AiNoteDetailActivity : BaseActivity() {
             content.addView(reasonView, reasonParams)
 
             if (snippet.isNotBlank()) {
+                val snippetContainer =
+                        LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPadding(dp(10), dp(8), dp(10), dp(8))
+                            background =
+                                    GradientDrawable().apply {
+                                        shape = GradientDrawable.RECTANGLE
+                                        cornerRadius = dp(12).toFloat()
+                                        setColor(snippetBg)
+                                        setStroke(
+                                                dp(1),
+                                                ColorUtils.setAlphaComponent(cardBorder, 140)
+                                        )
+                                    }
+                        }
                 val snippetView =
                         TextView(this).apply {
                             text = snippet
                             setTextColor(secondaryColor)
-                            textSize = 14f
+                            textSize = 13f
                             maxLines = 3
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                            setLineSpacing(dp(2).toFloat(), 1f)
                         }
+                snippetContainer.addView(snippetView)
                 val snippetParams =
                         LinearLayout.LayoutParams(
                                         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1428,13 +1500,13 @@ class AiNoteDetailActivity : BaseActivity() {
                                 .apply {
                                     topMargin = dp(6)
                                 }
-                content.addView(snippetView, snippetParams)
+                content.addView(snippetContainer, snippetParams)
             }
 
             val actionView =
                     TextView(this).apply {
-                        text = getString(R.string.ai_note_related_open_action)
-                        setTextColor(primaryColor)
+                        text = getString(R.string.ai_note_related_open_action) + "  ›"
+                        setTextColor(actionColor)
                         setTypeface(typeface, Typeface.BOLD)
                         textSize = 13f
                     }
@@ -1451,6 +1523,90 @@ class AiNoteDetailActivity : BaseActivity() {
             card.addView(content)
             container.addView(card)
         }
+
+        val recommendedTags = recommendTagsForCurrentResponse(limit = RECOMMENDED_TAG_LIMIT)
+        if (recommendedTags.isNotEmpty()) {
+            val recCard =
+                    MaterialCardView(this).apply {
+                        layoutParams =
+                                LinearLayout.LayoutParams(
+                                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                                LinearLayout.LayoutParams.WRAP_CONTENT
+                                        )
+                                        .apply { topMargin = dp(14) }
+                        radius = dp(16).toFloat()
+                        strokeWidth = dp(1)
+                        strokeColor = ColorUtils.setAlphaComponent(cardBorder, 180)
+                        cardElevation = 0f
+                        setCardBackgroundColor(Color.parseColor("#172232"))
+                    }
+
+            val recContent =
+                    LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(14), dp(12), dp(14), dp(12))
+                    }
+
+            val recTitle =
+                    TextView(this).apply {
+                        text = "Recommended Tags"
+                        setTextColor(titleColor)
+                        setTypeface(typeface, Typeface.BOLD)
+                        textSize = 15f
+                    }
+            recContent.addView(recTitle)
+
+            val recHint =
+                    TextView(this).apply {
+                        text = "根据当前 AI 回答，推荐 3 个可继续追问的标签"
+                        setTextColor(mutedColor)
+                        textSize = 12f
+                    }
+            val recHintParams =
+                    LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.MATCH_PARENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            .apply { topMargin = dp(4) }
+            recContent.addView(recHint, recHintParams)
+
+            val chipGroup =
+                    ChipGroup(this).apply {
+                        isSingleLine = false
+                        chipSpacingHorizontal = dp(8)
+                        chipSpacingVertical = dp(8)
+                    }
+
+            recommendedTags.forEach { tag ->
+                val chip =
+                        Chip(this).apply {
+                            text = tag.label
+                            setTextColor(actionColor)
+                            chipBackgroundColor =
+                                    ColorStateList.valueOf(Color.parseColor("#223D5A"))
+                            chipStrokeWidth = dp(1).toFloat()
+                            chipStrokeColor =
+                                    ColorStateList.valueOf(
+                                            ColorUtils.setAlphaComponent(accentColor, 120)
+                                    )
+                            isClickable = true
+                            isCheckable = false
+                            setOnClickListener { handleMagicTagClick(tag) }
+                        }
+                chipGroup.addView(chip)
+            }
+
+            val chipsParams =
+                    LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.MATCH_PARENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            .apply { topMargin = dp(10) }
+            recContent.addView(chipGroup, chipsParams)
+
+            recCard.addView(recContent)
+            container.addView(recCard)
+        }
     }
 
     private fun pillBackground(color: Int): GradientDrawable {
@@ -1459,6 +1615,67 @@ class AiNoteDetailActivity : BaseActivity() {
             cornerRadius = dp(999).toFloat()
             setColor(color)
         }
+    }
+
+    private fun recommendTagsForCurrentResponse(limit: Int = 3): List<MagicTag> {
+        val note = currentNote ?: return emptyList()
+        val response = getAiResponse(note).trim()
+        val tags = ReaderSettings.fromPrefs(settingsPrefs).magicTags.filter { it.label.isNotBlank() }
+        if (tags.isEmpty()) return emptyList()
+        if (response.isBlank()) return tags.take(limit)
+
+        val responseNormalized = normalizeTagMatchText(response)
+        val scored = tags.map { tag -> tag to scoreTagAgainstResponse(tag, responseNormalized) }
+        val hasSignal = scored.any { it.second > TAG_SCORE_SIGNAL_THRESHOLD }
+        if (!hasSignal) return tags.take(limit)
+        return scored.sortedByDescending { it.second }.take(limit).map { it.first }
+    }
+
+    private fun scoreTagAgainstResponse(tag: MagicTag, responseNormalized: String): Double {
+        val labelText =
+                normalizeTagMatchText(
+                        tag.label
+                                .replace("[", " ")
+                                .replace("]", " ")
+                )
+        val descriptorText = normalizeTagMatchText("${tag.content} ${tag.description}")
+
+        var score = 0.0
+        if (labelText.isNotEmpty() && responseNormalized.contains(labelText)) {
+            score += TAG_SCORE_LABEL_EXACT_HIT
+        }
+
+        val keywords =
+                (labelText + " " + descriptorText)
+                        .split(Regex("\\s+"))
+                        .map { it.trim() }
+                        .filter { it.length >= 2 }
+                        .distinct()
+                        .sortedByDescending { it.length }
+                        .take(TAG_KEYWORD_MAX_COUNT)
+        val keywordHits = keywords.count { kw -> responseNormalized.contains(kw) }
+        score += keywordHits * TAG_SCORE_KEYWORD_HIT
+
+        val overlapSource = (labelText + descriptorText).takeIf { it.isNotBlank() } ?: labelText
+        if (overlapSource.length >= 2 && responseNormalized.length >= 2) {
+            val responsePairs = responseNormalized.windowed(2, 1).toSet()
+            val tagPairs = overlapSource.windowed(2, 1).toSet()
+            if (responsePairs.isNotEmpty() && tagPairs.isNotEmpty()) {
+                val union = responsePairs.union(tagPairs).size.coerceAtLeast(1)
+                val intersect = responsePairs.intersect(tagPairs).size
+                score +=
+                        (intersect.toDouble() / union.toDouble()) *
+                                TAG_SCORE_NGRAM_JACCARD_WEIGHT
+            }
+        }
+
+        return score
+    }
+
+    private fun normalizeTagMatchText(raw: String): String {
+        return raw.lowercase()
+                .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+                .trim()
     }
 
     private fun openRelatedNote(item: AiNoteRepository.SemanticRelatedNote) {
@@ -1503,7 +1720,8 @@ class AiNoteDetailActivity : BaseActivity() {
             AiNoteDetailActivity.open(
                     this@AiNoteDetailActivity,
                     target.id,
-                    sourceNoteId = currentNote?.id
+                    sourceNoteId = currentNote?.id,
+                    linkDepth = (linkDepth + 1).coerceAtMost(MAX_BI_LINK_DEPTH)
             )
         }
     }
