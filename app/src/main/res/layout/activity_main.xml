@@ -91,12 +91,12 @@
                         app:strokeColor="@color/main_bar_stroke" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnProfile"
+                        android:id="@+id/btnSettings"
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="44dp"
                         android:layout_height="44dp"
                         android:layout_marginStart="8dp"
-                        android:contentDescription="@string/main_profile"
+                        android:contentDescription="@string/reader_settings"
                         android:insetLeft="0dp"
                         android:insetRight="0dp"
                         android:insetTop="0dp"
@@ -107,7 +107,7 @@
                         android:paddingEnd="0dp"
                         android:text=""
                         app:cornerRadius="14dp"
-                        app:icon="@drawable/ic_person"
+                        app:icon="@android:drawable/ic_menu_manage"
                         app:iconGravity="textStart"
                         app:iconPadding="0dp"
                         app:iconSize="20dp"

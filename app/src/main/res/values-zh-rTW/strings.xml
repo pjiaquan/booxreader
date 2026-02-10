@@ -109,6 +109,10 @@
     <string name="reader_settings_custom_export_label">自定義匯出 URL</string>
     <string name="reader_settings_local_export_checkbox">同時將 AI 筆記儲存為 JSON 到下載資料夾</string>
     <string name="reader_settings_test_export">測試匯出端點</string>
+    <string name="reader_settings_language_title">語言</string>
+    <string name="reader_settings_theme_title">閱讀主題</string>
+    <string name="reader_settings_user_profile">使用者設定檔</string>
+    <string name="reader_settings_ai_profiles">AI 設定檔</string>
     <string name="main_title">Boox Reader</string>
     <string name="main_subtitle">快速開啟最近閱讀的書籍或新增新的 EPUB</string>
     <string name="main_select_epub">選擇 EPUB</string>

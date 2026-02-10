@@ -35,6 +35,7 @@ import my.hinoki.booxreader.databinding.ActivityMainBinding
 import my.hinoki.booxreader.ui.auth.LoginActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.reader.ReaderActivity
+import my.hinoki.booxreader.ui.reader.ReaderSettingsActivity
 
 class MainActivity : BaseActivity() {
 
@@ -123,11 +124,7 @@ class MainActivity : BaseActivity() {
 
         binding.btnOpenEpub.setOnClickListener { pickEpub.launch(arrayOf("application/epub+zip")) }
 
-        binding.btnProfile.setOnClickListener {
-            startActivity(
-                    Intent(this, my.hinoki.booxreader.ui.auth.UserProfileActivity::class.java)
-            )
-        }
+        binding.btnSettings.setOnClickListener { ReaderSettingsActivity.open(this, null) }
 
         binding.recyclerRecent.layoutManager = LinearLayoutManager(this)
         binding.recyclerRecent.adapter = recentAdapter

@@ -3,8 +3,12 @@ package my.hinoki.booxreader.ui.reader
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.os.Build
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
@@ -16,7 +20,13 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.Gson
 import kotlinx.coroutines.launch
@@ -28,6 +38,7 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.ui.auth.UserProfileActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -66,6 +77,7 @@ class ReaderSettingsActivity : BaseActivity() {
         setContentView(R.layout.activity_reader_settings)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = getString(R.string.reader_settings_title)
+        applyFooterInsets()
 
         setupSettingsScreen()
     }
@@ -84,6 +96,8 @@ class ReaderSettingsActivity : BaseActivity() {
         val dialogView = findViewById<View>(R.id.settingsContent)
         val btnSettingsSave = findViewById<Button>(R.id.btnSettingsSave)
         val btnSettingsCancel = findViewById<Button>(R.id.btnSettingsCancel)
+        btnSettingsSave.isAllCaps = false
+        btnSettingsCancel.isAllCaps = false
 
         val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
         val btnSettingsShowBookmarks =
@@ -116,21 +130,63 @@ class ReaderSettingsActivity : BaseActivity() {
         val seekBarTextSize = dialogView.findViewById<SeekBar>(R.id.seekBarTextSize)
         val tvTextSizeValue = dialogView.findViewById<TextView>(R.id.tvTextSizeValue)
 
-        val layout =
-                (dialogView as? ViewGroup)?.getChildAt(0) as?
-                        LinearLayout
+        val layout = (dialogView as? ViewGroup)?.getChildAt(0) as? LinearLayout
 
-        val btnAiProfiles = Button(this).apply { text = "AI Profiles (Switch Model/API)" }
-        layout?.addView(btnAiProfiles, 2)
+        var topInsertIndex = 0
+        fun insertTop(view: View) {
+            layout?.addView(view, topInsertIndex)
+            topInsertIndex += 1
+        }
+
+        val languageTitle =
+                TextView(this).apply {
+                    text = getString(R.string.reader_settings_language_title)
+                    textSize = 16f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 16, 0, 8)
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        topMargin =
+                                                resources.getDimensionPixelSize(
+                                                        R.dimen.reader_settings_language_section_margin_top
+                                                )
+                                    }
+                }
+        insertTop(languageTitle)
+
+        val languageGroup =
+                android.widget.RadioGroup(this).apply {
+                    orientation = android.widget.RadioGroup.VERTICAL
+                }
+
+        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
+        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
+        val rbChinese =
+                android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
+        languageGroup.addView(rbSystem)
+        languageGroup.addView(rbEnglish)
+        languageGroup.addView(rbChinese)
+        insertTop(languageGroup)
+
+        val btnUserProfile =
+                Button(this).apply {
+                    text = getString(R.string.reader_settings_user_profile)
+                    isAllCaps = false
+                }
+        insertTop(btnUserProfile)
 
         val themeTitle =
                 TextView(this).apply {
-                    text = "Reading Theme / 閱讀主題"
+                    text = getString(R.string.reader_settings_theme_title)
                     textSize = 16f
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setPadding(0, 16, 0, 8)
                 }
-        layout?.addView(themeTitle, 3)
+        insertTop(themeTitle)
 
         val themeContainer =
                 LinearLayout(this).apply {
@@ -158,11 +214,13 @@ class ReaderSettingsActivity : BaseActivity() {
         val btnNormal =
                 Button(this).apply {
                     text = "Normal"
+                    isAllCaps = false
                     layoutParams =
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     setOnClickListener {
                         selectedContrastMode = ContrastMode.NORMAL
                         applySettingsPageTheme(dialogView, selectedContrastMode)
+                        applySettingsChrome(selectedContrastMode)
                         Toast.makeText(this@ReaderSettingsActivity, "Normal Mode", Toast.LENGTH_SHORT)
                                 .show()
                     }
@@ -170,11 +228,13 @@ class ReaderSettingsActivity : BaseActivity() {
         val btnDark =
                 Button(this).apply {
                     text = "Dark"
+                    isAllCaps = false
                     layoutParams =
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     setOnClickListener {
                         selectedContrastMode = ContrastMode.DARK
                         applySettingsPageTheme(dialogView, selectedContrastMode)
+                        applySettingsChrome(selectedContrastMode)
                         Toast.makeText(this@ReaderSettingsActivity, "Dark Mode", Toast.LENGTH_SHORT)
                                 .show()
                     }
@@ -182,11 +242,13 @@ class ReaderSettingsActivity : BaseActivity() {
         val btnSepia =
                 Button(this).apply {
                     text = "Sepia"
+                    isAllCaps = false
                     layoutParams =
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     setOnClickListener {
                         selectedContrastMode = ContrastMode.SEPIA
                         applySettingsPageTheme(dialogView, selectedContrastMode)
+                        applySettingsChrome(selectedContrastMode)
                         Toast.makeText(this@ReaderSettingsActivity, "Sepia Mode", Toast.LENGTH_SHORT)
                                 .show()
                     }
@@ -194,30 +256,14 @@ class ReaderSettingsActivity : BaseActivity() {
         themeContainer.addView(btnNormal)
         themeContainer.addView(btnDark)
         themeContainer.addView(btnSepia)
-        layout?.addView(themeContainer, 4)
+        insertTop(themeContainer)
 
-        val languageTitle =
-                TextView(this).apply {
-                    text = "Language / 語言"
-                    textSize = 16f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 16, 0, 8)
+        val btnAiProfiles =
+                Button(this).apply {
+                    text = getString(R.string.reader_settings_ai_profiles)
+                    isAllCaps = false
                 }
-        layout?.addView(languageTitle, 2)
-
-        val languageGroup =
-                android.widget.RadioGroup(this).apply {
-                    orientation = android.widget.RadioGroup.VERTICAL
-                }
-
-        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
-        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
-        val rbChinese =
-                android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
-        languageGroup.addView(rbSystem)
-        languageGroup.addView(rbEnglish)
-        languageGroup.addView(rbChinese)
-        layout?.addView(languageGroup, 3)
+        insertTop(btnAiProfiles)
 
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
         val readerSettings = ReaderSettings.fromPrefs(prefs)
@@ -325,6 +371,10 @@ class ReaderSettingsActivity : BaseActivity() {
             finish()
         }
 
+        btnUserProfile.setOnClickListener {
+            startActivity(Intent(this@ReaderSettingsActivity, UserProfileActivity::class.java))
+        }
+
         btnAiProfiles.setOnClickListener {
             my.hinoki.booxreader.ui.settings.AiProfileListActivity.open(this@ReaderSettingsActivity)
         }
@@ -352,6 +402,7 @@ class ReaderSettingsActivity : BaseActivity() {
         }
 
         applySettingsPageTheme(dialogView, selectedContrastMode)
+        applySettingsChrome(selectedContrastMode)
     }
 
     private fun saveSettings(
@@ -525,6 +576,131 @@ class ReaderSettingsActivity : BaseActivity() {
     private fun pushSettingsToCloud() {
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
         lifecycleScope.launch { syncRepo.pushSettings(ReaderSettings.fromPrefs(prefs)) }
+    }
+
+    private fun applyFooterInsets() {
+        val root = findViewById<View>(R.id.readerSettingsRoot)
+        val footer = findViewById<View>(R.id.settingsFooter)
+        val baseBottom = footer.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
+            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            footer.updatePadding(bottom = baseBottom + systemBars.bottom)
+            windowInsets
+        }
+        ViewCompat.requestApplyInsets(root)
+    }
+
+    private fun applySettingsChrome(mode: ContrastMode) {
+        val pageColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#F8F9FB")
+                    ContrastMode.DARK -> Color.parseColor("#0F1114")
+                    ContrastMode.SEPIA -> Color.parseColor("#F0E6D3")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val barColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#EEF1F5")
+                    ContrastMode.DARK -> Color.parseColor("#14181D")
+                    ContrastMode.SEPIA -> Color.parseColor("#E7D9BF")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val footerColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#F2F4F8")
+                    ContrastMode.DARK -> Color.parseColor("#12161A")
+                    ContrastMode.SEPIA -> Color.parseColor("#EBDDCA")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val dividerColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#D9DEE6")
+                    ContrastMode.DARK -> Color.parseColor("#2B3138")
+                    ContrastMode.SEPIA -> Color.parseColor("#CCBCA0")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+
+        findViewById<View>(R.id.readerSettingsRoot).setBackgroundColor(pageColor)
+        findViewById<View>(R.id.settingsFooter).setBackgroundColor(footerColor)
+        findViewById<View>(R.id.settingsFooterDivider).setBackgroundColor(dividerColor)
+        styleFooterButtons(mode)
+
+        supportActionBar?.setBackgroundDrawable(ColorDrawable(barColor))
+        applyActionBarContentColor(barColor)
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = barColor
+            window.navigationBarColor = footerColor
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        val useDarkIcons = ColorUtils.calculateLuminance(barColor) > 0.5
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = useDarkIcons
+            isAppearanceLightNavigationBars = ColorUtils.calculateLuminance(footerColor) > 0.5
+        }
+    }
+
+    private fun styleFooterButtons(mode: ContrastMode) {
+        val cancel = findViewById<Button>(R.id.btnSettingsCancel)
+        val save = findViewById<Button>(R.id.btnSettingsSave)
+        val cancelBackground: Int
+        val cancelText: Int
+        val saveBackground: Int
+        val saveText: Int
+        when (mode) {
+            ContrastMode.NORMAL -> {
+                cancelBackground = Color.parseColor("#E4E8EE")
+                cancelText = Color.parseColor("#1F2937")
+                saveBackground = Color.parseColor("#0A84FF")
+                saveText = Color.WHITE
+            }
+            ContrastMode.DARK -> {
+                cancelBackground = Color.parseColor("#2A3038")
+                cancelText = Color.parseColor("#E5E9F0")
+                saveBackground = Color.parseColor("#0A84FF")
+                saveText = Color.WHITE
+            }
+            ContrastMode.SEPIA -> {
+                cancelBackground = Color.parseColor("#D9C9AA")
+                cancelText = Color.parseColor("#4C392C")
+                saveBackground = Color.parseColor("#6E5635")
+                saveText = Color.parseColor("#FFF8E9")
+            }
+            ContrastMode.HIGH_CONTRAST -> {
+                cancelBackground = Color.parseColor("#222222")
+                cancelText = Color.WHITE
+                saveBackground = Color.WHITE
+                saveText = Color.BLACK
+            }
+        }
+        cancel.backgroundTintList = ColorStateList.valueOf(cancelBackground)
+        cancel.setTextColor(cancelText)
+        save.backgroundTintList = ColorStateList.valueOf(saveBackground)
+        save.setTextColor(saveText)
+    }
+
+    private fun applyActionBarContentColor(barColor: Int) {
+        val title = getString(R.string.reader_settings_title)
+        val contentColor =
+                if (ColorUtils.calculateLuminance(barColor) > 0.5) Color.BLACK else Color.WHITE
+
+        val styledTitle = SpannableString(title).apply {
+            setSpan(ForegroundColorSpan(contentColor), 0, length, 0)
+        }
+        supportActionBar?.title = styledTitle
+
+        val backDrawable =
+                AppCompatResources.getDrawable(this, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+                        ?.mutate()
+                        ?.let { drawable ->
+                            DrawableCompat.setTint(drawable, contentColor)
+                            drawable
+                        }
+        if (backDrawable != null) {
+            supportActionBar?.setHomeAsUpIndicator(backDrawable)
+        }
     }
 
     private fun showMagicTagManager() {

@@ -127,6 +127,10 @@
     <string name="reader_settings_custom_export_label">Custom export URL</string>
     <string name="reader_settings_local_export_checkbox">Also save AI notes to Downloads as JSON</string>
     <string name="reader_settings_test_export">Test export endpoint</string>
+    <string name="reader_settings_language_title">Language</string>
+    <string name="reader_settings_theme_title">Reading Theme</string>
+    <string name="reader_settings_user_profile">User Profile</string>
+    <string name="reader_settings_ai_profiles">AI Profiles</string>
     <string name="main_title">Boox Reader</string>
     <string name="main_subtitle">Quickly open recent books or add new EPUBs</string>
     <string name="main_select_epub">Select EPUB</string>
