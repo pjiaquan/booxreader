@@ -55,6 +55,9 @@ class AiNoteListActivity : BaseActivity() {
 
     companion object {
         private const val EXTRA_BOOK_ID = "extra_book_id"
+        private const val EXPORTING_SUBTITLE = "Exporting..."
+        private const val NOTE_TIME_FORMAT = "yyyy-MM-dd HH:mm"
+        private const val PREVIEW_MAX_LENGTH = 100
 
         fun open(context: Context, bookId: String?) {
             val intent = Intent(context, AiNoteListActivity::class.java).apply {
@@ -144,12 +147,7 @@ class AiNoteListActivity : BaseActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                if (selectionActionMode != null) {
-                    selectionActionMode?.finish()
-                } else {
-                    onBackPressedDispatcher.onBackPressed()
-                }
-                true
+                handleBackNavigation()
             }
             R.id.action_export_ai_notes -> {
                 requestExportAllNotes()
@@ -162,7 +160,7 @@ class AiNoteListActivity : BaseActivity() {
     private fun setExportInProgress(inProgress: Boolean) {
         isExportInProgress = inProgress
         applyBusyState()
-        supportActionBar?.subtitle = if (inProgress) "Exporting..." else null
+        supportActionBar?.subtitle = if (inProgress) EXPORTING_SUBTITLE else null
         applyActionBarContentColor(topBarContentColor)
         invalidateOptionsMenu()
     }
@@ -364,7 +362,8 @@ class AiNoteListActivity : BaseActivity() {
                 endIcon,
                 drawables[3]
         )
-        binding.etSemanticSearch.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
+        binding.etSemanticSearch.compoundDrawablePadding =
+                resources.getDimensionPixelSize(R.dimen.spacing_sm)
     }
 
     private fun isTouchOnSemanticClearIcon(event: MotionEvent): Boolean {
@@ -383,17 +382,11 @@ class AiNoteListActivity : BaseActivity() {
     private fun applyActionBarContentColor(contentColor: Int) {
         val actionTitle = supportActionBar?.title?.toString()?.takeIf { it.isNotBlank() } ?: title.toString()
         if (actionTitle.isNotBlank()) {
-            val styledTitle = SpannableString(actionTitle).apply {
-                setSpan(ForegroundColorSpan(contentColor), 0, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-            supportActionBar?.title = styledTitle
+            supportActionBar?.title = colorizeText(actionTitle, contentColor)
         }
         val actionSubtitle = supportActionBar?.subtitle?.toString().orEmpty()
         if (actionSubtitle.isNotBlank()) {
-            val styledSubtitle = SpannableString(actionSubtitle).apply {
-                setSpan(ForegroundColorSpan(contentColor), 0, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-            supportActionBar?.subtitle = styledSubtitle
+            supportActionBar?.subtitle = colorizeText(actionSubtitle, contentColor)
         }
         val backDrawable =
                 AppCompatResources.getDrawable(this, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
@@ -416,15 +409,7 @@ class AiNoteListActivity : BaseActivity() {
                     }
             val title = item.title?.toString().orEmpty()
             if (title.isNotBlank()) {
-                val styledTitle = SpannableString(title).apply {
-                    setSpan(
-                            ForegroundColorSpan(topBarContentColor),
-                            0,
-                            length,
-                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-                item.title = styledTitle
+                item.title = colorizeText(title, topBarContentColor)
             }
         }
     }
@@ -444,13 +429,7 @@ class AiNoteListActivity : BaseActivity() {
             semanticMetaByNoteId.clear()
             semanticQueryInEffect = null
             binding.tvSemanticSearchStatus.visibility = View.GONE
-            val validIds = notes.map { it.id }.toSet()
-            selectedNoteIds.retainAll(validIds)
-            if (selectedNoteIds.isEmpty()) {
-                selectionActionMode?.finish()
-            } else {
-                updateSelectionTitle()
-            }
+            syncSelectionWithVisibleNotes()
             adapter.notifyDataSetChanged()
         }
     }
@@ -474,63 +453,23 @@ class AiNoteListActivity : BaseActivity() {
                                 limit = 20,
                                 bookId = null
                         )
-                val matchedNotes = mutableListOf<AiNoteEntity>()
-                val seenIds = mutableSetOf<Long>()
-                semanticMetaByNoteId.clear()
-
-                suspend fun mapSemanticResultsToLocalNotes() {
-                    for (result in semanticResults) {
-                        val byLocalId = result.localId?.let { localId -> repo.getById(localId) }
-                        val byRemoteId =
-                                byLocalId
-                                        ?: result.remoteId?.let { remoteId ->
-                                            repo.getByRemoteId(remoteId)
-                                        }
-                        val byNoteId =
-                                byRemoteId
-                                        ?: result.noteId.toLongOrNull()?.let { id ->
-                                            repo.getById(id)
-                                        }
-                        val local = byNoteId ?: continue
-                        if (bookId != null && local.bookId != bookId) continue
-                        if (!seenIds.add(local.id)) continue
-                        matchedNotes.add(local)
-                        semanticMetaByNoteId[local.id] = result
-                    }
-                }
-
-                mapSemanticResultsToLocalNotes()
+                var matchedNotes = mapSemanticResultsToLocalNotes(semanticResults)
                 if (semanticResults.isNotEmpty() && matchedNotes.isEmpty()) {
                     // If remote semantic hits exist but local mapping is empty, refresh notes once.
                     runCatching { syncRepo.pullNotes() }
-                    mapSemanticResultsToLocalNotes()
+                    matchedNotes = mapSemanticResultsToLocalNotes(semanticResults)
                 }
 
                 notes = matchedNotes
-                val validIds = notes.map { it.id }.toSet()
-                selectedNoteIds.retainAll(validIds)
-                if (selectedNoteIds.isEmpty()) {
-                    selectionActionMode?.finish()
-                } else {
-                    updateSelectionTitle()
-                }
+                syncSelectionWithVisibleNotes()
                 adapter.notifyDataSetChanged()
 
-                binding.tvSemanticSearchStatus.visibility = View.VISIBLE
-                binding.tvSemanticSearchStatus.text =
-                        if (notes.isEmpty()) {
-                            getString(R.string.ai_note_semantic_search_status_none, query)
-                        } else {
-                            getString(
-                                    R.string.ai_note_semantic_search_status_results,
-                                    query,
-                                    notes.size
-                            )
-                        }
+                showSemanticSearchResultStatus(query, notes.size)
             } catch (e: Exception) {
                 semanticQueryInEffect = null
                 semanticMetaByNoteId.clear()
                 notes = allNotes
+                syncSelectionWithVisibleNotes()
                 adapter.notifyDataSetChanged()
                 binding.tvSemanticSearchStatus.visibility = View.GONE
                 Toast.makeText(
@@ -550,13 +489,7 @@ class AiNoteListActivity : BaseActivity() {
         semanticMetaByNoteId.clear()
         binding.etSemanticSearch.setText("")
         notes = allNotes
-        val validIds = notes.map { it.id }.toSet()
-        selectedNoteIds.retainAll(validIds)
-        if (selectedNoteIds.isEmpty()) {
-            selectionActionMode?.finish()
-        } else {
-            updateSelectionTitle()
-        }
+        syncSelectionWithVisibleNotes()
         binding.tvSemanticSearchStatus.visibility = View.GONE
         adapter.notifyDataSetChanged()
     }
@@ -575,21 +508,7 @@ class AiNoteListActivity : BaseActivity() {
     }
 
     private fun exportAllNotes() {
-        lifecycleScope.launch {
-            setExportInProgress(true)
-            val result = try {
-                repo.exportAllNotes(bookId ?: "")
-            } catch (e: Exception) {
-                ExportResult(
-                    success = false,
-                    exportedCount = 0,
-                    isEmpty = false,
-                    message = "Export failed: ${e.message ?: "Unknown error"}"
-                )
-            }
-            showExportResult(result)
-            setExportInProgress(false)
-        }
+        runExportWithProgress { repo.exportAllNotes(bookId ?: "") }
     }
 
     private fun requestExportSelectedNotes(noteIds: Set<Long>) {
@@ -606,21 +525,7 @@ class AiNoteListActivity : BaseActivity() {
     }
 
     private fun exportSelectedNotes(noteIds: Set<Long>) {
-        lifecycleScope.launch {
-            setExportInProgress(true)
-            val result = try {
-                repo.exportSelectedNotes(noteIds)
-            } catch (e: Exception) {
-                ExportResult(
-                        success = false,
-                        exportedCount = 0,
-                        isEmpty = false,
-                        message = "Export failed: ${e.message ?: "Unknown error"}"
-                )
-            }
-            showExportResult(result)
-            setExportInProgress(false)
-        }
+        runExportWithProgress { repo.exportSelectedNotes(noteIds) }
     }
 
     private fun showExportResult(result: ExportResult) {
@@ -799,7 +704,7 @@ class AiNoteListActivity : BaseActivity() {
                     messagesFallback.isNotEmpty() && messagesFallback != "[]" -> messagesFallback
                     else -> "(No Content)"
                 }
-        return mainText.replace("\n", " ").take(100)
+        return mainText.replace("\n", " ").take(PREVIEW_MAX_LENGTH)
     }
 
     private inner class NoteListAdapter : BaseAdapter() {
@@ -828,7 +733,7 @@ class AiNoteListActivity : BaseActivity() {
 
             val note = notes[position]
             holder.tvText.text = previewText(note)
-            holder.tvTime.text = DateFormat.format("yyyy-MM-dd HH:mm", note.createdAt).toString()
+            holder.tvTime.text = DateFormat.format(NOTE_TIME_FORMAT, note.createdAt).toString()
             holder.tvText.setTextColor(listTextColor)
             holder.tvTime.setTextColor(listSecondaryTextColor)
             val semantic = semanticMetaByNoteId[note.id]
@@ -866,18 +771,103 @@ class AiNoteListActivity : BaseActivity() {
         return !granted
     }
 
+    private fun colorizeText(text: String, color: Int): SpannableString {
+        return SpannableString(text).apply {
+            setSpan(
+                    ForegroundColorSpan(color),
+                    0,
+                    length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+    }
+
+    private fun syncSelectionWithVisibleNotes() {
+        val validIds = notes.asSequence().map { it.id }.toSet()
+        selectedNoteIds.retainAll(validIds)
+        if (selectedNoteIds.isEmpty()) {
+            selectionActionMode?.finish()
+        } else {
+            updateSelectionTitle()
+        }
+    }
+
+    private fun showSemanticSearchResultStatus(query: String, count: Int) {
+        binding.tvSemanticSearchStatus.visibility = View.VISIBLE
+        binding.tvSemanticSearchStatus.text =
+                if (count == 0) {
+                    getString(R.string.ai_note_semantic_search_status_none, query)
+                } else {
+                    getString(R.string.ai_note_semantic_search_status_results, query, count)
+                }
+    }
+
+    private suspend fun mapSemanticResultsToLocalNotes(
+            semanticResults: List<AiNoteRepository.SemanticRelatedNote>
+    ): MutableList<AiNoteEntity> {
+        val matchedNotes = mutableListOf<AiNoteEntity>()
+        val seenIds = mutableSetOf<Long>()
+        semanticMetaByNoteId.clear()
+        for (result in semanticResults) {
+            val local = resolveLocalNote(result) ?: continue
+            if (bookId != null && local.bookId != bookId) continue
+            if (!seenIds.add(local.id)) continue
+            matchedNotes.add(local)
+            semanticMetaByNoteId[local.id] = result
+        }
+        return matchedNotes
+    }
+
+    private suspend fun resolveLocalNote(
+            semanticResult: AiNoteRepository.SemanticRelatedNote
+    ): AiNoteEntity? {
+        val byLocalId = semanticResult.localId?.let { localId -> repo.getById(localId) }
+        val byRemoteId =
+                byLocalId
+                        ?: semanticResult.remoteId?.let { remoteId ->
+                            repo.getByRemoteId(remoteId)
+                        }
+        return byRemoteId
+                ?: semanticResult.noteId.toLongOrNull()?.let { id ->
+                    repo.getById(id)
+                }
+    }
+
+    private fun runExportWithProgress(exportOperation: suspend () -> ExportResult) {
+        lifecycleScope.launch {
+            setExportInProgress(true)
+            try {
+                val result =
+                        runCatching { exportOperation() }
+                                .getOrElse { e ->
+                                    ExportResult(
+                                            success = false,
+                                            exportedCount = 0,
+                                            isEmpty = false,
+                                            message =
+                                                    "Export failed: ${e.message ?: "Unknown error"}"
+                                    )
+                                }
+                showExportResult(result)
+            } finally {
+                setExportInProgress(false)
+            }
+        }
+    }
+
+    private fun handleBackNavigation(): Boolean {
+        if (selectionActionMode != null) {
+            selectionActionMode?.finish()
+        } else {
+            onBackPressedDispatcher.onBackPressed()
+        }
+        return true
+    }
+
     // Handle volume down button as back navigation
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         return when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                // Act as back button - return to previous activity
-                if (selectionActionMode != null) {
-                    selectionActionMode?.finish()
-                } else {
-                    onBackPressedDispatcher.onBackPressed()
-                }
-                true
-            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> handleBackNavigation()
             else -> super.onKeyDown(keyCode, event)
         }
     }

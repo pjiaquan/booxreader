@@ -9,10 +9,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="0dp"
-        android:paddingBottom="4dp">
+        android:paddingStart="@dimen/spacing_md"
+        android:paddingEnd="@dimen/spacing_md"
+        android:paddingBottom="@dimen/spacing_xs">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -33,7 +32,7 @@
                 android:id="@+id/btnSemanticSearch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="@dimen/spacing_sm"
                 android:text="@string/ai_note_semantic_search_button" />
         </LinearLayout>
 
@@ -41,7 +40,7 @@
             android:id="@+id/tvSemanticSearchStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/spacing_xs"
             android:textSize="12sp"
             android:visibility="gone" />
     </LinearLayout>
@@ -55,10 +54,8 @@
             android:id="@+id/listAiNotes"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp" />
+            android:paddingStart="@dimen/spacing_md"
+            android:paddingEnd="@dimen/spacing_md" />
 
         <ProgressBar
             android:id="@+id/progressBar"
