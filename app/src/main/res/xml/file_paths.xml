@@ -4,6 +4,9 @@
     <external-files-path
         name="books"
         path="books/" />
+    <external-files-path
+        name="updates"
+        path="updates/" />
 
     <!-- Cache directory for temporary book files -->
     <cache-path

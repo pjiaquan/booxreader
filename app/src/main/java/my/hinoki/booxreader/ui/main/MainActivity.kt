@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.TypedValue
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.AttrRes
@@ -21,6 +22,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.core.ErrorReporter
@@ -75,12 +77,27 @@ class MainActivity : BaseActivity() {
                     showPermissionRationale()
                 }
             }
+    private val requestInstallUnknownAppsLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                val file = pendingUpdateApkFile ?: return@registerForActivityResult
+                if (canInstallUnknownApps()) {
+                    launchApkInstaller(file)
+                } else {
+                    android.widget.Toast.makeText(
+                                    this,
+                                    R.string.update_install_permission_required,
+                                    android.widget.Toast.LENGTH_LONG
+                            )
+                            .show()
+                }
+            }
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
     }
 
     private var pendingManualSyncAfterPermission = false
+    private var pendingUpdateApkFile: File? = null
 
     private fun startManualSync() {
         performFullSync()
@@ -564,7 +581,7 @@ class MainActivity : BaseActivity() {
     }
 
     private fun downloadAndInstallUpdate(release: GitHubRelease) {
-        val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
+        val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
         if (apkAsset == null) {
             // Fallback to browser if no APK asset found
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl))
@@ -583,7 +600,23 @@ class MainActivity : BaseActivity() {
 
             val file = updateRepository.downloadApk(apkAsset.downloadUrl, apkAsset.name)
             if (file != null) {
-                updateRepository.installApk(file)
+                pendingUpdateApkFile = file
+                if (canInstallUnknownApps()) {
+                    launchApkInstaller(file)
+                } else {
+                    val intent =
+                            Intent(
+                                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                            Uri.parse("package:$packageName")
+                                    )
+                    android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    R.string.update_install_permission_required,
+                                    android.widget.Toast.LENGTH_LONG
+                            )
+                            .show()
+                    requestInstallUnknownAppsLauncher.launch(intent)
+                }
             } else {
                 android.widget.Toast.makeText(
                                 this@MainActivity,
@@ -593,5 +626,25 @@ class MainActivity : BaseActivity() {
                         .show()
             }
         }
+    }
+
+    private fun canInstallUnknownApps(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    private fun launchApkInstaller(file: File) {
+        runCatching { updateRepository.installApk(file) }
+                .onFailure {
+                    android.widget.Toast.makeText(
+                                    this,
+                                    R.string.update_install_launch_failed,
+                                    android.widget.Toast.LENGTH_SHORT
+                            )
+                            .show()
+                }
     }
 }

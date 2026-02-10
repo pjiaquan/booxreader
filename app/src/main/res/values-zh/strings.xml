@@ -183,4 +183,6 @@
     <string name="update_action_later">稍後</string>
     <string name="update_downloading">正在下載更新...</string>
     <string name="update_download_failed">下載失敗</string>
+    <string name="update_install_permission_required">請先允許 BooxReader 安裝未知應用，再返回繼續安裝。</string>
+    <string name="update_install_launch_failed">無法開啟安裝程式</string>
 </resources>
