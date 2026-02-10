@@ -39,10 +39,14 @@ import android.os.Build
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
+import android.text.Editable
 import android.widget.BaseAdapter
 import android.text.Spannable
 import android.text.SpannableString
+import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
+import android.view.MotionEvent
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.DrawableCompat
 import kotlin.math.roundToInt
@@ -76,6 +80,7 @@ class AiNoteListActivity : BaseActivity() {
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
     private var topBarContentColor: Int = Color.WHITE
+    private var semanticClearDrawable: Drawable? = null
     private var notes: List<AiNoteEntity> = emptyList()
     private var allNotes: List<AiNoteEntity> = emptyList()
     private var semanticQueryInEffect: String? = null
@@ -165,8 +170,8 @@ class AiNoteListActivity : BaseActivity() {
     private fun setSemanticSearchInProgress(inProgress: Boolean) {
         isSemanticSearchInProgress = inProgress
         binding.btnSemanticSearch.isEnabled = !inProgress
-        binding.btnSemanticSearchClear.isEnabled = !inProgress
         binding.etSemanticSearch.isEnabled = !inProgress
+        updateSemanticSearchClearIcon()
         applyBusyState()
     }
 
@@ -200,7 +205,6 @@ class AiNoteListActivity : BaseActivity() {
 
     private fun setupSemanticSearch() {
         binding.btnSemanticSearch.setOnClickListener { submitSemanticSearch() }
-        binding.btnSemanticSearchClear.setOnClickListener { clearSemanticSearch() }
         binding.etSemanticSearch.setOnEditorActionListener { _, actionId, event ->
             val shouldSearch =
                     actionId == EditorInfo.IME_ACTION_SEARCH ||
@@ -214,6 +218,36 @@ class AiNoteListActivity : BaseActivity() {
                 false
             }
         }
+        binding.etSemanticSearch.addTextChangedListener(
+                object : TextWatcher {
+                    override fun beforeTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            count: Int,
+                            after: Int
+                    ) = Unit
+
+                    override fun onTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            before: Int,
+                            count: Int
+                    ) {
+                        updateSemanticSearchClearIcon()
+                    }
+
+                    override fun afterTextChanged(s: Editable?) = Unit
+                }
+        )
+        binding.etSemanticSearch.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP && isTouchOnSemanticClearIcon(event)) {
+                clearSemanticSearch()
+                true
+            } else {
+                false
+            }
+        }
+        updateSemanticSearchClearIcon()
     }
 
     private fun applyThemeFromSettings() {
@@ -269,7 +303,8 @@ class AiNoteListActivity : BaseActivity() {
                 ColorUtils.setAlphaComponent(listTextColor, hintTextAlpha)
         )
         binding.btnSemanticSearch.setTextColor(listTextColor)
-        binding.btnSemanticSearchClear.imageTintList = ColorStateList.valueOf(listTextColor)
+        semanticClearDrawable = createSemanticClearDrawable(listTextColor)
+        updateSemanticSearchClearIcon()
         binding.tvSemanticSearchStatus.setTextColor(listSecondaryTextColor)
         supportActionBar?.setBackgroundDrawable(ColorDrawable(topBarColor))
         applyActionBarContentColor(topBarContentColor)
@@ -296,6 +331,53 @@ class AiNoteListActivity : BaseActivity() {
 
         applySelectionBarTheme()
         adapter.notifyDataSetChanged()
+    }
+
+    private fun createSemanticClearDrawable(color: Int): Drawable? {
+        val icon =
+                AppCompatResources.getDrawable(
+                                this,
+                                androidx.appcompat.R.drawable.abc_ic_clear_material
+                        )
+                        ?.mutate()
+                        ?: AppCompatResources.getDrawable(
+                                        this,
+                                        android.R.drawable.ic_menu_close_clear_cancel
+                                )
+                                ?.mutate()
+        if (icon != null) {
+            DrawableCompat.setTint(icon, ColorUtils.setAlphaComponent(color, 220))
+        }
+        return icon
+    }
+
+    private fun updateSemanticSearchClearIcon() {
+        val endIcon =
+                if (binding.etSemanticSearch.isEnabled &&
+                                binding.etSemanticSearch.text?.isNotEmpty() == true
+                ) semanticClearDrawable
+                else null
+        val drawables = binding.etSemanticSearch.compoundDrawablesRelative
+        binding.etSemanticSearch.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                drawables[0],
+                drawables[1],
+                endIcon,
+                drawables[3]
+        )
+        binding.etSemanticSearch.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
+    }
+
+    private fun isTouchOnSemanticClearIcon(event: MotionEvent): Boolean {
+        val drawables = binding.etSemanticSearch.compoundDrawablesRelative
+        val endDrawable = drawables[2] ?: return false
+        val iconWidth = endDrawable.bounds.width()
+        if (iconWidth <= 0) return false
+        val isRtl = binding.etSemanticSearch.layoutDirection == View.LAYOUT_DIRECTION_RTL
+        return if (isRtl) {
+            event.x <= binding.etSemanticSearch.paddingStart + iconWidth
+        } else {
+            event.x >= binding.etSemanticSearch.width - binding.etSemanticSearch.paddingEnd - iconWidth
+        }
     }
 
     private fun applyActionBarContentColor(contentColor: Int) {
