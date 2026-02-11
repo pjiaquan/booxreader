@@ -230,4 +230,6 @@
     <string name="update_download_failed">Download failed</string>
     <string name="update_install_permission_required">Allow installing unknown apps for BooxReader, then return to continue installation.</string>
     <string name="update_install_launch_failed">Could not open installer</string>
+    <string name="update_install_success">Updated to version %1$s</string>
+    <string name="update_install_failed_or_cancelled">Update was not installed</string>
 </resources>

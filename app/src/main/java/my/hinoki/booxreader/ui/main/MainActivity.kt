@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.core.ErrorReporter
@@ -81,8 +82,9 @@ class MainActivity : BaseActivity() {
     private val requestInstallUnknownAppsLauncher =
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                 val file = pendingUpdateApkFile ?: return@registerForActivityResult
+                val targetTagName = pendingUpdateTagName ?: return@registerForActivityResult
                 if (canInstallUnknownApps()) {
-                    launchApkInstaller(file)
+                    launchApkInstaller(file, targetTagName)
                 } else {
                     android.widget.Toast.makeText(
                                     this,
@@ -92,13 +94,38 @@ class MainActivity : BaseActivity() {
                             .show()
                 }
             }
+    private val installApkLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                val pendingVersion =
+                        getPendingUpdateTargetVersion() ?: return@registerForActivityResult
+                if (isCurrentVersionAtLeast(pendingVersion)) {
+                    android.widget.Toast.makeText(
+                                    this,
+                                    getString(R.string.update_install_success, pendingVersion),
+                                    android.widget.Toast.LENGTH_LONG
+                            )
+                            .show()
+                } else {
+                    android.widget.Toast.makeText(
+                                    this,
+                                    R.string.update_install_failed_or_cancelled,
+                                    android.widget.Toast.LENGTH_SHORT
+                            )
+                            .show()
+                }
+                clearPendingUpdateTargetVersion()
+            }
 
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
+        private const val UPDATE_STATUS_PREFS = "update_status"
+        private const val KEY_PENDING_UPDATE_TARGET_VERSION = "pending_update_target_version"
     }
 
     private var pendingManualSyncAfterPermission = false
     private var pendingUpdateApkFile: File? = null
+    private var pendingUpdateTagName: String? = null
+    private val updateStatusPrefs by lazy { getSharedPreferences(UPDATE_STATUS_PREFS, MODE_PRIVATE) }
 
     private fun startManualSync() {
         performFullSync()
@@ -137,6 +164,7 @@ class MainActivity : BaseActivity() {
 
         // setupManualSyncOnScroll() // Removed in favor of SwipeRefreshLayout
 
+        reportPendingUpdateResultIfNeeded()
         checkForUpdates()
     }
 
@@ -587,6 +615,7 @@ class MainActivity : BaseActivity() {
         }
 
         lifecycleScope.launch {
+            pendingUpdateTagName = release.tagName
             val toast =
                     android.widget.Toast.makeText(
                             this@MainActivity,
@@ -599,7 +628,7 @@ class MainActivity : BaseActivity() {
             if (file != null) {
                 pendingUpdateApkFile = file
                 if (canInstallUnknownApps()) {
-                    launchApkInstaller(file)
+                    launchApkInstaller(file, release.tagName)
                 } else {
                     val intent =
                             Intent(
@@ -615,6 +644,7 @@ class MainActivity : BaseActivity() {
                     requestInstallUnknownAppsLauncher.launch(intent)
                 }
             } else {
+                pendingUpdateTagName = null
                 android.widget.Toast.makeText(
                                 this@MainActivity,
                                 R.string.update_download_failed,
@@ -633,9 +663,13 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    private fun launchApkInstaller(file: File) {
-        runCatching { updateRepository.installApk(file) }
+    private fun launchApkInstaller(file: File, tagName: String) {
+        runCatching {
+                    rememberPendingUpdateTargetVersion(tagName)
+                    installApkLauncher.launch(updateRepository.createInstallIntent(file))
+                }
                 .onFailure {
+                    clearPendingUpdateTargetVersion()
                     android.widget.Toast.makeText(
                                     this,
                                     R.string.update_install_launch_failed,
@@ -643,5 +677,73 @@ class MainActivity : BaseActivity() {
                             )
                             .show()
                 }
+    }
+
+    private fun reportPendingUpdateResultIfNeeded() {
+        val pendingVersion = getPendingUpdateTargetVersion() ?: return
+        if (isCurrentVersionAtLeast(pendingVersion)) {
+            android.widget.Toast.makeText(
+                            this,
+                            getString(R.string.update_install_success, pendingVersion),
+                            android.widget.Toast.LENGTH_LONG
+                    )
+                    .show()
+        } else {
+            android.widget.Toast.makeText(
+                            this,
+                            R.string.update_install_failed_or_cancelled,
+                            android.widget.Toast.LENGTH_SHORT
+                    )
+                    .show()
+        }
+        clearPendingUpdateTargetVersion()
+    }
+
+    private fun rememberPendingUpdateTargetVersion(tagName: String) {
+        val normalized = normalizeVersion(tagName)
+        updateStatusPrefs.edit().putString(KEY_PENDING_UPDATE_TARGET_VERSION, normalized).apply()
+    }
+
+    private fun getPendingUpdateTargetVersion(): String? {
+        return updateStatusPrefs.getString(KEY_PENDING_UPDATE_TARGET_VERSION, null)
+    }
+
+    private fun clearPendingUpdateTargetVersion() {
+        updateStatusPrefs.edit().remove(KEY_PENDING_UPDATE_TARGET_VERSION).apply()
+        pendingUpdateApkFile = null
+        pendingUpdateTagName = null
+    }
+
+    private fun isCurrentVersionAtLeast(targetVersion: String): Boolean {
+        return compareVersions(BuildConfig.VERSION_NAME, targetVersion) >= 0
+    }
+
+    private fun compareVersions(left: String, right: String): Int {
+        val leftParts = parseVersionParts(left)
+        val rightParts = parseVersionParts(right)
+
+        if (leftParts != null && rightParts != null) {
+            val maxParts = maxOf(leftParts.size, rightParts.size)
+            for (index in 0 until maxParts) {
+                val leftPart = leftParts.getOrElse(index) { 0 }
+                val rightPart = rightParts.getOrElse(index) { 0 }
+                if (leftPart != rightPart) {
+                    return leftPart.compareTo(rightPart)
+                }
+            }
+            return 0
+        }
+
+        return normalizeVersion(left).compareTo(normalizeVersion(right))
+    }
+
+    private fun parseVersionParts(version: String): List<Int>? {
+        return normalizeVersion(version).split(".").map { part ->
+            part.takeWhile { it.isDigit() }.toIntOrNull() ?: return null
+        }
+    }
+
+    private fun normalizeVersion(version: String): String {
+        return version.removePrefix("v").trim()
     }
 }

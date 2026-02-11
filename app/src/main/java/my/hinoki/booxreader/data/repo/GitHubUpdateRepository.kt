@@ -91,7 +91,7 @@ class GitHubUpdateRepository(private val context: Context) {
                 }
             }
 
-    fun installApk(file: File) {
+    fun createInstallIntent(file: File): Intent {
         val uri =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -99,11 +99,9 @@ class GitHubUpdateRepository(private val context: Context) {
                     Uri.fromFile(file)
                 }
 
-        val intent =
-                Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "application/vnd.android.package-archive")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                }
-        context.startActivity(intent)
+        return Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        }
     }
 }
