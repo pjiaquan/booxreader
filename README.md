@@ -2,7 +2,6 @@
 
 Private EPUB reader for Android with resilient cloud sync and AI-linked notes, tuned for e-ink devices (Boox).
 
-[Google Play](https://play.google.com/store/apps/details?id=my.hinoki.booxreader) ·
 [GitHub Releases (APK)](https://github.com/pjiaquan/booxreader/releases) ·
 [Privacy Policy](docs/privacy.html)
 
