@@ -64,6 +64,8 @@ class UserSyncRepository(
         private companion object {
                 val BOOK_FILE_FIELD_CANDIDATES =
                         listOf("bookFile", "file", "epubFile", "epub", "asset", "book")
+                val MAIL_QUEUE_COLLECTION_CANDIDATES =
+                        listOf("mail_queue", "email_queue", "outbox_emails")
         }
 
         private val appContext = context.applicationContext
@@ -131,6 +133,148 @@ class UserSyncRepository(
                 return cachedUserId
         }
 
+        /**
+         * Send AI daily summary email through PocketBase.
+         *
+         * Strategy:
+         * 1) Try PocketBase direct mail endpoint (/api/mails/send).
+         * 2) Fallback to inserting a record into a mail queue collection for server-side hooks.
+         */
+        suspend fun sendDailySummaryEmail(
+                toEmail: String,
+                subject: String,
+                body: String
+        ): CheckResult =
+                withContext(io) {
+                        val email = toEmail.trim()
+                        if (email.isBlank()) {
+                                return@withContext CheckResult(false, "Missing recipient email")
+                        }
+                        val userId =
+                                getUserId()
+                                        ?: return@withContext CheckResult(
+                                                false,
+                                                "No logged in user"
+                                        )
+
+                        val contentType = "application/json; charset=utf-8".toMediaType()
+                        var lastError: String? = null
+                        var directStatusCode: Int? = null
+                        val queueStatusCodes = mutableListOf<Int>()
+
+                        // Strategy 1: PocketBase direct mail API (usually requires elevated access).
+                        runCatching {
+                                        val htmlBody =
+                                                "<pre style=\"white-space:pre-wrap;font-family:monospace;\">${escapeHtmlForEmail(body)}</pre>"
+                                        val payload =
+                                                gson.toJson(
+                                                        mapOf(
+                                                                "to" to listOf(email),
+                                                                "subject" to subject,
+                                                                "html" to htmlBody,
+                                                                "text" to body
+                                                        )
+                                                )
+                                        val request =
+                                                buildAuthenticatedRequest(
+                                                                "$pocketBaseUrl/api/mails/send"
+                                                        )
+                                                        .post(payload.toRequestBody(contentType))
+                                                        .build()
+                                        httpClient.newCall(request).execute().use { response ->
+                                                val responseBody =
+                                                        response.body?.string()?.trim().orEmpty()
+                                                directStatusCode = response.code
+                                                if (response.isSuccessful) {
+                                                        return@withContext CheckResult(true, null)
+                                                }
+                                                lastError =
+                                                        "direct mail failed (${response.code})"
+                                                if (responseBody.isNotEmpty()) {
+                                                        lastError += ": $responseBody"
+                                                }
+                                        }
+                                }
+                                .onFailure {
+                                        lastError =
+                                                it.message?.takeIf { message ->
+                                                        message.isNotBlank()
+                                                }
+                                                        ?: "direct mail request failed"
+                                }
+
+                        // Strategy 2: queue record for PocketBase hook/automation mail dispatch.
+                        for (collection in MAIL_QUEUE_COLLECTION_CANDIDATES) {
+                                val queuePayload =
+                                        gson.toJson(
+                                                mapOf(
+                                                        "user" to userId,
+                                                        "toEmail" to email,
+                                                        "subject" to subject,
+                                                        "body" to body,
+                                                        "category" to "ai_note_daily_summary",
+                                                        "createdAt" to System.currentTimeMillis()
+                                                )
+                                        )
+                                val queueRequest =
+                                        try {
+                                                buildAuthenticatedRequest(
+                                                                "$pocketBaseUrl/api/collections/$collection/records"
+                                                        )
+                                                        .post(queuePayload.toRequestBody(contentType))
+                                                        .build()
+                                        } catch (e: Exception) {
+                                                lastError = e.message ?: "queue request build failed"
+                                                continue
+                                        }
+
+                                try {
+                                        httpClient.newCall(queueRequest).execute().use { response ->
+                                                val responseBody =
+                                                        response.body?.string()?.trim().orEmpty()
+                                                queueStatusCodes += response.code
+                                                if (response.isSuccessful) {
+                                                        return@withContext CheckResult(
+                                                                true,
+                                                                "queued via $collection"
+                                                        )
+                                                }
+                                                lastError =
+                                                        "queue $collection failed (${response.code})"
+                                                if (responseBody.isNotEmpty()) {
+                                                        lastError += ": $responseBody"
+                                                }
+                                        }
+                                } catch (e: Exception) {
+                                        lastError =
+                                                e.message?.takeIf { message ->
+                                                        message.isNotBlank()
+                                                }
+                                                        ?: "queue $collection request failed"
+                                }
+                        }
+
+                        val setupHint =
+                                when {
+                                        directStatusCode == 401 || directStatusCode == 403 ->
+                                                "PocketBase /api/mails/send requires admin permission. Use mail_queue hook mode."
+                                        directStatusCode == 404 &&
+                                                queueStatusCodes.all { it == 404 } &&
+                                                queueStatusCodes.isNotEmpty() ->
+                                                "PocketBase mail endpoint and queue collections are missing. Create mail_queue/email_queue/outbox_emails with a send hook."
+                                        queueStatusCodes.isNotEmpty() &&
+                                                queueStatusCodes.all { it == 404 } ->
+                                                "Queue collection not found. Create mail_queue/email_queue/outbox_emails in PocketBase."
+                                        else -> null
+                                }
+
+                        CheckResult(
+                                false,
+                                (setupHint ?: lastError)
+                                        ?: "PocketBase mail failed; /api/mails/send and mail_queue endpoints unavailable"
+                        )
+                }
+
         /** Build an authenticated request with PocketBase auth token. */
         private suspend fun buildAuthenticatedRequest(url: String): Request.Builder {
                 val token = tokenManager.getAccessToken() ?: ""
@@ -186,6 +330,13 @@ class UserSyncRepository(
                         }
         }
 
+        private fun escapeHtmlForEmail(raw: String): String {
+                return raw
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+        }
+
         /** Parse settings from PocketBase JSON response. */
         private fun parseSettingsFromJson(
                 json: Map<String, Any>,
@@ -216,6 +367,14 @@ class UserSyncRepository(
                         useStreaming = json["useStreaming"] as? Boolean ?: false,
                         pageAnimationEnabled = json["pageAnimationEnabled"] as? Boolean ?: false,
                         showPageIndicator = json["showPageIndicator"] as? Boolean ?: true,
+                        autoCheckUpdates = prefs.getBoolean("auto_check_updates", true),
+                        dailySummaryEmailEnabled =
+                                json["dailySummaryEmailEnabled"] as? Boolean ?: false,
+                        dailySummaryEmailHour = (json["dailySummaryEmailHour"] as? Double)?.toInt()
+                                        ?: 21,
+                        dailySummaryEmailMinute =
+                                (json["dailySummaryEmailMinute"] as? Double)?.toInt() ?: 0,
+                        dailySummaryEmailTo = json["dailySummaryEmailTo"] as? String ?: "",
                         language = json["language"] as? String ?: "system",
                         activeProfileId = longValue(json["activeProfileId"]).takeIf { it != 0L } ?: -1L,
                         updatedAt = longValue(json["updatedAt"]).takeIf { it > 0L }
@@ -347,6 +506,14 @@ class UserSyncRepository(
                                                 "pageAnimationEnabled" to
                                                         settings.pageAnimationEnabled,
                                                 "showPageIndicator" to settings.showPageIndicator,
+                                                "dailySummaryEmailEnabled" to
+                                                        settings.dailySummaryEmailEnabled,
+                                                "dailySummaryEmailHour" to
+                                                        settings.dailySummaryEmailHour.coerceIn(0, 23),
+                                                "dailySummaryEmailMinute" to
+                                                        settings.dailySummaryEmailMinute.coerceIn(0, 59),
+                                                "dailySummaryEmailTo" to
+                                                        settings.dailySummaryEmailTo.trim(),
                                                 "language" to settings.language,
                                                 "activeProfileId" to settings.activeProfileId,
                                                 "updatedAt" to System.currentTimeMillis()

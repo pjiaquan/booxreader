@@ -94,7 +94,8 @@
         <activity
             android:name="my.hinoki.booxreader.ui.auth.UserProfileActivity"
             android:exported="false"
-            android:label="Profile" />
+            android:label="@string/reader_settings_user_profile"
+            android:theme="@style/AppTheme.ActionBar" />
 
         <activity
             android:name="my.hinoki.booxreader.ui.settings.AiProfileListActivity"

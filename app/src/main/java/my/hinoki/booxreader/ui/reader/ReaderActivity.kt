@@ -48,6 +48,7 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.reader.ReaderViewModel
+import my.hinoki.booxreader.data.reader.DailyReadingStats
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
@@ -108,6 +109,7 @@ class ReaderActivity : BaseActivity() {
     private var currentBookId: String? = null
     private var pendingLocatorFromIntent: Locator? = null
     private var searchJob: Job? = null
+    private var readingSessionStartMs: Long = 0L
 
     // Activity local state for UI interaction
     private var pageTapEnabled: Boolean = true
@@ -512,10 +514,6 @@ class ReaderActivity : BaseActivity() {
         super.onStart()
     }
 
-    override fun onStop() {
-        super.onStop()
-    }
-
     override fun onDestroy() {
         super.onDestroy()
     }
@@ -528,11 +526,28 @@ class ReaderActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (readingSessionStartMs <= 0L) {
+            readingSessionStartMs = System.currentTimeMillis()
+        }
     }
 
     override fun onPause() {
         super.onPause()
+        flushReadingSession()
         saveCurrentProgressImmediate()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        flushReadingSession()
+    }
+
+    private fun flushReadingSession() {
+        val start = readingSessionStartMs
+        if (start <= 0L) return
+        val end = System.currentTimeMillis()
+        DailyReadingStats.addSession(applicationContext, start, end)
+        readingSessionStartMs = 0L
     }
 
     private fun saveCurrentProgressImmediate() {

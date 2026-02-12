@@ -6,4 +6,9 @@
         android:id="@+id/action_export_ai_notes"
         android:title="@string/action_export_all"
         app:showAsAction="ifRoom|withText" />
+
+    <item
+        android:id="@+id/action_email_daily_summary"
+        android:title="@string/action_email_daily_summary"
+        app:showAsAction="never" />
 </menu>

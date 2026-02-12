@@ -3,6 +3,7 @@ package my.hinoki.booxreader.ui.reader
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.app.TimePickerDialog
 import android.os.Build
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -10,6 +11,7 @@ import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Log
+import android.util.Patterns
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -38,6 +40,7 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import my.hinoki.booxreader.ui.auth.UserProfileActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -123,6 +126,20 @@ class ReaderSettingsActivity : BaseActivity() {
                 dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
                         R.id.switchPageIndicator
                 )
+        val switchAutoCheckUpdates =
+                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+                        R.id.switchAutoCheckUpdates
+                )
+        val switchDailySummaryEmail =
+                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+                        R.id.switchDailySummaryEmail
+                )
+        val tvDailySummaryTimeValue =
+                dialogView.findViewById<TextView>(R.id.tvDailySummaryTimeValue)
+        val btnDailySummaryPickTime =
+                dialogView.findViewById<Button>(R.id.btnDailySummaryPickTime)
+        val etDailySummaryEmailTo =
+                dialogView.findViewById<EditText>(R.id.etDailySummaryEmailTo)
         val switchConvertChinese =
                 dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
                         R.id.switchConvertChinese
@@ -267,6 +284,8 @@ class ReaderSettingsActivity : BaseActivity() {
 
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
         val readerSettings = ReaderSettings.fromPrefs(prefs)
+        var selectedDailySummaryHour = readerSettings.dailySummaryEmailHour.coerceIn(0, 23)
+        var selectedDailySummaryMinute = readerSettings.dailySummaryEmailMinute.coerceIn(0, 59)
         selectedContrastMode =
                 ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
 
@@ -282,6 +301,9 @@ class ReaderSettingsActivity : BaseActivity() {
         switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
         switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
         switchPageIndicator.isChecked = readerSettings.showPageIndicator
+        switchAutoCheckUpdates.isChecked = readerSettings.autoCheckUpdates
+        switchDailySummaryEmail.isChecked = readerSettings.dailySummaryEmailEnabled
+        etDailySummaryEmailTo.setText(readerSettings.dailySummaryEmailTo)
         switchConvertChinese.isChecked = readerSettings.convertToTraditionalChinese
         cbCustomExport.isChecked = readerSettings.exportToCustomUrl
         etCustomExportUrl.setText(readerSettings.exportCustomUrl)
@@ -289,6 +311,38 @@ class ReaderSettingsActivity : BaseActivity() {
         cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
         seekBarTextSize.progress = readerSettings.textSize - 50
         tvTextSizeValue.text = "${readerSettings.textSize}%"
+        tvDailySummaryTimeValue.text =
+                formatTimeOfDay(selectedDailySummaryHour, selectedDailySummaryMinute)
+
+        fun applyDailySummaryControlsState() {
+            val enabled = switchDailySummaryEmail.isChecked
+            tvDailySummaryTimeValue.alpha = if (enabled) 1f else 0.6f
+            btnDailySummaryPickTime.isEnabled = enabled
+            etDailySummaryEmailTo.isEnabled = enabled
+        }
+        applyDailySummaryControlsState()
+
+        switchDailySummaryEmail.setOnCheckedChangeListener { _, _ ->
+            applyDailySummaryControlsState()
+        }
+        btnDailySummaryPickTime.setOnClickListener {
+            TimePickerDialog(
+                            this,
+                            { _, hourOfDay, minute ->
+                                selectedDailySummaryHour = hourOfDay
+                                selectedDailySummaryMinute = minute
+                                tvDailySummaryTimeValue.text =
+                                        formatTimeOfDay(
+                                                selectedDailySummaryHour,
+                                                selectedDailySummaryMinute
+                                        )
+                            },
+                            selectedDailySummaryHour,
+                            selectedDailySummaryMinute,
+                            true
+                    )
+                    .show()
+        }
 
         seekBarTextSize.setOnSeekBarChangeListener(
                 object : SeekBar.OnSeekBarChangeListener {
@@ -393,6 +447,11 @@ class ReaderSettingsActivity : BaseActivity() {
                     switchPageSwipe = switchPageSwipe,
                     switchPageAnimation = switchPageAnimation,
                     switchPageIndicator = switchPageIndicator,
+                    switchAutoCheckUpdates = switchAutoCheckUpdates,
+                    switchDailySummaryEmail = switchDailySummaryEmail,
+                    dailySummaryHour = selectedDailySummaryHour,
+                    dailySummaryMinute = selectedDailySummaryMinute,
+                    etDailySummaryEmailTo = etDailySummaryEmailTo,
                     switchConvertChinese = switchConvertChinese,
                     cbCustomExport = cbCustomExport,
                     etCustomExportUrl = etCustomExportUrl,
@@ -417,6 +476,11 @@ class ReaderSettingsActivity : BaseActivity() {
             switchPageSwipe: androidx.appcompat.widget.SwitchCompat,
             switchPageAnimation: androidx.appcompat.widget.SwitchCompat,
             switchPageIndicator: androidx.appcompat.widget.SwitchCompat,
+            switchAutoCheckUpdates: androidx.appcompat.widget.SwitchCompat,
+            switchDailySummaryEmail: androidx.appcompat.widget.SwitchCompat,
+            dailySummaryHour: Int,
+            dailySummaryMinute: Int,
+            etDailySummaryEmailTo: EditText,
             switchConvertChinese: androidx.appcompat.widget.SwitchCompat,
             cbCustomExport: CheckBox,
             etCustomExportUrl: EditText,
@@ -429,6 +493,9 @@ class ReaderSettingsActivity : BaseActivity() {
         val newPageSwipe = switchPageSwipe.isChecked
         val newPageAnimation = switchPageAnimation.isChecked
         val newShowPageIndicator = switchPageIndicator.isChecked
+        val newAutoCheckUpdates = switchAutoCheckUpdates.isChecked
+        val newDailySummaryEmailEnabled = switchDailySummaryEmail.isChecked
+        val newDailySummaryEmailTo = etDailySummaryEmailTo.text.toString().trim()
         val newConvertChinese = switchConvertChinese.isChecked
         val useCustomExport = cbCustomExport.isChecked
         val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
@@ -453,6 +520,12 @@ class ReaderSettingsActivity : BaseActivity() {
             Toast.makeText(this, "Custom export URL is invalid", Toast.LENGTH_SHORT).show()
             return
         }
+        if (newDailySummaryEmailTo.isNotEmpty() &&
+                        !Patterns.EMAIL_ADDRESS.matcher(newDailySummaryEmailTo).matches()
+        ) {
+            Toast.makeText(this, getString(R.string.reader_settings_invalid_email), Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val updatedSettings =
                 currentSettings.copy(
@@ -462,6 +535,11 @@ class ReaderSettingsActivity : BaseActivity() {
                         pageSwipeEnabled = newPageSwipe,
                         pageAnimationEnabled = newPageAnimation,
                         showPageIndicator = newShowPageIndicator,
+                        autoCheckUpdates = newAutoCheckUpdates,
+                        dailySummaryEmailEnabled = newDailySummaryEmailEnabled,
+                        dailySummaryEmailHour = dailySummaryHour.coerceIn(0, 23),
+                        dailySummaryEmailMinute = dailySummaryMinute.coerceIn(0, 59),
+                        dailySummaryEmailTo = newDailySummaryEmailTo,
                         convertToTraditionalChinese = newConvertChinese,
                         exportToCustomUrl = useCustomExport,
                         exportCustomUrl = normalizedCustomUrl,
@@ -478,6 +556,7 @@ class ReaderSettingsActivity : BaseActivity() {
                 )
 
         updatedSettings.saveTo(prefs)
+        DailySummaryEmailScheduler.schedule(this, updatedSettings)
         pushSettingsToCloud()
 
         if (updatedSettings.language != currentSettings.language) {
@@ -504,6 +583,10 @@ class ReaderSettingsActivity : BaseActivity() {
         } else {
             "https://$trimmed"
         }
+    }
+
+    private fun formatTimeOfDay(hour: Int, minute: Int): String {
+        return String.format("%02d:%02d", hour.coerceIn(0, 23), minute.coerceIn(0, 59))
     }
 
     private fun applySettingsPageTheme(root: View, mode: ContrastMode) {

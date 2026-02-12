@@ -22,8 +22,13 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.view.ActionMode
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
+import my.hinoki.booxreader.data.db.AppDatabase
+import my.hinoki.booxreader.data.reader.DailyReadingStats
+import my.hinoki.booxreader.data.repo.AiNoteDailySummaryBuilder
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.CheckResult
 import my.hinoki.booxreader.data.repo.DeleteResult
 import my.hinoki.booxreader.data.repo.ExportResult
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -48,7 +53,11 @@ import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.MotionEvent
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.appcompat.widget.Toolbar
 import androidx.core.graphics.drawable.DrawableCompat
+import java.util.Calendar
+import java.util.Locale
+import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
 
 class AiNoteListActivity : BaseActivity() {
@@ -58,6 +67,11 @@ class AiNoteListActivity : BaseActivity() {
         private const val EXPORTING_SUBTITLE = "Exporting..."
         private const val NOTE_TIME_FORMAT = "yyyy-MM-dd HH:mm"
         private const val PREVIEW_MAX_LENGTH = 100
+        private const val MAIL_SUBJECT_DATE_FORMAT = "yyyy-MM-dd"
+        private const val MAIL_NOTE_TIME_FORMAT = "HH:mm"
+        private const val MAIL_PREVIEW_MAX_LENGTH = 140
+        private const val ENTITY_LIST_MAX = 12
+        private const val TAG_SEPARATOR_REGEX = "[,，、/|；;]"
 
         fun open(context: Context, bookId: String?) {
             val intent = Intent(context, AiNoteListActivity::class.java).apply {
@@ -82,6 +96,8 @@ class AiNoteListActivity : BaseActivity() {
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
+    private var semanticInputBackgroundColor: Int = Color.WHITE
+    private var semanticButtonBackgroundColor: Int = Color.LTGRAY
     private var topBarContentColor: Int = Color.WHITE
     private var semanticClearDrawable: Drawable? = null
     private var notes: List<AiNoteEntity> = emptyList()
@@ -90,6 +106,43 @@ class AiNoteListActivity : BaseActivity() {
     private val semanticMetaByNoteId = mutableMapOf<Long, AiNoteRepository.SemanticRelatedNote>()
     private val selectedNoteIds = linkedSetOf<Long>()
     private var selectionActionMode: ActionMode? = null
+    private val eraKeywords =
+            listOf(
+                    "先秦",
+                    "秦朝",
+                    "汉朝",
+                    "三国",
+                    "魏晋",
+                    "南北朝",
+                    "隋朝",
+                    "唐朝",
+                    "宋朝",
+                    "元朝",
+                    "明朝",
+                    "清朝",
+                    "民国",
+                    "近代",
+                    "现代",
+                    "当代",
+                    "古代",
+                    "中世纪",
+                    "文艺复兴",
+                    "工业革命",
+                    "冷战",
+                    "春秋",
+                    "战国"
+            )
+    private val projectLabelRegex =
+            Regex("(?i)(?:项目|專案|計畫|计划|project|topic|主題)\\s*[:：]\\s*([^\\n。；;]+)")
+    private val personLabelRegex =
+            Regex("(?i)(?:人物|角色|人名|person|people)\\s*[:：]\\s*([^\\n。；;]+)")
+    private val eraLabelRegex =
+            Regex("(?i)(?:时代|時代|朝代|年代|era|period)\\s*[:：]\\s*([^\\n。；;]+)")
+    private val eraPattern =
+            Regex(
+                    "(\\d{1,2}世纪|\\d{4}年代|\\d{3,4}年|\\b\\d{1,2}(st|nd|rd|th)\\s+century\\b)",
+                    RegexOption.IGNORE_CASE
+            )
 
     private val storagePermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -151,6 +204,10 @@ class AiNoteListActivity : BaseActivity() {
             }
             R.id.action_export_ai_notes -> {
                 requestExportAllNotes()
+                true
+            }
+            R.id.action_email_daily_summary -> {
+                emailDailySummary()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -272,6 +329,20 @@ class AiNoteListActivity : BaseActivity() {
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
+        semanticInputBackgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.WHITE
+                    ContrastMode.DARK -> Color.parseColor("#1E232C")
+                    ContrastMode.SEPIA -> Color.parseColor("#F6EEDC")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#0D0D0D")
+                }
+        semanticButtonBackgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#E4E9F2")
+                    ContrastMode.DARK -> Color.parseColor("#2B3240")
+                    ContrastMode.SEPIA -> Color.parseColor("#E8D8BB")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#1F1F1F")
+                }
         val secondaryTextAlpha =
                 if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 215 else 170
         val hintTextAlpha =
@@ -300,10 +371,16 @@ class AiNoteListActivity : BaseActivity() {
         binding.etSemanticSearch.setHintTextColor(
                 ColorUtils.setAlphaComponent(listTextColor, hintTextAlpha)
         )
-        binding.btnSemanticSearch.setTextColor(listTextColor)
+        binding.etSemanticSearch.backgroundTintList =
+                ColorStateList.valueOf(semanticInputBackgroundColor)
+        binding.btnSemanticSearch.backgroundTintList =
+                ColorStateList.valueOf(semanticButtonBackgroundColor)
+        binding.btnSemanticSearch.setTextColor(readableTextColorOn(semanticButtonBackgroundColor))
         semanticClearDrawable = createSemanticClearDrawable(listTextColor)
         updateSemanticSearchClearIcon()
         binding.tvSemanticSearchStatus.setTextColor(listSecondaryTextColor)
+        binding.listAiNotes.divider = ColorDrawable(ColorUtils.setAlphaComponent(listTextColor, 36))
+        binding.listAiNotes.dividerHeight = 1
         supportActionBar?.setBackgroundDrawable(ColorDrawable(topBarColor))
         applyActionBarContentColor(topBarContentColor)
         invalidateOptionsMenu()
@@ -398,6 +475,7 @@ class AiNoteListActivity : BaseActivity() {
         if (backDrawable != null) {
             supportActionBar?.setHomeAsUpIndicator(backDrawable)
         }
+        tintToolbarIcons(contentColor)
     }
 
     private fun applyActionBarMenuColors(menu: Menu) {
@@ -407,11 +485,36 @@ class AiNoteListActivity : BaseActivity() {
                     item.icon?.mutate()?.also { icon ->
                         DrawableCompat.setTint(icon, topBarContentColor)
                     }
-            val title = item.title?.toString().orEmpty()
-            if (title.isNotBlank()) {
-                item.title = colorizeText(title, topBarContentColor)
+        }
+        tintToolbarIcons(topBarContentColor)
+    }
+
+    private fun readableTextColorOn(backgroundColor: Int): Int {
+        return if (ColorUtils.calculateLuminance(backgroundColor) > 0.5) Color.BLACK else Color.WHITE
+    }
+
+    private fun tintToolbarIcons(contentColor: Int) {
+        val toolbar = findToolbar(window.decorView) ?: return
+        toolbar.navigationIcon =
+                toolbar.navigationIcon?.mutate()?.also { icon ->
+                    DrawableCompat.setTint(icon, contentColor)
+                }
+        toolbar.overflowIcon =
+                toolbar.overflowIcon?.mutate()?.also { icon ->
+                    DrawableCompat.setTint(icon, contentColor)
+                }
+    }
+
+    private fun findToolbar(view: View?): Toolbar? {
+        if (view == null) return null
+        if (view is Toolbar) return view
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                val found = findToolbar(view.getChildAt(index))
+                if (found != null) return found
             }
         }
+        return null
     }
 
     private fun loadNotes() {
@@ -492,6 +595,199 @@ class AiNoteListActivity : BaseActivity() {
         syncSelectionWithVisibleNotes()
         binding.tvSemanticSearchStatus.visibility = View.GONE
         adapter.notifyDataSetChanged()
+    }
+
+    private fun emailDailySummary() {
+        lifecycleScope.launch {
+            val sourceNotes = runCatching { repo.getAll() }.getOrElse { allNotes }
+            val settings =
+                    ReaderSettings.fromPrefs(
+                            getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
+                    )
+            val recipientEmail =
+                    runCatching {
+                                AppDatabase.get(applicationContext)
+                                        .userDao()
+                                        .getUser()
+                                        .first()
+                                        ?.email
+                                        ?.trim()
+                                        .orEmpty()
+                            }
+                            .getOrDefault("")
+            val recipient = settings.dailySummaryEmailTo.trim().ifBlank { recipientEmail }
+            if (recipient.isBlank()) {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(R.string.ai_note_daily_summary_missing_email),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+                return@launch
+            }
+            val readingMillis = DailyReadingStats.getTodayReadingMillis(applicationContext)
+            val summary =
+                    AiNoteDailySummaryBuilder.build(
+                            context = this@AiNoteListActivity,
+                            sourceNotes = sourceNotes,
+                            todayReadingMillis = readingMillis
+                    )
+            if (summary.noteCount == 0) {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(R.string.ai_note_daily_summary_empty_today),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+                return@launch
+            }
+            val result =
+                    runCatching {
+                                syncRepo.sendDailySummaryEmail(
+                                        recipient,
+                                        summary.subject,
+                                        summary.body
+                                )
+                            }
+                            .getOrElse {
+                                CheckResult(
+                                        ok = false,
+                                        message = it.message ?: "PocketBase mail request failed"
+                                )
+                            }
+            if (result.ok) {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(
+                                        R.string.ai_note_daily_summary_send_success,
+                                        recipient
+                                ),
+                                Toast.LENGTH_LONG
+                        )
+                        .show()
+            } else {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(
+                                        R.string.ai_note_daily_summary_send_failed,
+                                        result.message ?: "unknown error"
+                                ),
+                                Toast.LENGTH_LONG
+                        )
+                        .show()
+            }
+        }
+    }
+
+    private fun notesForToday(source: List<AiNoteEntity>): List<AiNoteEntity> {
+        if (source.isEmpty()) return emptyList()
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val dayStart = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_YEAR, 1)
+        val dayEndExclusive = calendar.timeInMillis
+        return source.filter { note ->
+            note.createdAt >= dayStart && note.createdAt < dayEndExclusive
+        }.sortedBy { it.createdAt }
+    }
+
+    private fun buildDailyEmailSubject(todayNotes: List<AiNoteEntity>): String {
+        val date = DateFormat.format(MAIL_SUBJECT_DATE_FORMAT, System.currentTimeMillis()).toString()
+        return getString(R.string.ai_note_daily_summary_mail_subject, date, todayNotes.size)
+    }
+
+    private fun buildDailyEmailBody(todayNotes: List<AiNoteEntity>): String {
+        val projectSet = linkedSetOf<String>()
+        val personSet = linkedSetOf<String>()
+        val eraSet = linkedSetOf<String>()
+        val bookSet = linkedSetOf<String>()
+        val noteLines = mutableListOf<String>()
+
+        todayNotes.forEachIndexed { index, note ->
+            val original = resolveOriginalText(note)
+            val response = resolveAiResponse(note)
+            val combined = listOf(original, response).filter { it.isNotBlank() }.joinToString("\n")
+            collectEntities(projectLabelRegex, combined, projectSet)
+            collectEntities(personLabelRegex, combined, personSet)
+            collectEntities(eraLabelRegex, combined, eraSet)
+            collectEraKeywords(combined, eraSet)
+
+            note.bookTitle?.trim()?.takeIf { it.isNotBlank() }?.let { bookSet.add(it) }
+            val timeLabel = DateFormat.format(MAIL_NOTE_TIME_FORMAT, note.createdAt).toString()
+            val titleLabel = note.bookTitle?.takeIf { it.isNotBlank() } ?: "Untitled"
+            noteLines +=
+                    "${index + 1}. [$timeLabel] $titleLabel\n" +
+                            "   Q: ${shortenForMail(original)}\n" +
+                            "   A: ${shortenForMail(response)}"
+        }
+
+        val dateLabel = DateFormat.format(MAIL_SUBJECT_DATE_FORMAT, System.currentTimeMillis()).toString()
+        return buildString {
+            appendLine("AI Note Daily Summary")
+            appendLine("Date: $dateLabel")
+            appendLine("Total Notes: ${todayNotes.size}")
+            appendLine("Books: ${bookSet.size}")
+            appendLine("Projects: ${projectSet.size} (${formatEntitySet(projectSet)})")
+            appendLine("People: ${personSet.size} (${formatEntitySet(personSet)})")
+            appendLine("Eras: ${eraSet.size} (${formatEntitySet(eraSet)})")
+            appendLine()
+            appendLine("Details")
+            noteLines.forEach { appendLine(it) }
+        }.trim()
+    }
+
+    private fun resolveOriginalText(note: AiNoteEntity): String {
+        return note.originalText?.takeIf { it.isNotBlank() }
+                ?: AiNoteSerialization.originalTextFromMessages(note.messages).orEmpty()
+    }
+
+    private fun resolveAiResponse(note: AiNoteEntity): String {
+        return note.aiResponse?.takeIf { it.isNotBlank() }
+                ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
+    }
+
+    private fun shortenForMail(text: String): String {
+        if (text.isBlank()) return "(empty)"
+        val normalized = text.replace("\n", " ").replace("\\s+".toRegex(), " ").trim()
+        return if (normalized.length <= MAIL_PREVIEW_MAX_LENGTH) {
+            normalized
+        } else {
+            normalized.take(MAIL_PREVIEW_MAX_LENGTH).trimEnd() + "..."
+        }
+    }
+
+    private fun collectEntities(regex: Regex, text: String, target: MutableSet<String>) {
+        if (text.isBlank()) return
+        regex.findAll(text).forEach { match ->
+            val raw = match.groupValues.getOrNull(1).orEmpty()
+            raw.split(Regex(TAG_SEPARATOR_REGEX))
+                    .map { it.trim().trim('.', '。', ':', '：') }
+                    .filter { it.length >= 2 }
+                    .take(ENTITY_LIST_MAX)
+                    .forEach { target.add(it) }
+        }
+    }
+
+    private fun collectEraKeywords(text: String, target: MutableSet<String>) {
+        if (text.isBlank()) return
+        val lower = text.lowercase(Locale.ROOT)
+        eraKeywords.forEach { keyword ->
+            if (text.contains(keyword, ignoreCase = true)) {
+                target.add(keyword)
+            }
+        }
+        eraPattern.findAll(text).forEach { target.add(it.value.trim()) }
+        if (lower.contains("modern")) target.add("modern")
+        if (lower.contains("ancient")) target.add("ancient")
+        if (lower.contains("medieval")) target.add("medieval")
+    }
+
+    private fun formatEntitySet(values: Set<String>): String {
+        if (values.isEmpty()) return "N/A"
+        return values.take(ENTITY_LIST_MAX).joinToString(", ")
     }
 
     private fun requestExportAllNotes() {

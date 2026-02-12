@@ -32,6 +32,7 @@ import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.GitHubRelease
 import my.hinoki.booxreader.data.repo.GitHubUpdateRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.databinding.ActivityMainBinding
 import my.hinoki.booxreader.ui.auth.LoginActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
@@ -586,6 +587,12 @@ class MainActivity : BaseActivity() {
     }
 
     private fun checkForUpdates() {
+        val settings =
+                ReaderSettings.fromPrefs(
+                        getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
+                )
+        if (!settings.autoCheckUpdates) return
+
         lifecycleScope.launch {
             val release = updateRepository.fetchLatestRelease() ?: return@launch
             if (updateRepository.isNewerVersion(release.tagName)) {

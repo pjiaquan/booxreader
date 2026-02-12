@@ -15,6 +15,8 @@ import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import okhttp3.OkHttpClient
 
 class BooxReaderApp : Application() {
@@ -49,6 +51,13 @@ class BooxReaderApp : Application() {
                         .addInterceptor(AuthInterceptor(tokenManager))
                         .authenticator(TokenAuthenticator(tokenManager))
                         .build()
+
+        DailySummaryEmailScheduler.schedule(
+                this,
+                ReaderSettings.fromPrefs(
+                        getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
+                )
+        )
 
         // Initialize automatic AI profile sync
         initializeAiProfileSync()

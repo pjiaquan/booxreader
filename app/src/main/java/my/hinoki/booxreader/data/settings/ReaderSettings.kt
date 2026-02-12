@@ -112,6 +112,11 @@ data class ReaderSettings(
         val useStreaming: Boolean = false,
         val pageAnimationEnabled: Boolean = false,
         val showPageIndicator: Boolean = true,
+        val autoCheckUpdates: Boolean = true,
+        val dailySummaryEmailEnabled: Boolean = false,
+        val dailySummaryEmailHour: Int = 21,
+        val dailySummaryEmailMinute: Int = 0,
+        val dailySummaryEmailTo: String = "",
         val language: String = "system", // "system", "en", "zh"
         val updatedAt: Long = System.currentTimeMillis(),
         val activeProfileId: Long = -1L,
@@ -149,6 +154,11 @@ data class ReaderSettings(
             .putBoolean("use_streaming", useStreaming)
             .putBoolean("page_animation_enabled", pageAnimationEnabled)
             .putBoolean("show_page_indicator", showPageIndicator)
+            .putBoolean("auto_check_updates", autoCheckUpdates)
+            .putBoolean("daily_summary_email_enabled", dailySummaryEmailEnabled)
+            .putInt("daily_summary_email_hour", dailySummaryEmailHour.coerceIn(0, 23))
+            .putInt("daily_summary_email_minute", dailySummaryEmailMinute.coerceIn(0, 59))
+            .putString("daily_summary_email_to", dailySummaryEmailTo)
             .putString("app_language", language)
             .putLong("active_ai_profile_id", activeProfileId)
             .putLong("settings_updated_at", timestamp)
@@ -366,6 +376,11 @@ data class ReaderSettings(
               useStreaming = prefs.getBoolean("use_streaming", false),
               pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
               showPageIndicator = prefs.getBoolean("show_page_indicator", true),
+              autoCheckUpdates = prefs.getBoolean("auto_check_updates", true),
+              dailySummaryEmailEnabled = prefs.getBoolean("daily_summary_email_enabled", false),
+              dailySummaryEmailHour = prefs.getInt("daily_summary_email_hour", 21).coerceIn(0, 23),
+              dailySummaryEmailMinute = prefs.getInt("daily_summary_email_minute", 0).coerceIn(0, 59),
+              dailySummaryEmailTo = prefs.getString("daily_summary_email_to", "") ?: "",
               language = prefs.getString("app_language", "system") ?: "system",
               updatedAt = updatedAt,
               activeProfileId = prefs.getLong("active_ai_profile_id", -1L),
