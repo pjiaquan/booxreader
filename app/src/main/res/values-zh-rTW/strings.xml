@@ -209,6 +209,7 @@
     <string name="ai_note_daily_summary_mail_subject">AI 筆記日報 %1$s（%2$d 筆）</string>
     <string name="ai_note_daily_summary_missing_email">找不到帳號電子郵件，請先登入</string>
     <string name="ai_note_daily_summary_send_success">日報已寄送至 %1$s</string>
+    <string name="ai_note_daily_summary_queued_only">郵件已加入佇列（%1$s），但尚未確認送達，請檢查 PocketBase SMTP 與 mail hook 設定。</string>
     <string name="ai_note_daily_summary_send_failed">日報寄送失敗：%1$s</string>
     <string name="ai_note_daily_summary_mail_chooser">選擇寄送日報的郵件應用</string>
     <string name="ai_note_daily_summary_no_mail_app">找不到可用的郵件應用</string>

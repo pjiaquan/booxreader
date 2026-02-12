@@ -100,6 +100,19 @@ After creating all collections, verify:
    - Update settings
 4. Check the PocketBase admin UI to verify records are created
 
+### Step 6: Enable Server-Side Mail Queue Hook (Required for daily summary email)
+
+The app may enqueue daily summary emails into `mail_queue` (instead of direct `/api/mails/send`).
+To actually deliver those queued emails, add this PocketBase hook on the server:
+
+1. Copy `pb_hooks/20_mail_queue_sender.pb.js` from this repo to your PocketBase server's `pb_hooks/` directory.
+2. Ensure SMTP is configured in PocketBase Admin:
+   - `Settings -> Mail settings`
+3. Restart PocketBase.
+4. Create a test queue record (or tap "Email Daily Summary" in app) and verify:
+   - `mail_queue.status` becomes `sent`
+   - mail arrives in inbox/spam folder
+
 ## Common Issues
 
 ### Issue: "Unresolved reference: POCKETBASE_URL"

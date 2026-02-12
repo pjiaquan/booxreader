@@ -172,7 +172,6 @@ class AiNoteListActivity : BaseActivity() {
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        applyActionBarPadding(binding.llSemanticSearch)
         setupList()
         setupSemanticSearch()
         applyThemeFromSettings()
@@ -656,15 +655,28 @@ class AiNoteListActivity : BaseActivity() {
                                 )
                             }
             if (result.ok) {
-                Toast.makeText(
-                                this@AiNoteListActivity,
-                                getString(
-                                        R.string.ai_note_daily_summary_send_success,
-                                        recipient
-                                ),
-                                Toast.LENGTH_LONG
-                        )
-                        .show()
+                val queueMode = result.message?.startsWith("queued via ") == true
+                if (queueMode) {
+                    Toast.makeText(
+                                    this@AiNoteListActivity,
+                                    getString(
+                                            R.string.ai_note_daily_summary_queued_only,
+                                            result.message ?: "mail_queue"
+                                    ),
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
+                } else {
+                    Toast.makeText(
+                                    this@AiNoteListActivity,
+                                    getString(
+                                            R.string.ai_note_daily_summary_send_success,
+                                            recipient
+                                    ),
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
+                }
             } else {
                 Toast.makeText(
                                 this@AiNoteListActivity,

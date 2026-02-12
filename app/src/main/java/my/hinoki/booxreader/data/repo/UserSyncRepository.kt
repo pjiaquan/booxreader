@@ -64,8 +64,9 @@ class UserSyncRepository(
         private companion object {
                 val BOOK_FILE_FIELD_CANDIDATES =
                         listOf("bookFile", "file", "epubFile", "epub", "asset", "book")
-                val MAIL_QUEUE_COLLECTION_CANDIDATES =
-                        listOf("mail_queue", "email_queue", "outbox_emails")
+                val MAIL_QUEUE_COLLECTION_CANDIDATES = listOf("mail_queue")
+                val MAIL_CUSTOM_ROUTE_CANDIDATES =
+                        listOf("/boox-mail-send", "/api/boox-mail-send")
         }
 
         private val appContext = context.applicationContext
@@ -146,6 +147,8 @@ class UserSyncRepository(
                 body: String
         ): CheckResult =
                 withContext(io) {
+                        // Allow both host-root and mistakenly-configured */api base URLs.
+                        val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
                         val email = toEmail.trim()
                         if (email.isBlank()) {
                                 return@withContext CheckResult(false, "Missing recipient email")
@@ -160,7 +163,9 @@ class UserSyncRepository(
                         val contentType = "application/json; charset=utf-8".toMediaType()
                         var lastError: String? = null
                         var directStatusCode: Int? = null
+                        val customRouteStatusCodes = mutableListOf<Int>()
                         val queueStatusCodes = mutableListOf<Int>()
+                        var firstNon404QueueError: String? = null
 
                         // Strategy 1: PocketBase direct mail API (usually requires elevated access).
                         runCatching {
@@ -177,7 +182,7 @@ class UserSyncRepository(
                                                 )
                                         val request =
                                                 buildAuthenticatedRequest(
-                                                                "$pocketBaseUrl/api/mails/send"
+                                                                "$pocketBaseRoot/api/mails/send"
                                                         )
                                                         .post(payload.toRequestBody(contentType))
                                                         .build()
@@ -186,7 +191,10 @@ class UserSyncRepository(
                                                         response.body?.string()?.trim().orEmpty()
                                                 directStatusCode = response.code
                                                 if (response.isSuccessful) {
-                                                        return@withContext CheckResult(true, null)
+                                                        return@withContext CheckResult(
+                                                                true,
+                                                                "sent via /api/mails/send"
+                                                        )
                                                 }
                                                 lastError =
                                                         "direct mail failed (${response.code})"
@@ -203,6 +211,62 @@ class UserSyncRepository(
                                                         ?: "direct mail request failed"
                                 }
 
+                        // Strategy 1.5: custom routerAdd endpoint in PocketBase hooks.
+                        for (routePath in MAIL_CUSTOM_ROUTE_CANDIDATES) {
+                                runCatching {
+                                                val payload =
+                                                        gson.toJson(
+                                                                mapOf(
+                                                                        "toEmail" to email,
+                                                                        "subject" to subject,
+                                                                        "body" to body
+                                                                )
+                                                        )
+                                                val request =
+                                                        buildAuthenticatedRequest(
+                                                                        "$pocketBaseRoot$routePath"
+                                                                )
+                                                                .post(
+                                                                        payload.toRequestBody(
+                                                                                contentType
+                                                                        )
+                                                                )
+                                                                .build()
+                                                httpClient.newCall(request).execute().use {
+                                                        response ->
+                                                                val responseBody =
+                                                                        response.body
+                                                                                ?.string()
+                                                                                ?.trim()
+                                                                                .orEmpty()
+                                                                customRouteStatusCodes +=
+                                                                        response.code
+                                                                if (response.isSuccessful) {
+                                                                        return@withContext CheckResult(
+                                                                                true,
+                                                                                "sent via $routePath"
+                                                                        )
+                                                                }
+                                                                lastError =
+                                                                        "custom route $routePath failed (${response.code})"
+                                                                if (responseBody.isNotEmpty()) {
+                                                                        lastError +=
+                                                                                ": $responseBody"
+                                                                }
+                                                        }
+                                        }
+                                        .onFailure {
+                                                val errorMessage =
+                                                        it.message?.takeIf { message ->
+                                                                message.isNotBlank()
+                                                        }
+                                                                ?: "custom route request failed"
+                                                if (lastError.isNullOrBlank()) {
+                                                        lastError = errorMessage
+                                                }
+                                        }
+                        }
+
                         // Strategy 2: queue record for PocketBase hook/automation mail dispatch.
                         for (collection in MAIL_QUEUE_COLLECTION_CANDIDATES) {
                                 val queuePayload =
@@ -213,13 +277,14 @@ class UserSyncRepository(
                                                         "subject" to subject,
                                                         "body" to body,
                                                         "category" to "ai_note_daily_summary",
+                                                        "status" to "pending",
                                                         "createdAt" to System.currentTimeMillis()
                                                 )
                                         )
                                 val queueRequest =
                                         try {
                                                 buildAuthenticatedRequest(
-                                                                "$pocketBaseUrl/api/collections/$collection/records"
+                                                                "$pocketBaseRoot/api/collections/$collection/records"
                                                         )
                                                         .post(queuePayload.toRequestBody(contentType))
                                                         .build()
@@ -239,10 +304,17 @@ class UserSyncRepository(
                                                                 "queued via $collection"
                                                         )
                                                 }
-                                                lastError =
+                                                val queueError =
                                                         "queue $collection failed (${response.code})"
                                                 if (responseBody.isNotEmpty()) {
-                                                        lastError += ": $responseBody"
+                                                        lastError = "$queueError: $responseBody"
+                                                } else {
+                                                        lastError = queueError
+                                                }
+                                                if (response.code != 404 &&
+                                                                firstNon404QueueError == null
+                                                ) {
+                                                        firstNon404QueueError = lastError
                                                 }
                                         }
                                 } catch (e: Exception) {
@@ -254,14 +326,23 @@ class UserSyncRepository(
                                 }
                         }
 
+                        if (firstNon404QueueError != null) {
+                                lastError = firstNon404QueueError
+                        }
+
                         val setupHint =
                                 when {
                                         directStatusCode == 401 || directStatusCode == 403 ->
                                                 "PocketBase /api/mails/send requires admin permission. Use mail_queue hook mode."
+                                        customRouteStatusCodes.any { it == 401 || it == 403 } ->
+                                                "PocketBase custom mail route denied. Check routerAdd auth handling."
                                         directStatusCode == 404 &&
                                                 queueStatusCodes.all { it == 404 } &&
                                                 queueStatusCodes.isNotEmpty() ->
-                                                "PocketBase mail endpoint and queue collections are missing. Create mail_queue/email_queue/outbox_emails with a send hook."
+                                                "PocketBase endpoints not found. Check POCKETBASE_URL (use host root, no /api) and create mail_queue/email_queue/outbox_emails with a send hook."
+                                        customRouteStatusCodes.isNotEmpty() &&
+                                                customRouteStatusCodes.all { it == 404 } ->
+                                                "PocketBase custom route /boox-mail-send not found. Ensure pb_hooks/20_mail_queue_sender.pb.js is loaded."
                                         queueStatusCodes.isNotEmpty() &&
                                                 queueStatusCodes.all { it == 404 } ->
                                                 "Queue collection not found. Create mail_queue/email_queue/outbox_emails in PocketBase."
