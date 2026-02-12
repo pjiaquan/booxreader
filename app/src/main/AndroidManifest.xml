@@ -69,7 +69,7 @@
         <activity
             android:name="my.hinoki.booxreader.ui.notes.AiNoteListActivity"
             android:exported="false"
-            android:theme="@style/AppTheme.ActionBar"
+            android:theme="@style/AppTheme"
             android:label="AI Notes" />
 
         <activity

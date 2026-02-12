@@ -3,6 +3,7 @@ package my.hinoki.booxreader.ui.notes
 import android.content.Context
 import android.content.Intent
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.format.DateFormat
@@ -53,7 +54,6 @@ import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.MotionEvent
 import androidx.appcompat.content.res.AppCompatResources
-import androidx.appcompat.widget.Toolbar
 import androidx.core.graphics.drawable.DrawableCompat
 import java.util.Calendar
 import java.util.Locale
@@ -70,6 +70,7 @@ class AiNoteListActivity : BaseActivity() {
         private const val MAIL_SUBJECT_DATE_FORMAT = "yyyy-MM-dd"
         private const val MAIL_NOTE_TIME_FORMAT = "HH:mm"
         private const val MAIL_PREVIEW_MAX_LENGTH = 140
+        private const val TELEGRAM_PACKAGE_NAME = "org.telegram.messenger"
         private const val ENTITY_LIST_MAX = 12
         private const val TAG_SEPARATOR_REGEX = "[,，、/|；;]"
 
@@ -171,6 +172,8 @@ class AiNoteListActivity : BaseActivity() {
 
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applyTopInsets(binding.toolbarAiNotes)
+        setSupportActionBar(binding.toolbarAiNotes)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         setupList()
         setupSemanticSearch()
@@ -207,6 +210,10 @@ class AiNoteListActivity : BaseActivity() {
             }
             R.id.action_email_daily_summary -> {
                 emailDailySummary()
+                true
+            }
+            R.id.action_telegram_daily_summary -> {
+                telegramDailySummary()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -493,7 +500,7 @@ class AiNoteListActivity : BaseActivity() {
     }
 
     private fun tintToolbarIcons(contentColor: Int) {
-        val toolbar = findToolbar(window.decorView) ?: return
+        val toolbar = binding.toolbarAiNotes
         toolbar.navigationIcon =
                 toolbar.navigationIcon?.mutate()?.also { icon ->
                     DrawableCompat.setTint(icon, contentColor)
@@ -502,18 +509,6 @@ class AiNoteListActivity : BaseActivity() {
                 toolbar.overflowIcon?.mutate()?.also { icon ->
                     DrawableCompat.setTint(icon, contentColor)
                 }
-    }
-
-    private fun findToolbar(view: View?): Toolbar? {
-        if (view == null) return null
-        if (view is Toolbar) return view
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) {
-                val found = findToolbar(view.getChildAt(index))
-                if (found != null) return found
-            }
-        }
-        return null
     }
 
     private fun loadNotes() {
@@ -685,6 +680,57 @@ class AiNoteListActivity : BaseActivity() {
                                         result.message ?: "unknown error"
                                 ),
                                 Toast.LENGTH_LONG
+                        )
+                        .show()
+            }
+        }
+    }
+
+    private fun telegramDailySummary() {
+        lifecycleScope.launch {
+            val sourceNotes = runCatching { repo.getAll() }.getOrElse { allNotes }
+            val readingMillis = DailyReadingStats.getTodayReadingMillis(applicationContext)
+            val summary =
+                    AiNoteDailySummaryBuilder.build(
+                            context = this@AiNoteListActivity,
+                            sourceNotes = sourceNotes,
+                            todayReadingMillis = readingMillis
+                    )
+            if (summary.noteCount == 0) {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(R.string.ai_note_daily_summary_empty_today),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+                return@launch
+            }
+
+            val shareIntent =
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, summary.subject)
+                        putExtra(Intent.EXTRA_TEXT, summary.body)
+                    }
+            val telegramIntent =
+                    Intent(shareIntent).apply {
+                        `package` = TELEGRAM_PACKAGE_NAME
+                    }
+
+            try {
+                startActivity(telegramIntent)
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(R.string.ai_note_daily_summary_no_telegram_app),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+            } catch (_: Exception) {
+                Toast.makeText(
+                                this@AiNoteListActivity,
+                                getString(R.string.ai_note_daily_summary_no_telegram_app),
+                                Toast.LENGTH_SHORT
                         )
                         .show()
             }

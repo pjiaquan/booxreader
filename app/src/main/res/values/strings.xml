@@ -231,6 +231,7 @@
     <string name="action_delete">Delete</string>
     <string name="action_export_all">Export All</string>
     <string name="action_email_daily_summary">Email Daily Summary</string>
+    <string name="action_telegram_daily_summary">Telegram Daily Summary</string>
     <string name="ai_note_daily_summary_empty_today">No AI notes created today</string>
     <string name="ai_note_daily_summary_mail_subject">AI Note Daily Summary %1$s (%2$d)</string>
     <string name="ai_note_daily_summary_missing_email">No account email found. Please login first.</string>
@@ -239,6 +240,7 @@
     <string name="ai_note_daily_summary_send_failed">Failed to send daily summary: %1$s</string>
     <string name="ai_note_daily_summary_mail_chooser">Send daily summary via</string>
     <string name="ai_note_daily_summary_no_mail_app">No email app found</string>
+    <string name="ai_note_daily_summary_no_telegram_app">Telegram is not installed</string>
     <string name="ai_note_go_to_page">Go to Page</string>
     <string name="ai_note_model_info_format">Model: %1$s</string>
     <string name="ai_note_model_disclaimer">AI can make mistakes. Check important info.</string>

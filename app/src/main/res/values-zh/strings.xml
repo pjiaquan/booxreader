@@ -205,6 +205,7 @@
     <string name="action_delete">刪除</string>
     <string name="action_export_all">匯出全部</string>
     <string name="action_email_daily_summary">寄送今日摘要</string>
+    <string name="action_telegram_daily_summary">匯出 Telegram 摘要</string>
     <string name="ai_note_daily_summary_empty_today">今天尚無 AI 筆記</string>
     <string name="ai_note_daily_summary_mail_subject">AI 筆記日報 %1$s（%2$d 筆）</string>
     <string name="ai_note_daily_summary_missing_email">找不到帳號電子郵件，請先登入</string>
@@ -213,6 +214,7 @@
     <string name="ai_note_daily_summary_send_failed">日報寄送失敗：%1$s</string>
     <string name="ai_note_daily_summary_mail_chooser">選擇寄送日報的郵件應用</string>
     <string name="ai_note_daily_summary_no_mail_app">找不到可用的郵件應用</string>
+    <string name="ai_note_daily_summary_no_telegram_app">找不到 Telegram 應用</string>
     <string name="ai_note_model_info_format">模型：%1$s</string>
     <string name="ai_note_model_disclaimer">AI 可能會出錯，請務必核實重要資訊。</string>
     <string name="profile_version_format">版本：%1$s</string>
