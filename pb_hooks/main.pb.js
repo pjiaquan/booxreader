@@ -535,8 +535,253 @@ routerAdd("POST", "/boox-ai-notes-semantic-search", (e) => {
 // 5) Mail queue sender + custom route
 //    Keep in main.pb.js for PocketBase versions that only load main.
 // ============================================================
+var MAIL_QUEUE_NAME = "mail_queue";
+var MAIL_DAILY_LIMIT = 2;
+
+function toRelId(v) {
+  if (Array.isArray(v)) return String(v[0] || "");
+  if (v && typeof v === "object") return String(v.id || "");
+  return String(v || "");
+}
+
+function escapeFilterString(v) {
+  return String(v || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+}
+
+function getTodayRangeMs() {
+  var now = new Date();
+  var start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return {
+    start: start,
+    end: start + 24 * 60 * 60 * 1000,
+  };
+}
+
+function getRecordCreatedAtMs(record) {
+  var n = Number(record.get("createdAt"));
+  if (isFinite(n) && n > 0) return n;
+  var created = String(record.get("created") || "").trim();
+  var parsed = Date.parse(created);
+  return isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeMailStatus(v) {
+  return String(v || "")
+    .trim()
+    .toLowerCase();
+}
+
+function deleteQueueRecordQuietly(app, record, reason) {
+  try {
+    app.delete(record);
+    return true;
+  } catch (err) {
+    try {
+      app.logger().error(
+        "mail_queue delete failed",
+        "recordId",
+        String((record && record.id) || ""),
+        "reason",
+        String(reason || ""),
+        "error",
+        String(err || "")
+      );
+    } catch (_) {}
+    return false;
+  }
+}
+
+function listTodayMailQueueRecords(app, userId) {
+  var dayRange = getTodayRangeMs();
+  var filter =
+    'user = "' +
+    escapeFilterString(userId) +
+    '" && createdAt >= ' +
+    dayRange.start +
+    " && createdAt < " +
+    dayRange.end;
+
+  var records = [];
+  if (typeof app.findRecordsByFilter === "function") {
+    records = app.findRecordsByFilter(MAIL_QUEUE_NAME, filter, "createdAt", 200, 0);
+  } else if (typeof $app !== "undefined" && typeof $app.findRecordsByFilter === "function") {
+    records = $app.findRecordsByFilter(MAIL_QUEUE_NAME, filter, "createdAt", 200, 0);
+  } else {
+    throw new Error("findRecordsByFilter is unavailable");
+  }
+
+  return Array.isArray(records) ? records : [];
+}
+
+function enforceMailDailyLimit(app, userId, currentRecordId) {
+  var result = {
+    limit: MAIL_DAILY_LIMIT,
+    sentCount: 0,
+    pendingCount: 0,
+    availableSlots: MAIL_DAILY_LIMIT,
+    blocked: false,
+    removedIds: [],
+  };
+
+  if (!String(userId || "").trim()) {
+    result.blocked = true;
+    return result;
+  }
+
+  var allRecords = listTodayMailQueueRecords(app, userId);
+  var pending = [];
+
+  for (var i = 0; i < allRecords.length; i++) {
+    var r = allRecords[i];
+    var status = normalizeMailStatus(r.get("status"));
+
+    if (status === "sent") {
+      result.sentCount += 1;
+      continue;
+    }
+
+    if (
+      status === "failed" ||
+      status === "cancelled" ||
+      status === "canceled" ||
+      status === "dropped"
+    ) {
+      continue;
+    }
+
+    pending.push(r);
+  }
+
+  var availableSlots = MAIL_DAILY_LIMIT - result.sentCount;
+  result.availableSlots = availableSlots;
+
+  pending.sort(function (a, b) {
+    var diff = getRecordCreatedAtMs(a) - getRecordCreatedAtMs(b);
+    if (diff !== 0) return diff;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+
+  var keepPendingCount = availableSlots > 0 ? availableSlots : 0;
+  var removedCount = 0;
+  for (var j = keepPendingCount; j < pending.length; j++) {
+    if (deleteQueueRecordQuietly(app, pending[j], "daily_limit_overflow")) {
+      removedCount += 1;
+      result.removedIds.push(String(pending[j].id || ""));
+    }
+  }
+
+  result.pendingCount = Math.max(0, pending.length - removedCount);
+
+  if (availableSlots <= 0) {
+    result.blocked = true;
+  }
+
+  var currentId = String(currentRecordId || "").trim();
+  if (currentId) {
+    for (var k = 0; k < result.removedIds.length; k++) {
+      if (result.removedIds[k] === currentId) {
+        result.blocked = true;
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+function parseRequestBody(reqInfo) {
+  if (!reqInfo || reqInfo.body === null || reqInfo.body === undefined) {
+    return {};
+  }
+  if (typeof reqInfo.body === "string") {
+    try {
+      return JSON.parse(reqInfo.body);
+    } catch (_) {
+      return {};
+    }
+  }
+  return reqInfo.body;
+}
+
+function handleBooxMailSendRoute(e) {
+  try {
+    var reqInfo = null;
+    try {
+      reqInfo = e.requestInfo();
+    } catch (_) {
+      reqInfo = null;
+    }
+
+    var authRecord = reqInfo && reqInfo.authRecord ? reqInfo.authRecord : null;
+    var userId = String(authRecord && authRecord.id ? authRecord.id : "").trim();
+    if (!userId) {
+      return e.json(401, { error: "Unauthorized" });
+    }
+
+    var bodyObj = parseRequestBody(reqInfo);
+    var toEmail = String(bodyObj.toEmail || "").trim();
+    var subject = String(bodyObj.subject || "").trim();
+    var body = String(bodyObj.body || "");
+    if (!subject) subject = "AI Note Daily Summary";
+
+    if (!toEmail) return e.json(400, { error: "toEmail is required" });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
+      return e.json(400, { error: "toEmail is invalid" });
+    }
+    if (!String(body).trim()) return e.json(400, { error: "body is required" });
+
+    var quota = enforceMailDailyLimit(e.app, userId, "");
+    var queueSlotsLeft = quota.availableSlots - quota.pendingCount;
+    if (queueSlotsLeft <= 0) {
+      return e.json(429, {
+        error: "Daily email limit reached (max 2/day).",
+        limit: MAIL_DAILY_LIMIT,
+        sentToday: quota.sentCount,
+        pendingToday: quota.pendingCount,
+      });
+    }
+
+    var collection = e.app.findCollectionByNameOrId(MAIL_QUEUE_NAME);
+    var record = new Record(collection);
+    record.set("user", userId);
+    record.set("toEmail", toEmail);
+    record.set("subject", subject);
+    record.set("body", body);
+    record.set("category", "ai_note_daily_summary");
+    record.set("status", "pending");
+    record.set("error", "");
+    record.set("createdAt", Date.now());
+
+    e.app.save(record);
+
+    return e.json(200, {
+      ok: true,
+      mode: "queued_via_custom_route",
+      queueId: record.id,
+    });
+  } catch (err) {
+    return e.json(500, { error: String(err || "unknown error") });
+  }
+}
+
 onRecordCreate(function (e) {
   try {
+    var userId = toRelId(e.record.get("user")).trim();
+    if (!userId) {
+      e.record.set("status", "failed");
+      e.record.set("error", "user is empty");
+      e.app.save(e.record);
+      return;
+    }
+
+    var quota = enforceMailDailyLimit(e.app, userId, String((e.record && e.record.id) || ""));
+    if (quota.blocked) {
+      deleteQueueRecordQuietly(e.app, e.record, "daily_limit_blocked");
+      return;
+    }
+
     var toEmail = String(e.record.get("toEmail") || "").trim();
     var subject = String(e.record.get("subject") || "").trim();
     var body = String(e.record.get("body") || "");
@@ -618,129 +863,9 @@ onRecordCreate(function (e) {
       e.app.save(e.record);
     } catch (_) {}
   }
-}, "mail_queue");
+}, MAIL_QUEUE_NAME);
 
-routerAdd("POST", "/boox-mail-send", function (e) {
-  try {
-    var reqInfo = null;
-    try {
-      reqInfo = e.requestInfo();
-    } catch (_) {
-      reqInfo = null;
-    }
-
-    var authRecord = reqInfo && reqInfo.authRecord ? reqInfo.authRecord : null;
-    var userId = String(authRecord && authRecord.id ? authRecord.id : "").trim();
-    if (!userId) {
-      return e.json(401, { error: "Unauthorized" });
-    }
-
-    var bodyObj = {};
-    if (reqInfo && reqInfo.body !== null && reqInfo.body !== undefined) {
-      if (typeof reqInfo.body === "string") {
-        try {
-          bodyObj = JSON.parse(reqInfo.body);
-        } catch (_) {
-          bodyObj = {};
-        }
-      } else {
-        bodyObj = reqInfo.body;
-      }
-    }
-
-    var toEmail = String(bodyObj.toEmail || "").trim();
-    var subject = String(bodyObj.subject || "").trim();
-    var body = String(bodyObj.body || "");
-    if (!subject) subject = "AI Note Daily Summary";
-
-    if (!toEmail) return e.json(400, { error: "toEmail is required" });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
-      return e.json(400, { error: "toEmail is invalid" });
-    }
-    if (!String(body).trim()) return e.json(400, { error: "body is required" });
-
-    var collection = e.app.findCollectionByNameOrId("mail_queue");
-    var record = new Record(collection);
-    record.set("user", userId);
-    record.set("toEmail", toEmail);
-    record.set("subject", subject);
-    record.set("body", body);
-    record.set("category", "ai_note_daily_summary");
-    record.set("status", "pending");
-    record.set("error", "");
-    record.set("createdAt", Date.now());
-
-    e.app.save(record);
-
-    return e.json(200, {
-      ok: true,
-      mode: "queued_via_custom_route",
-      queueId: record.id,
-    });
-  } catch (err) {
-    return e.json(500, { error: String(err || "unknown error") });
-  }
-});
+routerAdd("POST", "/boox-mail-send", handleBooxMailSendRoute);
 
 // Alias route for deployments/proxies that only expose /api/* paths.
-routerAdd("POST", "/api/boox-mail-send", function (e) {
-  try {
-    var reqInfo = null;
-    try {
-      reqInfo = e.requestInfo();
-    } catch (_) {
-      reqInfo = null;
-    }
-
-    var authRecord = reqInfo && reqInfo.authRecord ? reqInfo.authRecord : null;
-    var userId = String(authRecord && authRecord.id ? authRecord.id : "").trim();
-    if (!userId) {
-      return e.json(401, { error: "Unauthorized" });
-    }
-
-    var bodyObj = {};
-    if (reqInfo && reqInfo.body !== null && reqInfo.body !== undefined) {
-      if (typeof reqInfo.body === "string") {
-        try {
-          bodyObj = JSON.parse(reqInfo.body);
-        } catch (_) {
-          bodyObj = {};
-        }
-      } else {
-        bodyObj = reqInfo.body;
-      }
-    }
-
-    var toEmail = String(bodyObj.toEmail || "").trim();
-    var subject = String(bodyObj.subject || "").trim();
-    var body = String(bodyObj.body || "");
-    if (!subject) subject = "AI Note Daily Summary";
-
-    if (!toEmail) return e.json(400, { error: "toEmail is required" });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
-      return e.json(400, { error: "toEmail is invalid" });
-    }
-    if (!String(body).trim()) return e.json(400, { error: "body is required" });
-
-    var collection = e.app.findCollectionByNameOrId("mail_queue");
-    var record = new Record(collection);
-    record.set("user", userId);
-    record.set("toEmail", toEmail);
-    record.set("subject", subject);
-    record.set("body", body);
-    record.set("category", "ai_note_daily_summary");
-    record.set("status", "pending");
-    record.set("error", "");
-    record.set("createdAt", Date.now());
-
-    e.app.save(record);
-
-    return e.json(200, {
-      ok: true,
-      mode: "queued_via_custom_route",
-      queueId: record.id,
-    });
-  } catch (err) {
-    return e.json(500, { error: String(err || "unknown error") });
-  }
-});
+routerAdd("POST", "/api/boox-mail-send", handleBooxMailSendRoute);
