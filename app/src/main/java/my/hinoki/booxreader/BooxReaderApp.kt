@@ -75,10 +75,12 @@ class BooxReaderApp : Application() {
                 val syncRepo = UserSyncRepository(applicationContext)
                 val profileRepo = AiProfileRepository(applicationContext, syncRepo)
 
-                // Ensure default profile exists
-                val profileCreated = profileRepo.ensureDefaultProfile()
+                // Perform initial sync on app startup
+                profileRepo.sync()
 
-                // Show notification if default profile was created
+                // Ensure default profile only after initial pull, to avoid creating
+                // duplicate same-name profiles on a newly signed-in device.
+                val profileCreated = profileRepo.ensureDefaultProfile()
                 if (profileCreated) {
                     Toast.makeText(
                                     applicationContext,
@@ -87,9 +89,6 @@ class BooxReaderApp : Application() {
                             )
                             .show()
                 }
-
-                // Perform initial sync on app startup
-                val syncedCount = profileRepo.sync()
 
                 // Set up periodic sync (every 30 minutes)
                 setupPeriodicSync(profileRepo)
@@ -119,7 +118,7 @@ class BooxReaderApp : Application() {
                     override fun run() {
                         applicationScope.launch {
                             try {
-                                val syncedCount = profileRepo.sync()
+                                profileRepo.sync()
                             } catch (e: Exception) {
                                 ErrorReporter.report(
                                         applicationContext,

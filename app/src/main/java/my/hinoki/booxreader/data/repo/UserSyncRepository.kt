@@ -1508,6 +1508,115 @@ class UserSyncRepository(
                 )
         }
 
+        private fun profileNameKey(name: String): String = name.trim().lowercase(Locale.ROOT)
+
+        private fun hasUsableApiKey(apiKey: String): Boolean {
+                val key = apiKey.trim()
+                if (key.isBlank()) return false
+                if (key.equals("<YOUR_GEMINI_API_KEY>", ignoreCase = true)) return false
+                return !key.startsWith("<YOUR_", ignoreCase = true)
+        }
+
+        private fun shouldPreferProfile(candidate: AiProfileEntity, current: AiProfileEntity): Boolean {
+                val candidateHasKey = hasUsableApiKey(candidate.apiKey)
+                val currentHasKey = hasUsableApiKey(current.apiKey)
+                if (candidateHasKey != currentHasKey) return candidateHasKey
+                if (candidate.updatedAt != current.updatedAt) return candidate.updatedAt > current.updatedAt
+                return candidate.id > current.id
+        }
+
+        private fun toRemoteProfile(item: Map<String, Any>): AiProfileEntity? {
+                val remoteId = item["id"] as? String ?: return null
+                val now = System.currentTimeMillis()
+                return AiProfileEntity(
+                        remoteId = remoteId,
+                        name = item["name"] as? String ?: "",
+                        modelName = item["modelName"] as? String ?: "",
+                        apiKey = item["apiKey"] as? String ?: "",
+                        serverBaseUrl = item["serverBaseUrl"] as? String ?: "",
+                        systemPrompt = item["systemPrompt"] as? String ?: "",
+                        userPromptTemplate = item["userPromptTemplate"] as? String ?: "",
+                        useStreaming = item["useStreaming"] as? Boolean ?: false,
+                        temperature = item["temperature"] as? Double ?: 0.7,
+                        maxTokens = (item["maxTokens"] as? Double)?.toInt() ?: 4096,
+                        topP = item["topP"] as? Double ?: 1.0,
+                        frequencyPenalty = item["frequencyPenalty"] as? Double ?: 0.0,
+                        presencePenalty = item["presencePenalty"] as? Double ?: 0.0,
+                        assistantRole = item["assistantRole"] as? String ?: "assistant",
+                        enableGoogleSearch = item["enableGoogleSearch"] as? Boolean ?: true,
+                        extraParamsJson = item["extraParamsJson"] as? String,
+                        createdAt = (item["createdAt"] as? Double)?.toLong() ?: now,
+                        updatedAt = (item["updatedAt"] as? Double)?.toLong() ?: now,
+                        isSynced = true
+                )
+        }
+
+        private fun applyProfileToLocalSettings(profile: AiProfileEntity) {
+                val currentSettings = ReaderSettings.fromPrefs(prefs)
+                currentSettings
+                        .copy(
+                                aiModelName = profile.modelName,
+                                apiKey = profile.apiKey,
+                                serverBaseUrl = profile.serverBaseUrl,
+                                aiSystemPrompt = profile.systemPrompt,
+                                aiUserPromptTemplate = profile.userPromptTemplate,
+                                assistantRole = profile.assistantRole,
+                                enableGoogleSearch = profile.enableGoogleSearch,
+                                useStreaming = profile.useStreaming,
+                                temperature = profile.temperature,
+                                maxTokens = profile.maxTokens,
+                                topP = profile.topP,
+                                frequencyPenalty = profile.frequencyPenalty,
+                                presencePenalty = profile.presencePenalty,
+                                activeProfileId = profile.id,
+                                updatedAt = System.currentTimeMillis()
+                        )
+                        .saveTo(prefs)
+        }
+
+        private suspend fun cleanupDuplicateProfilesAndRepairActive(): Int {
+                val allProfiles = db.aiProfileDao().getAllList()
+                if (allProfiles.isEmpty()) return 0
+
+                val grouped =
+                        allProfiles
+                                .filter { it.name.isNotBlank() }
+                                .groupBy { profileNameKey(it.name) }
+                                .filterValues { it.size > 1 }
+                var changedCount = 0
+                var activeProfileId = ReaderSettings.fromPrefs(prefs).activeProfileId
+
+                for ((_, group) in grouped) {
+                        val keep = group.reduce { best, next ->
+                                if (shouldPreferProfile(next, best)) next else best
+                        }
+                        group.filter { it.id != keep.id }.forEach { duplicate ->
+                                db.aiProfileDao().deleteById(duplicate.id)
+                                changedCount++
+                                if (activeProfileId == duplicate.id) {
+                                        activeProfileId = keep.id
+                                }
+                        }
+                }
+
+                val activeProfile =
+                        if (activeProfileId > 0L) db.aiProfileDao().getById(activeProfileId) else null
+
+                if (activeProfile != null && hasUsableApiKey(activeProfile.apiKey)) {
+                        return changedCount
+                }
+
+                val fallback =
+                        db.aiProfileDao()
+                                .getAllList()
+                                .filter { hasUsableApiKey(it.apiKey) }
+                                .maxByOrNull { it.updatedAt }
+                                ?: return changedCount
+
+                applyProfileToLocalSettings(fallback)
+                return changedCount + 1
+        }
+
         // --- Profile Sync ---
 
         suspend fun pushAiProfile(profile: AiProfileEntity): String? =
@@ -1552,17 +1661,57 @@ class UserSyncRepository(
                                         executeRequest(updateRequest)
                                                 profile.remoteId
                                 } else {
-                                        val createUrl =
-                                                "$pocketBaseUrl/api/collections/ai_profiles/records"
-                                        val createRequest =
-                                                buildAuthenticatedRequest(createUrl)
-                                                        .post(requestBody)
-                                                        .build()
-                                        val createBody = executeRequest(createRequest)
-                                        val created =
-                                                gson.fromJson(createBody, Map::class.java) as
-                                                        Map<String, Any>
-                                        created["id"] as? String
+                                        val remoteItems =
+                                                fetchAllItems(
+                                                        "ai_profiles",
+                                                        "(user='$userId')",
+                                                        sortParam = "-updatedAt",
+                                                        perPage = 100
+                                                )
+                                        val sameNameRemote =
+                                                remoteItems
+                                                        .mapNotNull { toRemoteProfile(it) }
+                                                        .filter {
+                                                                profileNameKey(it.name) ==
+                                                                        profileNameKey(profile.name)
+                                                        }
+                                                        .reduceOrNull { best, next ->
+                                                                if (shouldPreferProfile(next, best)) next
+                                                                else best
+                                                        }
+
+                                        if (sameNameRemote != null) {
+                                                val keepRemoteApiKey =
+                                                        !hasUsableApiKey(profile.apiKey) &&
+                                                                hasUsableApiKey(sameNameRemote.apiKey)
+                                                if (keepRemoteApiKey) {
+                                                        Log.d(
+                                                                "UserSyncRepository",
+                                                                "pushAiProfile - Skip overwrite for ${profile.name} because remote has usable API key"
+                                                        )
+                                                } else {
+                                                        val updateUrl =
+                                                                "$pocketBaseUrl/api/collections/ai_profiles/records/${sameNameRemote.remoteId}"
+                                                        val updateRequest =
+                                                                buildAuthenticatedRequest(updateUrl)
+                                                                        .patch(requestBody)
+                                                                        .build()
+                                                        executeRequest(updateRequest)
+                                                }
+                                                sameNameRemote.remoteId
+                                        } else {
+                                                val createUrl =
+                                                        "$pocketBaseUrl/api/collections/ai_profiles/records"
+                                                val createRequest =
+                                                        buildAuthenticatedRequest(createUrl)
+                                                                .post(requestBody)
+                                                                .build()
+                                                val createBody = executeRequest(createRequest)
+                                                val created =
+                                                        gson.fromJson(createBody, Map::class.java) as
+                                                                Map<String, Any>
+                                                created["id"] as? String
+                                        }
                                 } ?: return@withContext null
 
                                 Log.d("UserSyncRepository", "pushAiProfile - Profile synced")
@@ -1589,70 +1738,80 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+                                val selectedRemoteByName = LinkedHashMap<String, AiProfileEntity>()
                                 for (item in items) {
-                                        val remoteId = item["id"] as? String ?: continue
-                                        val profile =
-                                                AiProfileEntity(
-                                                        remoteId = remoteId,
-                                                        name = item["name"] as? String ?: "",
-                                                        modelName = item["modelName"] as? String
-                                                                        ?: "",
-                                                        apiKey = item["apiKey"] as? String ?: "",
-                                                        serverBaseUrl =
-                                                                item["serverBaseUrl"] as? String
-                                                                        ?: "",
-                                                        systemPrompt =
-                                                                item["systemPrompt"] as? String
-                                                                        ?: "",
-                                                        userPromptTemplate =
-                                                                item["userPromptTemplate"] as?
-                                                                        String
-                                                                        ?: "",
-                                                        useStreaming =
-                                                                item["useStreaming"] as? Boolean
-                                                                        ?: false,
-                                                        temperature = item["temperature"] as? Double
-                                                                        ?: 0.7,
-                                                        maxTokens =
-                                                                (item["maxTokens"] as? Double)
-                                                                        ?.toInt()
-                                                                        ?: 4096,
-                                                        topP = item["topP"] as? Double ?: 1.0,
-                                                        frequencyPenalty =
-                                                                item["frequencyPenalty"] as? Double
-                                                                        ?: 0.0,
-                                                        presencePenalty =
-                                                                item["presencePenalty"] as? Double
-                                                                        ?: 0.0,
-                                                        assistantRole =
-                                                                item["assistantRole"] as? String
-                                                                        ?: "assistant",
-                                                        enableGoogleSearch =
-                                                                item["enableGoogleSearch"] as?
-                                                                        Boolean
-                                                                        ?: true,
-                                                        extraParamsJson =
-                                                                item["extraParamsJson"] as? String,
-                                                        createdAt =
-                                                                (item["createdAt"] as? Double)
-                                                                        ?.toLong()
-                                                                        ?: System.currentTimeMillis(),
-                                                        updatedAt =
-                                                                (item["updatedAt"] as? Double)
-                                                                        ?.toLong()
-                                                                        ?: System.currentTimeMillis(),
-                                                        isSynced = true
-                                                )
-
-                                        val existing = db.aiProfileDao().getByRemoteId(remoteId)
-                                        if (existing == null) {
-                                                db.aiProfileDao().insert(profile)
-                                                syncedCount++
-                                        } else if (profile.updatedAt > existing.updatedAt) {
-                                                db.aiProfileDao().insert(profile.copy(id = existing.id))
-                                                syncedCount++
+                                        val remoteProfile = toRemoteProfile(item) ?: continue
+                                        val nameKey = profileNameKey(remoteProfile.name)
+                                        if (nameKey.isBlank()) continue
+                                        val existing = selectedRemoteByName[nameKey]
+                                        if (existing == null ||
+                                                        shouldPreferProfile(
+                                                                remoteProfile,
+                                                                existing
+                                                        )
+                                        ) {
+                                                selectedRemoteByName[nameKey] = remoteProfile
                                         }
                                 }
+
+                                val localProfiles = db.aiProfileDao().getAllList()
+                                val localByRemoteId = mutableMapOf<String, AiProfileEntity>()
+                                localProfiles.forEach { localProfile ->
+                                        val remoteId = localProfile.remoteId
+                                        if (!remoteId.isNullOrBlank()) {
+                                                localByRemoteId[remoteId] = localProfile
+                                        }
+                                }
+                                val localByName = mutableMapOf<String, AiProfileEntity>()
+                                localProfiles.forEach { profile ->
+                                        val nameKey = profileNameKey(profile.name)
+                                        if (nameKey.isBlank()) return@forEach
+                                        val existing = localByName[nameKey]
+                                        if (existing == null || shouldPreferProfile(profile, existing)) {
+                                                localByName[nameKey] = profile
+                                        }
+                                }
+
+                                for ((nameKey, remoteProfile) in selectedRemoteByName) {
+                                        val remoteId = remoteProfile.remoteId ?: continue
+                                        val byRemote = localByRemoteId[remoteId]
+                                        if (byRemote != null) {
+                                                if (shouldPreferProfile(remoteProfile, byRemote)) {
+                                                        val merged = remoteProfile.copy(id = byRemote.id)
+                                                        db.aiProfileDao().insert(merged)
+                                                        localByName[nameKey] = merged
+                                                        localByRemoteId[remoteId] = merged
+                                                        syncedCount++
+                                                }
+                                                continue
+                                        }
+
+                                        val byName = localByName[nameKey]
+                                        if (byName != null) {
+                                                if (shouldPreferProfile(remoteProfile, byName)) {
+                                                        val merged = remoteProfile.copy(id = byName.id)
+                                                        db.aiProfileDao().insert(merged)
+                                                        localByName[nameKey] = merged
+                                                        localByRemoteId[remoteId] = merged
+                                                        syncedCount++
+                                                } else if (byName.remoteId.isNullOrBlank()) {
+                                                        val linked = byName.copy(remoteId = remoteId)
+                                                        db.aiProfileDao().update(linked)
+                                                        localByName[nameKey] = linked
+                                                        localByRemoteId[remoteId] = linked
+                                                        syncedCount++
+                                                }
+                                                continue
+                                        }
+
+                                        val insertedId = db.aiProfileDao().insert(remoteProfile)
+                                        val inserted = remoteProfile.copy(id = insertedId)
+                                        localByName[nameKey] = inserted
+                                        localByRemoteId[remoteId] = inserted
+                                        syncedCount++
+                                }
+
+                                syncedCount += cleanupDuplicateProfilesAndRepairActive()
 
                                 Log.d(
                                         "UserSyncRepository",
