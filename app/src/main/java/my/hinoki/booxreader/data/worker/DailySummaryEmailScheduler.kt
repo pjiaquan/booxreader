@@ -13,7 +13,11 @@ import my.hinoki.booxreader.data.settings.ReaderSettings
 object DailySummaryEmailScheduler {
     private const val UNIQUE_WORK_NAME = "daily_ai_note_email_summary"
 
-    fun schedule(context: Context, settings: ReaderSettings) {
+    fun schedule(
+            context: Context,
+            settings: ReaderSettings,
+            forceUpdate: Boolean = false
+    ) {
         val workManager = WorkManager.getInstance(context.applicationContext)
         if (!settings.dailySummaryEmailEnabled) {
             workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
@@ -44,7 +48,7 @@ object DailySummaryEmailScheduler {
 
         workManager.enqueueUniquePeriodicWork(
                 UNIQUE_WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                if (forceUpdate) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
                 request
         )
     }

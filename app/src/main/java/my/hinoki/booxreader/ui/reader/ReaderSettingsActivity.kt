@@ -556,7 +556,7 @@ class ReaderSettingsActivity : BaseActivity() {
                 )
 
         updatedSettings.saveTo(prefs)
-        DailySummaryEmailScheduler.schedule(this, updatedSettings)
+        DailySummaryEmailScheduler.schedule(this, updatedSettings, forceUpdate = true)
         pushSettingsToCloud()
 
         if (updatedSettings.language != currentSettings.language) {

@@ -277,8 +277,7 @@ class UserSyncRepository(
                                                         "subject" to subject,
                                                         "body" to body,
                                                         "category" to "ai_note_daily_summary",
-                                                        "status" to "pending",
-                                                        "createdAt" to System.currentTimeMillis()
+                                                        "status" to "pending"
                                                 )
                                         )
                                 val queueRequest =
@@ -342,7 +341,7 @@ class UserSyncRepository(
                                                 "PocketBase endpoints not found. Check POCKETBASE_URL (use host root, no /api) and create mail_queue/email_queue/outbox_emails with a send hook."
                                         customRouteStatusCodes.isNotEmpty() &&
                                                 customRouteStatusCodes.all { it == 404 } ->
-                                                "PocketBase custom route /boox-mail-send not found. Ensure pb_hooks/20_mail_queue_sender.pb.js is loaded."
+                                                "PocketBase custom route /boox-mail-send not found. Ensure pb_hooks/main.pb.js is deployed and loaded."
                                         queueStatusCodes.isNotEmpty() &&
                                                 queueStatusCodes.all { it == 404 } ->
                                                 "Queue collection not found. Create mail_queue/email_queue/outbox_emails in PocketBase."

@@ -556,6 +556,8 @@ function getTodayRangeMs() {
   return {
     start: start,
     end: start + 24 * 60 * 60 * 1000,
+    startIso: new Date(start).toISOString(),
+    endIso: new Date(start + 24 * 60 * 60 * 1000).toISOString(),
   };
 }
 
@@ -595,24 +597,53 @@ function deleteQueueRecordQuietly(app, record, reason) {
 
 function listTodayMailQueueRecords(app, userId) {
   var dayRange = getTodayRangeMs();
-  var filter =
+  var createdAtFilter =
     'user = "' +
     escapeFilterString(userId) +
     '" && createdAt >= ' +
     dayRange.start +
     " && createdAt < " +
     dayRange.end;
+  var createdFilter =
+    'user = "' +
+    escapeFilterString(userId) +
+    '" && created >= "' +
+    dayRange.startIso +
+    '" && created < "' +
+    dayRange.endIso +
+    '"';
 
   var records = [];
+  var finder = null;
   if (typeof app.findRecordsByFilter === "function") {
-    records = app.findRecordsByFilter(MAIL_QUEUE_NAME, filter, "createdAt", 200, 0);
+    finder = app;
   } else if (typeof $app !== "undefined" && typeof $app.findRecordsByFilter === "function") {
-    records = $app.findRecordsByFilter(MAIL_QUEUE_NAME, filter, "createdAt", 200, 0);
-  } else {
+    finder = $app;
+  }
+  if (!finder) {
     throw new Error("findRecordsByFilter is unavailable");
   }
 
+  try {
+    records = finder.findRecordsByFilter(MAIL_QUEUE_NAME, createdAtFilter, "createdAt", 200, 0);
+  } catch (_) {
+    // Backward-compatible fallback when custom numeric `createdAt` field is missing.
+    records = finder.findRecordsByFilter(MAIL_QUEUE_NAME, createdFilter, "created", 200, 0);
+  }
+
   return Array.isArray(records) ? records : [];
+}
+
+function collectionHasField(collection, fieldName) {
+  if (!collection || !fieldName) return false;
+  var fields = collection.fields || collection.schema || [];
+  if (!Array.isArray(fields)) return false;
+  for (var i = 0; i < fields.length; i++) {
+    var f = fields[i];
+    var name = String((f && f.name) || "").trim();
+    if (name === fieldName) return true;
+  }
+  return false;
 }
 
 function enforceMailDailyLimit(app, userId, currentRecordId) {
@@ -705,6 +736,24 @@ function parseRequestBody(reqInfo) {
   return reqInfo.body;
 }
 
+function resolveRouteAuthRecord(e, reqInfo) {
+  if (e && e.auth) return e.auth;
+  if (reqInfo && reqInfo.auth) return reqInfo.auth;
+  if (reqInfo && reqInfo.authRecord) return reqInfo.authRecord;
+  return null;
+}
+
+function hasAuthorizationHeader(reqInfo) {
+  if (!reqInfo || !reqInfo.headers) return false;
+  var headers = reqInfo.headers;
+  var authHeader =
+    headers.Authorization ||
+    headers.authorization ||
+    headers.AUTHORIZATION;
+  if (Array.isArray(authHeader)) return authHeader.length > 0 && String(authHeader[0]).trim() !== "";
+  return String(authHeader || "").trim() !== "";
+}
+
 function handleBooxMailSendRoute(e) {
   try {
     var reqInfo = null;
@@ -714,10 +763,19 @@ function handleBooxMailSendRoute(e) {
       reqInfo = null;
     }
 
-    var authRecord = reqInfo && reqInfo.authRecord ? reqInfo.authRecord : null;
+    var authRecord = resolveRouteAuthRecord(e, reqInfo);
     var userId = String(authRecord && authRecord.id ? authRecord.id : "").trim();
     if (!userId) {
-      return e.json(401, { error: "Unauthorized" });
+      try {
+        e.app.logger().warn(
+          "boox-mail-send unauthorized",
+          "hasAuthorizationHeader",
+          hasAuthorizationHeader(reqInfo)
+        );
+      } catch (_) {}
+      return e.json(401, {
+        error: "Unauthorized: missing or invalid auth token",
+      });
     }
 
     var bodyObj = parseRequestBody(reqInfo);
@@ -752,7 +810,9 @@ function handleBooxMailSendRoute(e) {
     record.set("category", "ai_note_daily_summary");
     record.set("status", "pending");
     record.set("error", "");
-    record.set("createdAt", Date.now());
+    if (collectionHasField(collection, "createdAt")) {
+      record.set("createdAt", Date.now());
+    }
 
     e.app.save(record);
 
@@ -767,6 +827,7 @@ function handleBooxMailSendRoute(e) {
 }
 
 onRecordCreate(function (e) {
+  e.next();
   try {
     var userId = toRelId(e.record.get("user")).trim();
     if (!userId) {
