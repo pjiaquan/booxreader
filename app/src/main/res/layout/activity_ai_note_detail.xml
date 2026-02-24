@@ -62,14 +62,31 @@
                     android:text="@string/ai_note_back_to_linked_note"
                     android:visibility="gone" />
 
-                <TextView
-                    android:id="@+id/tvResponseLabel"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
-                    android:text="@string/ai_note_response_label"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvResponseLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/ai_note_response_label"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btnCopyAiResponse"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/ai_note_copy_response"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_content_copy" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tvAiResponse"

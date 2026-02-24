@@ -1,5 +1,7 @@
 package my.hinoki.booxreader.ui.notes
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -237,6 +239,7 @@ class AiNoteDetailActivity : BaseActivity() {
             }
             sendFollowUp(note, question)
         }
+        binding.btnCopyAiResponse.setOnClickListener { copyAiResponseToClipboard() }
         binding.btnBackToLinkedNote.setOnClickListener {
             val fromId = sourceNoteId ?: return@setOnClickListener
             val currentId = currentNote?.id ?: return@setOnClickListener
@@ -362,6 +365,7 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvResponseLabel.setTextColor(textColor)
         binding.tvOriginalText.setTextColor(textColor)
         binding.tvAiResponse.setTextColor(textColor)
+        binding.btnCopyAiResponse.imageTintList = ColorStateList.valueOf(textColor)
         binding.tvAiModelInfo.setTextColor(secondaryTextColor)
         binding.tvAiDisclaimer.setTextColor(secondaryTextColor)
         binding.tvAiInputDisclaimer.setTextColor(secondaryTextColor)
@@ -1348,6 +1352,30 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun getAiResponse(note: AiNoteEntity): String {
         return note.aiResponse?.takeIf { it.isNotBlank() }
                 ?: AiNoteSerialization.aiResponseFromMessages(note.messages).orEmpty()
+    }
+
+    private fun copyAiResponseToClipboard() {
+        val noteResponse = currentNote?.let { getAiResponse(it).trim() }.orEmpty()
+        val displayedResponse = binding.tvAiResponse.text?.toString()?.trim().orEmpty()
+        val textToCopy =
+                when {
+                    noteResponse.isNotEmpty() -> noteResponse
+                    displayedResponse.isNotEmpty() &&
+                            displayedResponse != getString(R.string.ai_note_draft_status) ->
+                            displayedResponse
+                    else -> ""
+                }
+        if (textToCopy.isBlank()) {
+            Toast.makeText(this, getString(R.string.ai_note_copy_response_empty), Toast.LENGTH_SHORT)
+                    .show()
+            return
+        }
+
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText(getString(R.string.ai_note_response_label), textToCopy)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(this, getString(R.string.ai_note_copy_response_done), Toast.LENGTH_SHORT)
+                .show()
     }
 
     private fun relatedLookupKey(note: AiNoteEntity): String {

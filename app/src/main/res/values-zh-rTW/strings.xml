@@ -38,6 +38,9 @@
     <string name="ai_profile_default_created">已建立預設 Gemini 設定檔。取得 API 金鑰請前往 https://aistudio.google.com/app/apikey</string>
     <string name="ai_note_original_label">原文 (問題)：</string>
     <string name="ai_note_response_label">AI 回應 (答案)：</string>
+    <string name="ai_note_copy_response">複製 AI 回應</string>
+    <string name="ai_note_copy_response_done">已複製 AI 回應</string>
+    <string name="ai_note_copy_response_empty">目前沒有可複製的 AI 回應</string>
     <string name="ai_note_publish_retry">發佈 / 重試</string>
     <string name="ai_note_republish_selected">重新發佈選取內容</string>
     <string name="ai_note_publish">發佈</string>

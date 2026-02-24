@@ -55,6 +55,9 @@
     <string name="magic_tag_save_failed">Failed to save magic tags. Please try again.</string>
     <string name="ai_note_original_label">Original Text (Question):</string>
     <string name="ai_note_response_label">AI Response (Answer):</string>
+    <string name="ai_note_copy_response">Copy AI response</string>
+    <string name="ai_note_copy_response_done">Copied AI response</string>
+    <string name="ai_note_copy_response_empty">No AI response to copy</string>
     <string name="ai_note_publish_retry">Ask AI / Retry</string>
     <string name="ai_note_republish_selected">Republish Selection</string>
     <string name="ai_note_publish">Ask AI</string>
