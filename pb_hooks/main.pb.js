@@ -625,10 +625,26 @@ function listTodayMailQueueRecords(app, userId) {
   }
 
   try {
-    records = finder.findRecordsByFilter(MAIL_QUEUE_NAME, createdAtFilter, "createdAt", 200, 0);
+    records = finder.findRecordsByFilter(
+      typeof MAIL_QUEUE_NAME !== "undefined" && String(MAIL_QUEUE_NAME || "").trim()
+        ? String(MAIL_QUEUE_NAME || "").trim()
+        : "mail_queue",
+      createdAtFilter,
+      "createdAt",
+      200,
+      0
+    );
   } catch (_) {
     // Backward-compatible fallback when custom numeric `createdAt` field is missing.
-    records = finder.findRecordsByFilter(MAIL_QUEUE_NAME, createdFilter, "created", 200, 0);
+    records = finder.findRecordsByFilter(
+      typeof MAIL_QUEUE_NAME !== "undefined" && String(MAIL_QUEUE_NAME || "").trim()
+        ? String(MAIL_QUEUE_NAME || "").trim()
+        : "mail_queue",
+      createdFilter,
+      "created",
+      200,
+      0
+    );
   }
 
   return Array.isArray(records) ? records : [];
@@ -647,11 +663,15 @@ function collectionHasField(collection, fieldName) {
 }
 
 function enforceMailDailyLimit(app, userId, currentRecordId) {
+  var dailyLimit =
+    typeof MAIL_DAILY_LIMIT === "number" && isFinite(MAIL_DAILY_LIMIT)
+      ? MAIL_DAILY_LIMIT
+      : 2;
   var result = {
-    limit: MAIL_DAILY_LIMIT,
+    limit: dailyLimit,
     sentCount: 0,
     pendingCount: 0,
-    availableSlots: MAIL_DAILY_LIMIT,
+    availableSlots: dailyLimit,
     blocked: false,
     removedIds: [],
   };
@@ -685,7 +705,7 @@ function enforceMailDailyLimit(app, userId, currentRecordId) {
     pending.push(r);
   }
 
-  var availableSlots = MAIL_DAILY_LIMIT - result.sentCount;
+  var availableSlots = dailyLimit - result.sentCount;
   result.availableSlots = availableSlots;
 
   pending.sort(function (a, b) {
@@ -839,7 +859,10 @@ function handleBooxMailSendRoute(e) {
       });
     }
 
-    var mailQueueName = String(MAIL_QUEUE_NAME || "mail_queue");
+    var mailQueueName =
+      typeof MAIL_QUEUE_NAME !== "undefined" && String(MAIL_QUEUE_NAME || "").trim()
+        ? String(MAIL_QUEUE_NAME || "").trim()
+        : "mail_queue";
     var collection = e.app.findCollectionByNameOrId(mailQueueName);
     var record = new Record(collection);
     record.set("user", userId);
@@ -849,7 +872,19 @@ function handleBooxMailSendRoute(e) {
     record.set("category", "ai_note_daily_summary");
     record.set("status", "pending");
     record.set("error", "");
-    if (collectionHasField(collection, "createdAt")) {
+    var routeFields = (collection && (collection.fields || collection.schema)) || [];
+    var routeHasCreatedAt = false;
+    if (Array.isArray(routeFields)) {
+      for (var fidx = 0; fidx < routeFields.length; fidx++) {
+        var rf = routeFields[fidx];
+        var rn = String((rf && rf.name) || "").trim();
+        if (rn === "createdAt") {
+          routeHasCreatedAt = true;
+          break;
+        }
+      }
+    }
+    if (routeHasCreatedAt) {
       record.set("createdAt", Date.now());
     }
 
@@ -868,7 +903,16 @@ function handleBooxMailSendRoute(e) {
 onRecordCreate(function (e) {
   e.next();
   try {
-    var userId = toRelId(e.record.get("user")).trim();
+    var dailyLimit =
+      typeof MAIL_DAILY_LIMIT === "number" && isFinite(MAIL_DAILY_LIMIT)
+        ? MAIL_DAILY_LIMIT
+        : 2;
+    var rawUser = e.record.get("user");
+    var userId = "";
+    if (Array.isArray(rawUser)) userId = String(rawUser[0] || "");
+    else if (rawUser && typeof rawUser === "object") userId = String(rawUser.id || "");
+    else userId = String(rawUser || "");
+    userId = userId.trim();
     if (!userId) {
       e.record.set("status", "failed");
       e.record.set("error", "user is empty");
@@ -876,9 +920,23 @@ onRecordCreate(function (e) {
       return;
     }
 
-    var quota = enforceMailDailyLimit(e.app, userId, String((e.record && e.record.id) || ""));
+    var quota = {
+      blocked: false,
+      availableSlots: dailyLimit,
+      pendingCount: 0,
+      sentCount: 0,
+    };
+    if (typeof enforceMailDailyLimit === "function") {
+      quota = enforceMailDailyLimit(e.app, userId, String((e.record && e.record.id) || ""));
+    }
     if (quota.blocked) {
-      deleteQueueRecordQuietly(e.app, e.record, "daily_limit_blocked");
+      if (typeof deleteQueueRecordQuietly === "function") {
+        deleteQueueRecordQuietly(e.app, e.record, "daily_limit_blocked");
+      } else {
+        try {
+          e.app.delete(e.record);
+        } catch (_) {}
+      }
       return;
     }
 
@@ -963,9 +1021,159 @@ onRecordCreate(function (e) {
       e.app.save(e.record);
     } catch (_) {}
   }
-}, MAIL_QUEUE_NAME);
+},
+typeof MAIL_QUEUE_NAME !== "undefined" && String(MAIL_QUEUE_NAME || "").trim()
+  ? String(MAIL_QUEUE_NAME || "").trim()
+  : "mail_queue");
 
 routerAdd("POST", "/boox-mail-send", handleBooxMailSendRoute);
 
 // Alias route for deployments/proxies that only expose /api/* paths.
 routerAdd("POST", "/api/boox-mail-send", handleBooxMailSendRoute);
+
+// ============================================================
+// 6) Daily AI note report scheduler (self-contained)
+//    Defaults:
+//      DAILY_AI_NOTE_REPORT_CRON = "5 0 * * *" (00:05 UTC every day)
+//      DAILY_AI_NOTE_REPORT_MAX_NOTES = 30
+// ============================================================
+cronAdd(
+  "daily_ai_note_report",
+  String($os.getenv("DAILY_AI_NOTE_REPORT_CRON") || "5 0 * * *").trim(),
+  function () {
+    try {
+      var queueName =
+        typeof MAIL_QUEUE_NAME !== "undefined" && String(MAIL_QUEUE_NAME || "").trim()
+          ? String(MAIL_QUEUE_NAME || "").trim()
+          : "mail_queue";
+      var maxNotes = parseInt(String($os.getenv("DAILY_AI_NOTE_REPORT_MAX_NOTES") || "30"), 10);
+      if (!isFinite(maxNotes) || maxNotes <= 0) maxNotes = 30;
+      if (maxNotes > 100) maxNotes = 100;
+
+      var now = new Date();
+      var todayStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      var dayStart = new Date(todayStartMs - 24 * 60 * 60 * 1000);
+      var dayEnd = new Date(todayStartMs);
+      var dayLabel = dayStart.toISOString().slice(0, 10);
+      var startIso = dayStart.toISOString();
+      var endIso = dayEnd.toISOString();
+
+      var esc = function (v) {
+        return String(v || "")
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"');
+      };
+
+      // De-dup per user/day by subject+category already in queue.
+      var existingMap = {};
+      var existingFilter =
+        'category = "ai_note_daily_report_auto" && subject ~ "AI Note Daily Report (' +
+        esc(dayLabel) +
+        ')"';
+      var existing = [];
+      try {
+        existing = $app.findRecordsByFilter(queueName, existingFilter, "-created", 500, 0);
+      } catch (_) {
+        existing = [];
+      }
+      for (var ei = 0; ei < existing.length; ei++) {
+        var er = existing[ei];
+        var eu = er.get("user");
+        var eid = "";
+        if (Array.isArray(eu)) eid = String(eu[0] || "");
+        else if (eu && typeof eu === "object") eid = String(eu.id || "");
+        else eid = String(eu || "");
+        eid = eid.trim();
+        if (eid) existingMap[eid] = true;
+      }
+
+      var users = [];
+      try {
+        users = $app.findRecordsByFilter("users", "", "id", 10000, 0);
+      } catch (_) {
+        users = [];
+      }
+
+      for (var i = 0; i < users.length; i++) {
+        var u = users[i];
+        var userId = String((u && u.id) || "").trim();
+        if (!userId || existingMap[userId]) continue;
+
+        var toEmail = String((u && u.get && u.get("email")) || "").trim();
+        if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) continue;
+
+        var noteFilter =
+          'user = "' +
+          esc(userId) +
+          '" && status = "done" && created >= "' +
+          esc(startIso) +
+          '" && created < "' +
+          esc(endIso) +
+          '"';
+        var notes = [];
+        try {
+          notes = $app.findRecordsByFilter("ai_notes", noteFilter, "-created", maxNotes, 0);
+        } catch (_) {
+          notes = [];
+        }
+        if (!Array.isArray(notes) || notes.length === 0) continue;
+
+        var lines = [];
+        lines.push("AI Note Daily Report (" + dayLabel + ")");
+        lines.push("");
+        lines.push("Total notes: " + String(notes.length));
+        lines.push("");
+        for (var n = 0; n < notes.length; n++) {
+          var r = notes[n];
+          var title = String((r && r.get && r.get("bookTitle")) || "").trim();
+          var originalText = String((r && r.get && r.get("originalText")) || "").trim();
+          var aiResponse = String((r && r.get && r.get("aiResponse")) || "").trim();
+          if (!title) title = "Untitled";
+          if (originalText.length > 180) originalText = originalText.slice(0, 180) + "...";
+          if (aiResponse.length > 260) aiResponse = aiResponse.slice(0, 260) + "...";
+          lines.push((n + 1) + ". " + title);
+          if (originalText) lines.push("   Note: " + originalText);
+          if (aiResponse) lines.push("   AI: " + aiResponse);
+          lines.push("");
+        }
+        var body = lines.join("\n").trim();
+
+        var collection = null;
+        try {
+          collection = $app.findCollectionByNameOrId(queueName);
+        } catch (_) {
+          collection = null;
+        }
+        if (!collection) continue;
+
+        var q = new Record(collection);
+        q.set("user", userId);
+        q.set("toEmail", toEmail);
+        q.set("subject", "AI Note Daily Report (" + dayLabel + ")");
+        q.set("body", body);
+        q.set("category", "ai_note_daily_report_auto");
+        q.set("status", "pending");
+        q.set("error", "");
+
+        var fields = (collection && (collection.fields || collection.schema)) || [];
+        var hasCreatedAt = false;
+        if (Array.isArray(fields)) {
+          for (var f = 0; f < fields.length; f++) {
+            var fn = String((fields[f] && fields[f].name) || "").trim();
+            if (fn === "createdAt") {
+              hasCreatedAt = true;
+              break;
+            }
+          }
+        }
+        if (hasCreatedAt) q.set("createdAt", Date.now());
+
+        $app.save(q);
+      }
+    } catch (err) {
+      try {
+        $app.logger().error("daily_ai_note_report failed", "error", String(err || ""));
+      } catch (_) {}
+    }
+  }
+);

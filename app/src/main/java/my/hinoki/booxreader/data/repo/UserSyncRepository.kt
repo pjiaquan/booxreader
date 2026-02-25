@@ -64,7 +64,8 @@ class UserSyncRepository(
         private companion object {
                 val BOOK_FILE_FIELD_CANDIDATES =
                         listOf("bookFile", "file", "epubFile", "epub", "asset", "book")
-                val MAIL_QUEUE_COLLECTION_CANDIDATES = listOf("mail_queue")
+                val MAIL_QUEUE_COLLECTION_CANDIDATES =
+                        listOf("mail_queue", "email_queue", "outbox_emails")
                 val MAIL_CUSTOM_ROUTE_CANDIDATES =
                         listOf("/boox-mail-send", "/api/boox-mail-send")
         }
@@ -149,6 +150,7 @@ class UserSyncRepository(
                 withContext(io) {
                         // Allow both host-root and mistakenly-configured */api base URLs.
                         val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
+                        refreshAuthTokenIfPossible(pocketBaseRoot)
                         val email = toEmail.trim()
                         if (email.isBlank()) {
                                 return@withContext CheckResult(false, "Missing recipient email")
@@ -333,6 +335,8 @@ class UserSyncRepository(
                                 when {
                                         directStatusCode == 401 || directStatusCode == 403 ->
                                                 "PocketBase /api/mails/send requires admin permission. Use mail_queue hook mode."
+                                        queueStatusCodes.any { it == 401 || it == 403 } ->
+                                                "PocketBase queue write denied. Check createRule for mail_queue/email_queue/outbox_emails (expect @request.auth.id != \"\")."
                                         customRouteStatusCodes.any { it == 401 || it == 403 } ->
                                                 "PocketBase custom mail route denied. Check routerAdd auth handling."
                                         directStatusCode == 404 &&
@@ -359,6 +363,53 @@ class UserSyncRepository(
         private suspend fun buildAuthenticatedRequest(url: String): Request.Builder {
                 val token = tokenManager.getAccessToken() ?: ""
                 return Request.Builder().url(url).addHeader("Authorization", "Bearer $token")
+        }
+
+        /**
+         * PocketBase auth tokens can expire/rotate. Refresh once before mail dispatch so
+         * routerAdd/custom routes can resolve e.auth consistently.
+         */
+        private fun refreshAuthTokenIfPossible(pocketBaseRoot: String): Boolean {
+                val token = tokenManager.getAccessToken()?.trim().orEmpty()
+                if (token.isBlank()) return false
+
+                val request =
+                        Request.Builder()
+                                .url("$pocketBaseRoot/api/collections/users/auth-refresh")
+                                .addHeader("Authorization", "Bearer $token")
+                                .post("{}".toRequestBody("application/json; charset=utf-8".toMediaType()))
+                                .build()
+
+                return try {
+                        httpClient.newCall(request).execute().use { response ->
+                                if (!response.isSuccessful) {
+                                        Log.w(
+                                                "UserSyncRepository",
+                                                "refreshAuthTokenIfPossible failed: ${response.code}"
+                                        )
+                                        return false
+                                }
+                                val payload =
+                                        runCatching {
+                                                        gson.fromJson(
+                                                                response.body?.charStream(),
+                                                                Map::class.java
+                                                        ) as? Map<*, *>
+                                                }
+                                                .getOrNull()
+                                val refreshedToken =
+                                        (payload?.get("token") as? String)?.trim().orEmpty()
+                                if (refreshedToken.isNotBlank()) {
+                                        tokenManager.saveAccessToken(refreshedToken)
+                                        true
+                                } else {
+                                        false
+                                }
+                        }
+                } catch (e: Exception) {
+                        Log.w("UserSyncRepository", "refreshAuthTokenIfPossible error", e)
+                        false
+                }
         }
 
         /**
