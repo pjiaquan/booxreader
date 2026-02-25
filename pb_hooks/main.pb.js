@@ -9,10 +9,18 @@ function qdrantLogSafeStr(v) {
 }
 
 function logQdrantSyncEvent(app, payload) {
+  var action = qdrantLogSafeStr(payload && payload.action);
+  var status = qdrantLogSafeStr(payload && payload.status);
   try {
-    if (!app) return;
+    if (!app) {
+      console.log(`>> [QdrantLog Skip] app missing (${action}/${status})`);
+      return;
+    }
     var collectionName = String(QDRANT_SYNC_LOG_COLLECTION || "qdrant_sync_logs").trim();
-    if (!collectionName) return;
+    if (!collectionName) {
+      console.log(`>> [QdrantLog Skip] empty collection name (${action}/${status})`);
+      return;
+    }
 
     var collection = null;
     try {
@@ -20,7 +28,10 @@ function logQdrantSyncEvent(app, payload) {
     } catch (_) {
       collection = null;
     }
-    if (!collection) return;
+    if (!collection) {
+      console.log(`>> [QdrantLog Skip] collection not found: ${collectionName}`);
+      return;
+    }
 
     var record = new Record(collection);
     record.set("action", qdrantLogSafeStr(payload.action));
@@ -40,7 +51,8 @@ function logQdrantSyncEvent(app, payload) {
     }
 
     app.save(record);
-  } catch (_) {
+  } catch (err) {
+    console.log(`>> [QdrantLog Error] ${err}`);
     // Best-effort logging only; never break primary flow.
   }
 }
@@ -89,7 +101,7 @@ onRecordCreate((e) => {
 
     const status = safeStr(e.record.get("status"));
     if (status !== "done") {
-      logQdrantSyncEvent(appRef, {
+      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
         action: "upsert_create",
         status: "skipped",
         reason: "status_not_done",
@@ -104,7 +116,7 @@ onRecordCreate((e) => {
     }
     const aiResponse = safeStr(e.record.get("aiResponse"));
     if (aiResponse.length < 2) {
-      logQdrantSyncEvent(appRef, {
+      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
         action: "upsert_create",
         status: "skipped",
         reason: "ai_response_too_short",
@@ -200,7 +212,7 @@ onRecordCreate((e) => {
     }
 
     console.log(`>> [Create Success] Synced ${e.record.id}`);
-    logQdrantSyncEvent(appRef, {
+    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
       action: "upsert_create",
       status: "success",
       recordId: recordIdForLog,
@@ -213,7 +225,7 @@ onRecordCreate((e) => {
     });
   } catch (err) {
     console.log(`>> [Create Error] ${err}`);
-    logQdrantSyncEvent(appRef, {
+    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
       action: "upsert_create",
       status: "failed",
       reason: "hook_exception",
@@ -272,7 +284,7 @@ onRecordUpdate((e) => {
 
     const status = safeStr(e.record.get("status"));
     if (status !== "done") {
-      logQdrantSyncEvent(appRef, {
+      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
         action: "upsert_update",
         status: "skipped",
         reason: "status_not_done",
@@ -287,7 +299,7 @@ onRecordUpdate((e) => {
     }
     const aiResponse = safeStr(e.record.get("aiResponse"));
     if (aiResponse.length < 2) {
-      logQdrantSyncEvent(appRef, {
+      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
         action: "upsert_update",
         status: "skipped",
         reason: "ai_response_too_short",
@@ -383,7 +395,7 @@ onRecordUpdate((e) => {
     }
 
     console.log(`>> [Update Success] Synced ${e.record.id}`);
-    logQdrantSyncEvent(appRef, {
+    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
       action: "upsert_update",
       status: "success",
       recordId: recordIdForLog,
@@ -396,7 +408,7 @@ onRecordUpdate((e) => {
     });
   } catch (err) {
     console.log(`>> [Update Error] ${err}`);
-    logQdrantSyncEvent(appRef, {
+    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
       action: "upsert_update",
       status: "failed",
       reason: "hook_exception",
@@ -471,7 +483,7 @@ onRecordDelete((e) => {
     }
 
     console.log(`>> [Delete Success] Removed ${e.record.id}`);
-    logQdrantSyncEvent(appRef, {
+    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
       action: "delete",
       status: "success",
       recordId: recordIdForLog,
@@ -483,7 +495,7 @@ onRecordDelete((e) => {
     });
   } catch (err) {
     console.log(`>> [Delete Error] ${err}`);
-    logQdrantSyncEvent(appRef, {
+    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
       action: "delete",
       status: "failed",
       reason: "hook_exception",
