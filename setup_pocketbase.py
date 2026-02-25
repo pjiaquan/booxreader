@@ -491,6 +491,28 @@ def get_default_collections_schema():
             "createRule": "@request.auth.id != \"\"",
             "updateRule": None,
             "deleteRule": None
+        },
+        {
+            "name": "qdrant_sync_logs",
+            "type": "base",
+            "fields": [
+                {"name": "user", "type": "relation", "required": False, "options": {"collectionId": "_pb_users_auth_", "cascadeDelete": False, "maxSelect": 1}},
+                {"name": "action", "type": "text", "required": True},
+                {"name": "status", "type": "text", "required": True},
+                {"name": "recordId", "type": "text", "required": True},
+                {"name": "bookId", "type": "text", "required": False},
+                {"name": "qdrantCollection", "type": "text", "required": False},
+                {"name": "pointId", "type": "text", "required": False},
+                {"name": "reason", "type": "text", "required": False},
+                {"name": "detail", "type": "text", "required": False},
+                {"name": "error", "type": "text", "required": False},
+                {"name": "timestamp", "type": "number", "required": True}
+            ],
+            "listRule": None,
+            "viewRule": None,
+            "createRule": None,
+            "updateRule": None,
+            "deleteRule": None
         }
     ]
 

@@ -108,6 +108,8 @@
     <string name="reader_ai_note">AI Note</string>
     <string name="reader_bookmark">☆ Bookmark</string>
     <string name="reader_publish">Ask AI</string>
+    <string name="reader_share_page_empty">No page content to share</string>
+    <string name="reader_share_page_subject">%1$s - Page Share</string>
     <string name="reader_table_of_contents">Contents</string>
     <string name="reader_settings">Settings</string>
     <string name="login_title">BooxReader Login</string>

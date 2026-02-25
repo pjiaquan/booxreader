@@ -1,10 +1,62 @@
 /// <reference path="../pb_data/types.d.ts" />
 
+var QDRANT_SYNC_LOG_COLLECTION = String(
+  $os.getenv("QDRANT_SYNC_LOG_COLLECTION") || "qdrant_sync_logs"
+).trim();
+
+function qdrantLogSafeStr(v) {
+  return v === null || v === undefined ? "" : String(v);
+}
+
+function logQdrantSyncEvent(app, payload) {
+  try {
+    if (!app) return;
+    var collectionName = String(QDRANT_SYNC_LOG_COLLECTION || "qdrant_sync_logs").trim();
+    if (!collectionName) return;
+
+    var collection = null;
+    try {
+      collection = app.findCollectionByNameOrId(collectionName);
+    } catch (_) {
+      collection = null;
+    }
+    if (!collection) return;
+
+    var record = new Record(collection);
+    record.set("action", qdrantLogSafeStr(payload.action));
+    record.set("status", qdrantLogSafeStr(payload.status));
+    record.set("recordId", qdrantLogSafeStr(payload.recordId));
+    record.set("bookId", qdrantLogSafeStr(payload.bookId));
+    record.set("qdrantCollection", qdrantLogSafeStr(payload.qdrantCollection));
+    record.set("pointId", qdrantLogSafeStr(payload.pointId));
+    record.set("reason", qdrantLogSafeStr(payload.reason));
+    record.set("detail", qdrantLogSafeStr(payload.detail));
+    record.set("error", qdrantLogSafeStr(payload.error));
+    record.set("timestamp", Number(payload.timestamp) || Date.now());
+
+    var userId = qdrantLogSafeStr(payload.userId).trim();
+    if (userId) {
+      record.set("user", userId);
+    }
+
+    app.save(record);
+  } catch (_) {
+    // Best-effort logging only; never break primary flow.
+  }
+}
+
 // ============================================================
 // 1) Create -> Qdrant upsert (self-contained)
 // ============================================================
 onRecordCreate((e) => {
   e.next();
+
+  const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+  let recordIdForLog = "";
+  let userIdForLog = "";
+  let bookIdForLog = "";
+  let qdrantCollectionForLog = "";
+  let pointIdForLog = "";
 
   try {
     const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
@@ -13,6 +65,11 @@ onRecordCreate((e) => {
       if (v && typeof v === "object") return String(v.id || "");
       return String(v || "");
     };
+    const nowTs = Date.now();
+
+    recordIdForLog = safeStr(e.record && e.record.id);
+    userIdForLog = toRelId(e.record.get("user"));
+    bookIdForLog = safeStr(e.record.get("bookId"));
 
     const cfg = {
       embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
@@ -28,10 +85,38 @@ onRecordCreate((e) => {
       qdrantCollection: String($os.getenv("QDRANT_COLLECTION") || "ai_notes").trim(),
       maxEmbedText: parseInt(String($os.getenv("MAX_EMBED_TEXT") || "6000"), 10) || 6000,
     };
+    qdrantCollectionForLog = cfg.qdrantCollection;
 
-    if (safeStr(e.record.get("status")) !== "done") return;
+    const status = safeStr(e.record.get("status"));
+    if (status !== "done") {
+      logQdrantSyncEvent(appRef, {
+        action: "upsert_create",
+        status: "skipped",
+        reason: "status_not_done",
+        detail: `status=${status}`,
+        recordId: recordIdForLog,
+        userId: userIdForLog,
+        bookId: bookIdForLog,
+        qdrantCollection: qdrantCollectionForLog,
+        timestamp: nowTs,
+      });
+      return;
+    }
     const aiResponse = safeStr(e.record.get("aiResponse"));
-    if (aiResponse.length < 2) return;
+    if (aiResponse.length < 2) {
+      logQdrantSyncEvent(appRef, {
+        action: "upsert_create",
+        status: "skipped",
+        reason: "ai_response_too_short",
+        detail: `length=${aiResponse.length}`,
+        recordId: recordIdForLog,
+        userId: userIdForLog,
+        bookId: bookIdForLog,
+        qdrantCollection: qdrantCollectionForLog,
+        timestamp: nowTs,
+      });
+      return;
+    }
 
     const originalText = safeStr(e.record.get("originalText"));
     let textToEmbed = `Title: ${originalText}\n\nContent: ${aiResponse}`;
@@ -88,6 +173,7 @@ onRecordCreate((e) => {
       hash.substring(16, 20) +
       "-" +
       hash.substring(20, 32);
+    pointIdForLog = uuid;
 
     const qRes = $http.send({
       url: `${cfg.qdrantUrl}/collections/${cfg.qdrantCollection}/points?wait=true`,
@@ -114,8 +200,31 @@ onRecordCreate((e) => {
     }
 
     console.log(`>> [Create Success] Synced ${e.record.id}`);
+    logQdrantSyncEvent(appRef, {
+      action: "upsert_create",
+      status: "success",
+      recordId: recordIdForLog,
+      userId: userIdForLog,
+      bookId: bookIdForLog,
+      qdrantCollection: qdrantCollectionForLog,
+      pointId: pointIdForLog,
+      detail: `embed_len=${textToEmbed.length}`,
+      timestamp: nowTs,
+    });
   } catch (err) {
     console.log(`>> [Create Error] ${err}`);
+    logQdrantSyncEvent(appRef, {
+      action: "upsert_create",
+      status: "failed",
+      reason: "hook_exception",
+      error: qdrantLogSafeStr(err),
+      recordId: recordIdForLog,
+      userId: userIdForLog,
+      bookId: bookIdForLog,
+      qdrantCollection: qdrantCollectionForLog,
+      pointId: pointIdForLog,
+      timestamp: Date.now(),
+    });
   }
 }, "ai_notes");
 
@@ -125,6 +234,13 @@ onRecordCreate((e) => {
 onRecordUpdate((e) => {
   e.next();
 
+  const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+  let recordIdForLog = "";
+  let userIdForLog = "";
+  let bookIdForLog = "";
+  let qdrantCollectionForLog = "";
+  let pointIdForLog = "";
+
   try {
     const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
     const toRelId = (v) => {
@@ -132,6 +248,11 @@ onRecordUpdate((e) => {
       if (v && typeof v === "object") return String(v.id || "");
       return String(v || "");
     };
+    const nowTs = Date.now();
+
+    recordIdForLog = safeStr(e.record && e.record.id);
+    userIdForLog = toRelId(e.record.get("user"));
+    bookIdForLog = safeStr(e.record.get("bookId"));
 
     const cfg = {
       embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
@@ -147,10 +268,38 @@ onRecordUpdate((e) => {
       qdrantCollection: String($os.getenv("QDRANT_COLLECTION") || "ai_notes").trim(),
       maxEmbedText: parseInt(String($os.getenv("MAX_EMBED_TEXT") || "6000"), 10) || 6000,
     };
+    qdrantCollectionForLog = cfg.qdrantCollection;
 
-    if (safeStr(e.record.get("status")) !== "done") return;
+    const status = safeStr(e.record.get("status"));
+    if (status !== "done") {
+      logQdrantSyncEvent(appRef, {
+        action: "upsert_update",
+        status: "skipped",
+        reason: "status_not_done",
+        detail: `status=${status}`,
+        recordId: recordIdForLog,
+        userId: userIdForLog,
+        bookId: bookIdForLog,
+        qdrantCollection: qdrantCollectionForLog,
+        timestamp: nowTs,
+      });
+      return;
+    }
     const aiResponse = safeStr(e.record.get("aiResponse"));
-    if (aiResponse.length < 2) return;
+    if (aiResponse.length < 2) {
+      logQdrantSyncEvent(appRef, {
+        action: "upsert_update",
+        status: "skipped",
+        reason: "ai_response_too_short",
+        detail: `length=${aiResponse.length}`,
+        recordId: recordIdForLog,
+        userId: userIdForLog,
+        bookId: bookIdForLog,
+        qdrantCollection: qdrantCollectionForLog,
+        timestamp: nowTs,
+      });
+      return;
+    }
 
     const originalText = safeStr(e.record.get("originalText"));
     let textToEmbed = `Title: ${originalText}\n\nContent: ${aiResponse}`;
@@ -207,6 +356,7 @@ onRecordUpdate((e) => {
       hash.substring(16, 20) +
       "-" +
       hash.substring(20, 32);
+    pointIdForLog = uuid;
 
     const qRes = $http.send({
       url: `${cfg.qdrantUrl}/collections/${cfg.qdrantCollection}/points?wait=true`,
@@ -233,8 +383,31 @@ onRecordUpdate((e) => {
     }
 
     console.log(`>> [Update Success] Synced ${e.record.id}`);
+    logQdrantSyncEvent(appRef, {
+      action: "upsert_update",
+      status: "success",
+      recordId: recordIdForLog,
+      userId: userIdForLog,
+      bookId: bookIdForLog,
+      qdrantCollection: qdrantCollectionForLog,
+      pointId: pointIdForLog,
+      detail: `embed_len=${textToEmbed.length}`,
+      timestamp: nowTs,
+    });
   } catch (err) {
     console.log(`>> [Update Error] ${err}`);
+    logQdrantSyncEvent(appRef, {
+      action: "upsert_update",
+      status: "failed",
+      reason: "hook_exception",
+      error: qdrantLogSafeStr(err),
+      recordId: recordIdForLog,
+      userId: userIdForLog,
+      bookId: bookIdForLog,
+      qdrantCollection: qdrantCollectionForLog,
+      pointId: pointIdForLog,
+      timestamp: Date.now(),
+    });
   }
 }, "ai_notes");
 
@@ -244,13 +417,33 @@ onRecordUpdate((e) => {
 onRecordDelete((e) => {
   e.next();
 
+  const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+  let recordIdForLog = "";
+  let userIdForLog = "";
+  let bookIdForLog = "";
+  let qdrantCollectionForLog = "";
+  let pointIdForLog = "";
+
   try {
+    const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
+    const toRelId = (v) => {
+      if (Array.isArray(v)) return String(v[0] || "");
+      if (v && typeof v === "object") return String(v.id || "");
+      return String(v || "");
+    };
+    const nowTs = Date.now();
+
+    recordIdForLog = safeStr(e.record && e.record.id);
+    userIdForLog = toRelId(e.record.get("user"));
+    bookIdForLog = safeStr(e.record.get("bookId"));
+
     const cfg = {
       qdrantUrl: String($os.getenv("QDRANT_URL") || "http://127.0.0.1:6333")
         .trim()
         .replace(/\/+$/, ""),
       qdrantCollection: String($os.getenv("QDRANT_COLLECTION") || "ai_notes").trim(),
     };
+    qdrantCollectionForLog = cfg.qdrantCollection;
 
     const hash = $security.md5(String(e.record.id || ""));
     const uuid =
@@ -263,6 +456,7 @@ onRecordDelete((e) => {
       hash.substring(16, 20) +
       "-" +
       hash.substring(20, 32);
+    pointIdForLog = uuid;
 
     const delRes = $http.send({
       url: `${cfg.qdrantUrl}/collections/${cfg.qdrantCollection}/points/delete?wait=true`,
@@ -277,8 +471,30 @@ onRecordDelete((e) => {
     }
 
     console.log(`>> [Delete Success] Removed ${e.record.id}`);
+    logQdrantSyncEvent(appRef, {
+      action: "delete",
+      status: "success",
+      recordId: recordIdForLog,
+      userId: userIdForLog,
+      bookId: bookIdForLog,
+      qdrantCollection: qdrantCollectionForLog,
+      pointId: pointIdForLog,
+      timestamp: nowTs,
+    });
   } catch (err) {
     console.log(`>> [Delete Error] ${err}`);
+    logQdrantSyncEvent(appRef, {
+      action: "delete",
+      status: "failed",
+      reason: "hook_exception",
+      error: qdrantLogSafeStr(err),
+      recordId: recordIdForLog,
+      userId: userIdForLog,
+      bookId: bookIdForLog,
+      qdrantCollection: qdrantCollectionForLog,
+      pointId: pointIdForLog,
+      timestamp: Date.now(),
+    });
   }
 }, "ai_notes");
 
@@ -536,7 +752,7 @@ routerAdd("POST", "/boox-ai-notes-semantic-search", (e) => {
 //    Keep in main.pb.js for PocketBase versions that only load main.
 // ============================================================
 var MAIL_QUEUE_NAME = "mail_queue";
-var MAIL_DAILY_LIMIT = 2;
+var MAIL_DAILY_LIMIT = 20;
 
 function toRelId(v) {
   if (Array.isArray(v)) return String(v[0] || "");
@@ -920,24 +1136,30 @@ onRecordCreate(function (e) {
       return;
     }
 
-    var quota = {
-      blocked: false,
-      availableSlots: dailyLimit,
-      pendingCount: 0,
-      sentCount: 0,
-    };
-    if (typeof enforceMailDailyLimit === "function") {
-      quota = enforceMailDailyLimit(e.app, userId, String((e.record && e.record.id) || ""));
-    }
-    if (quota.blocked) {
-      if (typeof deleteQueueRecordQuietly === "function") {
-        deleteQueueRecordQuietly(e.app, e.record, "daily_limit_blocked");
-      } else {
-        try {
-          e.app.delete(e.record);
-        } catch (_) {}
+    var category = String(e.record.get("category") || "")
+      .trim()
+      .toLowerCase();
+    var bypassDailyLimit = category === "ai_note_daily_report_auto";
+    if (!bypassDailyLimit) {
+      var quota = {
+        blocked: false,
+        availableSlots: dailyLimit,
+        pendingCount: 0,
+        sentCount: 0,
+      };
+      if (typeof enforceMailDailyLimit === "function") {
+        quota = enforceMailDailyLimit(e.app, userId, String((e.record && e.record.id) || ""));
       }
-      return;
+      if (quota.blocked) {
+        if (typeof deleteQueueRecordQuietly === "function") {
+          deleteQueueRecordQuietly(e.app, e.record, "daily_limit_blocked");
+        } else {
+          try {
+            e.app.delete(e.record);
+          } catch (_) {}
+        }
+        return;
+      }
     }
 
     var toEmail = String(e.record.get("toEmail") || "").trim();
@@ -1051,10 +1273,9 @@ cronAdd(
       if (maxNotes > 100) maxNotes = 100;
 
       var now = new Date();
-      var todayStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-      var dayStart = new Date(todayStartMs - 24 * 60 * 60 * 1000);
-      var dayEnd = new Date(todayStartMs);
-      var dayLabel = dayStart.toISOString().slice(0, 10);
+      var dayEnd = now;
+      var dayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      var dayLabel = dayStart.toISOString().slice(0, 10) + " to " + dayEnd.toISOString().slice(0, 10);
       var startIso = dayStart.toISOString();
       var endIso = dayEnd.toISOString();
 
@@ -1093,83 +1314,132 @@ cronAdd(
       } catch (_) {
         users = [];
       }
+      var stats = {
+        users: Array.isArray(users) ? users.length : 0,
+        queued: 0,
+        skippedExisting: 0,
+        skippedInvalidEmail: 0,
+        skippedNoNotes: 0,
+        skippedNoCollection: 0,
+        userErrors: 0,
+      };
 
       for (var i = 0; i < users.length; i++) {
-        var u = users[i];
-        var userId = String((u && u.id) || "").trim();
-        if (!userId || existingMap[userId]) continue;
-
-        var toEmail = String((u && u.get && u.get("email")) || "").trim();
-        if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) continue;
-
-        var noteFilter =
-          'user = "' +
-          esc(userId) +
-          '" && status = "done" && created >= "' +
-          esc(startIso) +
-          '" && created < "' +
-          esc(endIso) +
-          '"';
-        var notes = [];
         try {
-          notes = $app.findRecordsByFilter("ai_notes", noteFilter, "-created", maxNotes, 0);
-        } catch (_) {
-          notes = [];
-        }
-        if (!Array.isArray(notes) || notes.length === 0) continue;
+          var u = users[i];
+          var userId = String((u && u.id) || "").trim();
+          if (!userId || existingMap[userId]) {
+            stats.skippedExisting += 1;
+            continue;
+          }
 
-        var lines = [];
-        lines.push("AI Note Daily Report (" + dayLabel + ")");
-        lines.push("");
-        lines.push("Total notes: " + String(notes.length));
-        lines.push("");
-        for (var n = 0; n < notes.length; n++) {
-          var r = notes[n];
-          var title = String((r && r.get && r.get("bookTitle")) || "").trim();
-          var originalText = String((r && r.get && r.get("originalText")) || "").trim();
-          var aiResponse = String((r && r.get && r.get("aiResponse")) || "").trim();
-          if (!title) title = "Untitled";
-          if (originalText.length > 180) originalText = originalText.slice(0, 180) + "...";
-          if (aiResponse.length > 260) aiResponse = aiResponse.slice(0, 260) + "...";
-          lines.push((n + 1) + ". " + title);
-          if (originalText) lines.push("   Note: " + originalText);
-          if (aiResponse) lines.push("   AI: " + aiResponse);
+          var toEmail = String((u && u.get && u.get("email")) || "").trim();
+          if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
+            stats.skippedInvalidEmail += 1;
+            continue;
+          }
+
+          var noteFilter =
+            'user = "' +
+            esc(userId) +
+            '" && status = "done" && created >= "' +
+            esc(startIso) +
+            '" && created < "' +
+            esc(endIso) +
+            '"';
+          var notes = [];
+          try {
+            notes = $app.findRecordsByFilter("ai_notes", noteFilter, "-created", maxNotes, 0);
+          } catch (_) {
+            notes = [];
+          }
+          if (!Array.isArray(notes) || notes.length === 0) {
+            stats.skippedNoNotes += 1;
+            continue;
+          }
+
+          var lines = [];
+          lines.push("AI Note Daily Report (" + dayLabel + ")");
           lines.push("");
-        }
-        var body = lines.join("\n").trim();
+          lines.push("Total notes: " + String(notes.length));
+          lines.push("");
+          for (var n = 0; n < notes.length; n++) {
+            var r = notes[n];
+            var title = String((r && r.get && r.get("bookTitle")) || "").trim();
+            var originalText = String((r && r.get && r.get("originalText")) || "").trim();
+            var aiResponse = String((r && r.get && r.get("aiResponse")) || "").trim();
+            if (!title) title = "Untitled";
+            if (originalText.length > 180) originalText = originalText.slice(0, 180) + "...";
+            if (aiResponse.length > 260) aiResponse = aiResponse.slice(0, 260) + "...";
+            lines.push((n + 1) + ". " + title);
+            if (originalText) lines.push("   Note: " + originalText);
+            if (aiResponse) lines.push("   AI: " + aiResponse);
+            lines.push("");
+          }
+          var body = lines.join("\n").trim();
 
-        var collection = null;
-        try {
-          collection = $app.findCollectionByNameOrId(queueName);
-        } catch (_) {
-          collection = null;
-        }
-        if (!collection) continue;
+          var collection = null;
+          try {
+            collection = $app.findCollectionByNameOrId(queueName);
+          } catch (_) {
+            collection = null;
+          }
+          if (!collection) {
+            stats.skippedNoCollection += 1;
+            continue;
+          }
 
-        var q = new Record(collection);
-        q.set("user", userId);
-        q.set("toEmail", toEmail);
-        q.set("subject", "AI Note Daily Report (" + dayLabel + ")");
-        q.set("body", body);
-        q.set("category", "ai_note_daily_report_auto");
-        q.set("status", "pending");
-        q.set("error", "");
+          var q = new Record(collection);
+          q.set("user", userId);
+          q.set("toEmail", toEmail);
+          q.set("subject", "AI Note Daily Report (" + dayLabel + ")");
+          q.set("body", body);
+          q.set("category", "ai_note_daily_report_auto");
+          q.set("status", "pending");
+          q.set("error", "");
 
-        var fields = (collection && (collection.fields || collection.schema)) || [];
-        var hasCreatedAt = false;
-        if (Array.isArray(fields)) {
-          for (var f = 0; f < fields.length; f++) {
-            var fn = String((fields[f] && fields[f].name) || "").trim();
-            if (fn === "createdAt") {
-              hasCreatedAt = true;
-              break;
+          var fields = (collection && (collection.fields || collection.schema)) || [];
+          var hasCreatedAt = false;
+          if (Array.isArray(fields)) {
+            for (var f = 0; f < fields.length; f++) {
+              var fn = String((fields[f] && fields[f].name) || "").trim();
+              if (fn === "createdAt") {
+                hasCreatedAt = true;
+                break;
+              }
             }
           }
-        }
-        if (hasCreatedAt) q.set("createdAt", Date.now());
+          if (hasCreatedAt) q.set("createdAt", Date.now());
 
-        $app.save(q);
+          $app.save(q);
+          stats.queued += 1;
+        } catch (_) {
+          stats.userErrors += 1;
+        }
       }
+      try {
+        $app.logger().info(
+          "daily_ai_note_report finished",
+          "users",
+          String(stats.users),
+          "queued",
+          String(stats.queued),
+          "skippedExisting",
+          String(stats.skippedExisting),
+          "skippedInvalidEmail",
+          String(stats.skippedInvalidEmail),
+          "skippedNoNotes",
+          String(stats.skippedNoNotes),
+          "skippedNoCollection",
+          String(stats.skippedNoCollection),
+          "userErrors",
+          String(stats.userErrors),
+          "rangeStart",
+          startIso,
+          "rangeEnd",
+          endIso
+        );
+      } catch (_) {}
     } catch (err) {
       try {
         $app.logger().error("daily_ai_note_report failed", "error", String(err || ""));

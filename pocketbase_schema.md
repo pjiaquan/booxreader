@@ -4,7 +4,7 @@ This document describes all the collections needed for the BooxReader app to syn
 
 ## Collections Overview
 
-You need to create **7 collections** in your PocketBase admin UI:
+You need to create **8 collections** in your PocketBase admin UI:
 
 1. `settings` - User settings and preferences
 2. `progress` - Reading progress per book
@@ -13,6 +13,7 @@ You need to create **7 collections** in your PocketBase admin UI:
 5. `ai_profiles` - AI configuration profiles
 6. `books` - Book metadata
 7. `crash_reports` - Crash reports (optional)
+8. `qdrant_sync_logs` - Qdrant sync audit logs (optional, hook-written)
 
 ---
 
@@ -235,6 +236,36 @@ You need to create **7 collections** in your PocketBase admin UI:
 - **List:** Admin only
 - **View:** Admin only
 - **Create:** `@request.auth.id != ""` (any authenticated user)
+- **Update:** Admin only
+- **Delete:** Admin only
+
+---
+
+## Collection 8: `qdrant_sync_logs` (Optional)
+
+**Type:** Base Collection
+
+### Fields
+
+| Field Name | Type | Required | Options |
+|------------|------|----------|---------|
+| `user` | Relation | ❌ | Related to `_pb_users_auth_` (Single) |
+| `action` | Text | ✅ | `upsert_create` / `upsert_update` / `delete` |
+| `status` | Text | ✅ | `success` / `failed` / `skipped` |
+| `recordId` | Text | ✅ | PocketBase `ai_notes` record id |
+| `bookId` | Text | ❌ | |
+| `qdrantCollection` | Text | ❌ | |
+| `pointId` | Text | ❌ | UUID sent to Qdrant |
+| `reason` | Text | ❌ | Skip/fail reason |
+| `detail` | Text | ❌ | Extra detail (e.g. embed length) |
+| `error` | Text | ❌ | Error message |
+| `timestamp` | Number | ✅ | Unix ms |
+
+### API Rules
+
+- **List:** Admin only
+- **View:** Admin only
+- **Create:** Admin only (written by server hook)
 - **Update:** Admin only
 - **Delete:** Admin only
 

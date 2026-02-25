@@ -104,8 +104,10 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     if (!remoteId.isNullOrBlank()) {
                         val synced = saved.copy(remoteId = remoteId, isSynced = true)
                         dao.update(synced)
+                        ensureSingleProfileAppliedIfNeeded()
                         return@withContext synced
                     }
+                    ensureSingleProfileAppliedIfNeeded()
                     return@withContext saved
                 }
                 throw IllegalStateException("Failed to retrieve saved profile after insertion")
@@ -146,6 +148,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                             .copy(activeProfileId = -1L, updatedAt = System.currentTimeMillis())
                             .saveTo(prefs)
                 }
+                ensureSingleProfileAppliedIfNeeded()
                 true
             }
 
@@ -211,6 +214,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
+                    ensureSingleProfileAppliedIfNeeded()
                 } catch (e: Exception) {
                     e.printStackTrace()
                     throw e
@@ -234,4 +238,13 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                 // Profiles already exist, do nothing
                 return@withContext false
             }
+
+    private suspend fun ensureSingleProfileAppliedIfNeeded() {
+        val profiles = dao.getAllList()
+        if (profiles.size != 1) return
+        val onlyProfile = profiles.first()
+        val currentSettings = ReaderSettings.fromPrefs(prefs)
+        if (currentSettings.activeProfileId == onlyProfile.id) return
+        applyProfile(onlyProfile.id)
+    }
 }

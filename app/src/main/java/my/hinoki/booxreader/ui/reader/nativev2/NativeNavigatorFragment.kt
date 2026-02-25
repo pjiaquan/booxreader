@@ -188,6 +188,27 @@ class NativeNavigatorFragment : Fragment() {
         return Selection(locator)
     }
 
+    fun currentPageSharePayload(): Pair<String, String>? {
+        val p = pager ?: return null
+        if (p.pageCount <= 0) return null
+        val rawText = p.getPageText(currentPageInResource).toString()
+        val pageText =
+                rawText
+                        .replace('\u00A0', ' ')
+                        .replace(Regex("[ \\t]+"), " ")
+                        .replace(Regex("\\n{3,}"), "\n\n")
+                        .trim()
+        if (pageText.isBlank()) return null
+        val chapterTitle =
+                publication?.readingOrder
+                        ?.getOrNull(currentResourceIndex)
+                        ?.title
+                        ?.takeIf { it.isNotBlank() }
+                        ?: "Chapter ${currentResourceIndex + 1}"
+        val pageLabel = "$chapterTitle | ${currentPageInResource + 1} / ${p.pageCount}"
+        return pageLabel to pageText
+    }
+
     override fun onCreateView(
             inflater: LayoutInflater,
             container: ViewGroup?,

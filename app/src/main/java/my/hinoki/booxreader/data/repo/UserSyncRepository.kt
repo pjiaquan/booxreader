@@ -68,6 +68,8 @@ class UserSyncRepository(
                         listOf("mail_queue", "email_queue", "outbox_emails")
                 val MAIL_CUSTOM_ROUTE_CANDIDATES =
                         listOf("/boox-mail-send", "/api/boox-mail-send")
+                const val AI_NOTE_TEXT_FIELD_MAX_CHARS = 5000
+                const val AI_NOTE_COMPACT_MESSAGE_CHARS = 1200
         }
 
         private val appContext = context.applicationContext
@@ -150,13 +152,14 @@ class UserSyncRepository(
                 withContext(io) {
                         // Allow both host-root and mistakenly-configured */api base URLs.
                         val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
-                        refreshAuthTokenIfPossible(pocketBaseRoot)
+                        val refreshedUserId = refreshAuthSessionIfPossible(pocketBaseRoot)
                         val email = toEmail.trim()
                         if (email.isBlank()) {
                                 return@withContext CheckResult(false, "Missing recipient email")
                         }
                         val userId =
-                                getUserId()
+                                refreshedUserId
+                                        ?: getUserId()
                                         ?: return@withContext CheckResult(
                                                 false,
                                                 "No logged in user"
@@ -369,9 +372,9 @@ class UserSyncRepository(
          * PocketBase auth tokens can expire/rotate. Refresh once before mail dispatch so
          * routerAdd/custom routes can resolve e.auth consistently.
          */
-        private fun refreshAuthTokenIfPossible(pocketBaseRoot: String): Boolean {
+        private fun refreshAuthSessionIfPossible(pocketBaseRoot: String): String? {
                 val token = tokenManager.getAccessToken()?.trim().orEmpty()
-                if (token.isBlank()) return false
+                if (token.isBlank()) return null
 
                 val request =
                         Request.Builder()
@@ -385,9 +388,9 @@ class UserSyncRepository(
                                 if (!response.isSuccessful) {
                                         Log.w(
                                                 "UserSyncRepository",
-                                                "refreshAuthTokenIfPossible failed: ${response.code}"
+                                                "refreshAuthSessionIfPossible failed: ${response.code}"
                                         )
-                                        return false
+                                        return null
                                 }
                                 val payload =
                                         runCatching {
@@ -401,14 +404,19 @@ class UserSyncRepository(
                                         (payload?.get("token") as? String)?.trim().orEmpty()
                                 if (refreshedToken.isNotBlank()) {
                                         tokenManager.saveAccessToken(refreshedToken)
-                                        true
-                                } else {
-                                        false
                                 }
+                                val refreshedUserId =
+                                        ((payload?.get("record") as? Map<*, *>)?.get("id") as? String)
+                                                ?.trim()
+                                                .orEmpty()
+                                if (refreshedUserId.isNotBlank()) {
+                                        cachedUserId = refreshedUserId
+                                }
+                                refreshedUserId.ifBlank { null }
                         }
                 } catch (e: Exception) {
-                        Log.w("UserSyncRepository", "refreshAuthTokenIfPossible error", e)
-                        false
+                        Log.w("UserSyncRepository", "refreshAuthSessionIfPossible error", e)
+                        null
                 }
         }
 
@@ -1425,17 +1433,39 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val userId = getUserId() ?: return@withContext null
+                                val originalTextForSync = resolveOriginalTextForSync(note)
+                                val aiResponseResolved = resolveAiResponseForSync(note)
+                                val aiResponseForSync =
+                                        truncateForRemoteText(
+                                                aiResponseResolved,
+                                                AI_NOTE_TEXT_FIELD_MAX_CHARS
+                                        )
+                                val messagesForSync =
+                                        normalizeAiNoteMessagesForSync(
+                                                note = note,
+                                                originalText = originalTextForSync,
+                                                aiResponse = aiResponseResolved,
+                                                maxChars = AI_NOTE_TEXT_FIELD_MAX_CHARS
+                                        )
+                                if (aiResponseResolved.length > aiResponseForSync.length ||
+                                                note.messages.length > messagesForSync.length
+                                ) {
+                                        Log.w(
+                                                "UserSyncRepository",
+                                                "pushAiNote - Truncated ai note payload for PocketBase text limits (id=${note.id}, remoteId=${note.remoteId})"
+                                        )
+                                }
 
                                 val noteData =
                                         mapOf(
                                                 "user" to userId,
                                                 "bookId" to (note.bookId ?: ""),
                                                 "bookTitle" to (note.bookTitle ?: ""),
-                                                "messages" to note.messages,
-                                                "originalText" to (note.originalText ?: ""),
-                                                "aiResponse" to (note.aiResponse ?: ""),
+                                                "messages" to messagesForSync,
+                                                "originalText" to originalTextForSync,
+                                                "aiResponse" to aiResponseForSync,
                                                 "status" to
-                                                        if (note.aiResponse.isNullOrBlank()) {
+                                                        if (aiResponseResolved.isBlank()) {
                                                                 "generating"
                                                         } else {
                                                                 "done"
@@ -1919,7 +1949,14 @@ class UserSyncRepository(
                                         return@withContext false
                                 }
 
-                                val userId = runCatching { getUserId() }.getOrNull()
+                                val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
+                                val refreshedUserId = refreshAuthSessionIfPossible(pocketBaseRoot)
+                                val userId =
+                                        refreshedUserId
+                                                ?: runCatching { getUserId() }.getOrNull()
+                                if (userId.isNullOrBlank()) {
+                                        return@withContext false
+                                }
                                 val payload =
                                         mutableMapOf<String, Any>(
                                                 "appVersion" to report.appVersion,
@@ -1933,9 +1970,7 @@ class UserSyncRepository(
                                 if (!report.message.isNullOrBlank()) {
                                         payload["message"] = report.message.take(4000)
                                 }
-                                if (!userId.isNullOrBlank()) {
-                                        payload["user"] = userId
-                                }
+                                payload["user"] = userId
 
                                 val requestBody =
                                         gson.toJson(payload)
@@ -2722,6 +2757,106 @@ class UserSyncRepository(
                         is String -> value.toLongOrNull() ?: System.currentTimeMillis()
                         else -> System.currentTimeMillis()
                 }
+        }
+
+        private fun truncateForRemoteText(raw: String, maxChars: Int): String {
+                if (raw.length <= maxChars) return raw
+                val marker = "\n\n[truncated for sync]"
+                val keep = (maxChars - marker.length).coerceAtLeast(0)
+                if (keep == 0) return raw.take(maxChars)
+                return raw.take(keep) + marker
+        }
+
+        private fun normalizeAiNoteMessagesForSync(
+                note: AiNoteEntity,
+                originalText: String,
+                aiResponse: String,
+                maxChars: Int
+        ): String {
+                val raw = note.messages
+                if (raw.length <= maxChars) return raw
+
+                val compact = mutableListOf<Map<String, String>>()
+                val original = originalText.trim()
+                val response = aiResponse.trim()
+
+                if (original.isNotBlank()) {
+                        compact +=
+                                mapOf(
+                                        "role" to "user",
+                                        "content" to
+                                                truncateForRemoteText(
+                                                        original,
+                                                        AI_NOTE_COMPACT_MESSAGE_CHARS
+                                                )
+                                )
+                }
+                if (response.isNotBlank()) {
+                        compact +=
+                                mapOf(
+                                        "role" to "assistant",
+                                        "content" to
+                                                truncateForRemoteText(
+                                                        response,
+                                                        AI_NOTE_COMPACT_MESSAGE_CHARS
+                                                )
+                                )
+                }
+                if (compact.isEmpty()) {
+                        compact +=
+                                mapOf(
+                                        "role" to "assistant",
+                                        "content" to
+                                                truncateForRemoteText(
+                                                        raw.trim().ifBlank { "No content" },
+                                                        AI_NOTE_COMPACT_MESSAGE_CHARS
+                                                )
+                                )
+                }
+                val compactJson = gson.toJson(compact)
+                if (compactJson.length <= maxChars) return compactJson
+                return gson.toJson(
+                        listOf(
+                                mapOf(
+                                        "role" to "assistant",
+                                        "content" to
+                                                truncateForRemoteText(
+                                                        "Conversation truncated for sync size limit.",
+                                                        AI_NOTE_COMPACT_MESSAGE_CHARS
+                                                )
+                                )
+                        )
+                )
+        }
+
+        private fun resolveOriginalTextForSync(note: AiNoteEntity): String {
+                val direct = note.originalText?.trim().orEmpty()
+                if (direct.isNotBlank()) return direct
+                return extractMessageContentByRole(note.messages, role = "user").orEmpty()
+        }
+
+        private fun resolveAiResponseForSync(note: AiNoteEntity): String {
+                val direct = note.aiResponse?.trim().orEmpty()
+                if (direct.isNotBlank()) return direct
+                return extractMessageContentByRole(note.messages, role = "assistant").orEmpty()
+        }
+
+        private fun extractMessageContentByRole(messagesJson: String, role: String): String? {
+                if (messagesJson.isBlank()) return null
+                val messages =
+                        runCatching { gson.fromJson(messagesJson, List::class.java) as? List<*> }
+                                .getOrNull()
+                                ?: return null
+                for (idx in messages.indices.reversed()) {
+                        val obj = messages[idx] as? Map<*, *> ?: continue
+                        val msgRole = (obj["role"] as? String)?.trim()?.lowercase(Locale.ROOT)
+                        if (msgRole != role) continue
+                        val content = (obj["content"] as? String)?.trim()
+                        if (!content.isNullOrBlank()) {
+                                return content
+                        }
+                }
+                return null
         }
 
         private suspend fun mergeRemoteProgressIntoLocalBook(

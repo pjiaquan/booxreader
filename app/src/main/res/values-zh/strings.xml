@@ -88,6 +88,8 @@
     <string name="reader_ai_note">AI 筆記</string>
     <string name="reader_bookmark">☆ 書籤</string>
     <string name="reader_publish">發佈</string>
+    <string name="reader_share_page_empty">目前頁面沒有可分享內容</string>
+    <string name="reader_share_page_subject">%1$s - 頁面分享</string>
     <string name="reader_table_of_contents">目錄</string>
     <string name="reader_settings">設定</string>
     <string name="login_title">BooxReader 登入</string>

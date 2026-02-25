@@ -2214,6 +2214,78 @@
       "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
       "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
       "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+    },
+    {
+      "name": "qdrant_sync_logs",
+      "type": "base",
+      "schema": [
+        {
+          "name": "user",
+          "type": "relation",
+          "required": false,
+          "options": {
+            "collectionId": "_pb_users_auth_",
+            "cascadeDelete": false,
+            "maxSelect": 1
+          }
+        },
+        {
+          "name": "action",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "recordId",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "bookId",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "qdrantCollection",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "pointId",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "detail",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "timestamp",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "indexes": [],
+      "listRule": null,
+      "viewRule": null,
+      "createRule": null,
+      "updateRule": null,
+      "deleteRule": null
     }
   ]
 }

@@ -22,6 +22,7 @@ import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -828,6 +829,7 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun sendFollowUp(note: AiNoteEntity, question: String, magicTag: MagicTag? = null) {
+        hideFollowUpKeyboard()
         binding.btnFollowUp.isEnabled = false
         binding.btnFollowUp.text = getString(R.string.ai_note_follow_up_publishing)
         setLoading(true)
@@ -882,6 +884,13 @@ class AiNoteDetailActivity : BaseActivity() {
                 // restoreScrollIfJumped(savedScrollY)
             }
         }
+    }
+
+    private fun hideFollowUpKeyboard() {
+        binding.etFollowUp.clearFocus()
+        WindowInsetsControllerCompat(window, window.decorView).hide(WindowInsetsCompat.Type.ime())
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.etFollowUp.windowToken, 0)
     }
 
     private fun rePublishSelection(note: AiNoteEntity) {

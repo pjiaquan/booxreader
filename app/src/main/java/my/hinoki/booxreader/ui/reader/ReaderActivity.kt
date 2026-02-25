@@ -42,13 +42,16 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
+import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.reader.DailyReadingStats
+import my.hinoki.booxreader.data.repo.CheckResult
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
@@ -374,6 +377,8 @@ class ReaderActivity : BaseActivity() {
 
         binding.btnAddBookmark.visibility = android.view.View.GONE
 
+        binding.btnShowBookmarks.setOnClickListener { shareCurrentPageByEmail() }
+
         binding.btnChapters.setOnClickListener { openChapterPicker() }
 
         binding.btnSettings.setOnClickListener {
@@ -602,15 +607,17 @@ class ReaderActivity : BaseActivity() {
                             "$indent• $title"
                         }
                         .toTypedArray()
+        val currentChapterIndex = findCurrentChapterIndex(chapters, navigator.currentLocator.value)
 
         AlertDialog.Builder(this)
                 .setTitle("選擇章節")
-                .setItems(labels) { _, which ->
-                    val target = chapters.getOrNull(which) ?: return@setItems
+                .setSingleChoiceItems(labels, currentChapterIndex) { dialog, which ->
+                    val target = chapters.getOrNull(which) ?: return@setSingleChoiceItems
                     val locator = locatorFromLink(target.link)
                     if (locator != null) {
                         nativeNavigatorFragment?.go(locator)
                         requestEinkRefresh()
+                        dialog.dismiss()
                     } else {
                         Toast.makeText(this, "無法開啟章節", Toast.LENGTH_SHORT).show()
                     }
@@ -664,6 +671,20 @@ class ReaderActivity : BaseActivity() {
         )
     }
 
+    private fun findCurrentChapterIndex(chapters: List<ChapterItem>, locator: Locator?): Int {
+        val currentHref = normalizeChapterHref(locator?.href?.toString())
+        if (currentHref.isBlank()) return -1
+        val index =
+                chapters.indexOfFirst { chapter ->
+                    normalizeChapterHref(chapter.link.href.toString()) == currentHref
+                }
+        return if (index >= 0) index else -1
+    }
+
+    private fun normalizeChapterHref(rawHref: String?): String {
+        return rawHref.orEmpty().substringBefore('#').substringBefore('?').trim()
+    }
+
     private fun publishCurrentSelection() {
         lifecycleScope.launch {
             val selection = nativeNavigatorFragment?.currentSelection()
@@ -686,6 +707,91 @@ class ReaderActivity : BaseActivity() {
                     }
             if (sanitized.isNotBlank()) {
                 viewModel.postTextToServer(sanitized, locatorJson)
+            }
+        }
+    }
+
+    private fun shareCurrentPageByEmail() {
+        val sharePayload = nativeNavigatorFragment?.currentPageSharePayload()
+        if (sharePayload == null) {
+            Toast.makeText(this, getString(R.string.reader_share_page_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+        lifecycleScope.launch {
+            val settings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
+            val recipientEmail =
+                    runCatching {
+                                AppDatabase.get(applicationContext)
+                                        .userDao()
+                                        .getUser()
+                                        .first()
+                                        ?.email
+                                        ?.trim()
+                                        .orEmpty()
+                            }
+                            .getOrDefault("")
+            val recipient = settings.dailySummaryEmailTo.trim().ifBlank { recipientEmail }
+            if (recipient.isBlank()) {
+                Toast.makeText(
+                                this@ReaderActivity,
+                                getString(R.string.ai_note_daily_summary_missing_email),
+                                Toast.LENGTH_SHORT
+                        )
+                        .show()
+                return@launch
+            }
+
+            val (pageLabel, pageText) = sharePayload
+            val bookTitle = viewModel.publication.value?.metadata?.title?.trim().orEmpty()
+            val subjectBase = bookTitle.ifBlank { getString(R.string.app_name) }
+            val subject = getString(R.string.reader_share_page_subject, "$subjectBase | $pageLabel")
+            val body =
+                    buildString {
+                        append(pageLabel)
+                        append("\n\n")
+                        append(pageText)
+                    }
+            val result =
+                    runCatching { syncRepo.sendDailySummaryEmail(recipient, subject, body) }
+                            .getOrElse {
+                                CheckResult(
+                                        ok = false,
+                                        message = it.message ?: "PocketBase mail request failed"
+                                )
+                            }
+            if (result.ok) {
+                val queueMode = result.message?.startsWith("queued via ") == true
+                if (queueMode) {
+                    Toast.makeText(
+                                    this@ReaderActivity,
+                                    getString(
+                                            R.string.ai_note_daily_summary_queued_only,
+                                            result.message ?: "mail_queue"
+                                    ),
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
+                } else {
+                    Toast.makeText(
+                                    this@ReaderActivity,
+                                    getString(
+                                            R.string.ai_note_daily_summary_send_success,
+                                            recipient
+                                    ),
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
+                }
+            } else {
+                Toast.makeText(
+                                this@ReaderActivity,
+                                getString(
+                                        R.string.ai_note_daily_summary_send_failed,
+                                        result.message ?: "unknown error"
+                                ),
+                                Toast.LENGTH_LONG
+                        )
+                        .show()
             }
         }
     }
