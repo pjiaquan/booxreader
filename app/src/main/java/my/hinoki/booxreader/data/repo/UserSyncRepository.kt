@@ -557,6 +557,28 @@ class UserSyncRepository(
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
 
+                                val localHasMagicTagsKey = prefs.contains("magic_tags")
+                                val existingSettingsRecord =
+                                        checkResponse.items.firstOrNull()
+                                                        as? Map<String, Any>
+                                val remoteMagicTags =
+                                        parseMagicTags(
+                                                raw =
+                                                        existingSettingsRecord?.get("magicTags")
+                                                                ?: existingSettingsRecord?.get("magic_tags"),
+                                                fallback = emptyList()
+                                        )
+                                val magicTagsForUpload =
+                                        if (!localHasMagicTagsKey && remoteMagicTags.isNotEmpty()) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "pushSettings - local magic_tags key missing; preserving remote magicTags to avoid default overwrite"
+                                                )
+                                                remoteMagicTags
+                                        } else {
+                                                settings.magicTags
+                                        }
+
                                 val baseSettingsData =
                                         mapOf(
                                                 "user" to userId,
@@ -599,7 +621,7 @@ class UserSyncRepository(
                                                 "updatedAt" to System.currentTimeMillis()
                                         )
                                 val settingsDataWithMagicTags =
-                                        baseSettingsData + ("magicTags" to settings.magicTags)
+                                        baseSettingsData + ("magicTags" to magicTagsForUpload)
 
                                 fun toBody(data: Map<String, Any>) =
                                         gson.toJson(data).toRequestBody("application/json".toMediaType())

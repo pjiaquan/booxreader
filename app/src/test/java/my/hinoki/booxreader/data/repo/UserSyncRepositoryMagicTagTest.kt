@@ -172,10 +172,77 @@ class UserSyncRepositoryMagicTagTest {
         assertEquals(localTags, persisted.magicTags)
     }
 
+    @Test
+    fun pushSettings_preservesRemoteMagicTagsWhenLocalKeyMissing() = runBlocking {
+        var updateRequestBody: String? = null
+        val remoteMagicTags =
+                JSONArray()
+                        .put(
+                                JSONObject()
+                                        .put("id", "remote-1")
+                                        .put("label", "Remote Tag")
+                                        .put("content", "Remote Content")
+                                        .put("description", "Remote Desc")
+                        )
+
+        server.dispatcher =
+                object : Dispatcher() {
+                    override fun dispatch(request: RecordedRequest): MockResponse {
+                        if (request.path?.startsWith("/api/collections/settings/records?") == true &&
+                                        request.method == "GET"
+                        ) {
+                            return MockResponse()
+                                    .setResponseCode(200)
+                                    .setBody(
+                                            JSONObject()
+                                                    .put(
+                                                            "items",
+                                                            JSONArray()
+                                                                    .put(
+                                                                            JSONObject()
+                                                                                    .put("id", "settings_record_3")
+                                                                                    .put("magicTags", remoteMagicTags)
+                                                                    )
+                                                    )
+                                                    .put("page", 1)
+                                                    .put("perPage", 30)
+                                                    .put("totalItems", 1)
+                                                    .put("totalPages", 1)
+                                                    .toString()
+                                    )
+                        }
+                        if (request.path == "/api/collections/settings/records/settings_record_3" &&
+                                        request.method == "PATCH"
+                        ) {
+                            updateRequestBody = request.body.readUtf8()
+                            return MockResponse().setResponseCode(200).setBody("{}")
+                        }
+                        return MockResponse().setResponseCode(404)
+                    }
+                }
+
+        val repo =
+                UserSyncRepository(
+                        context = context,
+                        baseUrl = server.url("/").toString(),
+                        tokenManager = tokenManager
+                )
+        setCachedUserId(repo, "user_1")
+
+        repo.pushSettings(ReaderSettings())
+
+        val body = updateRequestBody
+        assertNotNull("Expected PATCH body to be sent", body)
+        val json = JSONObject(body!!)
+        val uploadedTags = json.getJSONArray("magicTags")
+        assertEquals(1, uploadedTags.length())
+        assertEquals("remote-1", uploadedTags.getJSONObject(0).getString("id"))
+        assertEquals("Remote Tag", uploadedTags.getJSONObject(0).getString("label"))
+    }
+
     private fun setCachedUserId(repo: UserSyncRepository, userId: String) {
         val field = UserSyncRepository::class.java.getDeclaredField("cachedUserId")
         field.isAccessible = true
         field.set(repo, userId)
     }
 }
-

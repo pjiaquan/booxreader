@@ -763,14 +763,30 @@ function handleBooxMailSendRoute(e) {
       reqInfo = null;
     }
 
-    var authRecord = resolveRouteAuthRecord(e, reqInfo);
+    var authRecord = null;
+    if (e && e.auth) authRecord = e.auth;
+    else if (reqInfo && reqInfo.auth) authRecord = reqInfo.auth;
+    else if (reqInfo && reqInfo.authRecord) authRecord = reqInfo.authRecord;
     var userId = String(authRecord && authRecord.id ? authRecord.id : "").trim();
     if (!userId) {
+      var hasAuthHeader = false;
+      if (reqInfo && reqInfo.headers) {
+        var headers = reqInfo.headers;
+        var authHeader =
+          headers.Authorization ||
+          headers.authorization ||
+          headers.AUTHORIZATION;
+        if (Array.isArray(authHeader)) {
+          hasAuthHeader = authHeader.length > 0 && String(authHeader[0]).trim() !== "";
+        } else {
+          hasAuthHeader = String(authHeader || "").trim() !== "";
+        }
+      }
       try {
         e.app.logger().warn(
           "boox-mail-send unauthorized",
           "hasAuthorizationHeader",
-          hasAuthorizationHeader(reqInfo)
+          hasAuthHeader
         );
       } catch (_) {}
       return e.json(401, {
@@ -778,7 +794,18 @@ function handleBooxMailSendRoute(e) {
       });
     }
 
-    var bodyObj = parseRequestBody(reqInfo);
+    var bodyObj = {};
+    if (reqInfo && reqInfo.body !== null && reqInfo.body !== undefined) {
+      if (typeof reqInfo.body === "string") {
+        try {
+          bodyObj = JSON.parse(reqInfo.body);
+        } catch (_) {
+          bodyObj = {};
+        }
+      } else {
+        bodyObj = reqInfo.body;
+      }
+    }
     var toEmail = String(bodyObj.toEmail || "").trim();
     var subject = String(bodyObj.subject || "").trim();
     var body = String(bodyObj.body || "");
@@ -790,18 +817,30 @@ function handleBooxMailSendRoute(e) {
     }
     if (!String(body).trim()) return e.json(400, { error: "body is required" });
 
-    var quota = enforceMailDailyLimit(e.app, userId, "");
+    var dailyLimit =
+      typeof MAIL_DAILY_LIMIT === "number" && isFinite(MAIL_DAILY_LIMIT)
+        ? MAIL_DAILY_LIMIT
+        : 2;
+    var quota = {
+      availableSlots: dailyLimit,
+      pendingCount: 0,
+      sentCount: 0,
+    };
+    if (typeof enforceMailDailyLimit === "function") {
+      quota = enforceMailDailyLimit(e.app, userId, "");
+    }
     var queueSlotsLeft = quota.availableSlots - quota.pendingCount;
     if (queueSlotsLeft <= 0) {
       return e.json(429, {
         error: "Daily email limit reached (max 2/day).",
-        limit: MAIL_DAILY_LIMIT,
+        limit: dailyLimit,
         sentToday: quota.sentCount,
         pendingToday: quota.pendingCount,
       });
     }
 
-    var collection = e.app.findCollectionByNameOrId(MAIL_QUEUE_NAME);
+    var mailQueueName = String(MAIL_QUEUE_NAME || "mail_queue");
+    var collection = e.app.findCollectionByNameOrId(mailQueueName);
     var record = new Record(collection);
     record.set("user", userId);
     record.set("toEmail", toEmail);
