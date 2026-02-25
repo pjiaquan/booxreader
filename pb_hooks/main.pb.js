@@ -582,8 +582,12 @@ routerAdd("POST", "/boox-ai-notes-semantic-search", (e) => {
         reqInfo = null;
       }
 
-      if (reqInfo && reqInfo.authRecord) {
-        const uid = toRelId(reqInfo.authRecord.id || reqInfo.authRecord);
+      const routeAuthRecord =
+        (e && e.auth) ||
+        (reqInfo && (reqInfo.authRecord || reqInfo.auth)) ||
+        null;
+      if (routeAuthRecord) {
+        const uid = toRelId(routeAuthRecord.id || routeAuthRecord);
         if (uid) return uid;
       }
 
@@ -592,8 +596,15 @@ routerAdd("POST", "/boox-ai-notes-semantic-search", (e) => {
       if (!token) {
         throw new Error("Unauthorized: missing bearer token");
       }
+
+      try {
+        const authRecord = $app.findAuthRecordByToken(token, "auth");
+        const localUserId = toRelId(authRecord && authRecord.id ? authRecord.id : authRecord);
+        if (localUserId) return localUserId;
+      } catch (_) {}
+
       if (!cfg.pbPublicUrl) {
-        throw new Error("Unauthorized: set POCKETBASE_PUBLIC_URL for token verification fallback");
+        throw new Error("Unauthorized: invalid auth token");
       }
 
       const verifyRes = $http.send({
