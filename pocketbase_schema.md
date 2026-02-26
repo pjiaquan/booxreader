@@ -4,7 +4,7 @@ This document describes all the collections needed for the BooxReader app to syn
 
 ## Collections Overview
 
-You need to create **8 collections** in your PocketBase admin UI:
+You need to create **11 collections** in your PocketBase admin UI:
 
 1. `settings` - User settings and preferences
 2. `progress` - Reading progress per book
@@ -14,6 +14,9 @@ You need to create **8 collections** in your PocketBase admin UI:
 6. `books` - Book metadata
 7. `crash_reports` - Crash reports (optional)
 8. `qdrant_sync_logs` - Qdrant sync audit logs (optional, hook-written)
+9. `documents` - RAG document metadata (optional, PocketBase-native embedding store)
+10. `chunks` - RAG text chunks per document (optional)
+11. `embeddings` - RAG embedding vectors as JSON (optional)
 
 ---
 
@@ -271,6 +274,100 @@ You need to create **8 collections** in your PocketBase admin UI:
 
 ---
 
+## Collection 9: `documents` (Optional, RAG)
+
+**Type:** Base Collection
+
+### Fields
+
+| Field Name | Type | Required | Options |
+|------------|------|----------|---------|
+| `user` | Relation | ✅ | Related to `_pb_users_auth_` (Single) |
+| `documentId` | Text | ✅ | Client-level document identifier |
+| `title` | Text | ❌ | |
+| `source` | Text | ❌ | URL/path/source name |
+| `metadataJson` | Text | ❌ | JSON string |
+| `updatedAt` | Number | ❌ | Unix ms |
+
+### Indexes
+
+- Create unique index on `user` + `documentId`
+
+### API Rules
+
+- **List:** `@request.auth.id != "" && user = @request.auth.id`
+- **View:** `@request.auth.id != "" && user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
+- **Update:** `@request.auth.id != "" && user = @request.auth.id`
+- **Delete:** `@request.auth.id != "" && user = @request.auth.id`
+
+---
+
+## Collection 10: `chunks` (Optional, RAG)
+
+**Type:** Base Collection
+
+### Fields
+
+| Field Name | Type | Required | Options |
+|------------|------|----------|---------|
+| `user` | Relation | ✅ | Related to `_pb_users_auth_` (Single) |
+| `document` | Relation | ✅ | Related to `documents` (Single) |
+| `chunkId` | Text | ✅ | Stable chunk identifier |
+| `chunkIndex` | Number | ❌ | Chunk order in source document |
+| `content` | Text | ✅ | Chunk text |
+| `metadataJson` | Text | ❌ | JSON string |
+| `updatedAt` | Number | ❌ | Unix ms |
+
+### Indexes
+
+- Create unique index on `user` + `chunkId`
+- Create index on `document` + `chunkIndex`
+
+### API Rules
+
+- **List:** `@request.auth.id != "" && user = @request.auth.id`
+- **View:** `@request.auth.id != "" && user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
+- **Update:** `@request.auth.id != "" && user = @request.auth.id`
+- **Delete:** `@request.auth.id != "" && user = @request.auth.id`
+
+---
+
+## Collection 11: `embeddings` (Optional, RAG)
+
+**Type:** Base Collection
+
+### Fields
+
+| Field Name | Type | Required | Options |
+|------------|------|----------|---------|
+| `user` | Relation | ✅ | Related to `_pb_users_auth_` (Single) |
+| `document` | Relation | ✅ | Related to `documents` (Single) |
+| `chunk` | Relation | ✅ | Related to `chunks` (Single) |
+| `chunkId` | Text | ✅ | Mirrors chunk identifier for fast upsert |
+| `model` | Text | ❌ | Embedding model name |
+| `dimensions` | Number | ✅ | Vector dimension |
+| `vectorJson` | Text | ✅ | JSON stringified float array |
+| `norm` | Number | ❌ | Precomputed L2 norm |
+| `metadataJson` | Text | ❌ | JSON string |
+| `updatedAt` | Number | ❌ | Unix ms |
+
+### Indexes
+
+- Create unique index on `user` + `chunkId`
+- Create index on `document`
+
+### API Rules
+
+- **List:** `@request.auth.id != "" && user = @request.auth.id`
+- **View:** `@request.auth.id != "" && user = @request.auth.id`
+- **Create:** `@request.auth.id != "" && user = @request.auth.id`
+- **Update:** `@request.auth.id != "" && user = @request.auth.id`
+- **Delete:** `@request.auth.id != "" && user = @request.auth.id`
+
+---
+
 ## Quick Setup Steps
 
 1. **Access PocketBase Admin UI**
@@ -303,3 +400,6 @@ You need to create **8 collections** in your PocketBase admin UI:
 - All `Relation` fields link to the built-in `_pb_users_auth_` collection
 - API rules ensure users can only access their own data
 - The `user` field should be set automatically from `@request.auth.id`
+- PocketBase hook routes for baseline RAG:
+  - `POST /boox-rag-upsert` (upsert document/chunk/embedding)
+  - `POST /boox-rag-search` (cosine similarity over `embeddings.vectorJson`)

@@ -771,7 +771,498 @@ routerAdd("POST", "/boox-ai-notes-semantic-search", (e) => {
 });
 
 // ============================================================
-// 5) Mail queue sender + custom route
+// 5) PocketBase-native RAG APIs (documents/chunks/embeddings)
+// ============================================================
+function ragSafeStr(v) {
+  return v === null || v === undefined ? "" : String(v);
+}
+
+function ragToRelId(v) {
+  if (Array.isArray(v)) return String(v[0] || "");
+  if (v && typeof v === "object") return String(v.id || "");
+  return String(v || "");
+}
+
+function ragEscapeFilterString(v) {
+  return String(v || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+}
+
+function ragParseReqBody(e) {
+  try {
+    const reqInfo = e.requestInfo();
+    if (!reqInfo || reqInfo.body === null || reqInfo.body === undefined) return {};
+    if (typeof reqInfo.body === "string") {
+      try {
+        return JSON.parse(reqInfo.body);
+      } catch (_) {
+        return {};
+      }
+    }
+    return reqInfo.body;
+  } catch (_) {
+    return {};
+  }
+}
+
+function ragGetAuthHeader(e) {
+  try {
+    if (e.request && e.request.header && e.request.header.get) {
+      const h = e.request.header.get("Authorization");
+      if (h) return String(h);
+    }
+  } catch (_) {}
+  try {
+    if (e.request && e.request.headers && e.request.headers.get) {
+      const h = e.request.headers.get("Authorization");
+      if (h) return String(h);
+    }
+  } catch (_) {}
+  return "";
+}
+
+function ragResolveUserId(e, cfg) {
+  let reqInfo = null;
+  try {
+    reqInfo = e.requestInfo();
+  } catch (_) {
+    reqInfo = null;
+  }
+
+  const routeAuthRecord = (e && e.auth) || (reqInfo && (reqInfo.authRecord || reqInfo.auth)) || null;
+  if (routeAuthRecord) {
+    const uid = ragToRelId(routeAuthRecord.id || routeAuthRecord);
+    if (uid) return uid;
+  }
+
+  const authHeader = ragGetAuthHeader(e);
+  const token = String(authHeader).replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    throw new Error("Unauthorized: missing bearer token");
+  }
+
+  try {
+    const authRecord = $app.findAuthRecordByToken(token, "auth");
+    const localUserId = ragToRelId(authRecord && authRecord.id ? authRecord.id : authRecord);
+    if (localUserId) return localUserId;
+  } catch (_) {}
+
+  if (!cfg.pbPublicUrl) {
+    throw new Error("Unauthorized: invalid auth token");
+  }
+
+  const verifyRes = $http.send({
+    url: `${cfg.pbPublicUrl}/api/collections/users/auth-refresh`,
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    timeout: 20,
+  });
+
+  if (verifyRes.statusCode !== 200) {
+    throw new Error(`Unauthorized: auth-refresh failed (${verifyRes.statusCode})`);
+  }
+
+  const rec = verifyRes.json && verifyRes.json.record ? verifyRes.json.record : null;
+  const userId = ragToRelId(rec ? rec.id : "");
+  if (!userId) throw new Error("Unauthorized: no user id in auth-refresh response");
+  return userId;
+}
+
+function ragParseJsonObject(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object") return value;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function ragSerializeJsonObject(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (_) {
+    return "";
+  }
+}
+
+function ragParseVector(value, expectedDim) {
+  let raw = value;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    try {
+      raw = JSON.parse(trimmed);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(raw)) return [];
+  if (raw.length === 0) return [];
+  if (expectedDim && raw.length !== expectedDim) return [];
+
+  const vector = [];
+  for (let i = 0; i < raw.length; i++) {
+    const n = Number(raw[i]);
+    if (!isFinite(n)) return [];
+    vector.push(n);
+  }
+  return vector;
+}
+
+function ragVectorNorm(vector) {
+  if (!Array.isArray(vector) || vector.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < vector.length; i++) {
+    const n = Number(vector[i]);
+    if (!isFinite(n)) return 0;
+    sum += n * n;
+  }
+  return Math.sqrt(sum);
+}
+
+function ragCosineSimilarity(a, b, aNorm, bNorm) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length === 0 || b.length === 0) return 0;
+  if (a.length !== b.length) return 0;
+  const normA = isFinite(aNorm) && aNorm > 0 ? aNorm : ragVectorNorm(a);
+  const normB = isFinite(bNorm) && bNorm > 0 ? bNorm : ragVectorNorm(b);
+  if (normA <= 0 || normB <= 0) return 0;
+
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+  }
+  return dot / (normA * normB);
+}
+
+function ragGetFinder(appRef) {
+  if (appRef && typeof appRef.findRecordsByFilter === "function") return appRef;
+  if (typeof $app !== "undefined" && typeof $app.findRecordsByFilter === "function") return $app;
+  return null;
+}
+
+function ragFindRecordsByFilter(appRef, collectionName, filterExpr, sortExpr, limit, offset) {
+  const finder = ragGetFinder(appRef);
+  if (!finder) throw new Error("findRecordsByFilter is unavailable");
+  return (
+    finder.findRecordsByFilter(
+      String(collectionName || "").trim(),
+      String(filterExpr || ""),
+      String(sortExpr || ""),
+      Number(limit) || 50,
+      Number(offset) || 0
+    ) || []
+  );
+}
+
+function ragFindOneByFilter(appRef, collectionName, filterExpr, sortExpr) {
+  const rows = ragFindRecordsByFilter(appRef, collectionName, filterExpr, sortExpr || "-updated", 1, 0);
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
+function ragEmbedText(cfg, inputText) {
+  const text = ragSafeStr(inputText).trim();
+  if (!text) throw new Error("embedText/text is required when embedding is not provided");
+  if (!cfg.embeddingApiKey) throw new Error("DASHSCOPE_API_KEY is missing");
+
+  const embedRes = $http.send({
+    url: cfg.embeddingUrl,
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${cfg.embeddingApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: cfg.embeddingModel,
+      input: text,
+      dimensions: cfg.embeddingDim,
+      encoding_format: "float",
+    }),
+    timeout: 120,
+  });
+
+  if (embedRes.statusCode !== 200) {
+    throw new Error(`Embedding API Error (${embedRes.statusCode}): ${embedRes.raw}`);
+  }
+
+  const raw = embedRes.json || {};
+  const vector = raw.data && raw.data[0] ? raw.data[0].embedding : null;
+  const parsed = ragParseVector(vector, cfg.embeddingDim);
+  if (parsed.length !== cfg.embeddingDim) {
+    throw new Error(`embedding dim mismatch: ${Array.isArray(vector) ? vector.length : 0}`);
+  }
+  return parsed;
+}
+
+function ragFindRecordsByIdsSafe(appRef, collectionName, ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  try {
+    if (appRef && typeof appRef.findRecordsByIds === "function") {
+      return appRef.findRecordsByIds(collectionName, ids) || [];
+    }
+  } catch (_) {}
+  try {
+    if (typeof $app !== "undefined" && typeof $app.findRecordsByIds === "function") {
+      return $app.findRecordsByIds(collectionName, ids) || [];
+    }
+  } catch (_) {}
+  return [];
+}
+
+routerAdd("POST", "/boox-rag-upsert", (e) => {
+  try {
+    const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+    if (!appRef) return e.json(500, { error: "app is unavailable" });
+
+    const cfg = {
+      documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
+      chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
+      embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
+      embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
+      embeddingUrl: String(
+        $os.getenv("DASHSCOPE_EMBED_URL") ||
+          "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
+      ).trim(),
+      embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
+      embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
+      pbPublicUrl: String($os.getenv("POCKETBASE_PUBLIC_URL") || "")
+        .trim()
+        .replace(/\/+$/, ""),
+    };
+
+    const userId = ragResolveUserId(e, cfg);
+    const body = ragParseReqBody(e);
+
+    const documentId = ragSafeStr(body.documentId).trim();
+    const title = ragSafeStr(body.title).trim();
+    const source = ragSafeStr(body.source).trim();
+    const chunkIndexRaw = parseInt(ragSafeStr(body.chunkIndex || "0"), 10);
+    const chunkIndex = isNaN(chunkIndexRaw) ? 0 : chunkIndexRaw;
+    const chunkText = ragSafeStr(body.chunkText || body.text).trim();
+    const embedText = ragSafeStr(body.embedText || chunkText).trim();
+
+    if (!documentId) return e.json(400, { error: "documentId is required" });
+    if (!chunkText) return e.json(400, { error: "chunkText (or text) is required" });
+
+    const chunkIdFallback = `${documentId}#${String(chunkIndex)}`;
+    const chunkId = ragSafeStr(body.chunkId).trim() || chunkIdFallback;
+
+    let vector = ragParseVector(body.embedding);
+    if (vector.length === 0) {
+      vector = ragEmbedText(cfg, embedText);
+    } else {
+      for (let i = 0; i < vector.length; i++) {
+        if (!isFinite(vector[i])) return e.json(400, { error: "embedding contains non-finite values" });
+      }
+    }
+
+    const dimensions = vector.length;
+    if (dimensions <= 0) return e.json(400, { error: "embedding is empty" });
+    const norm = ragVectorNorm(vector);
+    const metadataJson = ragSerializeJsonObject(body.metadata);
+    const model = ragSafeStr(body.model).trim() || cfg.embeddingModel;
+    const nowTs = Date.now();
+
+    const documentsCollection = appRef.findCollectionByNameOrId(cfg.documentsCollection);
+    const chunksCollection = appRef.findCollectionByNameOrId(cfg.chunksCollection);
+    const embeddingsCollection = appRef.findCollectionByNameOrId(cfg.embeddingsCollection);
+
+    const docFilter =
+      'user = "' + ragEscapeFilterString(userId) + '" && documentId = "' + ragEscapeFilterString(documentId) + '"';
+    let docRecord = ragFindOneByFilter(appRef, cfg.documentsCollection, docFilter, "-updated");
+    if (!docRecord) docRecord = new Record(documentsCollection);
+    docRecord.set("user", userId);
+    docRecord.set("documentId", documentId);
+    docRecord.set("title", title);
+    docRecord.set("source", source);
+    docRecord.set("metadataJson", metadataJson);
+    docRecord.set("updatedAt", nowTs);
+    appRef.save(docRecord);
+
+    const chunkFilter =
+      'user = "' + ragEscapeFilterString(userId) + '" && chunkId = "' + ragEscapeFilterString(chunkId) + '"';
+    let chunkRecord = ragFindOneByFilter(appRef, cfg.chunksCollection, chunkFilter, "-updated");
+    if (!chunkRecord) chunkRecord = new Record(chunksCollection);
+    chunkRecord.set("user", userId);
+    chunkRecord.set("document", docRecord.id);
+    chunkRecord.set("chunkId", chunkId);
+    chunkRecord.set("chunkIndex", chunkIndex);
+    chunkRecord.set("content", chunkText);
+    chunkRecord.set("metadataJson", metadataJson);
+    chunkRecord.set("updatedAt", nowTs);
+    appRef.save(chunkRecord);
+
+    const embeddingFilter =
+      'user = "' + ragEscapeFilterString(userId) + '" && chunkId = "' + ragEscapeFilterString(chunkId) + '"';
+    let embeddingRecord = ragFindOneByFilter(appRef, cfg.embeddingsCollection, embeddingFilter, "-updated");
+    if (!embeddingRecord) embeddingRecord = new Record(embeddingsCollection);
+    embeddingRecord.set("user", userId);
+    embeddingRecord.set("document", docRecord.id);
+    embeddingRecord.set("chunk", chunkRecord.id);
+    embeddingRecord.set("chunkId", chunkId);
+    embeddingRecord.set("model", model);
+    embeddingRecord.set("dimensions", dimensions);
+    embeddingRecord.set("vectorJson", JSON.stringify(vector));
+    embeddingRecord.set("norm", norm);
+    embeddingRecord.set("metadataJson", metadataJson);
+    embeddingRecord.set("updatedAt", nowTs);
+    appRef.save(embeddingRecord);
+
+    return e.json(200, {
+      ok: true,
+      document: { id: docRecord.id, documentId: documentId },
+      chunk: { id: chunkRecord.id, chunkId: chunkId, chunkIndex: chunkIndex },
+      embedding: { id: embeddingRecord.id, dimensions: dimensions, norm: norm },
+    });
+  } catch (err) {
+    return e.json(500, { error: String(err || "unknown error") });
+  }
+});
+
+routerAdd("POST", "/boox-rag-search", (e) => {
+  try {
+    const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+    if (!appRef) return e.json(500, { error: "app is unavailable" });
+
+    const cfg = {
+      documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
+      chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
+      embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
+      embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
+      embeddingUrl: String(
+        $os.getenv("DASHSCOPE_EMBED_URL") ||
+          "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
+      ).trim(),
+      embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
+      embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
+      pbPublicUrl: String($os.getenv("POCKETBASE_PUBLIC_URL") || "")
+        .trim()
+        .replace(/\/+$/, ""),
+    };
+
+    const userId = ragResolveUserId(e, cfg);
+    const body = ragParseReqBody(e);
+
+    const queryText = ragSafeStr(body.query).trim();
+    const topKRaw = parseInt(ragSafeStr(body.topK || body.limit || "5"), 10);
+    const topK = Math.max(1, Math.min(50, isNaN(topKRaw) ? 5 : topKRaw));
+    const maxCandidatesRaw = parseInt(ragSafeStr(body.maxCandidates || "500"), 10);
+    const maxCandidates = Math.max(topK, Math.min(2000, isNaN(maxCandidatesRaw) ? 500 : maxCandidatesRaw));
+    const minScoreRaw = Number(body.minScore);
+    const minScore = isFinite(minScoreRaw) ? minScoreRaw : -1;
+    const includeContent = body.includeContent === false ? false : true;
+    const documentId = ragSafeStr(body.documentId).trim();
+
+    let queryVector = ragParseVector(body.embedding);
+    if (queryVector.length === 0) {
+      if (!queryText) return e.json(400, { error: "query or embedding is required" });
+      queryVector = ragEmbedText(cfg, queryText);
+    }
+    const queryNorm = ragVectorNorm(queryVector);
+    if (queryNorm <= 0) return e.json(400, { error: "query embedding norm is zero" });
+
+    let embeddingFilter = 'user = "' + ragEscapeFilterString(userId) + '"';
+    if (documentId) {
+      const docFilter =
+        'user = "' + ragEscapeFilterString(userId) + '" && documentId = "' + ragEscapeFilterString(documentId) + '"';
+      const docRecord = ragFindOneByFilter(appRef, cfg.documentsCollection, docFilter, "-updated");
+      if (!docRecord) return e.json(200, { results: [] });
+      embeddingFilter += ' && document = "' + ragEscapeFilterString(docRecord.id) + '"';
+    }
+
+    const candidates = ragFindRecordsByFilter(
+      appRef,
+      cfg.embeddingsCollection,
+      embeddingFilter,
+      "-updated",
+      maxCandidates,
+      0
+    );
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return e.json(200, { results: [] });
+    }
+
+    const chunkIdSet = {};
+    const docIdSet = {};
+    const chunkIds = [];
+    const docIds = [];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const rec = candidates[i];
+      const chunkRel = ragToRelId(rec.get("chunk")).trim();
+      const docRel = ragToRelId(rec.get("document")).trim();
+      if (chunkRel && !chunkIdSet[chunkRel]) {
+        chunkIdSet[chunkRel] = true;
+        chunkIds.push(chunkRel);
+      }
+      if (docRel && !docIdSet[docRel]) {
+        docIdSet[docRel] = true;
+        docIds.push(docRel);
+      }
+    }
+
+    const chunkRecords = ragFindRecordsByIdsSafe(appRef, cfg.chunksCollection, chunkIds);
+    const docRecords = ragFindRecordsByIdsSafe(appRef, cfg.documentsCollection, docIds);
+
+    const chunkMap = {};
+    const docMap = {};
+    for (let i = 0; i < chunkRecords.length; i++) chunkMap[chunkRecords[i].id] = chunkRecords[i];
+    for (let i = 0; i < docRecords.length; i++) docMap[docRecords[i].id] = docRecords[i];
+
+    const scored = [];
+    for (let i = 0; i < candidates.length; i++) {
+      const rec = candidates[i];
+      const vec = ragParseVector(rec.get("vectorJson"), queryVector.length);
+      if (vec.length !== queryVector.length) continue;
+
+      const recNormRaw = Number(rec.get("norm"));
+      const recNorm = isFinite(recNormRaw) && recNormRaw > 0 ? recNormRaw : ragVectorNorm(vec);
+      const score = ragCosineSimilarity(queryVector, vec, queryNorm, recNorm);
+      if (!isFinite(score) || score < minScore) continue;
+
+      const chunkRel = ragToRelId(rec.get("chunk")).trim();
+      const docRel = ragToRelId(rec.get("document")).trim();
+      const chunk = chunkMap[chunkRel] || null;
+      const doc = docMap[docRel] || null;
+      const chunkMetadata = chunk ? ragParseJsonObject(chunk.get("metadataJson")) : null;
+      const embeddingMetadata = ragParseJsonObject(rec.get("metadataJson"));
+
+      scored.push({
+        score: score,
+        reason: "Cosine similarity",
+        documentId: doc ? ragSafeStr(doc.get("documentId")) : "",
+        documentTitle: doc ? ragSafeStr(doc.get("title")) : "",
+        source: doc ? ragSafeStr(doc.get("source")) : "",
+        chunkId: ragSafeStr(rec.get("chunkId")),
+        chunkIndex: chunk ? Number(chunk.get("chunkIndex")) || 0 : 0,
+        chunkText: includeContent && chunk ? ragSafeStr(chunk.get("content")) : "",
+        metadata: chunkMetadata || embeddingMetadata || null,
+        embeddingId: rec.id,
+      });
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return e.json(200, { results: scored.slice(0, topK), candidateCount: scored.length });
+  } catch (err) {
+    return e.json(500, { error: String(err || "unknown error") });
+  }
+});
+
+// ============================================================
+// 6) Mail queue sender + custom route
 //    Keep in main.pb.js for PocketBase versions that only load main.
 // ============================================================
 var MAIL_QUEUE_NAME = "mail_queue";

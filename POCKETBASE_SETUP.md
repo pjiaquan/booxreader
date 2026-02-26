@@ -31,7 +31,7 @@ python3 setup_pocketbase.py \
 
 The script will:
 - ✅ Authenticate as admin
-- ✅ Create all 7 collections
+- ✅ Create all core collections (and auto-add required new ones)
 - ✅ Set up proper schemas, indexes, and API rules
 - ✅ Skip collections that already exist
 - ✅ Show progress and results
@@ -50,16 +50,20 @@ The script will:
 ✅ Created collection: ai_profiles
 ✅ Created collection: books
 ✅ Created collection: crash_reports
+✅ Created collection: qdrant_sync_logs
+✅ Created collection: documents
+✅ Created collection: chunks
+✅ Created collection: embeddings
 
 ✨ Setup complete!
-   Created: 7 new collections
+   Created: 11 new collections
 ```
 
 #### Option B: Manual Creation (For reference)
 
 Follow the detailed instructions in [`pocketbase_schema.md`](./pocketbase_schema.md) to manually create each collection through the admin UI.
 
-**Collections to create:**
+**Collections to create (core):**
 1. `settings` - 25 fields - User settings and preferences
 2. `progress` - 5 fields - Reading progress per book
 3. `bookmarks` - 5 fields - User bookmarks
@@ -67,16 +71,28 @@ Follow the detailed instructions in [`pocketbase_schema.md`](./pocketbase_schema
 5. `ai_profiles` - 17 fields - AI configuration profiles
 6. `books` - 9 fields - Book metadata + EPUB file
 7. `crash_reports` - 7 fields - Crash reports (optional)
+8. `qdrant_sync_logs` - Qdrant hook audit log (optional)
+
+**Optional RAG collections (PocketBase-native embeddings):**
+1. `documents`
+2. `chunks`
+3. `embeddings`
 
 ### Step 3: Verify Setup
 
 After creating all collections, verify:
 
-1. ✅ All 7 collections are created
+1. ✅ All required collections are created
 2. ✅ Each collection has a `user` relation field (except crash_reports)
 3. ✅ API rules are set correctly (users can only access their own data)
 4. ✅ Unique indexes are created where specified
 5. ✅ `books.bookFile` (File, single) exists for cross-device EPUB download
+
+If you plan to use PocketBase-native semantic retrieval, also verify:
+- ✅ `documents/chunks/embeddings` exist
+- ✅ Hook routes respond:
+  - `POST /boox-rag-upsert`
+  - `POST /boox-rag-search`
 
 ### Step 4: Configure App
 

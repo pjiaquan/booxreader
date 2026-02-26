@@ -319,6 +319,29 @@ def load_schema_from_file(path):
             "deleteRule": entry.get("deleteRule")
         })
     return normalized
+
+
+def ensure_required_collections(collections, required_collections):
+    """Ensure required collections are present by name."""
+
+    merged = list(collections or [])
+    existing_names = {
+        str(entry.get("name") or "").strip()
+        for entry in merged
+        if isinstance(entry, dict)
+    }
+
+    added = 0
+    for required in required_collections or []:
+        name = str(required.get("name") or "").strip()
+        if not name or name in existing_names:
+            continue
+        merged.append(required)
+        existing_names.add(name)
+        added += 1
+    return merged, added
+
+
 def get_default_collections_schema():
     """Return all collection schemas."""
     return [
@@ -513,6 +536,71 @@ def get_default_collections_schema():
             "createRule": None,
             "updateRule": None,
             "deleteRule": None
+        },
+        {
+            "name": "documents",
+            "type": "base",
+            "fields": [
+                {"name": "user", "type": "relation", "required": True, "options": {"collectionId": "_pb_users_auth_", "cascadeDelete": False, "maxSelect": 1}},
+                {"name": "documentId", "type": "text", "required": True},
+                {"name": "title", "type": "text", "required": False},
+                {"name": "source", "type": "text", "required": False},
+                {"name": "metadataJson", "type": "text", "required": False},
+                {"name": "updatedAt", "type": "number", "required": False}
+            ],
+            "indexes": ["CREATE UNIQUE INDEX idx_documents_user_document ON documents (user, documentId)"],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "chunks",
+            "type": "base",
+            "fields": [
+                {"name": "user", "type": "relation", "required": True, "options": {"collectionId": "_pb_users_auth_", "cascadeDelete": False, "maxSelect": 1}},
+                {"name": "document", "type": "relation", "required": True, "options": {"collectionId": "documents", "cascadeDelete": True, "maxSelect": 1}},
+                {"name": "chunkId", "type": "text", "required": True},
+                {"name": "chunkIndex", "type": "number", "required": False},
+                {"name": "content", "type": "text", "required": True},
+                {"name": "metadataJson", "type": "text", "required": False},
+                {"name": "updatedAt", "type": "number", "required": False}
+            ],
+            "indexes": [
+                "CREATE UNIQUE INDEX idx_chunks_user_chunk ON chunks (user, chunkId)",
+                "CREATE INDEX idx_chunks_document_chunkindex ON chunks (document, chunkIndex)"
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
+            "name": "embeddings",
+            "type": "base",
+            "fields": [
+                {"name": "user", "type": "relation", "required": True, "options": {"collectionId": "_pb_users_auth_", "cascadeDelete": False, "maxSelect": 1}},
+                {"name": "document", "type": "relation", "required": True, "options": {"collectionId": "documents", "cascadeDelete": True, "maxSelect": 1}},
+                {"name": "chunk", "type": "relation", "required": True, "options": {"collectionId": "chunks", "cascadeDelete": True, "maxSelect": 1}},
+                {"name": "chunkId", "type": "text", "required": True},
+                {"name": "model", "type": "text", "required": False},
+                {"name": "dimensions", "type": "number", "required": True},
+                {"name": "vectorJson", "type": "text", "required": True},
+                {"name": "norm", "type": "number", "required": False},
+                {"name": "metadataJson", "type": "text", "required": False},
+                {"name": "updatedAt", "type": "number", "required": False}
+            ],
+            "indexes": [
+                "CREATE UNIQUE INDEX idx_embeddings_user_chunk ON embeddings (user, chunkId)",
+                "CREATE INDEX idx_embeddings_document ON embeddings (document)"
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         }
     ]
 
@@ -584,6 +672,7 @@ def main():
 
     # Create collections
     print("📦 Creating collections...")
+    default_collections = get_default_collections_schema()
     schema_path = Path(args.schema_file)
     if schema_path.exists():
         print(f"📄 Loading schema from {schema_path}")
@@ -592,14 +681,18 @@ def main():
         except (ValueError, json.JSONDecodeError) as e:
             print(f"⚠️  Failed to load schema file: {e}")
             print("   Falling back to bundled schema definitions.")
-            collections = get_default_collections_schema()
+            collections = default_collections
     else:
         print(f"⚠️  Schema file {schema_path} not found, using bundled defaults.")
-        collections = get_default_collections_schema()
+        collections = default_collections
 
     if not collections:
         print("⚠️  No collections defined in schema file, using bundled defaults.")
-        collections = get_default_collections_schema()
+        collections = default_collections
+
+    collections, auto_added = ensure_required_collections(collections, default_collections)
+    if auto_added > 0:
+        print(f"   ✅ Added {auto_added} missing required collection(s) from bundled defaults")
     
     created_count = 0
     for collection_data in collections:
