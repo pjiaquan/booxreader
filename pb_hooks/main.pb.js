@@ -8,6 +8,20 @@ function qdrantLogSafeStr(v) {
   return v === null || v === undefined ? "" : String(v);
 }
 
+function qdrantLogCollectionName() {
+  try {
+    if (typeof QDRANT_SYNC_LOG_COLLECTION !== "undefined") {
+      var declared = String(QDRANT_SYNC_LOG_COLLECTION || "").trim();
+      if (declared) return declared;
+    }
+  } catch (_) {}
+  try {
+    var fromEnv = String($os.getenv("QDRANT_SYNC_LOG_COLLECTION") || "qdrant_sync_logs").trim();
+    if (fromEnv) return fromEnv;
+  } catch (_) {}
+  return "qdrant_sync_logs";
+}
+
 function logQdrantSyncEvent(app, payload) {
   var action = qdrantLogSafeStr(payload && payload.action);
   var status = qdrantLogSafeStr(payload && payload.status);
@@ -16,7 +30,7 @@ function logQdrantSyncEvent(app, payload) {
       console.log(`>> [QdrantLog Skip] app missing (${action}/${status})`);
       return;
     }
-    var collectionName = String(QDRANT_SYNC_LOG_COLLECTION || "qdrant_sync_logs").trim();
+    var collectionName = qdrantLogCollectionName();
     if (!collectionName) {
       console.log(`>> [QdrantLog Skip] empty collection name (${action}/${status})`);
       return;
@@ -69,6 +83,51 @@ onRecordCreate((e) => {
   let bookIdForLog = "";
   let qdrantCollectionForLog = "";
   let pointIdForLog = "";
+  const logEvent = (payload) => {
+    try {
+      if (!appRef) return;
+      const safeVal = (v) => (v === null || v === undefined ? "" : String(v));
+      let collectionName = "qdrant_sync_logs";
+      try {
+        if (typeof QDRANT_SYNC_LOG_COLLECTION !== "undefined") {
+          const declared = safeVal(QDRANT_SYNC_LOG_COLLECTION).trim();
+          if (declared) collectionName = declared;
+        } else {
+          const envName = safeVal($os.getenv("QDRANT_SYNC_LOG_COLLECTION") || "qdrant_sync_logs").trim();
+          if (envName) collectionName = envName;
+        }
+      } catch (_) {}
+      if (!collectionName) return;
+      let collection = null;
+      try {
+        collection = appRef.findCollectionByNameOrId(collectionName);
+      } catch (_) {
+        collection = null;
+      }
+      if (!collection) return;
+
+      const record = new Record(collection);
+      record.set("action", safeVal(payload && payload.action));
+      record.set("status", safeVal(payload && payload.status));
+      record.set("recordId", safeVal(payload && payload.recordId));
+      record.set("bookId", safeVal(payload && payload.bookId));
+      record.set("qdrantCollection", safeVal(payload && payload.qdrantCollection));
+      record.set("pointId", safeVal(payload && payload.pointId));
+      record.set("reason", safeVal(payload && payload.reason));
+      record.set("detail", safeVal(payload && payload.detail));
+      record.set("error", safeVal(payload && payload.error));
+      record.set("timestamp", Number(payload && payload.timestamp) || Date.now());
+      const userId = safeVal(payload && payload.userId).trim();
+      if (userId) {
+        try {
+          record.set("user", userId);
+        } catch (_) {}
+      }
+      appRef.save(record);
+    } catch (err) {
+      console.log(`>> [QdrantLog Local Error] ${err}`);
+    }
+  };
 
   try {
     const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
@@ -101,7 +160,7 @@ onRecordCreate((e) => {
 
     const status = safeStr(e.record.get("status"));
     if (status !== "done") {
-      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+      logEvent({
         action: "upsert_create",
         status: "skipped",
         reason: "status_not_done",
@@ -116,7 +175,7 @@ onRecordCreate((e) => {
     }
     const aiResponse = safeStr(e.record.get("aiResponse"));
     if (aiResponse.length < 2) {
-      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+      logEvent({
         action: "upsert_create",
         status: "skipped",
         reason: "ai_response_too_short",
@@ -212,7 +271,7 @@ onRecordCreate((e) => {
     }
 
     console.log(`>> [Create Success] Synced ${e.record.id}`);
-    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+    logEvent({
       action: "upsert_create",
       status: "success",
       recordId: recordIdForLog,
@@ -225,7 +284,7 @@ onRecordCreate((e) => {
     });
   } catch (err) {
     console.log(`>> [Create Error] ${err}`);
-    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+    logEvent({
       action: "upsert_create",
       status: "failed",
       reason: "hook_exception",
@@ -252,6 +311,51 @@ onRecordUpdate((e) => {
   let bookIdForLog = "";
   let qdrantCollectionForLog = "";
   let pointIdForLog = "";
+  const logEvent = (payload) => {
+    try {
+      if (!appRef) return;
+      const safeVal = (v) => (v === null || v === undefined ? "" : String(v));
+      let collectionName = "qdrant_sync_logs";
+      try {
+        if (typeof QDRANT_SYNC_LOG_COLLECTION !== "undefined") {
+          const declared = safeVal(QDRANT_SYNC_LOG_COLLECTION).trim();
+          if (declared) collectionName = declared;
+        } else {
+          const envName = safeVal($os.getenv("QDRANT_SYNC_LOG_COLLECTION") || "qdrant_sync_logs").trim();
+          if (envName) collectionName = envName;
+        }
+      } catch (_) {}
+      if (!collectionName) return;
+      let collection = null;
+      try {
+        collection = appRef.findCollectionByNameOrId(collectionName);
+      } catch (_) {
+        collection = null;
+      }
+      if (!collection) return;
+
+      const record = new Record(collection);
+      record.set("action", safeVal(payload && payload.action));
+      record.set("status", safeVal(payload && payload.status));
+      record.set("recordId", safeVal(payload && payload.recordId));
+      record.set("bookId", safeVal(payload && payload.bookId));
+      record.set("qdrantCollection", safeVal(payload && payload.qdrantCollection));
+      record.set("pointId", safeVal(payload && payload.pointId));
+      record.set("reason", safeVal(payload && payload.reason));
+      record.set("detail", safeVal(payload && payload.detail));
+      record.set("error", safeVal(payload && payload.error));
+      record.set("timestamp", Number(payload && payload.timestamp) || Date.now());
+      const userId = safeVal(payload && payload.userId).trim();
+      if (userId) {
+        try {
+          record.set("user", userId);
+        } catch (_) {}
+      }
+      appRef.save(record);
+    } catch (err) {
+      console.log(`>> [QdrantLog Local Error] ${err}`);
+    }
+  };
 
   try {
     const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
@@ -284,7 +388,7 @@ onRecordUpdate((e) => {
 
     const status = safeStr(e.record.get("status"));
     if (status !== "done") {
-      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+      logEvent({
         action: "upsert_update",
         status: "skipped",
         reason: "status_not_done",
@@ -299,7 +403,7 @@ onRecordUpdate((e) => {
     }
     const aiResponse = safeStr(e.record.get("aiResponse"));
     if (aiResponse.length < 2) {
-      if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+      logEvent({
         action: "upsert_update",
         status: "skipped",
         reason: "ai_response_too_short",
@@ -395,7 +499,7 @@ onRecordUpdate((e) => {
     }
 
     console.log(`>> [Update Success] Synced ${e.record.id}`);
-    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+    logEvent({
       action: "upsert_update",
       status: "success",
       recordId: recordIdForLog,
@@ -408,7 +512,7 @@ onRecordUpdate((e) => {
     });
   } catch (err) {
     console.log(`>> [Update Error] ${err}`);
-    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+    logEvent({
       action: "upsert_update",
       status: "failed",
       reason: "hook_exception",
@@ -435,6 +539,51 @@ onRecordDelete((e) => {
   let bookIdForLog = "";
   let qdrantCollectionForLog = "";
   let pointIdForLog = "";
+  const logEvent = (payload) => {
+    try {
+      if (!appRef) return;
+      const safeVal = (v) => (v === null || v === undefined ? "" : String(v));
+      let collectionName = "qdrant_sync_logs";
+      try {
+        if (typeof QDRANT_SYNC_LOG_COLLECTION !== "undefined") {
+          const declared = safeVal(QDRANT_SYNC_LOG_COLLECTION).trim();
+          if (declared) collectionName = declared;
+        } else {
+          const envName = safeVal($os.getenv("QDRANT_SYNC_LOG_COLLECTION") || "qdrant_sync_logs").trim();
+          if (envName) collectionName = envName;
+        }
+      } catch (_) {}
+      if (!collectionName) return;
+      let collection = null;
+      try {
+        collection = appRef.findCollectionByNameOrId(collectionName);
+      } catch (_) {
+        collection = null;
+      }
+      if (!collection) return;
+
+      const record = new Record(collection);
+      record.set("action", safeVal(payload && payload.action));
+      record.set("status", safeVal(payload && payload.status));
+      record.set("recordId", safeVal(payload && payload.recordId));
+      record.set("bookId", safeVal(payload && payload.bookId));
+      record.set("qdrantCollection", safeVal(payload && payload.qdrantCollection));
+      record.set("pointId", safeVal(payload && payload.pointId));
+      record.set("reason", safeVal(payload && payload.reason));
+      record.set("detail", safeVal(payload && payload.detail));
+      record.set("error", safeVal(payload && payload.error));
+      record.set("timestamp", Number(payload && payload.timestamp) || Date.now());
+      const userId = safeVal(payload && payload.userId).trim();
+      if (userId) {
+        try {
+          record.set("user", userId);
+        } catch (_) {}
+      }
+      appRef.save(record);
+    } catch (err) {
+      console.log(`>> [QdrantLog Local Error] ${err}`);
+    }
+  };
 
   try {
     const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
@@ -483,7 +632,7 @@ onRecordDelete((e) => {
     }
 
     console.log(`>> [Delete Success] Removed ${e.record.id}`);
-    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+    logEvent({
       action: "delete",
       status: "success",
       recordId: recordIdForLog,
@@ -495,7 +644,7 @@ onRecordDelete((e) => {
     });
   } catch (err) {
     console.log(`>> [Delete Error] ${err}`);
-    if (typeof logQdrantSyncEvent === "function") logQdrantSyncEvent(appRef, {
+    logEvent({
       action: "delete",
       status: "failed",
       reason: "hook_exception",
@@ -1022,26 +1171,261 @@ function ragFindRecordsByIdsSafe(appRef, collectionName, ids) {
   return [];
 }
 
+function ragGetConfig() {
+  return {
+    documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
+    chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
+    embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
+    embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
+    embeddingUrl: String(
+      $os.getenv("DASHSCOPE_EMBED_URL") ||
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
+    ).trim(),
+    embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
+    embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
+    pbPublicUrl: String($os.getenv("POCKETBASE_PUBLIC_URL") || "")
+      .trim()
+      .replace(/\/+$/, ""),
+    maxEmbedText: parseInt(String($os.getenv("MAX_EMBED_TEXT") || "6000"), 10) || 6000,
+  };
+}
+
+function ragGetCollectionSafe(appRef, name) {
+  try {
+    return appRef.findCollectionByNameOrId(name);
+  } catch (_) {
+    return null;
+  }
+}
+
+function ragExtractAiNoteText(record) {
+  let originalText = ragSafeStr(record.get("originalText")).trim();
+  let aiResponse = ragSafeStr(record.get("aiResponse")).trim();
+
+  if (originalText && aiResponse) {
+    return { originalText, aiResponse };
+  }
+
+  const rawMessages = ragSafeStr(record.get("messages")).trim();
+  if (!rawMessages) return { originalText, aiResponse };
+
+  try {
+    const parsed = JSON.parse(rawMessages);
+    if (!Array.isArray(parsed)) return { originalText, aiResponse };
+
+    let firstUser = "";
+    let lastAssistant = "";
+    for (let i = 0; i < parsed.length; i++) {
+      const m = parsed[i];
+      if (!m || typeof m !== "object") continue;
+      const role = ragSafeStr(m.role).trim().toLowerCase();
+      const content = ragSafeStr(m.content).trim();
+      if (!content) continue;
+      if (!firstUser && role === "user") firstUser = content;
+      if (role === "assistant") lastAssistant = content;
+    }
+
+    if (!originalText && firstUser) originalText = firstUser;
+    if (!aiResponse && lastAssistant) aiResponse = lastAssistant;
+  } catch (_) {}
+
+  return { originalText, aiResponse };
+}
+
+function ragBuildAiNoteSyncSpec(record, cfg) {
+  const noteId = ragSafeStr(record && record.id).trim();
+  const userId = ragToRelId(record && record.get ? record.get("user") : "").trim();
+  const status = ragSafeStr(record && record.get ? record.get("status") : "").trim();
+  const statusNorm = status.toLowerCase();
+  const bookId = ragSafeStr(record && record.get ? record.get("bookId") : "").trim();
+  const bookTitle = ragSafeStr(record && record.get ? record.get("bookTitle") : "").trim();
+
+  if (!noteId) {
+    return { ok: false, reason: "missing_note_id", noteId: "", userId: userId };
+  }
+  if (!userId) {
+    return { ok: false, reason: "missing_user", noteId: noteId, userId: "" };
+  }
+  const isFinalStatus =
+    statusNorm === "" ||
+    statusNorm === "done" ||
+    statusNorm === "completed" ||
+    statusNorm === "success";
+  if (!isFinalStatus) {
+    return { ok: false, reason: "status_not_done", noteId: noteId, userId: userId };
+  }
+
+  const extracted = ragExtractAiNoteText(record);
+  const originalText = ragSafeStr(extracted.originalText).trim();
+  const aiResponse = ragSafeStr(extracted.aiResponse).trim();
+  if (aiResponse.length < 2) {
+    return { ok: false, reason: "ai_response_too_short", noteId: noteId, userId: userId };
+  }
+
+  let textToEmbed = `Title: ${originalText}\n\nContent: ${aiResponse}`;
+  if (textToEmbed.length > cfg.maxEmbedText) {
+    textToEmbed = textToEmbed.substring(0, cfg.maxEmbedText);
+  }
+
+  const documentId = `ai_note:${noteId}`;
+  const chunkId = `${documentId}:chunk:0`;
+  const metadata = {
+    kind: "ai_note",
+    noteId: noteId,
+    remoteId: noteId,
+    bookId: bookId,
+    bookTitle: bookTitle,
+    status: statusNorm || status,
+  };
+
+  return {
+    ok: true,
+    reason: "ok",
+    noteId: noteId,
+    userId: userId,
+    bookId: bookId,
+    bookTitle: bookTitle,
+    originalText: originalText,
+    aiResponse: aiResponse,
+    textToEmbed: textToEmbed,
+    documentId: documentId,
+    chunkId: chunkId,
+    metadata: metadata,
+  };
+}
+
+function ragDeleteAiNoteSyncRecords(appRef, cfg, noteId, userId) {
+  const cleanNoteId = ragSafeStr(noteId).trim();
+  if (!cleanNoteId) return { deleted: 0 };
+
+  const documentId = `ai_note:${cleanNoteId}`;
+  const chunkId = `${documentId}:chunk:0`;
+  const escUser = ragEscapeFilterString(ragSafeStr(userId).trim());
+  const escChunk = ragEscapeFilterString(chunkId);
+  const escDoc = ragEscapeFilterString(documentId);
+
+  const withUser = escUser ? 'user = "' + escUser + '" && ' : "";
+  let deleted = 0;
+
+  const emb = ragFindOneByFilter(
+    appRef,
+    cfg.embeddingsCollection,
+    withUser + 'chunkId = "' + escChunk + '"',
+    "-updated"
+  );
+  if (emb) {
+    appRef.delete(emb);
+    deleted += 1;
+  }
+
+  const chunk = ragFindOneByFilter(
+    appRef,
+    cfg.chunksCollection,
+    withUser + 'chunkId = "' + escChunk + '"',
+    "-updated"
+  );
+  if (chunk) {
+    appRef.delete(chunk);
+    deleted += 1;
+  }
+
+  const doc = ragFindOneByFilter(
+    appRef,
+    cfg.documentsCollection,
+    withUser + 'documentId = "' + escDoc + '"',
+    "-updated"
+  );
+  if (doc) {
+    appRef.delete(doc);
+    deleted += 1;
+  }
+
+  return { deleted };
+}
+
+function ragUpsertAiNoteSyncRecords(appRef, cfg, spec) {
+  const documentsCollection = ragGetCollectionSafe(appRef, cfg.documentsCollection);
+  const chunksCollection = ragGetCollectionSafe(appRef, cfg.chunksCollection);
+  const embeddingsCollection = ragGetCollectionSafe(appRef, cfg.embeddingsCollection);
+  if (!documentsCollection || !chunksCollection || !embeddingsCollection) {
+    throw new Error("RAG collections are missing (documents/chunks/embeddings)");
+  }
+
+  const vector = ragEmbedText(cfg, spec.textToEmbed);
+  const dimensions = vector.length;
+  if (dimensions <= 0) throw new Error("embedding is empty");
+
+  const nowTs = Date.now();
+  const norm = ragVectorNorm(vector);
+  const metadataJson = ragSerializeJsonObject(spec.metadata);
+
+  const docFilter =
+    'user = "' +
+    ragEscapeFilterString(spec.userId) +
+    '" && documentId = "' +
+    ragEscapeFilterString(spec.documentId) +
+    '"';
+  let docRecord = ragFindOneByFilter(appRef, cfg.documentsCollection, docFilter, "-updated");
+  if (!docRecord) docRecord = new Record(documentsCollection);
+  docRecord.set("user", spec.userId);
+  docRecord.set("documentId", spec.documentId);
+  docRecord.set("title", spec.bookTitle || "AI Note");
+  docRecord.set("source", "ai_notes");
+  docRecord.set("metadataJson", metadataJson);
+  docRecord.set("updatedAt", nowTs);
+  appRef.save(docRecord);
+
+  const chunkFilter =
+    'user = "' +
+    ragEscapeFilterString(spec.userId) +
+    '" && chunkId = "' +
+    ragEscapeFilterString(spec.chunkId) +
+    '"';
+  let chunkRecord = ragFindOneByFilter(appRef, cfg.chunksCollection, chunkFilter, "-updated");
+  if (!chunkRecord) chunkRecord = new Record(chunksCollection);
+  chunkRecord.set("user", spec.userId);
+  chunkRecord.set("document", docRecord.id);
+  chunkRecord.set("chunkId", spec.chunkId);
+  chunkRecord.set("chunkIndex", 0);
+  chunkRecord.set("content", spec.textToEmbed);
+  chunkRecord.set("metadataJson", metadataJson);
+  chunkRecord.set("updatedAt", nowTs);
+  appRef.save(chunkRecord);
+
+  const embFilter =
+    'user = "' +
+    ragEscapeFilterString(spec.userId) +
+    '" && chunkId = "' +
+    ragEscapeFilterString(spec.chunkId) +
+    '"';
+  let embRecord = ragFindOneByFilter(appRef, cfg.embeddingsCollection, embFilter, "-updated");
+  if (!embRecord) embRecord = new Record(embeddingsCollection);
+  embRecord.set("user", spec.userId);
+  embRecord.set("document", docRecord.id);
+  embRecord.set("chunk", chunkRecord.id);
+  embRecord.set("chunkId", spec.chunkId);
+  embRecord.set("model", cfg.embeddingModel);
+  embRecord.set("dimensions", dimensions);
+  embRecord.set("vectorJson", JSON.stringify(vector));
+  embRecord.set("norm", norm);
+  embRecord.set("metadataJson", metadataJson);
+  embRecord.set("updatedAt", nowTs);
+  appRef.save(embRecord);
+
+  return {
+    documentId: docRecord.id,
+    chunkId: chunkRecord.id,
+    embeddingId: embRecord.id,
+    dimensions: dimensions,
+  };
+}
+
 routerAdd("POST", "/boox-rag-upsert", (e) => {
   try {
     const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
     if (!appRef) return e.json(500, { error: "app is unavailable" });
 
-    const cfg = {
-      documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
-      chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
-      embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
-      embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
-      embeddingUrl: String(
-        $os.getenv("DASHSCOPE_EMBED_URL") ||
-          "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
-      ).trim(),
-      embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
-      embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
-      pbPublicUrl: String($os.getenv("POCKETBASE_PUBLIC_URL") || "")
-        .trim()
-        .replace(/\/+$/, ""),
-    };
+    const cfg = ragGetConfig();
 
     const userId = ragResolveUserId(e, cfg);
     const body = ragParseReqBody(e);
@@ -1136,119 +1520,401 @@ routerAdd("POST", "/boox-rag-search", (e) => {
   try {
     const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
     if (!appRef) return e.json(500, { error: "app is unavailable" });
-
-    const cfg = {
-      documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
-      chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
-      embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
-      embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
-      embeddingUrl: String(
-        $os.getenv("DASHSCOPE_EMBED_URL") ||
-          "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
-      ).trim(),
-      embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
-      embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
-      pbPublicUrl: String($os.getenv("POCKETBASE_PUBLIC_URL") || "")
-        .trim()
-        .replace(/\/+$/, ""),
+    const safeStr =
+      typeof ragSafeStr === "function" ? ragSafeStr : (v) => (v === null || v === undefined ? "" : String(v));
+    const toRelId =
+      typeof ragToRelId === "function"
+        ? ragToRelId
+        : (v) => {
+            if (Array.isArray(v)) return String(v[0] || "");
+            if (v && typeof v === "object") return String(v.id || "");
+            return String(v || "");
+          };
+    const esc =
+      typeof ragEscapeFilterString === "function"
+        ? ragEscapeFilterString
+        : (v) => safeStr(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const parseJsonObject =
+      typeof ragParseJsonObject === "function"
+        ? ragParseJsonObject
+        : (raw) => {
+            try {
+              if (!raw) return null;
+              if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+              const obj = JSON.parse(String(raw));
+              return obj && typeof obj === "object" && !Array.isArray(obj) ? obj : null;
+            } catch (_) {
+              return null;
+            }
+          };
+    const parseReqBody =
+      typeof ragParseReqBody === "function"
+        ? ragParseReqBody
+        : (evt) => {
+            try {
+              const reqInfo = evt.requestInfo();
+              if (!reqInfo || reqInfo.body === null || reqInfo.body === undefined) return {};
+              if (typeof reqInfo.body === "string") {
+                try {
+                  return JSON.parse(reqInfo.body);
+                } catch (_) {
+                  return {};
+                }
+              }
+              return reqInfo.body;
+            } catch (_) {
+              return {};
+            }
+          };
+    const parseVector =
+      typeof ragParseVector === "function"
+        ? ragParseVector
+        : (value, expectedDim) => {
+            let arr = null;
+            if (Array.isArray(value)) arr = value;
+            else if (typeof value === "string") {
+              try {
+                const parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) arr = parsed;
+              } catch (_) {}
+            }
+            if (!Array.isArray(arr)) return [];
+            const out = [];
+            for (let i = 0; i < arr.length; i++) {
+              const n = Number(arr[i]);
+              if (!isFinite(n)) return [];
+              out.push(n);
+            }
+            if (expectedDim && out.length !== expectedDim) return [];
+            return out;
+          };
+    const vectorNorm =
+      typeof ragVectorNorm === "function"
+        ? ragVectorNorm
+        : (vector) => {
+            if (!Array.isArray(vector) || vector.length === 0) return 0;
+            let sum = 0;
+            for (let i = 0; i < vector.length; i++) {
+              const n = Number(vector[i]);
+              if (!isFinite(n)) return 0;
+              sum += n * n;
+            }
+            return Math.sqrt(sum);
+          };
+    const cosineSimilarity =
+      typeof ragCosineSimilarity === "function"
+        ? ragCosineSimilarity
+        : (a, b, aNorm, bNorm) => {
+            if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || a.length === 0) return -1;
+            const denom = (isFinite(aNorm) ? aNorm : vectorNorm(a)) * (isFinite(bNorm) ? bNorm : vectorNorm(b));
+            if (denom <= 0) return -1;
+            let dot = 0;
+            for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+            return dot / denom;
+          };
+    const getConfig =
+      typeof ragGetConfig === "function"
+        ? ragGetConfig
+        : () => ({
+            documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
+            chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
+            embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
+            embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
+            embeddingUrl: String(
+              $os.getenv("DASHSCOPE_EMBED_URL") ||
+                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
+            ).trim(),
+            embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
+            embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
+            pbPublicUrl: String($os.getenv("POCKETBASE_PUBLIC_URL") || "")
+              .trim()
+              .replace(/\/+$/, ""),
+          });
+    const embedText =
+      typeof ragEmbedText === "function"
+        ? ragEmbedText
+        : (cfg, inputText) => {
+            const text = safeStr(inputText).trim();
+            if (!text) throw new Error("query or embedding is required");
+            if (!cfg.embeddingApiKey) throw new Error("DASHSCOPE_API_KEY is missing");
+            const embedRes = $http.send({
+              url: cfg.embeddingUrl,
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${cfg.embeddingApiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: cfg.embeddingModel,
+                input: text,
+                dimensions: cfg.embeddingDim,
+                encoding_format: "float",
+              }),
+              timeout: 120,
+            });
+            if (embedRes.statusCode !== 200) {
+              throw new Error(`Embedding API Error (${embedRes.statusCode}): ${embedRes.raw}`);
+            }
+            const vector = embedRes.json && embedRes.json.data && embedRes.json.data[0] ? embedRes.json.data[0].embedding : null;
+            const parsed = parseVector(vector, cfg.embeddingDim);
+            if (parsed.length !== cfg.embeddingDim) {
+              throw new Error(`embedding dim mismatch: ${Array.isArray(vector) ? vector.length : 0}`);
+            }
+            return parsed;
+          };
+    const findRecordsByFilter =
+      typeof ragFindRecordsByFilter === "function"
+        ? ragFindRecordsByFilter
+        : (app, collectionName, filterExpr, sortExpr, limit, offset) => {
+            try {
+              const finder =
+                app && typeof app.findRecordsByFilter === "function"
+                  ? app
+                  : typeof $app !== "undefined" && typeof $app.findRecordsByFilter === "function"
+                  ? $app
+                  : null;
+              if (!finder) return [];
+              return (
+                finder.findRecordsByFilter(
+                  String(collectionName || "").trim(),
+                  String(filterExpr || ""),
+                  String(sortExpr || ""),
+                  Number(limit) || 50,
+                  Number(offset) || 0
+                ) || []
+              );
+            } catch (_) {
+              return [];
+            }
+          };
+    const findOneByFilter =
+      typeof ragFindOneByFilter === "function"
+        ? ragFindOneByFilter
+        : (app, collectionName, filterExpr, sortExpr) => {
+            const rows = findRecordsByFilter(app, collectionName, filterExpr, sortExpr || "-updated", 1, 0);
+            return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+          };
+    const findRecordsByIdsSafe =
+      typeof ragFindRecordsByIdsSafe === "function"
+        ? ragFindRecordsByIdsSafe
+        : (app, collectionName, ids) => {
+            if (!Array.isArray(ids) || ids.length === 0) return [];
+            try {
+              if (app && typeof app.findRecordsByIds === "function") {
+                return app.findRecordsByIds(collectionName, ids) || [];
+              }
+            } catch (_) {}
+            try {
+              if (typeof $app !== "undefined" && typeof $app.findRecordsByIds === "function") {
+                return $app.findRecordsByIds(collectionName, ids) || [];
+              }
+            } catch (_) {}
+            return [];
+          };
+    const hasField = (collectionName, fieldName) => {
+      try {
+        const col = appRef.findCollectionByNameOrId(collectionName);
+        const fields = Array.isArray(col && col.fields) ? col.fields : [];
+        for (let i = 0; i < fields.length; i++) {
+          if (safeStr(fields[i] && fields[i].name) === fieldName) return true;
+        }
+      } catch (_) {}
+      return false;
+    };
+    const resolveUserId =
+      typeof ragResolveUserId === "function"
+        ? (evt, cfg) => ragResolveUserId(evt, cfg)
+        : (evt, cfg) => {
+            let reqInfo = null;
+            try {
+              reqInfo = evt.requestInfo();
+            } catch (_) {
+              reqInfo = null;
+            }
+            const routeAuthRecord = (evt && evt.auth) || (reqInfo && (reqInfo.authRecord || reqInfo.auth)) || null;
+            if (routeAuthRecord) {
+              const uid = toRelId(routeAuthRecord.id || routeAuthRecord).trim();
+              if (uid) return uid;
+            }
+            let authHeader = "";
+            try {
+              if (evt.request && evt.request.header && evt.request.header.get) {
+                authHeader = String(evt.request.header.get("Authorization") || "");
+              } else if (evt.request && evt.request.headers && evt.request.headers.get) {
+                authHeader = String(evt.request.headers.get("Authorization") || "");
+              }
+            } catch (_) {}
+            const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+            if (!token) return "";
+            try {
+              const authRecord = $app.findAuthRecordByToken(token, "auth");
+              const localUserId = toRelId(authRecord && authRecord.id ? authRecord.id : authRecord).trim();
+              if (localUserId) return localUserId;
+            } catch (_) {}
+            if (!cfg.pbPublicUrl) return "";
+            try {
+              const verifyRes = $http.send({
+                url: `${cfg.pbPublicUrl}/api/collections/users/auth-refresh`,
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 20,
+              });
+              if (verifyRes.statusCode !== 200) return "";
+              const rec = verifyRes.json && verifyRes.json.record ? verifyRes.json.record : null;
+              return toRelId(rec ? rec.id : "").trim();
+            } catch (_) {
+              return "";
+            }
+          };
+    const deriveDocumentIdFromChunkId = (chunkIdValue) => {
+      const cid = safeStr(chunkIdValue).trim();
+      if (!cid) return "";
+      const idx = cid.indexOf(":chunk:");
+      if (idx > 0) return cid.substring(0, idx);
+      const hashIdx = cid.indexOf("#");
+      if (hashIdx > 0) return cid.substring(0, hashIdx);
+      return "";
     };
 
-    const userId = ragResolveUserId(e, cfg);
-    const body = ragParseReqBody(e);
+    const cfg = getConfig();
+    const userId = resolveUserId(e, cfg);
+    const body = parseReqBody(e);
 
-    const queryText = ragSafeStr(body.query).trim();
-    const topKRaw = parseInt(ragSafeStr(body.topK || body.limit || "5"), 10);
+    const queryText = safeStr(body.query).trim();
+    const topKRaw = parseInt(safeStr(body.topK || body.limit || "5"), 10);
     const topK = Math.max(1, Math.min(50, isNaN(topKRaw) ? 5 : topKRaw));
-    const maxCandidatesRaw = parseInt(ragSafeStr(body.maxCandidates || "500"), 10);
+    const maxCandidatesRaw = parseInt(safeStr(body.maxCandidates || "500"), 10);
     const maxCandidates = Math.max(topK, Math.min(2000, isNaN(maxCandidatesRaw) ? 500 : maxCandidatesRaw));
     const minScoreRaw = Number(body.minScore);
     const minScore = isFinite(minScoreRaw) ? minScoreRaw : -1;
     const includeContent = body.includeContent === false ? false : true;
-    const documentId = ragSafeStr(body.documentId).trim();
+    const documentId = safeStr(body.documentId).trim();
 
-    let queryVector = ragParseVector(body.embedding);
+    let queryVector = parseVector(body.embedding);
     if (queryVector.length === 0) {
       if (!queryText) return e.json(400, { error: "query or embedding is required" });
-      queryVector = ragEmbedText(cfg, queryText);
+      queryVector = embedText(cfg, queryText);
     }
-    const queryNorm = ragVectorNorm(queryVector);
+    const queryNorm = vectorNorm(queryVector);
     if (queryNorm <= 0) return e.json(400, { error: "query embedding norm is zero" });
 
-    let embeddingFilter = 'user = "' + ragEscapeFilterString(userId) + '"';
+    const embeddingsHasUser = hasField(cfg.embeddingsCollection, "user");
+    const embeddingsHasDocument = hasField(cfg.embeddingsCollection, "document");
+    const embeddingsHasChunk = hasField(cfg.embeddingsCollection, "chunk");
+    const documentsHasUser = hasField(cfg.documentsCollection, "user");
+    const chunksHasUser = hasField(cfg.chunksCollection, "user");
+
+    let embeddingFilter = "";
+    if (embeddingsHasUser && userId) {
+      embeddingFilter = 'user = "' + esc(userId) + '"';
+    }
     if (documentId) {
-      const docFilter =
-        'user = "' + ragEscapeFilterString(userId) + '" && documentId = "' + ragEscapeFilterString(documentId) + '"';
-      const docRecord = ragFindOneByFilter(appRef, cfg.documentsCollection, docFilter, "-updated");
-      if (!docRecord) return e.json(200, { results: [] });
-      embeddingFilter += ' && document = "' + ragEscapeFilterString(docRecord.id) + '"';
-    }
-
-    const candidates = ragFindRecordsByFilter(
-      appRef,
-      cfg.embeddingsCollection,
-      embeddingFilter,
-      "-updated",
-      maxCandidates,
-      0
-    );
-    if (!Array.isArray(candidates) || candidates.length === 0) {
-      return e.json(200, { results: [] });
-    }
-
-    const chunkIdSet = {};
-    const docIdSet = {};
-    const chunkIds = [];
-    const docIds = [];
-
-    for (let i = 0; i < candidates.length; i++) {
-      const rec = candidates[i];
-      const chunkRel = ragToRelId(rec.get("chunk")).trim();
-      const docRel = ragToRelId(rec.get("document")).trim();
-      if (chunkRel && !chunkIdSet[chunkRel]) {
-        chunkIdSet[chunkRel] = true;
-        chunkIds.push(chunkRel);
-      }
-      if (docRel && !docIdSet[docRel]) {
-        docIdSet[docRel] = true;
-        docIds.push(docRel);
+      if (embeddingsHasDocument) {
+        let docFilter = 'documentId = "' + esc(documentId) + '"';
+        if (documentsHasUser && userId) docFilter = 'user = "' + esc(userId) + '" && ' + docFilter;
+        const docRecord = findOneByFilter(appRef, cfg.documentsCollection, docFilter, "-updated");
+        if (!docRecord) return e.json(200, { results: [] });
+        embeddingFilter += (embeddingFilter ? " && " : "") + 'document = "' + esc(docRecord.id) + '"';
+      } else {
+        embeddingFilter += (embeddingFilter ? " && " : "") + 'chunkId ~ "' + esc(documentId) + '"';
       }
     }
 
-    const chunkRecords = ragFindRecordsByIdsSafe(appRef, cfg.chunksCollection, chunkIds);
-    const docRecords = ragFindRecordsByIdsSafe(appRef, cfg.documentsCollection, docIds);
+    const candidates = findRecordsByFilter(appRef, cfg.embeddingsCollection, embeddingFilter, "-updated", maxCandidates, 0);
+    if (!Array.isArray(candidates) || candidates.length === 0) return e.json(200, { results: [] });
 
     const chunkMap = {};
     const docMap = {};
-    for (let i = 0; i < chunkRecords.length; i++) chunkMap[chunkRecords[i].id] = chunkRecords[i];
-    for (let i = 0; i < docRecords.length; i++) docMap[docRecords[i].id] = docRecords[i];
+    if (embeddingsHasChunk) {
+      const chunkIds = [];
+      const chunkIdSet = {};
+      for (let i = 0; i < candidates.length; i++) {
+        const rel = toRelId(candidates[i].get("chunk")).trim();
+        if (rel && !chunkIdSet[rel]) {
+          chunkIdSet[rel] = true;
+          chunkIds.push(rel);
+        }
+      }
+      const chunkRecords = findRecordsByIdsSafe(appRef, cfg.chunksCollection, chunkIds);
+      for (let i = 0; i < chunkRecords.length; i++) chunkMap[chunkRecords[i].id] = chunkRecords[i];
+    }
+    if (embeddingsHasDocument) {
+      const docIds = [];
+      const docIdSet = {};
+      for (let i = 0; i < candidates.length; i++) {
+        const rel = toRelId(candidates[i].get("document")).trim();
+        if (rel && !docIdSet[rel]) {
+          docIdSet[rel] = true;
+          docIds.push(rel);
+        }
+      }
+      const docRecords = findRecordsByIdsSafe(appRef, cfg.documentsCollection, docIds);
+      for (let i = 0; i < docRecords.length; i++) docMap[docRecords[i].id] = docRecords[i];
+    }
+
+    const chunkByChunkId = {};
+    const docByDocumentId = {};
+    const getChunkByChunkId = (cid) => {
+      const key = safeStr(cid).trim();
+      if (!key) return null;
+      if (Object.prototype.hasOwnProperty.call(chunkByChunkId, key)) return chunkByChunkId[key];
+      let filter = 'chunkId = "' + esc(key) + '"';
+      if (chunksHasUser && userId) filter = 'user = "' + esc(userId) + '" && ' + filter;
+      const rec = findOneByFilter(appRef, cfg.chunksCollection, filter, "-updated");
+      chunkByChunkId[key] = rec || null;
+      return chunkByChunkId[key];
+    };
+    const getDocByDocumentId = (did) => {
+      const key = safeStr(did).trim();
+      if (!key) return null;
+      if (Object.prototype.hasOwnProperty.call(docByDocumentId, key)) return docByDocumentId[key];
+      let filter = 'documentId = "' + esc(key) + '"';
+      if (documentsHasUser && userId) filter = 'user = "' + esc(userId) + '" && ' + filter;
+      const rec = findOneByFilter(appRef, cfg.documentsCollection, filter, "-updated");
+      docByDocumentId[key] = rec || null;
+      return docByDocumentId[key];
+    };
 
     const scored = [];
     for (let i = 0; i < candidates.length; i++) {
       const rec = candidates[i];
-      const vec = ragParseVector(rec.get("vectorJson"), queryVector.length);
+      const vec = parseVector(rec.get("vectorJson"), queryVector.length);
       if (vec.length !== queryVector.length) continue;
 
       const recNormRaw = Number(rec.get("norm"));
-      const recNorm = isFinite(recNormRaw) && recNormRaw > 0 ? recNormRaw : ragVectorNorm(vec);
-      const score = ragCosineSimilarity(queryVector, vec, queryNorm, recNorm);
+      const recNorm = isFinite(recNormRaw) && recNormRaw > 0 ? recNormRaw : vectorNorm(vec);
+      const score = cosineSimilarity(queryVector, vec, queryNorm, recNorm);
       if (!isFinite(score) || score < minScore) continue;
 
-      const chunkRel = ragToRelId(rec.get("chunk")).trim();
-      const docRel = ragToRelId(rec.get("document")).trim();
-      const chunk = chunkMap[chunkRel] || null;
-      const doc = docMap[docRel] || null;
-      const chunkMetadata = chunk ? ragParseJsonObject(chunk.get("metadataJson")) : null;
-      const embeddingMetadata = ragParseJsonObject(rec.get("metadataJson"));
+      const chunkRel = toRelId(rec.get("chunk")).trim();
+      const docRel = toRelId(rec.get("document")).trim();
+      let chunk = embeddingsHasChunk ? chunkMap[chunkRel] || null : null;
+      let doc = embeddingsHasDocument ? docMap[docRel] || null : null;
+      const chunkIdValue = safeStr(rec.get("chunkId")).trim();
+      if (!chunk && chunkIdValue) chunk = getChunkByChunkId(chunkIdValue);
+
+      let docIdValue = doc ? safeStr(doc.get("documentId")).trim() : "";
+      if (!docIdValue) {
+        const fromChunk = chunk ? safeStr(chunk.get("chunkId")).trim() : chunkIdValue;
+        docIdValue = deriveDocumentIdFromChunkId(fromChunk);
+      }
+      if (!doc && docIdValue) doc = getDocByDocumentId(docIdValue);
+
+      const chunkMetadata = chunk ? parseJsonObject(chunk.get("metadataJson")) : null;
+      const embeddingMetadata = parseJsonObject(rec.get("metadataJson"));
 
       scored.push({
         score: score,
         reason: "Cosine similarity",
-        documentId: doc ? ragSafeStr(doc.get("documentId")) : "",
-        documentTitle: doc ? ragSafeStr(doc.get("title")) : "",
-        source: doc ? ragSafeStr(doc.get("source")) : "",
-        chunkId: ragSafeStr(rec.get("chunkId")),
+        documentId: doc ? safeStr(doc.get("documentId")) : docIdValue,
+        documentTitle: doc ? safeStr(doc.get("title")) : "",
+        source: doc ? safeStr(doc.get("source")) : "",
+        chunkId: chunkIdValue,
         chunkIndex: chunk ? Number(chunk.get("chunkIndex")) || 0 : 0,
-        chunkText: includeContent && chunk ? ragSafeStr(chunk.get("content")) : "",
+        chunkText: includeContent && chunk ? safeStr(chunk.get("content")) : "",
         metadata: chunkMetadata || embeddingMetadata || null,
         embeddingId: rec.id,
       });
@@ -1260,6 +1926,307 @@ routerAdd("POST", "/boox-rag-search", (e) => {
     return e.json(500, { error: String(err || "unknown error") });
   }
 });
+
+// ============================================================
+// 5.1) ai_notes -> PocketBase-native RAG sync
+// ============================================================
+onRecordCreate((e) => {
+  e.next();
+
+  try {
+    const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+    if (!appRef || !e || !e.record) return;
+    if (
+      typeof ragGetConfig !== "function" ||
+      typeof ragBuildAiNoteSyncSpec !== "function" ||
+      typeof ragUpsertAiNoteSyncRecords !== "function"
+    ) {
+      console.log(`>> [RAG Sync Create Skip] rag helper unavailable id=${String(e.record.id || "")}`);
+      return;
+    }
+
+    const cfg = ragGetConfig();
+    const spec = ragBuildAiNoteSyncSpec(e.record, cfg);
+    if (!spec.ok) {
+      console.log(`>> [RAG Sync Create Skip] ${spec.reason} id=${ragSafeStr(e.record.id)}`);
+      return;
+    }
+
+    ragUpsertAiNoteSyncRecords(appRef, cfg, spec);
+    console.log(`>> [RAG Sync Create Success] id=${spec.noteId}`);
+  } catch (err) {
+    console.log(`>> [RAG Sync Create Error] ${err}`);
+  }
+}, "ai_notes");
+
+onRecordUpdate((e) => {
+  e.next();
+
+  try {
+    const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+    if (!appRef || !e || !e.record) return;
+    if (
+      typeof ragGetConfig !== "function" ||
+      typeof ragBuildAiNoteSyncSpec !== "function" ||
+      typeof ragUpsertAiNoteSyncRecords !== "function" ||
+      typeof ragDeleteAiNoteSyncRecords !== "function" ||
+      typeof ragSafeStr !== "function" ||
+      typeof ragToRelId !== "function"
+    ) {
+      const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
+      const toRelId = (v) => {
+        if (Array.isArray(v)) return String(v[0] || "");
+        if (v && typeof v === "object") return String(v.id || "");
+        return String(v || "");
+      };
+      const esc = (v) =>
+        safeStr(v)
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"');
+      const cfg = {
+        documentsCollection: String($os.getenv("RAG_DOCUMENTS_COLLECTION") || "documents").trim(),
+        chunksCollection: String($os.getenv("RAG_CHUNKS_COLLECTION") || "chunks").trim(),
+        embeddingsCollection: String($os.getenv("RAG_EMBEDDINGS_COLLECTION") || "embeddings").trim(),
+        embeddingApiKey: String($os.getenv("DASHSCOPE_API_KEY") || "").trim(),
+        embeddingUrl: String(
+          $os.getenv("DASHSCOPE_EMBED_URL") ||
+            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
+        ).trim(),
+        embeddingModel: String($os.getenv("DASHSCOPE_EMBED_MODEL") || "text-embedding-v4").trim(),
+        embeddingDim: parseInt(String($os.getenv("DASHSCOPE_EMBED_DIM") || "1024"), 10) || 1024,
+        maxEmbedText: parseInt(String($os.getenv("MAX_EMBED_TEXT") || "6000"), 10) || 6000,
+      };
+      const findOne = (collectionName, filterExpr) => {
+        try {
+          const finder =
+            appRef && typeof appRef.findRecordsByFilter === "function"
+              ? appRef
+              : typeof $app !== "undefined" && typeof $app.findRecordsByFilter === "function"
+              ? $app
+              : null;
+          if (!finder) return null;
+          const rows = finder.findRecordsByFilter(collectionName, filterExpr, "-updated", 1, 0) || [];
+          return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+        } catch (_) {
+          return null;
+        }
+      };
+      const parseMessages = (raw) => {
+        let originalText = "";
+        let aiResponse = "";
+        const text = safeStr(raw).trim();
+        if (!text) return { originalText, aiResponse };
+        try {
+          const arr = JSON.parse(text);
+          if (!Array.isArray(arr)) return { originalText, aiResponse };
+          for (let i = 0; i < arr.length; i++) {
+            const m = arr[i];
+            if (!m || typeof m !== "object") continue;
+            const role = safeStr(m.role).trim().toLowerCase();
+            const content = safeStr(m.content).trim();
+            if (!content) continue;
+            if (!originalText && role === "user") originalText = content;
+            if (role === "assistant") aiResponse = content;
+          }
+        } catch (_) {}
+        return { originalText, aiResponse };
+      };
+      const deleteSynced = (noteId, userId) => {
+        let deleted = 0;
+        const documentId = `ai_note:${safeStr(noteId).trim()}`;
+        const chunkId = `${documentId}:chunk:0`;
+        const withUser = userId ? 'user = "' + esc(userId) + '" && ' : "";
+        const emb = findOne(cfg.embeddingsCollection, withUser + 'chunkId = "' + esc(chunkId) + '"');
+        if (emb) {
+          appRef.delete(emb);
+          deleted += 1;
+        }
+        const chunk = findOne(cfg.chunksCollection, withUser + 'chunkId = "' + esc(chunkId) + '"');
+        if (chunk) {
+          appRef.delete(chunk);
+          deleted += 1;
+        }
+        const doc = findOne(cfg.documentsCollection, withUser + 'documentId = "' + esc(documentId) + '"');
+        if (doc) {
+          appRef.delete(doc);
+          deleted += 1;
+        }
+        return deleted;
+      };
+
+      const noteId = safeStr(e.record.id).trim();
+      const userId = toRelId(e.record.get("user")).trim();
+      const statusRaw = safeStr(e.record.get("status")).trim();
+      const status = statusRaw.toLowerCase();
+      const isFinalStatus =
+        status === "" || status === "done" || status === "completed" || status === "success";
+
+      if (!noteId || !userId) {
+        console.log(`>> [RAG Sync Update Skip] missing_note_or_user id=${noteId}`);
+        return;
+      }
+      if (!isFinalStatus) {
+        const deleted = deleteSynced(noteId, userId);
+        console.log(`>> [RAG Sync Update Skip] status_not_done id=${noteId} cleaned=${deleted}`);
+        return;
+      }
+
+      let originalText = safeStr(e.record.get("originalText")).trim();
+      let aiResponse = safeStr(e.record.get("aiResponse")).trim();
+      if (!originalText || !aiResponse) {
+        const parsed = parseMessages(e.record.get("messages"));
+        if (!originalText) originalText = parsed.originalText;
+        if (!aiResponse) aiResponse = parsed.aiResponse;
+      }
+      if (aiResponse.length < 2) {
+        const deleted = deleteSynced(noteId, userId);
+        console.log(`>> [RAG Sync Update Skip] ai_response_too_short id=${noteId} cleaned=${deleted}`);
+        return;
+      }
+
+      let textToEmbed = `Title: ${originalText}\n\nContent: ${aiResponse}`;
+      if (textToEmbed.length > cfg.maxEmbedText) textToEmbed = textToEmbed.substring(0, cfg.maxEmbedText);
+
+      if (!cfg.embeddingApiKey) {
+        throw new Error("DASHSCOPE_API_KEY is missing");
+      }
+      const embedRes = $http.send({
+        url: cfg.embeddingUrl,
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cfg.embeddingApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: cfg.embeddingModel,
+          input: textToEmbed,
+          dimensions: cfg.embeddingDim,
+          encoding_format: "float",
+        }),
+        timeout: 120,
+      });
+      if (embedRes.statusCode !== 200) {
+        throw new Error(`Embedding API Error (${embedRes.statusCode}): ${embedRes.raw}`);
+      }
+      const vectorRaw =
+        embedRes.json && embedRes.json.data && embedRes.json.data[0] ? embedRes.json.data[0].embedding : null;
+      if (!Array.isArray(vectorRaw) || vectorRaw.length !== cfg.embeddingDim) {
+        throw new Error(
+          `embedding dim mismatch: ${Array.isArray(vectorRaw) ? vectorRaw.length : 0}, expect ${cfg.embeddingDim}`
+        );
+      }
+      const vector = vectorRaw.map((n) => {
+        const x = Number(n);
+        return isFinite(x) ? x : 0;
+      });
+      let norm = 0;
+      for (let i = 0; i < vector.length; i++) norm += vector[i] * vector[i];
+      norm = Math.sqrt(norm);
+
+      const docCollection = appRef.findCollectionByNameOrId(cfg.documentsCollection);
+      const chunkCollection = appRef.findCollectionByNameOrId(cfg.chunksCollection);
+      const embCollection = appRef.findCollectionByNameOrId(cfg.embeddingsCollection);
+      if (!docCollection || !chunkCollection || !embCollection) {
+        throw new Error("RAG collections are missing (documents/chunks/embeddings)");
+      }
+
+      const bookId = safeStr(e.record.get("bookId")).trim();
+      const bookTitle = safeStr(e.record.get("bookTitle")).trim();
+      const documentId = `ai_note:${noteId}`;
+      const chunkId = `${documentId}:chunk:0`;
+      const metadata = {
+        kind: "ai_note",
+        noteId: noteId,
+        remoteId: noteId,
+        bookId: bookId,
+        bookTitle: bookTitle,
+        status: status || statusRaw,
+      };
+      let metadataJson = "{}";
+      try {
+        metadataJson = JSON.stringify(metadata);
+      } catch (_) {}
+      const nowTs = Date.now();
+
+      const docFilter = 'documentId = "' + esc(documentId) + '"';
+      let docRecord = findOne(cfg.documentsCollection, docFilter);
+      if (!docRecord) docRecord = new Record(docCollection);
+      docRecord.set("documentId", documentId);
+      docRecord.set("title", bookTitle || "AI Note");
+      docRecord.set("source", "ai_notes");
+      docRecord.set("metadataJson", metadataJson);
+      docRecord.set("updatedAt", nowTs);
+      appRef.save(docRecord);
+
+      const chunkFilter = 'chunkId = "' + esc(chunkId) + '"';
+      let chunkRecord = findOne(cfg.chunksCollection, chunkFilter);
+      if (!chunkRecord) chunkRecord = new Record(chunkCollection);
+      chunkRecord.set("chunkId", chunkId);
+      chunkRecord.set("chunkIndex", 0);
+      chunkRecord.set("content", textToEmbed);
+      chunkRecord.set("metadataJson", metadataJson);
+      chunkRecord.set("updatedAt", nowTs);
+      appRef.save(chunkRecord);
+
+      let embRecord = findOne(cfg.embeddingsCollection, chunkFilter);
+      if (!embRecord) embRecord = new Record(embCollection);
+      embRecord.set("chunkId", chunkId);
+      embRecord.set("model", cfg.embeddingModel);
+      embRecord.set("dimensions", vector.length);
+      embRecord.set("vectorJson", JSON.stringify(vector));
+      embRecord.set("norm", norm);
+      embRecord.set("metadataJson", metadataJson);
+      embRecord.set("updatedAt", nowTs);
+      appRef.save(embRecord);
+
+      console.log(`>> [RAG Sync Update Success] id=${noteId} fallback=1`);
+      return;
+    }
+
+    const cfg = ragGetConfig();
+    const spec = ragBuildAiNoteSyncSpec(e.record, cfg);
+    if (!spec.ok) {
+      const noteId = ragSafeStr(e.record.id).trim();
+      const userId = ragToRelId(e.record.get("user")).trim();
+      const deleted = ragDeleteAiNoteSyncRecords(appRef, cfg, noteId, userId);
+      console.log(
+        `>> [RAG Sync Update Skip] ${spec.reason} id=${noteId} cleaned=${Number(deleted.deleted) || 0}`
+      );
+      return;
+    }
+
+    ragUpsertAiNoteSyncRecords(appRef, cfg, spec);
+    console.log(`>> [RAG Sync Update Success] id=${spec.noteId}`);
+  } catch (err) {
+    console.log(`>> [RAG Sync Update Error] ${err}`);
+  }
+}, "ai_notes");
+
+onRecordDelete((e) => {
+  e.next();
+
+  try {
+    const appRef = (e && e.app) || (typeof $app !== "undefined" ? $app : null);
+    if (!appRef || !e || !e.record) return;
+    if (
+      typeof ragGetConfig !== "function" ||
+      typeof ragDeleteAiNoteSyncRecords !== "function" ||
+      typeof ragSafeStr !== "function" ||
+      typeof ragToRelId !== "function"
+    ) {
+      console.log(`>> [RAG Sync Delete Skip] rag helper unavailable id=${String(e.record.id || "")}`);
+      return;
+    }
+
+    const cfg = ragGetConfig();
+    const noteId = ragSafeStr(e.record.id).trim();
+    const userId = ragToRelId(e.record.get("user")).trim();
+    const deleted = ragDeleteAiNoteSyncRecords(appRef, cfg, noteId, userId);
+    console.log(`>> [RAG Sync Delete] id=${noteId} deleted=${Number(deleted.deleted) || 0}`);
+  } catch (err) {
+    console.log(`>> [RAG Sync Delete Error] ${err}`);
+  }
+}, "ai_notes");
 
 // ============================================================
 // 6) Mail queue sender + custom route

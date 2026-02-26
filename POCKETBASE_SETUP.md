@@ -93,6 +93,7 @@ If you plan to use PocketBase-native semantic retrieval, also verify:
 - ✅ Hook routes respond:
   - `POST /boox-rag-upsert`
   - `POST /boox-rag-search`
+- ✅ `ai_notes` create/update/delete will auto sync into `documents/chunks/embeddings` (best-effort; existing Qdrant sync remains unchanged)
 
 ### Step 4: Configure App
 
@@ -115,6 +116,25 @@ If you plan to use PocketBase-native semantic retrieval, also verify:
    - An AI note
    - Update settings
 4. Check the PocketBase admin UI to verify records are created
+
+### Backfill Existing AI Notes Into RAG Embeddings
+
+If `ai_notes` already existed before RAG hooks were enabled, run:
+
+```bash
+python3 scripts/backfill_ai_notes_to_rag_embeddings.py \
+  --url http://your-pocketbase-url \
+  --admin-email admin@example.com \
+  --admin-password your-admin-password
+```
+
+Recommended dry-run first:
+
+```bash
+python3 scripts/backfill_ai_notes_to_rag_embeddings.py --dry-run
+```
+
+This script updates `ai_notes.updatedAt` in batches to trigger server hooks, which then upsert into `documents/chunks/embeddings`.
 
 ### Step 6: Enable Server-Side Mail Queue Hook (Required for daily summary email)
 

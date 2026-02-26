@@ -682,9 +682,8 @@ class AiNoteRepository(
                             put("query", query)
                             put("limit", boundedLimit)
                             put("noteId", note.remoteId ?: note.id.toString())
-                            if (!note.bookId.isNullOrBlank()) {
-                                put("bookId", note.bookId)
-                            }
+                            // Detail-page related matching should search across books.
+                            // Keep bookId unset here so the server doesn't apply same-book filter.
                             if (!note.remoteId.isNullOrBlank()) {
                                 put("excludeRemoteId", note.remoteId)
                             }

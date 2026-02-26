@@ -885,7 +885,7 @@ Output ONLY the raw commit message in plain text. Do not use markdown code block
                   --arg sys "$system_content" \
                   --arg usr "$user_content" \
                   --arg diff "$escaped_diff" \
-                  --arg model "llama-3.3-70b-versatile" \
+                  --arg model "groq/compound" \
                   '{
                     model: $model,
                     messages: [

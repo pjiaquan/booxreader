@@ -250,6 +250,65 @@ def create_collection(base_url, token, collection_data):
         return False
 
 
+def ensure_embedding_vector_capacity(base_url, token, verify_ssl=True, min_max=200000):
+    """Ensure embeddings.vectorJson has enough max length for serialized vectors."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    collections_url = f"{base_url}/api/collections"
+
+    try:
+        response = requests.get(collections_url, headers=headers, verify=verify_ssl)
+        response.raise_for_status()
+        payload = response.json()
+        items = payload.get("items", payload) if isinstance(payload, dict) else payload
+        target = None
+        for item in items:
+            if item.get("name") == "embeddings":
+                target = item
+                break
+        if not target:
+            print("   ℹ️  embeddings collection not found, skip vectorJson max check")
+            return
+
+        fields = list(target.get("fields", []))
+        changed = False
+        for field in fields:
+            if field.get("name") != "vectorJson":
+                continue
+            current_max = field.get("max")
+            try:
+                current_max_num = int(current_max) if current_max is not None else 0
+            except (TypeError, ValueError):
+                current_max_num = 0
+            if current_max_num < int(min_max):
+                field["max"] = int(min_max)
+                changed = True
+            break
+
+        if not changed:
+            print("   ✅ embeddings.vectorJson max is already sufficient")
+            return
+
+        patch_url = f"{collections_url}/{target.get('id')}"
+        patch_resp = requests.patch(
+            patch_url,
+            headers=headers,
+            json={"fields": fields},
+            verify=verify_ssl,
+        )
+        patch_resp.raise_for_status()
+        print(f"   ✅ Updated embeddings.vectorJson max to {int(min_max)}")
+    except requests.exceptions.RequestException as e:
+        print(f"   ⚠️  Warning: failed to enforce embeddings.vectorJson max: {e}")
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                print(f"      {e.response.text[:300]}")
+            except Exception:
+                pass
+
+
 def fetch_remote_schema(base_url, token, verify_ssl=True):
     """Return the PocketBase collections definition from the server."""
 
@@ -587,7 +646,7 @@ def get_default_collections_schema():
                 {"name": "chunkId", "type": "text", "required": True},
                 {"name": "model", "type": "text", "required": False},
                 {"name": "dimensions", "type": "number", "required": True},
-                {"name": "vectorJson", "type": "text", "required": True},
+                {"name": "vectorJson", "type": "text", "required": True, "max": 200000, "min": 0},
                 {"name": "norm", "type": "number", "required": False},
                 {"name": "metadataJson", "type": "text", "required": False},
                 {"name": "updatedAt", "type": "number", "required": False}
@@ -698,6 +757,8 @@ def main():
     for collection_data in collections:
         if create_collection(base_url, token, collection_data):
             created_count += 1
+
+    ensure_embedding_vector_capacity(base_url, token, verify_ssl=verify_ssl, min_max=200000)
     
     print(f"\n✨ Setup complete!")
     print(f"   Created: {created_count} new collections")
