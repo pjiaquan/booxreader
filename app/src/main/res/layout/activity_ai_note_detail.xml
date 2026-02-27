@@ -50,9 +50,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="24dp"
-                    android:backgroundTint="#FF9800"
                     android:text="@string/ai_note_go_to_page"
-                    android:textColor="#FFFFFF"
                     android:visibility="gone" />
 
                 <Button
@@ -162,9 +160,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:backgroundTint="#1565C0"
                     android:text="@string/ai_note_publish_retry"
-                    android:textColor="#FFFFFF"
                     android:visibility="gone" />
 
                 <Button
@@ -172,9 +168,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:backgroundTint="#D84315"
-                    android:text="@string/ai_note_republish_selected"
-                    android:textColor="#FFFFFF" />
+                    android:text="@string/ai_note_republish_selected" />
 
                 <ProgressBar
                     android:id="@+id/pbLoading"
@@ -243,9 +237,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:backgroundTint="#2E7D32"
-                    android:text="@string/ai_note_publish"
-                    android:textColor="#FFFFFF" />
+                    android:text="@string/ai_note_publish" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

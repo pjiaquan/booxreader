@@ -7,6 +7,8 @@ import android.app.TimePickerDialog
 import android.os.Build
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
@@ -67,6 +69,15 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
+
+    private data class ButtonVisualStyle(
+            val fillColor: Int,
+            val pressedFillColor: Int,
+            val disabledFillColor: Int,
+            val strokeColor: Int,
+            val textColor: Int,
+            val disabledTextColor: Int
+    )
 
     private data class MagicTagRow(
             val id: String?,
@@ -616,13 +627,25 @@ class ReaderSettingsActivity : BaseActivity() {
                         if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 90
                         else 60
                 )
-        val buttonColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#E0E0E0")
-                    ContrastMode.DARK -> Color.parseColor("#2B323C")
-                    ContrastMode.SEPIA -> Color.parseColor("#D9C5A3")
-                    ContrastMode.HIGH_CONTRAST -> Color.DKGRAY
-                }
+        val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
+        val secondaryFill =
+                ColorUtils.blendARGB(
+                        backgroundColor,
+                        textColor,
+                        if (isDarkMode) 0.22f else 0.11f
+                )
+        val secondaryStyle =
+                buttonStyle(
+                        fillColor = secondaryFill,
+                        textColor = textColor,
+                        backgroundColor = backgroundColor,
+                        darkMode = isDarkMode,
+                        strokeColor =
+                                ColorUtils.setAlphaComponent(
+                                        textColor,
+                                        if (isDarkMode) 80 else 56
+                                )
+                )
 
         root.setBackgroundColor(backgroundColor)
 
@@ -636,8 +659,7 @@ class ReaderSettingsActivity : BaseActivity() {
                     view.setHintTextColor(hintColor)
                 }
                 is Button -> {
-                    view.setTextColor(textColor)
-                    view.backgroundTintList = ColorStateList.valueOf(buttonColor)
+                    applyButtonStyle(view, secondaryStyle)
                 }
                 is android.widget.CompoundButton -> {
                     view.setTextColor(textColor)
@@ -740,40 +762,120 @@ class ReaderSettingsActivity : BaseActivity() {
     private fun styleFooterButtons(mode: ContrastMode) {
         val cancel = findViewById<Button>(R.id.btnSettingsCancel)
         val save = findViewById<Button>(R.id.btnSettingsSave)
-        val cancelBackground: Int
-        val cancelText: Int
-        val saveBackground: Int
-        val saveText: Int
-        when (mode) {
-            ContrastMode.NORMAL -> {
-                cancelBackground = Color.parseColor("#E4E8EE")
-                cancelText = Color.parseColor("#1F2937")
-                saveBackground = Color.parseColor("#0A84FF")
-                saveText = Color.WHITE
-            }
-            ContrastMode.DARK -> {
-                cancelBackground = Color.parseColor("#2A3038")
-                cancelText = Color.parseColor("#E5E9F0")
-                saveBackground = Color.parseColor("#0A84FF")
-                saveText = Color.WHITE
-            }
-            ContrastMode.SEPIA -> {
-                cancelBackground = Color.parseColor("#D9C9AA")
-                cancelText = Color.parseColor("#4C392C")
-                saveBackground = Color.parseColor("#6E5635")
-                saveText = Color.parseColor("#FFF8E9")
-            }
-            ContrastMode.HIGH_CONTRAST -> {
-                cancelBackground = Color.parseColor("#222222")
-                cancelText = Color.WHITE
-                saveBackground = Color.WHITE
-                saveText = Color.BLACK
+        val backgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val textColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.BLACK
+                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
+                }
+        val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
+        val accentColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
+                    ContrastMode.DARK -> Color.parseColor("#86AEEA")
+                    ContrastMode.SEPIA -> Color.parseColor("#8A6740")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
+                }
+        val primaryTextColor =
+                if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+        val primaryStyle =
+                buttonStyle(
+                        fillColor = accentColor,
+                        textColor = primaryTextColor,
+                        backgroundColor = backgroundColor,
+                        darkMode = isDarkMode
+                )
+        val secondaryFill =
+                ColorUtils.blendARGB(
+                        backgroundColor,
+                        textColor,
+                        if (isDarkMode) 0.22f else 0.11f
+                )
+        val secondaryStyle =
+                buttonStyle(
+                        fillColor = secondaryFill,
+                        textColor = textColor,
+                        backgroundColor = backgroundColor,
+                        darkMode = isDarkMode,
+                        strokeColor =
+                                ColorUtils.setAlphaComponent(
+                                        textColor,
+                                        if (isDarkMode) 80 else 56
+                                )
+                )
+        applyButtonStyle(cancel, secondaryStyle)
+        applyButtonStyle(save, primaryStyle)
+    }
+
+    private fun buttonStyle(
+            fillColor: Int,
+            textColor: Int,
+            backgroundColor: Int,
+            darkMode: Boolean,
+            strokeColor: Int = Color.TRANSPARENT
+    ): ButtonVisualStyle {
+        val pressedFillColor =
+                if (darkMode) {
+                    ColorUtils.blendARGB(fillColor, Color.WHITE, 0.10f)
+                } else {
+                    ColorUtils.blendARGB(fillColor, Color.BLACK, 0.10f)
+                }
+        val disabledFillColor = ColorUtils.blendARGB(fillColor, backgroundColor, 0.55f)
+        val disabledTextColor = ColorUtils.setAlphaComponent(textColor, if (darkMode) 160 else 140)
+        return ButtonVisualStyle(
+                fillColor = fillColor,
+                pressedFillColor = pressedFillColor,
+                disabledFillColor = disabledFillColor,
+                strokeColor = strokeColor,
+                textColor = textColor,
+                disabledTextColor = disabledTextColor
+        )
+    }
+
+    private fun applyButtonStyle(button: Button, style: ButtonVisualStyle) {
+        val normal = createRoundedBackground(style.fillColor, style.strokeColor)
+        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
+        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
+        button.background =
+                StateListDrawable().apply {
+                    addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+                    addState(intArrayOf(android.R.attr.state_pressed), pressed)
+                    addState(intArrayOf(android.R.attr.state_focused), pressed)
+                    addState(intArrayOf(), normal)
+                }
+        button.setTextColor(
+                ColorStateList(
+                        arrayOf(
+                                intArrayOf(-android.R.attr.state_enabled),
+                                intArrayOf()
+                        ),
+                        intArrayOf(style.disabledTextColor, style.textColor)
+                )
+        )
+    }
+
+    private fun createRoundedBackground(
+            fillColor: Int,
+            strokeColor: Int,
+            cornerRadiusDp: Float = 14f
+    ): GradientDrawable {
+        val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = resources.displayMetrics.density * cornerRadiusDp
+            setColor(fillColor)
+            if (strokeColor != Color.TRANSPARENT) {
+                setStroke(strokeWidthPx, strokeColor)
             }
         }
-        cancel.backgroundTintList = ColorStateList.valueOf(cancelBackground)
-        cancel.setTextColor(cancelText)
-        save.backgroundTintList = ColorStateList.valueOf(saveBackground)
-        save.setTextColor(saveText)
     }
 
     private fun applyActionBarContentColor(barColor: Int) {

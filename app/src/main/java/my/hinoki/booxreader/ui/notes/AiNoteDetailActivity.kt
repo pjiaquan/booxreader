@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +24,7 @@ import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -181,6 +183,15 @@ class AiNoteDetailActivity : BaseActivity() {
             }
     private var magicTagTextColor: Int = Color.BLACK
     private var magicTagBackgroundColor: Int = Color.parseColor("#E6E0D6")
+
+    private data class ButtonVisualStyle(
+            val fillColor: Int,
+            val pressedFillColor: Int,
+            val disabledFillColor: Int,
+            val strokeColor: Int,
+            val textColor: Int,
+            val disabledTextColor: Int
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -376,6 +387,75 @@ class AiNoteDetailActivity : BaseActivity() {
         binding.tvAutoScrollHint.setTextColor(secondaryTextColor)
         binding.etFollowUp.setTextColor(textColor)
         binding.etFollowUp.setHintTextColor(hintColor)
+        binding.etFollowUp.backgroundTintList =
+                ColorStateList.valueOf(
+                        ColorUtils.blendARGB(
+                                backgroundColor,
+                                textColor,
+                                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 0.22f
+                                else 0.12f
+                        )
+                )
+
+        val accentColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
+                    ContrastMode.DARK -> Color.parseColor("#86AEEA")
+                    ContrastMode.SEPIA -> Color.parseColor("#8A6740")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
+                }
+        val primaryTextColor =
+                if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+        val primaryStyle =
+                buttonStyle(
+                        fillColor = accentColor,
+                        textColor = primaryTextColor,
+                        backgroundColor = backgroundColor,
+                        darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
+                )
+        val secondaryFill =
+                ColorUtils.blendARGB(
+                        backgroundColor,
+                        textColor,
+                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 0.22f
+                        else 0.11f
+                )
+        val secondaryStyle =
+                buttonStyle(
+                        fillColor = secondaryFill,
+                        textColor = textColor,
+                        backgroundColor = backgroundColor,
+                        darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST,
+                        strokeColor =
+                                ColorUtils.setAlphaComponent(
+                                        textColor,
+                                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 80
+                                        else 56
+                                )
+                )
+        applyButtonStyle(binding.btnFollowUp, primaryStyle)
+        applyButtonStyle(binding.btnPublish, primaryStyle)
+        applyButtonStyle(binding.btnRepublishSelection, secondaryStyle)
+        applyButtonStyle(binding.btnGoToPage, secondaryStyle)
+        applyButtonStyle(binding.btnBackToLinkedNote, secondaryStyle)
+        binding.btnCopyAiResponse.background =
+                createRoundedBackground(
+                        fillColor =
+                                ColorUtils.blendARGB(
+                                        backgroundColor,
+                                        textColor,
+                                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST)
+                                                0.20f
+                                        else 0.10f
+                                ),
+                        strokeColor =
+                                ColorUtils.setAlphaComponent(
+                                        textColor,
+                                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 72
+                                        else 44
+                                ),
+                        cornerRadiusDp = 20f
+                )
 
         updateMagicTagStyles()
         supportActionBar?.setBackgroundDrawable(ColorDrawable(topBarColor))
@@ -408,6 +488,69 @@ class AiNoteDetailActivity : BaseActivity() {
                     } else {
                         flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
                     }
+        }
+    }
+
+    private fun buttonStyle(
+            fillColor: Int,
+            textColor: Int,
+            backgroundColor: Int,
+            darkMode: Boolean,
+            strokeColor: Int = Color.TRANSPARENT
+    ): ButtonVisualStyle {
+        val pressedFillColor =
+                if (darkMode) {
+                    ColorUtils.blendARGB(fillColor, Color.WHITE, 0.10f)
+                } else {
+                    ColorUtils.blendARGB(fillColor, Color.BLACK, 0.10f)
+                }
+        val disabledFillColor = ColorUtils.blendARGB(fillColor, backgroundColor, 0.55f)
+        val disabledTextColor = ColorUtils.setAlphaComponent(textColor, if (darkMode) 160 else 140)
+        return ButtonVisualStyle(
+                fillColor = fillColor,
+                pressedFillColor = pressedFillColor,
+                disabledFillColor = disabledFillColor,
+                strokeColor = strokeColor,
+                textColor = textColor,
+                disabledTextColor = disabledTextColor
+        )
+    }
+
+    private fun applyButtonStyle(button: Button, style: ButtonVisualStyle) {
+        val normal = createRoundedBackground(style.fillColor, style.strokeColor)
+        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
+        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
+        button.background =
+                StateListDrawable().apply {
+                    addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+                    addState(intArrayOf(android.R.attr.state_pressed), pressed)
+                    addState(intArrayOf(android.R.attr.state_focused), pressed)
+                    addState(intArrayOf(), normal)
+                }
+        button.setTextColor(
+                ColorStateList(
+                        arrayOf(
+                                intArrayOf(-android.R.attr.state_enabled),
+                                intArrayOf()
+                        ),
+                        intArrayOf(style.disabledTextColor, style.textColor)
+                )
+        )
+    }
+
+    private fun createRoundedBackground(
+            fillColor: Int,
+            strokeColor: Int,
+            cornerRadiusDp: Float = 14f
+    ): GradientDrawable {
+        val strokeWidthPx = (resources.displayMetrics.density * 1f).roundToInt().coerceAtLeast(1)
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = resources.displayMetrics.density * cornerRadiusDp
+            setColor(fillColor)
+            if (strokeColor != Color.TRANSPARENT) {
+                setStroke(strokeWidthPx, strokeColor)
+            }
         }
     }
 

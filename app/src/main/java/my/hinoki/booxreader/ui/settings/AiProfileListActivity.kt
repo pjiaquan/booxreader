@@ -9,6 +9,7 @@ import android.view.MenuItem
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowInsetsControllerCompat
@@ -21,7 +22,6 @@ import my.hinoki.booxreader.ui.common.BaseActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -36,6 +36,8 @@ import my.hinoki.booxreader.databinding.ActivityAiProfileListBinding
 import my.hinoki.booxreader.databinding.ItemAiProfileBinding
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -52,6 +54,15 @@ class AiProfileListActivity : BaseActivity() {
     private var pendingExportJson: String? = null
     private var pendingExportName: String? = null
     private val selectedProfileIds = mutableSetOf<Long>()
+
+    private data class ButtonVisualStyle(
+        val fillColor: Int,
+        val pressedFillColor: Int,
+        val disabledFillColor: Int,
+        val strokeColor: Int,
+        val textColor: Int,
+        val disabledTextColor: Int
+    )
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importProfileFromFile(it) }
@@ -199,21 +210,57 @@ class AiProfileListActivity : BaseActivity() {
                 if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 215 else 170
         val tagBackgroundAlpha =
                 if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 72 else 48
+        val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
         listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, secondaryTextAlpha)
         tagBackgroundColor = ColorUtils.setAlphaComponent(listTextColor, tagBackgroundAlpha)
+        val barSurfaceColor =
+            ColorUtils.blendARGB(
+                listBackgroundColor,
+                listTextColor,
+                if (isDarkMode) 0.12f else 0.05f
+            )
 
         binding.root.setBackgroundColor(listBackgroundColor)
         binding.recyclerView.setBackgroundColor(listBackgroundColor)
-        binding.bottomBar.setBackgroundColor(listBackgroundColor)
+        binding.selectionBar.setBackgroundColor(barSurfaceColor)
+        binding.bottomBar.setBackgroundColor(barSurfaceColor)
         binding.loadingOverlay.setBackgroundColor(listBackgroundColor)
         binding.tvLoading.setTextColor(listTextColor)
-
-        val tint = ColorStateList.valueOf(listTextColor)
-        binding.btnSync.imageTintList = tint
-        binding.btnImport.imageTintList = tint
-        binding.btnCreate.imageTintList = tint
+        val accentColor =
+            when (mode) {
+                ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
+                ContrastMode.DARK -> Color.parseColor("#86AEEA")
+                ContrastMode.SEPIA -> Color.parseColor("#8A6740")
+                ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
+            }
+        val primaryTextColor =
+            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+        val primaryStyle =
+            buttonStyle(
+                fillColor = accentColor,
+                textColor = primaryTextColor,
+                backgroundColor = listBackgroundColor,
+                darkMode = isDarkMode
+            )
+        val secondaryFill =
+            ColorUtils.blendARGB(
+                listBackgroundColor,
+                listTextColor,
+                if (isDarkMode) 0.22f else 0.11f
+            )
+        val secondaryStyle =
+            buttonStyle(
+                fillColor = secondaryFill,
+                textColor = listTextColor,
+                backgroundColor = listBackgroundColor,
+                darkMode = isDarkMode,
+                strokeColor = ColorUtils.setAlphaComponent(listTextColor, if (isDarkMode) 80 else 56)
+            )
+        applyButtonStyle(binding.btnDeleteSelected, secondaryStyle)
+        applyIconButtonStyle(binding.btnSync, secondaryStyle, listTextColor)
+        applyIconButtonStyle(binding.btnImport, secondaryStyle, listTextColor)
+        applyIconButtonStyle(binding.btnCreate, primaryStyle, primaryTextColor)
         binding.cbSelectAll.setTextColor(listTextColor)
-        binding.btnDeleteSelected.setTextColor(listTextColor)
 
         @Suppress("DEPRECATION")
         run {
@@ -231,6 +278,93 @@ class AiProfileListActivity : BaseActivity() {
         insetsController.isAppearanceLightNavigationBars = useLightIcons
 
         adapter.notifyDataSetChanged()
+    }
+
+    private fun buttonStyle(
+        fillColor: Int,
+        textColor: Int,
+        backgroundColor: Int,
+        darkMode: Boolean,
+        strokeColor: Int = Color.TRANSPARENT
+    ): ButtonVisualStyle {
+        val pressedFillColor =
+            if (darkMode) {
+                ColorUtils.blendARGB(fillColor, Color.WHITE, 0.10f)
+            } else {
+                ColorUtils.blendARGB(fillColor, Color.BLACK, 0.10f)
+            }
+        val disabledFillColor = ColorUtils.blendARGB(fillColor, backgroundColor, 0.55f)
+        val disabledTextColor = ColorUtils.setAlphaComponent(textColor, if (darkMode) 160 else 140)
+        return ButtonVisualStyle(
+            fillColor = fillColor,
+            pressedFillColor = pressedFillColor,
+            disabledFillColor = disabledFillColor,
+            strokeColor = strokeColor,
+            textColor = textColor,
+            disabledTextColor = disabledTextColor
+        )
+    }
+
+    private fun applyButtonStyle(button: android.widget.Button, style: ButtonVisualStyle) {
+        val normal = createRoundedBackground(style.fillColor, style.strokeColor)
+        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
+        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
+        button.background =
+            StateListDrawable().apply {
+                addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+                addState(intArrayOf(android.R.attr.state_pressed), pressed)
+                addState(intArrayOf(android.R.attr.state_focused), pressed)
+                addState(intArrayOf(), normal)
+            }
+        button.setTextColor(
+            ColorStateList(
+                arrayOf(
+                    intArrayOf(-android.R.attr.state_enabled),
+                    intArrayOf()
+                ),
+                intArrayOf(style.disabledTextColor, style.textColor)
+            )
+        )
+    }
+
+    private fun applyIconButtonStyle(button: ImageButton, style: ButtonVisualStyle, iconColor: Int) {
+        val normal = createRoundedBackground(style.fillColor, style.strokeColor, cornerRadiusDp = 18f)
+        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor, cornerRadiusDp = 18f)
+        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor, cornerRadiusDp = 18f)
+        button.background =
+            StateListDrawable().apply {
+                addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+                addState(intArrayOf(android.R.attr.state_pressed), pressed)
+                addState(intArrayOf(android.R.attr.state_focused), pressed)
+                addState(intArrayOf(), normal)
+            }
+        button.imageTintList =
+            ColorStateList(
+                arrayOf(
+                    intArrayOf(-android.R.attr.state_enabled),
+                    intArrayOf()
+                ),
+                intArrayOf(
+                    ColorUtils.setAlphaComponent(iconColor, 150),
+                    iconColor
+                )
+            )
+    }
+
+    private fun createRoundedBackground(
+        fillColor: Int,
+        strokeColor: Int,
+        cornerRadiusDp: Float = 14f
+    ): GradientDrawable {
+        val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = resources.displayMetrics.density * cornerRadiusDp
+            setColor(fillColor)
+            if (strokeColor != Color.TRANSPARENT) {
+                setStroke(strokeWidthPx, strokeColor)
+            }
+        }
     }
 
     private fun observeData() {
