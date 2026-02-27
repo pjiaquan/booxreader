@@ -124,6 +124,7 @@ class ReaderActivity : BaseActivity() {
     private var showPageIndicator: Boolean = true
     private var currentContrastMode: ContrastMode = ContrastMode.NORMAL
     private var refreshJob: Job? = null
+    private var locatorObserverJob: Job? = null
     private val refreshDelayMs = 250L
     private val pageNavigationRefreshDelayMs = 300L // 頁面導航專用延遲
     private val buttonColor: Int
@@ -336,6 +337,9 @@ class ReaderActivity : BaseActivity() {
             } else {
                 // Ensure the current theme is applied to the re-attached fragment
                 applyContrastMode(currentContrastMode)
+                if (viewModel.publication.value == null) {
+                    viewModel.openBook(bookUri, contentResolver)
+                }
             }
         }
     }
@@ -422,8 +426,16 @@ class ReaderActivity : BaseActivity() {
     }
 
     private fun initNavigator(publication: Publication, initialLocator: Locator?) {
-        // Avoid re-creating if already set up
-        if (nativeNavigatorFragment != null) {
+        val existing =
+                nativeNavigatorFragment
+                        ?: supportFragmentManager.findFragmentById(R.id.readerContainer)
+                                as?
+                                NativeNavigatorFragment
+        if (existing != null) {
+            nativeNavigatorFragment = existing
+            existing.setPublication(publication, initialLocator)
+            applyContrastMode(currentContrastMode)
+            observeLocatorUpdates()
             return
         }
 
@@ -471,7 +483,9 @@ class ReaderActivity : BaseActivity() {
         val nativeNavigator = nativeNavigatorFragment ?: return
         Log.d("ReaderActivity", "observeLocatorUpdates")
 
-        lifecycleScope.launch {
+        locatorObserverJob?.cancel()
+        locatorObserverJob =
+                lifecycleScope.launch {
             nativeNavigator.currentLocator.sample(1500).collectLatest { locator ->
                 val enhancedLocator = enhanceLocatorWithProgress(locator)
                 val json = LocatorJsonHelper.toJson(enhancedLocator) ?: return@collectLatest
@@ -520,6 +534,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onDestroy() {
+        locatorObserverJob?.cancel()
         super.onDestroy()
     }
 

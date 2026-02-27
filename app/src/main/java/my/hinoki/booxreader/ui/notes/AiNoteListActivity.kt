@@ -92,6 +92,7 @@ class AiNoteListActivity : BaseActivity() {
     private var exportMenuItem: MenuItem? = null
     private var isExportInProgress: Boolean = false
     private var isSemanticSearchInProgress: Boolean = false
+    private var isInitialLoadInProgress: Boolean = false
     private var pendingExportAllAfterPermission: Boolean = false
     private var pendingExportSelectedIds: Set<Long>? = null
     private var listTextColor: Int = Color.BLACK
@@ -179,6 +180,7 @@ class AiNoteListActivity : BaseActivity() {
         setupSemanticSearch()
         applyThemeFromSettings()
 
+        setInitialLoadInProgress(true)
         loadNotes()
     }
 
@@ -230,17 +232,25 @@ class AiNoteListActivity : BaseActivity() {
 
     private fun setSemanticSearchInProgress(inProgress: Boolean) {
         isSemanticSearchInProgress = inProgress
-        binding.btnSemanticSearch.isEnabled = !inProgress
-        binding.etSemanticSearch.isEnabled = !inProgress
-        updateSemanticSearchClearIcon()
+        applyBusyState()
+    }
+
+    private fun setInitialLoadInProgress(inProgress: Boolean) {
+        isInitialLoadInProgress = inProgress
         applyBusyState()
     }
 
     private fun applyBusyState() {
         val busy = isExportInProgress || isSemanticSearchInProgress
-        binding.progressBar.visibility = if (busy) View.VISIBLE else View.GONE
-        binding.listAiNotes.isEnabled = !busy
-        exportMenuItem?.isEnabled = !busy
+        val showSpinner = busy || isInitialLoadInProgress
+        val interactive = !busy && !isInitialLoadInProgress
+        binding.progressBar.visibility = if (showSpinner) View.VISIBLE else View.GONE
+        binding.listAiNotes.visibility = if (isInitialLoadInProgress) View.INVISIBLE else View.VISIBLE
+        binding.listAiNotes.isEnabled = interactive
+        binding.btnSemanticSearch.isEnabled = interactive
+        binding.etSemanticSearch.isEnabled = interactive
+        updateSemanticSearchClearIcon()
+        exportMenuItem?.isEnabled = interactive
     }
 
     private fun setupList() {
@@ -513,21 +523,38 @@ class AiNoteListActivity : BaseActivity() {
 
     private fun loadNotes() {
         lifecycleScope.launch {
-            // Pull cloud notes first (best effort)
-            runCatching { syncRepo.pullNotes() }
+            setInitialLoadInProgress(true)
+            try {
+                // Pull cloud notes first (best effort)
+                runCatching { syncRepo.pullNotes() }
 
-            if (isFinishing || isDestroyed) return@launch
-            allNotes = if (bookId != null) {
-                repo.getByBook(bookId!!)
-            } else {
-                repo.getAll()
+                if (isFinishing || isDestroyed) return@launch
+                allNotes = if (bookId != null) {
+                    repo.getByBook(bookId!!)
+                } else {
+                    repo.getAll()
+                }
+                notes = allNotes
+                semanticMetaByNoteId.clear()
+                semanticQueryInEffect = null
+                binding.tvSemanticSearchStatus.visibility = View.GONE
+                syncSelectionWithVisibleNotes()
+                adapter.notifyDataSetChanged()
+            } catch (e: Exception) {
+                allNotes = emptyList()
+                notes = emptyList()
+                semanticMetaByNoteId.clear()
+                semanticQueryInEffect = null
+                binding.tvSemanticSearchStatus.visibility = View.GONE
+                syncSelectionWithVisibleNotes()
+                adapter.notifyDataSetChanged()
+                Toast.makeText(this@AiNoteListActivity, "Failed to load AI notes", Toast.LENGTH_SHORT)
+                        .show()
+            } finally {
+                if (!isFinishing && !isDestroyed) {
+                    setInitialLoadInProgress(false)
+                }
             }
-            notes = allNotes
-            semanticMetaByNoteId.clear()
-            semanticQueryInEffect = null
-            binding.tvSemanticSearchStatus.visibility = View.GONE
-            syncSelectionWithVisibleNotes()
-            adapter.notifyDataSetChanged()
         }
     }
 
