@@ -1484,11 +1484,6 @@ class ReaderActivity : BaseActivity() {
                                 )
                         Log.d("MagicTags", "Persisting tags count=${updatedTags.size}")
                         updatedSettings.saveTo(prefs)
-                        val magicTagsJson = Gson().toJson(updatedTags)
-                        prefs.edit()
-                                .putString("magic_tags", magicTagsJson)
-                                .putLong("settings_updated_at", updatedSettings.updatedAt)
-                                .apply()
                         val persisted = ReaderSettings.fromPrefs(prefs).magicTags
                         val persistedSignature =
                                 persisted.joinToString("|") {

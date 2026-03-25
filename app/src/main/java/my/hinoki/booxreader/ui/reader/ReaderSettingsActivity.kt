@@ -446,9 +446,10 @@ class ReaderSettingsActivity : BaseActivity() {
 
         btnSettingsCancel.setOnClickListener { finish() }
         btnSettingsSave.setOnClickListener {
+            val latestSettings = ReaderSettings.fromPrefs(prefs)
             saveSettings(
                     prefs = prefs,
-                    currentSettings = readerSettings,
+                    currentSettings = latestSettings,
                     selectedContrastMode = selectedContrastMode,
                     rbChinese = rbChinese,
                     rbEnglish = rbEnglish,
@@ -1015,11 +1016,6 @@ class ReaderSettingsActivity : BaseActivity() {
                                         updatedAt = System.currentTimeMillis()
                                 )
                         updatedSettings.saveTo(prefs)
-                        val magicTagsJson = Gson().toJson(updatedTags)
-                        prefs.edit()
-                                .putString("magic_tags", magicTagsJson)
-                                .putLong("settings_updated_at", updatedSettings.updatedAt)
-                                .apply()
                         pushSettingsToCloud()
                         setResult(RESULT_OK)
                         Toast.makeText(
