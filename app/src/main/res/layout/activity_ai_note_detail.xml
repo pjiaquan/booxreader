@@ -6,22 +6,17 @@
     android:id="@+id/rootView"
     android:background="?attr/colorSurface">
 
-    <LinearLayout
+    <ScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <ScrollView
-            android:id="@+id/scrollView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:scrollbarSize="1dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="16dp"
-            android:clipToPadding="false">
+        android:layout_above="@id/fabContainer"
+        android:scrollbarSize="1dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="0dp"
+        android:paddingBottom="16dp"
+        android:clipToPadding="false">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -240,37 +235,43 @@
                     android:text="@string/ai_note_publish" />
             </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btnScrollToBottom"
-        android:layout_width="wrap_content"
+    <RelativeLayout
+        android:id="@+id/fabContainer"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_above="@id/llInputArea"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="8dp"
-        android:backgroundTint="@android:color/transparent"
-        android:contentDescription="@string/ai_note_scroll_to_bottom"
-        android:src="@android:drawable/arrow_down_float"
-        android:tint="@android:color/white"
-        app:borderWidth="0dp"
-        app:elevation="6dp"
-        app:fabSize="mini" />
+        android:paddingBottom="8dp">
 
-    <TextView
-        android:id="@+id/tvAutoScrollHint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@id/btnScrollToBottom"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="8dp"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:text="@string/ai_note_auto_scroll_paused"
-        android:textColor="#555555"
-        android:textSize="12sp"
-        android:visibility="gone" />
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnScrollToBottom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:backgroundTint="@android:color/transparent"
+            android:contentDescription="@string/ai_note_scroll_to_bottom"
+            android:src="@android:drawable/arrow_down_float"
+            android:tint="@android:color/white"
+            app:borderWidth="0dp"
+            app:elevation="6dp"
+            app:fabSize="mini" />
+
+        <TextView
+            android:id="@+id/tvAutoScrollHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@id/btnScrollToBottom"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="8dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:text="@string/ai_note_auto_scroll_paused"
+            android:textColor="#555555"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+    </RelativeLayout>
 
 </RelativeLayout>

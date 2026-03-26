@@ -39,6 +39,9 @@ release.keystore
 app/.grok/
 .kotlin/
 
+# Temporary build directories
+.tmp/
+
 # Local Android SDK / tooling archives
 android-sdk/
 cmdline-tools/
