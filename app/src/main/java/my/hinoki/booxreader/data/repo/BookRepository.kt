@@ -25,7 +25,9 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
         val existing = bookDao.getByUri(fileUri)
         if (existing != null) {
             try {
-                syncRepo?.pushBook(existing, uploadFile = false)
+                // uploadFile = true so it backfills the remote file if it was never uploaded
+                // (e.g. first sync failed). pushBook() skips the upload when remoteHasFilePath = true.
+                syncRepo?.pushBook(existing, uploadFile = true, contentResolver = context.contentResolver)
             } catch (_: Exception) {}
             return existing
         }
@@ -43,7 +45,9 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
                 )
         bookDao.insert(book)
         try {
-            syncRepo?.pushBook(book, uploadFile = false)
+            // uploadFile = true: upload the EPUB to PocketBase immediately so other devices
+            // can see and download this book without waiting for the next full push cycle.
+            syncRepo?.pushBook(book, uploadFile = true, contentResolver = context.contentResolver)
         } catch (_: Exception) {}
         return book
     }

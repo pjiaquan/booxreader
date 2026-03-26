@@ -1232,10 +1232,13 @@ class UserSyncRepository(
                                                 db.bookDao().getByIds(listOf(bookId)).firstOrNull()
 
                                         if (existingBook == null) {
-                                                // Bug 1+2 fix: New book from cloud — set lastOpenedAt = 0 so it
-                                                // doesn't appear before genuinely-opened local books in the recent list.
-                                                // The actual lastOpenedAt will be set correctly by pullAllProgress()
-                                                // via mergeRemoteProgressIntoLocalBook().
+                                                // New book from cloud.
+                                                // Use remote books.updatedAt as a proxy for "when was this added" so the
+                                                // book appears in the recent list. For unread books, there is no progress
+                                                // record yet, so this is the only timestamp available.
+                                                // Note: lastOpenedAt for READ books is authoritative in the 'progress'
+                                                // collection and is corrected by pullAllProgress() after this.
+                                                val remoteAddedAt = parseEpochMillis(item["updatedAt"])
                                                 val remoteFileUri =
                                                         resolvedStoragePath
                                                                 ?.takeIf { it.isNotBlank() }
@@ -1247,7 +1250,7 @@ class UserSyncRepository(
                                                                 title = title ?: "Untitled",
                                                                 fileUri = remoteFileUri,
                                                                 lastLocatorJson = null,
-                                                                lastOpenedAt = 0L,
+                                                                lastOpenedAt = remoteAddedAt,
                                                                 deleted = false
                                                         )
                                                 db.bookDao().insert(newBook)
