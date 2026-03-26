@@ -1299,6 +1299,48 @@ class UserSyncRepository(
                         }
                 }
 
+        suspend fun downloadPendingRemoteBooks(): Int =
+                withContext(io) {
+                        try {
+                                val books = db.bookDao().getAllBooks()
+                                var downloadedCount = 0
+                                for (book in books) {
+                                        if (!book.fileUri.startsWith("pocketbase://")) {
+                                                continue
+                                        }
+                                        val cachedFile = localBookCacheFile(book.bookId)
+                                        if (cachedFile.exists() && cachedFile.length() > 0L) {
+                                                continue
+                                        }
+                                        val storagePath =
+                                                book.fileUri
+                                                        .removePrefix("pocketbase://")
+                                                        .takeIf { it.contains("/") }
+                                        val localUri =
+                                                ensureBookFileAvailable(
+                                                        book.bookId,
+                                                        storagePath = storagePath,
+                                                        originalUri = book.fileUri
+                                                )
+                                        if (localUri != null) {
+                                                downloadedCount++
+                                                Log.d(
+                                                        "UserSyncRepository",
+                                                        "downloadPendingRemoteBooks - Downloaded ${book.bookId}"
+                                                )
+                                        }
+                                }
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "downloadPendingRemoteBooks - Downloaded $downloadedCount books"
+                                )
+                                downloadedCount
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "downloadPendingRemoteBooks failed", e)
+                                0
+                        }
+                }
+
         // --- Bookmark Sync ---
 
         suspend fun pullBookmarks(bookId: String? = null): Int =

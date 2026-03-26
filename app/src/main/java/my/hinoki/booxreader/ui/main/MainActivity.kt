@@ -294,6 +294,9 @@ class MainActivity : BaseActivity() {
                 val booksResult = runCatching { syncRepo.pullBooks() }
                 val booksUpdated = booksResult.getOrNull() ?: 0
 
+                // Download book files that were pulled from other devices
+                runCatching { syncRepo.downloadPendingRemoteBooks() }
+
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
 
