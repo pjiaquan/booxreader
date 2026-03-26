@@ -1266,8 +1266,11 @@ class UserSyncRepository(
                                                                         "pocketbase://"
                                                                 ) &&
                                                                 existingBook.fileUri != remoteFileUri
+                                                // Sync lastOpenedAt to ensure recent list matches across devices
+                                                val shouldUpdateLastOpened =
+                                                        updatedAt > existingBook.lastOpenedAt
 
-                                                if (shouldUpdateTitle || shouldUpdateFileUri) {
+                                                if (shouldUpdateTitle || shouldUpdateFileUri || shouldUpdateLastOpened) {
                                                         val updatedBook =
                                                                 existingBook.copy(
                                                                         title =
@@ -1283,6 +1286,13 @@ class UserSyncRepository(
                                                                                 } else {
                                                                                         existingBook
                                                                                                 .fileUri
+                                                                                },
+                                                                        lastOpenedAt =
+                                                                                if (shouldUpdateLastOpened) {
+                                                                                        updatedAt
+                                                                                } else {
+                                                                                        existingBook
+                                                                                                .lastOpenedAt
                                                                                 }
                                                                 )
                                                         db.bookDao().insert(updatedBook)
