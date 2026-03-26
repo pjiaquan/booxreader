@@ -934,10 +934,9 @@ class UserSyncRepository(
                                 var recordId = existingItem?.get("id") as? String
 
                                 if (existingItem != null) {
-                                        val remoteUpdatedAt =
-                                                (existingItem["updatedAt"] as? Double)
-                                                        ?.toLong()
-                                                        ?: 0L
+                                        // Bug 3 fix: use parseEpochMillis() instead of Double cast
+                                        // which silently fails when PocketBase returns updatedAt as a String.
+                                        val remoteUpdatedAt = parseEpochMillis(existingItem["updatedAt"])
                                         remoteDeleted = existingItem["deleted"] as? Boolean ?: false
                                         val needsFileBackfill =
                                                 uploadFile &&
@@ -1222,9 +1221,6 @@ class UserSyncRepository(
                                         val title = item["title"] as? String
                                         val resolvedStoragePath = resolveStoragePathFromRecord(item)
                                         val deleted = item["deleted"] as? Boolean ?: false
-                                        val updatedAt =
-                                                (item["updatedAt"] as? Double)?.toLong()
-                                                        ?: System.currentTimeMillis()
 
                                         if (deleted) {
                                                 db.bookDao().deleteById(bookId)
@@ -1236,7 +1232,10 @@ class UserSyncRepository(
                                                 db.bookDao().getByIds(listOf(bookId)).firstOrNull()
 
                                         if (existingBook == null) {
-                                                // New book from cloud
+                                                // Bug 1+2 fix: New book from cloud — set lastOpenedAt = 0 so it
+                                                // doesn't appear before genuinely-opened local books in the recent list.
+                                                // The actual lastOpenedAt will be set correctly by pullAllProgress()
+                                                // via mergeRemoteProgressIntoLocalBook().
                                                 val remoteFileUri =
                                                         resolvedStoragePath
                                                                 ?.takeIf { it.isNotBlank() }
@@ -1248,7 +1247,7 @@ class UserSyncRepository(
                                                                 title = title ?: "Untitled",
                                                                 fileUri = remoteFileUri,
                                                                 lastLocatorJson = null,
-                                                                lastOpenedAt = updatedAt,
+                                                                lastOpenedAt = 0L,
                                                                 deleted = false
                                                         )
                                                 db.bookDao().insert(newBook)
@@ -1260,17 +1259,19 @@ class UserSyncRepository(
                                                                 ?.let { "pocketbase://$it" }
                                                 val shouldUpdateTitle =
                                                         title != null && existingBook.title != title
+                                                // Bug 2 fix: Only update fileUri, never lastOpenedAt.
+                                                // lastOpenedAt is the reading timestamp; it must only
+                                                // come from the 'progress' collection via pullAllProgress().
+                                                // books.updatedAt changes on every metadata push, causing
+                                                // wrong recent-list ordering across devices.
                                                 val shouldUpdateFileUri =
                                                         remoteFileUri != null &&
                                                                 existingBook.fileUri.startsWith(
                                                                         "pocketbase://"
                                                                 ) &&
                                                                 existingBook.fileUri != remoteFileUri
-                                                // Sync lastOpenedAt to ensure recent list matches across devices
-                                                val shouldUpdateLastOpened =
-                                                        updatedAt > existingBook.lastOpenedAt
 
-                                                if (shouldUpdateTitle || shouldUpdateFileUri || shouldUpdateLastOpened) {
+                                                if (shouldUpdateTitle || shouldUpdateFileUri) {
                                                         val updatedBook =
                                                                 existingBook.copy(
                                                                         title =
@@ -1286,13 +1287,6 @@ class UserSyncRepository(
                                                                                 } else {
                                                                                         existingBook
                                                                                                 .fileUri
-                                                                                },
-                                                                        lastOpenedAt =
-                                                                                if (shouldUpdateLastOpened) {
-                                                                                        updatedAt
-                                                                                } else {
-                                                                                        existingBook
-                                                                                                .lastOpenedAt
                                                                                 }
                                                                 )
                                                         db.bookDao().insert(updatedBook)
@@ -1319,8 +1313,20 @@ class UserSyncRepository(
                                                 continue
                                         }
                                         val cachedFile = localBookCacheFile(book.bookId)
-                                        if (cachedFile.exists() && cachedFile.length() > 0L) {
+                                        // Bug 5 fix: check for valid ZIP (EPUB) magic bytes rather
+                                        // than just length > 0. A partial download leaves a non-zero
+                                        // file that would be accepted silently otherwise.
+                                        if (cachedFile.exists() && isValidEpubFile(cachedFile)) {
                                                 continue
+                                        }
+                                        // Delete any corrupt/partial file so ensureBookFileAvailable
+                                        // will re-download it cleanly.
+                                        if (cachedFile.exists()) {
+                                                cachedFile.delete()
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "downloadPendingRemoteBooks - Deleted corrupt cache for ${book.bookId}"
+                                                )
                                         }
                                         val storagePath =
                                                 book.fileUri
@@ -2081,6 +2087,45 @@ class UserSyncRepository(
                         pullAiProfiles()
                 }
 
+        /**
+         * Bug 4 fix: Push reading progress for all local books that have a saved position.
+         * Call this BEFORE pullAllProgress() so that Device B's pulled data always reflects
+         * the latest position from all other devices.
+         */
+        suspend fun pushAllLocalProgress(): Int =
+                withContext(io) {
+                        try {
+                                val books = db.bookDao().getAllBooks()
+                                var pushedCount = 0
+                                for (book in books) {
+                                        val locatorJson = book.lastLocatorJson
+                                                ?: continue // nothing to push
+                                        try {
+                                                pushProgress(
+                                                        bookId = book.bookId,
+                                                        locatorJson = locatorJson,
+                                                        bookTitle = book.title
+                                                )
+                                                pushedCount++
+                                        } catch (e: Exception) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "pushAllLocalProgress - failed for ${book.bookId}",
+                                                        e
+                                                )
+                                        }
+                                }
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "pushAllLocalProgress - Pushed $pushedCount progress records"
+                                )
+                                pushedCount
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "pushAllLocalProgress failed", e)
+                                0
+                        }
+                }
+
         suspend fun ensureBookFileAvailable(
                 bookId: String,
                 storagePath: String? = null,
@@ -2806,8 +2851,29 @@ class UserSyncRepository(
         private fun parseEpochMillis(value: Any?): Long {
                 return when (value) {
                         is Number -> value.toLong()
-                        is String -> value.toLongOrNull() ?: System.currentTimeMillis()
-                        else -> System.currentTimeMillis()
+                        is String -> value.toLongOrNull() ?: 0L
+                        else -> 0L
+                }
+        }
+
+        /**
+         * Bug 5 fix: Validate that a file is a non-corrupt EPUB (ZIP) by checking the
+         * ZIP magic bytes PK\x03\x04 at the start of the file.
+         */
+        private fun isValidEpubFile(file: File): Boolean {
+                if (!file.exists() || file.length() < 4) return false
+                return try {
+                        file.inputStream().use { stream ->
+                                val magic = ByteArray(4)
+                                val read = stream.read(magic)
+                                read == 4 &&
+                                        magic[0] == 0x50.toByte() && // 'P'
+                                        magic[1] == 0x4B.toByte() && // 'K'
+                                        magic[2] == 0x03.toByte() &&
+                                        magic[3] == 0x04.toByte()
+                        }
+                } catch (_: Exception) {
+                        false
                 }
         }
 

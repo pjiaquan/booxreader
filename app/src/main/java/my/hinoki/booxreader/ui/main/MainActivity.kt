@@ -248,6 +248,9 @@ class MainActivity : BaseActivity() {
                         kotlinx.coroutines.delay(30_000)
 
                         try {
+                            // Bug 4 fix: push local progress first so other devices get the
+                            // latest position, then pull to receive their updates.
+                            runCatching { syncRepo.pushAllLocalProgress() }
                             val updated = syncRepo.pullAllProgress()
                             if (updated > 0) {}
                         } catch (e: Exception) {
@@ -299,6 +302,10 @@ class MainActivity : BaseActivity() {
 
                 val notesResult = runCatching { syncRepo.pullNotes() }
                 val notesUpdated = notesResult.getOrNull() ?: 0
+
+                // Bug 4 fix: push local progress before pulling so the server always has the
+                // latest position from this device before we merge remote positions.
+                runCatching { syncRepo.pushAllLocalProgress() }
 
                 val progressResult = runCatching { syncRepo.pullAllProgress() }
                 val progressUpdated = progressResult.getOrNull() ?: 0
