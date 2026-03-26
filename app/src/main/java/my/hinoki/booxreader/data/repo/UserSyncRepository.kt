@@ -2129,6 +2129,121 @@ class UserSyncRepository(
                         }
                 }
 
+        /**
+         * On startup background check: iterate every local book whose file is stored locally
+         * (content:// URI). For each one, verify the server already has the file.
+         * If the remote record has no storagePath, upload the file silently.
+         *
+         * This covers books that were added before the "upload on open" fix, or books
+         * where the first upload failed due to a network error.
+         *
+         * Returns the number of books that were uploaded.
+         */
+        suspend fun ensureAllLocalBooksUploaded(): Int =
+                withContext(io) {
+                        try {
+                                val userId = getUserId()
+                                if (userId.isNullOrBlank()) {
+                                        Log.d(
+                                                "UserSyncRepository",
+                                                "ensureAllLocalBooksUploaded - no user, skipping"
+                                        )
+                                        return@withContext 0
+                                }
+
+                                val books = db.bookDao().getAllBooks()
+                                // Only process books with local content:// URIs — these are the
+                                // ones that could potentially be missing from the server.
+                                val localBooks =
+                                        books.filter { book ->
+                                                !book.deleted &&
+                                                        !book.fileUri.startsWith("pocketbase://")
+                                        }
+
+                                if (localBooks.isEmpty()) {
+                                        Log.d(
+                                                "UserSyncRepository",
+                                                "ensureAllLocalBooksUploaded - no local books to check"
+                                        )
+                                        return@withContext 0
+                                }
+
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "ensureAllLocalBooksUploaded - checking ${localBooks.size} local books"
+                                )
+
+                                var uploadedCount = 0
+                                for (book in localBooks) {
+                                        try {
+                                                // Check remote record for this book
+                                                val checkUrl =
+                                                        "$pocketBaseUrl/api/collections/books/records" +
+                                                                "?filter=${urlEncodeQueryValue("bookId='${book.bookId}'")}" +
+                                                                "&fields=id,storagePath,epub,file,bookFile,updatedAt"
+                                                val checkRequest =
+                                                        buildAuthenticatedRequest(checkUrl)
+                                                                .get()
+                                                                .build()
+                                                val checkBody =
+                                                        executeRequest(checkRequest, reportError = false)
+                                                val checkResponse = runCatching {
+                                                        gson.fromJson(
+                                                                checkBody,
+                                                                PocketBaseListResponse::class.java
+                                                        )
+                                                }.getOrNull()
+                                                val existingItem = checkResponse?.items?.firstOrNull()
+                                                val remoteHasFile =
+                                                        !resolveStoragePathFromRecord(existingItem)
+                                                                .isNullOrBlank()
+
+                                                if (remoteHasFile) {
+                                                        // Server already has the file, nothing to do
+                                                        Log.d(
+                                                                "UserSyncRepository",
+                                                                "ensureAllLocalBooksUploaded - ${book.bookId} already on server"
+                                                        )
+                                                        continue
+                                                }
+
+                                                // Remote has no file — upload it now
+                                                Log.i(
+                                                        "UserSyncRepository",
+                                                        "ensureAllLocalBooksUploaded - uploading missing file for ${book.bookId}"
+                                                )
+                                                val synced =
+                                                        pushBook(
+                                                                book,
+                                                                uploadFile = true,
+                                                                contentResolver = appContext.contentResolver
+                                                        )
+                                                if (synced) {
+                                                        uploadedCount++
+                                                        Log.i(
+                                                                "UserSyncRepository",
+                                                                "ensureAllLocalBooksUploaded - uploaded ${book.bookId} ('${book.title}')"
+                                                        )
+                                                }
+                                        } catch (e: Exception) {
+                                                Log.w(
+                                                        "UserSyncRepository",
+                                                        "ensureAllLocalBooksUploaded - failed for ${book.bookId}",
+                                                        e
+                                                )
+                                        }
+                                }
+
+                                Log.d(
+                                        "UserSyncRepository",
+                                        "ensureAllLocalBooksUploaded - uploaded $uploadedCount / ${localBooks.size} books"
+                                )
+                                uploadedCount
+                        } catch (e: Exception) {
+                                Log.e("UserSyncRepository", "ensureAllLocalBooksUploaded failed", e)
+                                0
+                        }
+                }
         suspend fun ensureBookFileAvailable(
                 bookId: String,
                 storagePath: String? = null,

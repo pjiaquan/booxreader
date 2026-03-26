@@ -62,6 +62,10 @@ class BooxReaderApp : Application() {
         // Initialize automatic AI profile sync
         initializeAiProfileSync()
 
+        // Background check: upload any local books whose file is missing on the server.
+        // This ensures books added on this device are always available for other devices to sync.
+        initializeBackgroundBookUpload()
+
         // Upload any pending crash reports
         uploadPendingCrashReports()
 
@@ -99,6 +103,28 @@ class BooxReaderApp : Application() {
                         "BooxReaderApp.initializeAiProfileSync",
                         "Initial AI profile sync failed",
                         e
+                )
+            }
+        }
+    }
+
+    private fun initializeBackgroundBookUpload() {
+        applicationScope.launch {
+            try {
+                val syncRepo = UserSyncRepository(applicationContext)
+                val uploaded = syncRepo.ensureAllLocalBooksUploaded()
+                if (uploaded > 0) {
+                    android.util.Log.i(
+                        "BooxReaderApp",
+                        "initializeBackgroundBookUpload - uploaded $uploaded books to server"
+                    )
+                }
+            } catch (e: Exception) {
+                ErrorReporter.report(
+                    applicationContext,
+                    "BooxReaderApp.initializeBackgroundBookUpload",
+                    "Background book upload check failed",
+                    e
                 )
             }
         }
