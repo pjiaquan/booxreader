@@ -439,7 +439,7 @@ class UserSyncRepository(
                                         message
                                 )
                         }
-                        throw Exception("PocketBase request failed: ${response.code}")
+                        throw Exception("PocketBase request failed: ${response.code} $body")
                 }
 
                 return body
@@ -969,7 +969,27 @@ class UserSyncRepository(
                                                 buildAuthenticatedRequest(createUrl)
                                                         .post(requestBody)
                                                         .build()
-                                        val createBody = executeRequest(createRequest)
+                                        val createBody = try {
+                                                executeRequest(createRequest)
+                                        } catch (e: Exception) {
+                                                if (e.message?.contains("400") == true && e.message?.contains("sql: no rows in result set") == true) {
+                                                        Log.w("UserSyncRepository", "pushBook - stale user ID detected, refreshing auth session and retrying")
+                                                        val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
+                                                        val refreshedUserId = refreshAuthSessionIfPossible(pocketBaseRoot)
+                                                        if (!refreshedUserId.isNullOrBlank() && refreshedUserId != userId) {
+                                                                // Update the payload using the new valid ID
+                                                                val mutableData = bookData.toMutableMap()
+                                                                mutableData["user"] = refreshedUserId
+                                                                val retryBody = gson.toJson(mutableData).toRequestBody("application/json".toMediaType())
+                                                                val retryRequest = buildAuthenticatedRequest(createUrl).post(retryBody).build()
+                                                                executeRequest(retryRequest)
+                                                        } else {
+                                                                throw e
+                                                        }
+                                                } else {
+                                                        throw e
+                                                }
+                                        }
                                         val created =
                                                 gson.fromJson(createBody, Map::class.java) as
                                                         Map<String, Any>
