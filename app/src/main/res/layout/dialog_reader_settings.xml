@@ -175,6 +175,7 @@
 
             <Button
                 android:id="@+id/btnDailySummaryPickTime"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/reader_settings_daily_email_pick_time" />
@@ -213,6 +214,7 @@
 
             <Button
                 android:id="@+id/btnSettingsAddBookmark"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -224,6 +226,7 @@
 
             <Button
                 android:id="@+id/btnSettingsShowBookmarks"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -233,7 +236,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DDDDDD"
+            android:background="?android:attr/listDivider"
             android:layout_marginVertical="8dp" />
 
         <TextView
@@ -271,6 +274,7 @@
 
         <Button
             android:id="@+id/btnManageMagicTags"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/action_manage_magic_tags"
@@ -279,7 +283,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DDDDDD"
+            android:background="?android:attr/listDivider"
             android:layout_marginVertical="8dp" />
 
         <TextView
@@ -338,7 +342,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DDDDDD"
+            android:background="?android:attr/listDivider"
             android:layout_marginVertical="8dp" />
 
         <TextView
@@ -380,6 +384,7 @@
 
         <Button
             android:id="@+id/btnTestExportEndpoint"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -388,7 +393,7 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#DDDDDD"
+            android:background="?android:attr/listDivider"
             android:layout_marginVertical="8dp" />
 
         <TextView
@@ -405,7 +410,7 @@
             android:layout_height="wrap_content"
             android:text="@string/reader_settings_ai_section_body"
             android:textSize="14sp"
-            android:textColor="#666666"
+            android:textColor="?android:attr/textColorSecondary"
             android:layout_marginBottom="12dp" />
 
     </LinearLayout>
