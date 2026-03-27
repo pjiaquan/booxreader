@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.core.CrashReportHandler
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
@@ -86,12 +87,14 @@ class BooxReaderApp : Application() {
                 // duplicate same-name profiles on a newly signed-in device.
                 val profileCreated = profileRepo.ensureDefaultProfile()
                 if (profileCreated) {
-                    Toast.makeText(
-                                    applicationContext,
-                                    R.string.ai_profile_default_created,
-                                    Toast.LENGTH_LONG
-                            )
-                            .show()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                                        applicationContext,
+                                        R.string.ai_profile_default_created,
+                                        Toast.LENGTH_LONG
+                                )
+                                .show()
+                    }
                 }
 
                 // Set up periodic sync (every 30 minutes)
