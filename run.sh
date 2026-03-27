@@ -1231,8 +1231,8 @@ git_operations() {
     if [ -z "$DEFAULT_MSG" ]; then
         # Generate a default commit message based on changed files
         # Get top 3 changed files (excluding build.gradle.kts which is always changed)
-        CHANGED_FILES=$(git diff --cached --name-only | grep -v "build.gradle.kts" | head -n 3 | xargs)
-        FILE_COUNT=$(git diff --cached --name-only | grep -v "build.gradle.kts" | wc -l)
+        CHANGED_FILES=$(git diff --cached --name-only | grep -v "build.gradle.kts" | head -n 3 | xargs || true)
+        FILE_COUNT=$(git diff --cached --name-only | grep -v "build.gradle.kts" | wc -l || echo 0)
         
         local V_NAME="${NEW_VERSION_NAME:-}"
         if [ -z "$V_NAME" ]; then
