@@ -432,6 +432,20 @@ class UserSyncRepository(
                         val message =
                                 "Request failed: ${response.code} ${request.method} ${request.url}"
                         Log.e("UserSyncRepository", "$message body=$body")
+
+                        if (response.code == 401) {
+                                Log.w("UserSyncRepository", "Received 401 Unauthorized, clearing local session")
+                                tokenManager.clearTokens()
+                                kotlinx.coroutines.runBlocking {
+                                        try {
+                                                db.userDao().clearAllUsers()
+                                        } catch (e: Exception) {
+                                                Log.e("UserSyncRepository", "Failed to clear users on 401", e)
+                                        }
+                                }
+                                cachedUserId = null
+                        }
+
                         if (reportError) {
                                 ErrorReporter.report(
                                         appContext,
