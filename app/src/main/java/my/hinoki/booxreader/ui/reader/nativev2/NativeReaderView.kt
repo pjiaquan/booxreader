@@ -10,6 +10,7 @@ import android.view.GestureDetector
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import org.readium.r2.shared.publication.Locator
@@ -52,6 +53,10 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     // Use context from constructor to ensure safe access to resources during initialization
     private val selectionPaddingHorizontal = 2f * context.resources.displayMetrics.density
     private val selectionPaddingVertical = 8f * context.resources.displayMetrics.density
+    private val normalEdgeSnapThresholdPx = 100f
+    private val preciseEdgeSnapThresholdPx = 18f * context.resources.displayMetrics.density
+    private val preciseSelectionSpeedThresholdPxPerSecond =
+            180f * context.resources.displayMetrics.density
 
     private var content: CharSequence = ""
     private var layout: StaticLayout? = null
@@ -94,6 +99,10 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var edgeHoldRunnable: Runnable? = null
     private var edgeHoldDirection: Int = 0
     private var edgeHoldActiveHandle: Int = 0
+    private var lastSelectionDragX = Float.NaN
+    private var lastSelectionDragY = Float.NaN
+    private var lastSelectionDragTime = 0L
+    private var smoothedSelectionDragSpeed = Float.NaN
 
     data class SelectionRange(val start: Int, val end: Int)
 
@@ -247,6 +256,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                                         isSelecting = true
                                         isMagnifying = true
                                         magnifierPos.set(e.x, e.y)
+                                        resetSelectionDragTracking(e.x, e.y, e.eventTime)
 
                                         // Tactile feedback
                                         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -661,12 +671,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     if (isNear(x, y, selectionStart, true)) {
                         activeHandle = 1
                         isSelecting = true
+                        resetSelectionDragTracking(x, y, event.eventTime)
                         onSelectionListener?.invoke(false, 0f, 0f)
                         parent?.requestDisallowInterceptTouchEvent(true)
                         return true
                     } else if (isNear(x, y, selectionEnd, false)) {
                         activeHandle = 2
                         isSelecting = true
+                        resetSelectionDragTracking(x, y, event.eventTime)
                         onSelectionListener?.invoke(false, 0f, 0f)
                         parent?.requestDisallowInterceptTouchEvent(true)
                         return true
@@ -685,7 +697,17 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     isMagnifying = true
                     magnifierPos.set(x, y)
 
-                    val localOffset = getLocalOffsetForPosition(x, y)
+                    val preciseMode = updateSelectionDragSpeed(x, y, event.eventTime)
+                    val activeLocalOffset =
+                            if (activeHandle == 1) toLocalOffset(selectionStart)
+                            else if (activeHandle == 2) toLocalOffset(selectionEnd) else null
+                    val localOffset =
+                            getLocalOffsetForPosition(
+                                    x = x,
+                                    y = y,
+                                    preciseMode = preciseMode,
+                                    anchorOffset = activeLocalOffset
+                            )
                     if (localOffset != -1) {
                         val offset = pageStartOffset + localOffset
                         // Smart handle selection: if we just started dragging from a long press,
@@ -734,6 +756,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                     activeHandle = 0
                     isMagnifying = false
                     cancelEdgeHold()
+                    resetSelectionDragTracking()
                     postInvalidateOnAnimation()
 
                     // Normalize selection after dragging for consistent state
@@ -775,6 +798,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         activeHandle = 0
         isSelecting = false
         cancelEdgeHold()
+        resetSelectionDragTracking()
         onSelectionListener?.invoke(false, 0f, 0f)
         invalidate()
     }
@@ -818,16 +842,25 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         return (x - ox) * (x - ox) + (y - oy) * (y - oy) < 32400
     }
 
-    private fun getLocalOffsetForPosition(x: Float, y: Float): Int {
+    private fun getLocalOffsetForPosition(
+            x: Float,
+            y: Float,
+            preciseMode: Boolean = false,
+            anchorOffset: Int? = null
+    ): Int {
         val l = layout ?: return -1
         val relativeY = (y - paddingTop).coerceIn(0f, l.height.toFloat())
         val line = l.getLineForVertical(relativeY.toInt())
 
         val relativeX = x - paddingLeft
 
-        // Aggressive horizontal snapping for edges (100px buffer for easier selection at the very
-        // end/start)
-        val snapThreshold = (l.width * 0.1f).coerceAtMost(100f)
+        // Fast drags keep generous edge snapping; slow drags shrink it for finer control.
+        val snapThreshold =
+                if (preciseMode) {
+                    preciseEdgeSnapThresholdPx.coerceAtMost(l.width * 0.04f)
+                } else {
+                    (l.width * 0.1f).coerceAtMost(normalEdgeSnapThresholdPx)
+                }
         if (relativeX > l.width - snapThreshold) {
             return l.getLineEnd(line)
         }
@@ -835,7 +868,18 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             return l.getLineStart(line)
         }
 
-        return l.getOffsetForHorizontal(line, relativeX.coerceIn(0f, l.width.toFloat()))
+        val clampedX = relativeX.coerceIn(0f, l.width.toFloat())
+        val candidate = l.getOffsetForHorizontal(line, clampedX)
+        if (!preciseMode || anchorOffset == null) {
+            return candidate
+        }
+        return refinePreciseOffsetForSlowDrag(
+                layout = l,
+                line = line,
+                relativeX = clampedX,
+                anchorOffset = anchorOffset,
+                candidateOffset = candidate
+        )
     }
 
     private fun findLinkAt(x: Float, y: Float): String? {
@@ -926,6 +970,113 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 if (activeHandle == 1) min(selectionStart, selectionEnd)
                 else if (activeHandle == 2) max(selectionStart, selectionEnd) else null
         return activeGlobal?.let { toLocalOffset(it) }
+    }
+
+    private fun resetSelectionDragTracking(
+            x: Float = Float.NaN,
+            y: Float = Float.NaN,
+            eventTime: Long = 0L
+    ) {
+        lastSelectionDragX = x
+        lastSelectionDragY = y
+        lastSelectionDragTime = eventTime
+        smoothedSelectionDragSpeed = Float.NaN
+    }
+
+    private fun updateSelectionDragSpeed(x: Float, y: Float, eventTime: Long): Boolean {
+        if (!lastSelectionDragX.isFinite() || !lastSelectionDragY.isFinite() || lastSelectionDragTime <= 0L) {
+            resetSelectionDragTracking(x, y, eventTime)
+            return false
+        }
+
+        val deltaTimeMs = (eventTime - lastSelectionDragTime).coerceAtLeast(1L).toFloat()
+        val distance = hypot(x - lastSelectionDragX, y - lastSelectionDragY)
+        val instantSpeed = distance * 1000f / deltaTimeMs
+        smoothedSelectionDragSpeed =
+                if (smoothedSelectionDragSpeed.isFinite()) {
+                    (smoothedSelectionDragSpeed * 0.65f) + (instantSpeed * 0.35f)
+                } else {
+                    instantSpeed
+                }
+
+        lastSelectionDragX = x
+        lastSelectionDragY = y
+        lastSelectionDragTime = eventTime
+
+        return smoothedSelectionDragSpeed <= preciseSelectionSpeedThresholdPxPerSecond
+    }
+
+    private fun refinePreciseOffsetForSlowDrag(
+            layout: Layout,
+            line: Int,
+            relativeX: Float,
+            anchorOffset: Int,
+            candidateOffset: Int
+    ): Int {
+        val safeAnchor = anchorOffset.coerceIn(0, content.length)
+        if (candidateOffset == safeAnchor) {
+            return candidateOffset
+        }
+
+        if (getLineForOffsetSafe(layout, safeAnchor) != line) {
+            return candidateOffset
+        }
+
+        val movingRight = candidateOffset > safeAnchor
+        var resolved = safeAnchor
+        var steps = 0
+        while (steps++ < content.length + 1) {
+            val nextOffset =
+                    if (movingRight) layout.getOffsetToRightOf(resolved)
+                    else layout.getOffsetToLeftOf(resolved)
+            if (nextOffset == resolved) {
+                break
+            }
+            if (getLineForOffsetSafe(layout, nextOffset) != line) {
+                break
+            }
+            if (movingRight && nextOffset > candidateOffset) {
+                break
+            }
+            if (!movingRight && nextOffset < candidateOffset) {
+                break
+            }
+
+            val currentX = layout.getPrimaryHorizontal(resolved)
+            val nextX = layout.getPrimaryHorizontal(nextOffset)
+            val threshold =
+                    currentX +
+                            ((nextX - currentX) *
+                                    getSlowDragAdvanceFraction(resolved, nextOffset))
+            val crossed = if (movingRight) relativeX >= threshold else relativeX <= threshold
+            if (!crossed) {
+                break
+            }
+
+            resolved = nextOffset
+            if (resolved == candidateOffset) {
+                break
+            }
+        }
+
+        return resolved
+    }
+
+    private fun getLineForOffsetSafe(layout: Layout, offset: Int): Int {
+        if (content.isEmpty()) return 0
+        return layout.getLineForOffset(offset.coerceIn(0, content.length))
+    }
+
+    private fun getSlowDragAdvanceFraction(fromOffset: Int, toOffset: Int): Float {
+        val boundary = max(fromOffset, toOffset).coerceIn(0, content.length)
+        val leftChar = content.getOrNull(boundary - 1)
+        val rightChar = content.getOrNull(boundary)
+        return when {
+            leftChar != null && rightChar != null && (isCjk(leftChar) || isCjk(rightChar)) -> 0.82f
+            leftChar != null && rightChar != null &&
+                    (!isWordChar(leftChar) || !isWordChar(rightChar)) -> 0.78f
+            else -> 0.7f
+        }
     }
 
     private fun maybeArmEdgeHold() {

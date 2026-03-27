@@ -405,7 +405,12 @@ class AiNoteDetailActivity : BaseActivity() {
                     ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
                 }
         val primaryTextColor =
-                if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
+                    else ->
+                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
+                            else Color.WHITE
+                }
         val primaryStyle =
                 buttonStyle(
                         fillColor = accentColor,
@@ -423,7 +428,11 @@ class AiNoteDetailActivity : BaseActivity() {
         val secondaryStyle =
                 buttonStyle(
                         fillColor = secondaryFill,
-                        textColor = textColor,
+                        textColor =
+                                when (mode) {
+                                    ContrastMode.NORMAL -> Color.parseColor("#16324F")
+                                    else -> textColor
+                                },
                         backgroundColor = backgroundColor,
                         darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST,
                         strokeColor =

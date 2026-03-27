@@ -159,6 +159,10 @@ class ReaderSettingsActivity : BaseActivity() {
         val tvTextSizeValue = dialogView.findViewById<TextView>(R.id.tvTextSizeValue)
 
         val layout = (dialogView as? ViewGroup)?.getChildAt(0) as? LinearLayout
+        val sectionSpacing = resources.getDimensionPixelSize(R.dimen.settings_section_spacing)
+        val itemSpacing = resources.getDimensionPixelSize(R.dimen.settings_item_spacing)
+        val splitSpacing = resources.getDimensionPixelSize(R.dimen.settings_split_spacing)
+        val buttonHeight = resources.getDimensionPixelSize(R.dimen.settings_button_height)
 
         var topInsertIndex = 0
         fun insertTop(view: View) {
@@ -169,19 +173,16 @@ class ReaderSettingsActivity : BaseActivity() {
         val languageTitle =
                 TextView(this).apply {
                     text = getString(R.string.reader_settings_language_title)
-                    textSize = 16f
+                    textSize = 18f
                     setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 16, 0, 8)
+                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
                     layoutParams =
                             LinearLayout.LayoutParams(
                                             ViewGroup.LayoutParams.MATCH_PARENT,
                                             ViewGroup.LayoutParams.WRAP_CONTENT
                                     )
                                     .apply {
-                                        topMargin =
-                                                resources.getDimensionPixelSize(
-                                                        R.dimen.reader_settings_language_section_margin_top
-                                                )
+                                        topMargin = sectionSpacing
                                     }
                 }
         insertTop(languageTitle)
@@ -189,6 +190,14 @@ class ReaderSettingsActivity : BaseActivity() {
         val languageGroup =
                 android.widget.RadioGroup(this).apply {
                     orientation = android.widget.RadioGroup.VERTICAL
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        bottomMargin = itemSpacing
+                                    }
                 }
 
         val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
@@ -204,15 +213,29 @@ class ReaderSettingsActivity : BaseActivity() {
                 Button(this).apply {
                     text = getString(R.string.reader_settings_user_profile)
                     isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        bottomMargin = sectionSpacing
+                                    }
                 }
         insertTop(btnUserProfile)
 
         val themeTitle =
                 TextView(this).apply {
                     text = getString(R.string.reader_settings_theme_title)
-                    textSize = 16f
+                    textSize = 18f
                     setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 16, 0, 8)
+                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
                 }
         insertTop(themeTitle)
 
@@ -224,7 +247,9 @@ class ReaderSettingsActivity : BaseActivity() {
                             LinearLayout.LayoutParams(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.WRAP_CONTENT
-                            )
+                            ).apply {
+                                bottomMargin = sectionSpacing
+                            }
                 }
 
         var selectedContrastMode: ContrastMode =
@@ -243,8 +268,12 @@ class ReaderSettingsActivity : BaseActivity() {
                 Button(this).apply {
                     text = "Normal"
                     isAllCaps = false
+                    minHeight = buttonHeight
                     layoutParams =
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                    .apply {
+                                        marginEnd = splitSpacing / 2
+                                    }
                     setOnClickListener {
                         selectedContrastMode = ContrastMode.NORMAL
                         applySettingsPageTheme(dialogView, selectedContrastMode)
@@ -257,8 +286,13 @@ class ReaderSettingsActivity : BaseActivity() {
                 Button(this).apply {
                     text = "Dark"
                     isAllCaps = false
+                    minHeight = buttonHeight
                     layoutParams =
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                    .apply {
+                                        marginStart = splitSpacing / 2
+                                        marginEnd = splitSpacing / 2
+                                    }
                     setOnClickListener {
                         selectedContrastMode = ContrastMode.DARK
                         applySettingsPageTheme(dialogView, selectedContrastMode)
@@ -271,8 +305,12 @@ class ReaderSettingsActivity : BaseActivity() {
                 Button(this).apply {
                     text = "Sepia"
                     isAllCaps = false
+                    minHeight = buttonHeight
                     layoutParams =
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                    .apply {
+                                        marginStart = splitSpacing / 2
+                                    }
                     setOnClickListener {
                         selectedContrastMode = ContrastMode.SEPIA
                         applySettingsPageTheme(dialogView, selectedContrastMode)
@@ -290,6 +328,15 @@ class ReaderSettingsActivity : BaseActivity() {
                 Button(this).apply {
                     text = getString(R.string.reader_settings_ai_profiles)
                     isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        bottomMargin = sectionSpacing
+                                    }
                 }
         insertTop(btnAiProfiles)
 
@@ -638,7 +685,11 @@ class ReaderSettingsActivity : BaseActivity() {
         val secondaryStyle =
                 buttonStyle(
                         fillColor = secondaryFill,
-                        textColor = textColor,
+                        textColor =
+                                when (mode) {
+                                    ContrastMode.NORMAL -> Color.parseColor("#16324F")
+                                    else -> textColor
+                                },
                         backgroundColor = backgroundColor,
                         darkMode = isDarkMode,
                         strokeColor =
@@ -660,7 +711,11 @@ class ReaderSettingsActivity : BaseActivity() {
                     view.setHintTextColor(hintColor)
                 }
                 is Button -> {
-                    applyButtonStyle(view, secondaryStyle)
+                    applyButtonStyle(
+                            view,
+                            if (isPrimarySettingsContentButton(view)) primarySettingsButtonStyle(mode)
+                            else secondaryStyle
+                    )
                 }
                 is android.widget.CompoundButton -> {
                     view.setTextColor(textColor)
@@ -687,6 +742,45 @@ class ReaderSettingsActivity : BaseActivity() {
         }
 
         applyToView(root)
+    }
+
+    private fun isPrimarySettingsContentButton(button: Button): Boolean {
+        return when (button.id) {
+            R.id.btnManageMagicTags,
+            R.id.btnTestExportEndpoint -> true
+            else -> false
+        }
+    }
+
+    private fun primarySettingsButtonStyle(mode: ContrastMode): ButtonVisualStyle {
+        val backgroundColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
+                }
+        val accentColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
+                    ContrastMode.DARK -> Color.parseColor("#86AEEA")
+                    ContrastMode.SEPIA -> Color.parseColor("#8A6740")
+                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
+                }
+        val darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
+        val textColor =
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
+                    else ->
+                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
+                            else Color.WHITE
+                }
+        return buttonStyle(
+                fillColor = accentColor,
+                textColor = textColor,
+                backgroundColor = backgroundColor,
+                darkMode = darkMode
+        )
     }
 
     private fun pushSettingsToCloud() {
@@ -786,7 +880,12 @@ class ReaderSettingsActivity : BaseActivity() {
                     ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
                 }
         val primaryTextColor =
-                if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+                when (mode) {
+                    ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
+                    else ->
+                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
+                            else Color.WHITE
+                }
         val primaryStyle =
                 buttonStyle(
                         fillColor = accentColor,
@@ -803,7 +902,11 @@ class ReaderSettingsActivity : BaseActivity() {
         val secondaryStyle =
                 buttonStyle(
                         fillColor = secondaryFill,
-                        textColor = textColor,
+                        textColor =
+                                when (mode) {
+                                    ContrastMode.NORMAL -> Color.parseColor("#16324F")
+                                    else -> textColor
+                                },
                         backgroundColor = backgroundColor,
                         darkMode = isDarkMode,
                         strokeColor =

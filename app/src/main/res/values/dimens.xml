@@ -4,4 +4,11 @@
     <dimen name="spacing_xs">4dp</dimen>
     <dimen name="spacing_sm">8dp</dimen>
     <dimen name="spacing_md">16dp</dimen>
+    <dimen name="spacing_lg">20dp</dimen>
+    <dimen name="spacing_xl">24dp</dimen>
+    <dimen name="settings_section_spacing">28dp</dimen>
+    <dimen name="settings_item_spacing">14dp</dimen>
+    <dimen name="settings_split_spacing">12dp</dimen>
+    <dimen name="settings_button_height">52dp</dimen>
+    <dimen name="settings_content_bottom_spacing">32dp</dimen>
 </resources>
