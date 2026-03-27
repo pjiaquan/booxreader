@@ -483,6 +483,10 @@ class UserSyncRepository(
                         }
         }
 
+        private fun latestSettingsRecord(items: List<Map<String, Any>>): Map<String, Any>? {
+                return items.maxByOrNull { longValue(it["updatedAt"]) }
+        }
+
         private fun escapeHtmlForEmail(raw: String): String {
                 return raw
                         .replace("&", "&amp;")
@@ -574,11 +578,7 @@ class UserSyncRepository(
                                         return@withContext null
                                 }
 
-                                val remoteSettings =
-                                        items.maxByOrNull {
-                                                longValue(it["updatedAt"])
-                                        }
-                                                ?: return@withContext null
+                                val remoteSettings = latestSettingsRecord(items) ?: return@withContext null
                                 val remoteUpdatedAt = longValue(remoteSettings["updatedAt"])
                                 val localSettings = ReaderSettings.fromPrefs(prefs)
 
@@ -587,7 +587,7 @@ class UserSyncRepository(
                                         val updated =
                                                 parseSettingsFromJson(
                                                         remoteSettings,
-                                                        fallbackMagicTags = localSettings.magicTags
+                                                        fallbackMagicTags = emptyList()
                                                 )
                                         updated.saveTo(prefs)
                                         Log.d(
@@ -630,27 +630,8 @@ class UserSyncRepository(
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
 
-                                val localHasMagicTagsKey = prefs.contains("magic_tags")
-                                val existingSettingsRecord =
-                                        checkResponse.items.firstOrNull()
-                                                        as? Map<String, Any>
-                                val remoteMagicTags =
-                                        parseMagicTags(
-                                                raw =
-                                                        existingSettingsRecord?.get("magicTags")
-                                                                ?: existingSettingsRecord?.get("magic_tags"),
-                                                fallback = emptyList()
-                                        )
-                                val magicTagsForUpload =
-                                        if (!localHasMagicTagsKey && remoteMagicTags.isNotEmpty()) {
-                                                Log.w(
-                                                        "UserSyncRepository",
-                                                        "pushSettings - local magic_tags key missing; preserving remote magicTags to avoid default overwrite"
-                                                )
-                                                remoteMagicTags
-                                        } else {
-                                                settings.magicTags
-                                        }
+                                val existingSettingsRecord = latestSettingsRecord(checkResponse.items)
+                                val magicTagsForUpload = settings.magicTags
 
                                 val baseSettingsData =
                                         mapOf(
@@ -702,7 +683,7 @@ class UserSyncRepository(
                                 if (checkResponse.items.isNotEmpty()) {
                                         // Update existing record
                                         val recordId =
-                                                checkResponse.items[0].get("id") as? String
+                                                existingSettingsRecord?.get("id") as? String
                                                         ?: return@withContext
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/settings/records/$recordId"

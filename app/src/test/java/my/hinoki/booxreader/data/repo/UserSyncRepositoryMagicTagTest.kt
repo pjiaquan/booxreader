@@ -101,7 +101,7 @@ class UserSyncRepositoryMagicTagTest {
     }
 
     @Test
-    fun pullSettingsIfNewer_keepsLocalMagicTagsWhenRemoteFieldMissing() = runBlocking {
+    fun pullSettingsIfNewer_clearsLocalMagicTagsWhenRemoteFieldMissing() = runBlocking {
         val prefs = context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
         val localTags = listOf(MagicTag(id = "local", label = "Local Tag", content = "Local Content"))
         ReaderSettings(magicTags = localTags, updatedAt = 1000L).saveTo(prefs)
@@ -166,15 +166,24 @@ class UserSyncRepositoryMagicTagTest {
 
         val pulled = repo.pullSettingsIfNewer()
         assertNotNull("Expected remote settings to be pulled", pulled)
-        assertEquals(localTags, pulled!!.magicTags)
+        assertEquals(emptyList<MagicTag>(), pulled!!.magicTags)
 
         val persisted = ReaderSettings.fromPrefs(prefs)
-        assertEquals(localTags, persisted.magicTags)
+        assertEquals(emptyList<MagicTag>(), persisted.magicTags)
     }
 
     @Test
-    fun pushSettings_preservesRemoteMagicTagsWhenLocalKeyMissing() = runBlocking {
+    fun pushSettings_overwritesRemoteMagicTagsWhenLocalKeyMissing() = runBlocking {
         var updateRequestBody: String? = null
+        val localMagicTags =
+                listOf(
+                        MagicTag(
+                                id = "local-1",
+                                label = "Local Tag",
+                                content = "Local Content",
+                                description = "Local Desc"
+                        )
+                )
         val remoteMagicTags =
                 JSONArray()
                         .put(
@@ -229,15 +238,73 @@ class UserSyncRepositoryMagicTagTest {
                 )
         setCachedUserId(repo, "user_1")
 
-        repo.pushSettings(ReaderSettings())
+        repo.pushSettings(ReaderSettings(magicTags = localMagicTags))
 
         val body = updateRequestBody
         assertNotNull("Expected PATCH body to be sent", body)
         val json = JSONObject(body!!)
         val uploadedTags = json.getJSONArray("magicTags")
         assertEquals(1, uploadedTags.length())
-        assertEquals("remote-1", uploadedTags.getJSONObject(0).getString("id"))
-        assertEquals("Remote Tag", uploadedTags.getJSONObject(0).getString("label"))
+        assertEquals("local-1", uploadedTags.getJSONObject(0).getString("id"))
+        assertEquals("Local Tag", uploadedTags.getJSONObject(0).getString("label"))
+    }
+
+    @Test
+    fun pushSettings_updatesLatestRemoteSettingsRecordWhenMultipleExist() = runBlocking {
+        var patchedPath: String? = null
+
+        server.dispatcher =
+                object : Dispatcher() {
+                    override fun dispatch(request: RecordedRequest): MockResponse {
+                        if (request.path?.startsWith("/api/collections/settings/records?") == true &&
+                                        request.method == "GET"
+                        ) {
+                            return MockResponse()
+                                    .setResponseCode(200)
+                                    .setBody(
+                                            JSONObject()
+                                                    .put(
+                                                            "items",
+                                                            JSONArray()
+                                                                    .put(
+                                                                            JSONObject()
+                                                                                    .put("id", "settings_old")
+                                                                                    .put("updatedAt", 1000L)
+                                                                    )
+                                                                    .put(
+                                                                            JSONObject()
+                                                                                    .put("id", "settings_new")
+                                                                                    .put("updatedAt", 2000L)
+                                                                    )
+                                                    )
+                                                    .put("page", 1)
+                                                    .put("perPage", 30)
+                                                    .put("totalItems", 2)
+                                                    .put("totalPages", 1)
+                                                    .toString()
+                                    )
+                        }
+                        if (request.path?.startsWith("/api/collections/settings/records/") == true &&
+                                        request.method == "PATCH"
+                        ) {
+                            patchedPath = request.path
+                            return MockResponse().setResponseCode(200).setBody("{}")
+                        }
+                        return MockResponse().setResponseCode(404)
+                    }
+                }
+
+        val repo =
+                UserSyncRepository(
+                        context = context,
+                        baseUrl = server.url("/").toString(),
+                        tokenManager = tokenManager
+                )
+        setCachedUserId(repo, "user_1")
+
+        repo.pushSettings(ReaderSettings(magicTags = emptyList()))
+
+        assertEquals("/api/collections/settings/records/settings_new", patchedPath)
     }
 
     private fun setCachedUserId(repo: UserSyncRepository, userId: String) {
