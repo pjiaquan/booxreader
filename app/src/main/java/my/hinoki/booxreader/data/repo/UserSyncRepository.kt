@@ -2011,11 +2011,18 @@ class UserSyncRepository(
                                 }
 
                                 val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
+                                // Prefer a server-confirmed userId from auth-refresh so we know the
+                                // relation field value actually exists in PocketBase. A stale
+                                // Room-cached ID (getUserId()) may reference a deleted/unknown user
+                                // and causes PocketBase to return "sql: no rows in result set".
                                 val refreshedUserId = refreshAuthSessionIfPossible(pocketBaseRoot)
-                                val userId =
-                                        refreshedUserId
-                                                ?: runCatching { getUserId() }.getOrNull()
-                                if (userId.isNullOrBlank()) {
+                                if (refreshedUserId.isNullOrBlank()) {
+                                        // Auth refresh failed — token is likely expired or invalid.
+                                        // Skip uploading rather than risk a relation resolution error.
+                                        Log.w(
+                                                "UserSyncRepository",
+                                                "pushCrashReport - skipped: could not confirm userId via auth-refresh"
+                                        )
                                         return@withContext false
                                 }
                                 val payload =
@@ -2031,7 +2038,7 @@ class UserSyncRepository(
                                 if (!report.message.isNullOrBlank()) {
                                         payload["message"] = report.message.take(4000)
                                 }
-                                payload["user"] = userId
+                                payload["user"] = refreshedUserId
 
                                 val requestBody =
                                         gson.toJson(payload)
