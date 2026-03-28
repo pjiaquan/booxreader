@@ -128,9 +128,9 @@ onRecordCreate((e) => {
       console.log(`>> [QdrantLog Local Error] ${err}`);
     }
   };
+  const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
 
   try {
-    const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
     const toRelId = (v) => {
       if (Array.isArray(v)) return String(v[0] || "");
       if (v && typeof v === "object") return String(v.id || "");
@@ -288,7 +288,7 @@ onRecordCreate((e) => {
       action: "upsert_create",
       status: "failed",
       reason: "hook_exception",
-      error: qdrantLogSafeStr(err),
+      error: safeStr(err),
       recordId: recordIdForLog,
       userId: userIdForLog,
       bookId: bookIdForLog,
@@ -356,9 +356,9 @@ onRecordUpdate((e) => {
       console.log(`>> [QdrantLog Local Error] ${err}`);
     }
   };
+  const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
 
   try {
-    const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
     const toRelId = (v) => {
       if (Array.isArray(v)) return String(v[0] || "");
       if (v && typeof v === "object") return String(v.id || "");
@@ -516,7 +516,7 @@ onRecordUpdate((e) => {
       action: "upsert_update",
       status: "failed",
       reason: "hook_exception",
-      error: qdrantLogSafeStr(err),
+      error: safeStr(err),
       recordId: recordIdForLog,
       userId: userIdForLog,
       bookId: bookIdForLog,
@@ -584,9 +584,9 @@ onRecordDelete((e) => {
       console.log(`>> [QdrantLog Local Error] ${err}`);
     }
   };
+  const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
 
   try {
-    const safeStr = (v) => (v === null || v === undefined ? "" : String(v));
     const toRelId = (v) => {
       if (Array.isArray(v)) return String(v[0] || "");
       if (v && typeof v === "object") return String(v.id || "");
@@ -648,7 +648,7 @@ onRecordDelete((e) => {
       action: "delete",
       status: "failed",
       reason: "hook_exception",
-      error: qdrantLogSafeStr(err),
+      error: safeStr(err),
       recordId: recordIdForLog,
       userId: userIdForLog,
       bookId: bookIdForLog,
