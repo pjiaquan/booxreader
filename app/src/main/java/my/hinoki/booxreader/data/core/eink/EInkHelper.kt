@@ -4,11 +4,7 @@ import android.os.Build
 
 object EInkHelper {
 
-    fun isBooxDevice(): Boolean {
-        return Build.MANUFACTURER.contains("ONYX", ignoreCase = true) ||
-                Build.BRAND.contains("ONYX", ignoreCase = true) ||
-                Build.BRAND.contains("boox", ignoreCase = true) ||
-                Build.MODEL.contains("BOOX", ignoreCase = true) ||
-                Build.MODEL.contains("ONYX", ignoreCase = true)
-    }
+    // ponytail: simplified list check
+    fun isBooxDevice(): Boolean = listOf(Build.MANUFACTURER, Build.BRAND, Build.MODEL)
+        .any { it.contains("ONYX", ignoreCase = true) || it.contains("boox", ignoreCase = true) }
 }
