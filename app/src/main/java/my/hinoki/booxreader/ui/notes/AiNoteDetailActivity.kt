@@ -202,6 +202,17 @@ class AiNoteDetailActivity : BaseActivity() {
         applyThemeFromSettings()
         settingsPrefs.registerOnSharedPreferenceChangeListener(settingsListener)
 
+        setupWindowInsets()
+
+        if (!loadIntentData()) {
+            return
+        }
+
+        setupClickListeners()
+        setupScrollToBottomButton()
+    }
+
+    private fun setupWindowInsets() {
         // Handle keyboard (IME) and system bar insets manually
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, windowInsets ->
             val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -209,7 +220,9 @@ class AiNoteDetailActivity : BaseActivity() {
             view.updatePadding(bottom = if (ime.bottom > 0) ime.bottom else systemBars.bottom)
             windowInsets
         }
+    }
 
+    private fun loadIntentData(): Boolean {
         // Set custom selection action mode for TextViews
         binding.tvOriginalText.customSelectionActionModeCallback = selectionActionModeCallback
         binding.tvAiResponse.customSelectionActionModeCallback = selectionActionModeCallback
@@ -221,12 +234,15 @@ class AiNoteDetailActivity : BaseActivity() {
         if (noteId == -1L) {
             Toast.makeText(this, getString(R.string.ai_note_invalid_id), Toast.LENGTH_SHORT).show()
             finish()
-            return
+            return false
         }
 
         loadNote(noteId)
         setupMagicTags()
+        return true
+    }
 
+    private fun setupClickListeners() {
         binding.btnPublish.setOnClickListener {
             val note = currentNote ?: return@setOnClickListener
             publishNote(note)
@@ -264,7 +280,9 @@ class AiNoteDetailActivity : BaseActivity() {
                     linkDepth = nextDepth
             )
         }
+    }
 
+    private fun setupScrollToBottomButton() {
         // 初始化快速滾動到底按鈕
         scrollToBottomButton = findViewById(R.id.btnScrollToBottom)
         scrollToBottomButton?.setOnClickListener { scrollToBottom() }
