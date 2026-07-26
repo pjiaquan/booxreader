@@ -70,8 +70,8 @@ class BooxReaderApp : Application() {
         // Upload any pending crash reports
         uploadPendingCrashReports()
 
-        // TODO: Implement PocketBase realtime sync (uses SSE instead of WebSocket)
-        // startRealtimeBookSync()
+        // Implement PocketBase realtime sync (uses SSE instead of WebSocket)
+        startRealtimeBookSync()
     }
 
     private fun initializeAiProfileSync() {
@@ -175,21 +175,48 @@ class BooxReaderApp : Application() {
         stopRealtimeBookSync()
     }
 
-    // TODO: Reimplement with PocketBase realtime (SSE-based)
+    private var realtimeBookSyncClient: my.hinoki.booxreader.data.remote.PocketBaseSseClient? = null
+
+    // Reimplemented with PocketBase realtime (SSE-based)
     fun startRealtimeBookSync() {
-        // Stub: PocketBase realtime sync not yet implemented
-        android.util.Log.d(
-                "BooxReaderApp",
-                "startRealtimeBookSync - STUB: Not implemented for PocketBase yet"
+        if (realtimeBookSyncClient != null) return
+
+        android.util.Log.d("BooxReaderApp", "startRealtimeBookSync - Starting realtime sync for books")
+
+        val syncRepo = my.hinoki.booxreader.data.repo.UserSyncRepository(applicationContext)
+        val baseUrl = my.hinoki.booxreader.BuildConfig.POCKETBASE_URL.trimEnd('/')
+
+        realtimeBookSyncClient = my.hinoki.booxreader.data.remote.PocketBaseSseClient(
+            client = okHttpClient,
+            tokenManager = tokenManager,
+            baseUrl = baseUrl,
+            collectionName = "books",
+            onMessage = { json ->
+                applicationScope.launch {
+                    try {
+                        val action = json.optString("action")
+                        val record = json.optJSONObject("record")
+                        if (action.isNotEmpty() && record != null) {
+                            android.util.Log.d("BooxReaderApp", "Realtime book sync action: $action")
+                            syncRepo.pullBooks()
+                            syncRepo.downloadPendingRemoteBooks()
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("BooxReaderApp", "Error in realtime book sync", e)
+                    }
+                }
+            },
+            onError = { e ->
+                android.util.Log.e("BooxReaderApp", "Realtime book sync error", e)
+            }
         )
+        realtimeBookSyncClient?.start()
     }
 
     fun stopRealtimeBookSync() {
-        // Stub: PocketBase realtime sync not yet implemented
-        android.util.Log.d(
-                "BooxReaderApp",
-                "stopRealtimeBookSync - STUB: Not implemented for PocketBase yet"
-        )
+        android.util.Log.d("BooxReaderApp", "stopRealtimeBookSync - Stopping realtime sync for books")
+        realtimeBookSyncClient?.stop()
+        realtimeBookSyncClient = null
     }
 
     private fun uploadPendingCrashReports() {

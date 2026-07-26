@@ -57,9 +57,9 @@ class RegisterActivity : BaseActivity() {
                                         state.message.contains("驗證", ignoreCase = true)
                         ) {
                             finish()
-                        } else {
-                            viewModel.resetState()
+                            return@collect
                         }
+                        viewModel.resetState()
                     }
                     else -> {
                         btnRegister.isEnabled = true
