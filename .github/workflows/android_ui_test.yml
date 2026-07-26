@@ -58,14 +58,9 @@ jobs:
             # errors (DocumentsUI, ConnectivityService, etc.) that appear on every emulator boot.
             adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime" | grep "my\.hinoki\.booxreader" > crash_log.txt || true
 
-            # Check for crash records
-            if [ -s crash_log.txt ]; then
-              echo "❌ App Crash / Fatal Exception Detected!"
-              cat crash_log.txt
-              exit 1
-            else
-              echo "✅ No BooxReader app crashes detected during UI Automator test."
-            fi
+            # Check for crash records — one-liner to avoid multi-line if/fi being
+            # split by /usr/bin/sh -c when the emulator runner resumes after a test crash
+            [ ! -s crash_log.txt ] && echo "✅ No BooxReader app crashes detected during UI Automator test." || { echo "❌ App Crash / Fatal Exception Detected!"; cat crash_log.txt; exit 1; }
 
       # 3. Upload Crash Logs
       - name: Upload Crash Logs
