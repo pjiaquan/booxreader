@@ -118,6 +118,12 @@
     <string name="reader_settings_page_animation">翻頁動畫</string>
     <string name="reader_settings_show_page_indicator">顯示頁碼</string>
     <string name="reader_settings_auto_check_updates">自動檢查更新</string>
+    <string name="reader_settings_cat_reading">閱讀與顯示</string>
+    <string name="reader_settings_cat_ai_cloud">AI 與雲端同步</string>
+    <string name="reader_settings_cat_daily">每日閱讀報告</string>
+    <string name="reader_settings_cat_bookmarks_export">書籤與資料匯出</string>
+    <string name="reader_settings_cat_system">應用程式偏好</string>
+    <string name="reader_settings_font_size">字型大小</string>
     <string name="reader_settings_daily_email_title">每日郵件摘要</string>
     <string name="reader_settings_daily_email_enable">啟用每日自動寄送</string>
     <string name="reader_settings_daily_email_time_label">寄送時間</string>

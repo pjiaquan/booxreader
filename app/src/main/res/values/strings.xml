@@ -133,6 +133,12 @@
     <string name="recent_book_completed">Completed</string>
     <string name="recent_book_more_actions">More actions</string>
     <string name="reader_settings_title">Reader Settings</string>
+    <string name="reader_settings_cat_reading">Reading &amp; Display</string>
+    <string name="reader_settings_cat_ai_cloud">AI &amp; Cloud Sync</string>
+    <string name="reader_settings_cat_daily">Daily Reading Digest</string>
+    <string name="reader_settings_cat_bookmarks_export">Bookmarks &amp; Export</string>
+    <string name="reader_settings_cat_system">App Preferences</string>
+    <string name="reader_settings_font_size">Font Size</string>
     <string name="reader_settings_tap_to_turn">Tap to turn page</string>
     <string name="reader_settings_swipe_to_turn">Swipe to turn page</string>
     <string name="reader_settings_page_animation">Page Animation</string>

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/settingsScroll"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:clipToPadding="false"
     android:fillViewport="true">
 
@@ -11,413 +12,536 @@
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
         android:orientation="vertical"
-        android:paddingStart="@dimen/spacing_xl"
-        android:paddingTop="@dimen/spacing_lg"
-        android:paddingEnd="@dimen/spacing_xl"
+        android:paddingStart="@dimen/spacing_lg"
+        android:paddingTop="@dimen/spacing_md"
+        android:paddingEnd="@dimen/spacing_lg"
         android:paddingBottom="@dimen/settings_content_bottom_spacing">
 
-        <LinearLayout
+        <!-- 1. Reading & Display Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_tap_to_turn"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchPageTap"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_swipe_to_turn"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchPageSwipe"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_page_animation"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchPageAnimation"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_show_page_indicator"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchPageIndicator"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_auto_check_updates"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchAutoCheckUpdates"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="@string/reader_settings_daily_email_title"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_daily_email_enable"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchDailySummaryEmail"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_marginBottom="@dimen/spacing_md"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?android:attr/listDivider"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="?attr/colorSurface">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/reader_settings_daily_email_time_label"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:text="@string/reader_settings_cat_reading"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <!-- Tap to turn -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_tap_to_turn"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchPageTap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <!-- Swipe to turn -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_swipe_to_turn"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchPageSwipe"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <!-- Page Animation -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_page_animation"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchPageAnimation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <!-- Show Page Indicator -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_show_page_indicator"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchPageIndicator"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <!-- Convert Chinese -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_convert_chinese"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchConvertChinese"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <!-- Text Size Slider -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_font_size"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <SeekBar
+                        android:id="@+id/seekBarTextSize"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="250"
+                        android:progress="90" />
+
+                    <TextView
+                        android:id="@+id/tvTextSizeValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/spacing_sm"
+                        android:text="140%"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 2. AI & Cloud Sync Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/spacing_md"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?android:attr/listDivider"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="?attr/colorSurface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_cat_ai_cloud"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:text="@string/reader_settings_ai_section_body"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/btnManageMagicTags"
+                    style="@style/Widget.MaterialComponents.Button"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:minHeight="@dimen/settings_button_height"
+                    android:text="@string/action_manage_magic_tags"
+                    android:textAllCaps="false" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_server_url"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etServerUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:hint="@string/reader_settings_server_url_hint"
+                    android:inputType="textUri"
                     android:textSize="14sp" />
 
                 <TextView
-                    android:id="@+id/tvDailySummaryTimeValue"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/spacing_xs"
-                    android:text="21:00"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_api_key"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etApiKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/reader_settings_api_key_hint"
+                    android:inputType="textPassword"
+                    android:textSize="14sp" />
+
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <Button
-                android:id="@+id/btnDailySummaryPickTime"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:minHeight="@dimen/settings_button_height"
-                android:text="@string/reader_settings_daily_email_pick_time"
-                android:textAllCaps="false" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_xs"
-            android:text="@string/reader_settings_daily_email_to_label"
-            android:textSize="14sp" />
-
-        <EditText
-            android:id="@+id/etDailySummaryEmailTo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:hint="@string/reader_settings_daily_email_to_hint"
-            android:inputType="textEmailAddress"
-            android:textSize="14sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="@string/reader_settings_bookmarks"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnSettingsAddBookmark"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:minHeight="@dimen/settings_button_height"
-            android:text="@string/reader_settings_add_bookmark"
-            android:textAllCaps="false" />
-
-        <Button
-            android:id="@+id/btnSettingsShowBookmarks"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:minHeight="@dimen/settings_button_height"
-            android:text="@string/reader_settings_view_bookmark"
-            android:textAllCaps="false" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:background="?android:attr/listDivider" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="@string/reader_settings_server_url"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/etServerUrl"
+        <!-- 3. Daily Digest Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/spacing_md"
-            android:hint="@string/reader_settings_server_url_hint"
-            android:inputType="textUri"
-            android:textSize="14sp" />
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?android:attr/listDivider"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="?attr/colorSurface">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="@string/reader_settings_api_key"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/etApiKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/reader_settings_api_key_hint"
-            android:inputType="textPassword"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnManageMagicTags"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_md"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:minHeight="@dimen/settings_button_height"
-            android:text="@string/action_manage_magic_tags"
-            android:textAllCaps="false" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:background="?android:attr/listDivider" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="文字大小"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_item_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/reader_settings_convert_chinese"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
 
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/switchConvertChinese"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:text="@string/reader_settings_cat_daily"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
 
-            <SeekBar
-                android:id="@+id/seekBarTextSize"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="250"
-                android:progress="90" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_daily_email_enable"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
 
-            <TextView
-                android:id="@+id/tvTextSizeValue"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/spacing_sm"
-                android:text="140%"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchDailySummaryEmail"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:background="?android:attr/listDivider" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="@string/reader_settings_export_section_title"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
-        <CheckBox
-            android:id="@+id/cbCustomExportUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_xs"
-            android:text="@string/reader_settings_custom_export_checkbox" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/reader_settings_daily_email_time_label"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:textSize="13sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_xs"
-            android:text="@string/reader_settings_custom_export_label"
-            android:textSize="14sp" />
+                        <TextView
+                            android:id="@+id/tvDailySummaryTimeValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/spacing_xs"
+                            android:text="21:00"
+                            android:textColor="?android:attr/textColorPrimary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
-        <EditText
-            android:id="@+id/etCustomExportUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:enabled="false"
-            android:hint="@string/reader_settings_custom_export_hint"
-            android:inputType="textUri"
-            android:textSize="14sp" />
+                    <Button
+                        android:id="@+id/btnDailySummaryPickTime"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/settings_button_height"
+                        android:text="@string/reader_settings_daily_email_pick_time"
+                        android:textAllCaps="false" />
+                </LinearLayout>
 
-        <CheckBox
-            android:id="@+id/cbLocalExport"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_daily_email_to_label"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etDailySummaryEmailTo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/reader_settings_daily_email_to_hint"
+                    android:inputType="textEmailAddress"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 4. Bookmarks & Export Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/spacing_md"
-            android:text="@string/reader_settings_local_export_checkbox" />
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?android:attr/listDivider"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="?attr/colorSurface">
 
-        <Button
-            android:id="@+id/btnTestExportEndpoint"
-            style="@style/Widget.MaterialComponents.Button"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:text="@string/reader_settings_cat_bookmarks_export"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnSettingsAddBookmark"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="@dimen/settings_button_height"
+                        android:text="@string/reader_settings_add_bookmark"
+                        android:textAllCaps="false" />
+
+                    <Space
+                        android:layout_width="@dimen/spacing_sm"
+                        android:layout_height="wrap_content" />
+
+                    <Button
+                        android:id="@+id/btnSettingsShowBookmarks"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="@dimen/settings_button_height"
+                        android:text="@string/reader_settings_view_bookmark"
+                        android:textAllCaps="false" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:background="?android:attr/listDivider" />
+
+                <CheckBox
+                    android:id="@+id/cbCustomExportUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_custom_export_checkbox"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_xs"
+                    android:text="@string/reader_settings_custom_export_label"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/etCustomExportUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:enabled="false"
+                    android:hint="@string/reader_settings_custom_export_hint"
+                    android:inputType="textUri"
+                    android:textSize="14sp" />
+
+                <CheckBox
+                    android:id="@+id/cbLocalExport"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:text="@string/reader_settings_local_export_checkbox"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="15sp" />
+
+                <Button
+                    android:id="@+id/btnTestExportEndpoint"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="@dimen/settings_button_height"
+                    android:text="@string/reader_settings_test_export"
+                    android:textAllCaps="false" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 5. App Preferences Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:minHeight="@dimen/settings_button_height"
-            android:text="@string/reader_settings_test_export"
-            android:textAllCaps="false" />
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?android:attr/listDivider"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="?attr/colorSurface">
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginBottom="@dimen/settings_section_spacing"
-            android:background="?android:attr/listDivider" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="@dimen/spacing_lg">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_sm"
-            android:text="@string/reader_settings_ai_section_title"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:text="@string/reader_settings_cat_system"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/reader_settings_ai_section_body"
-            android:textColor="?android:attr/textColorSecondary"
-            android:textSize="14sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_auto_check_updates"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchAutoCheckUpdates"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </ScrollView>
