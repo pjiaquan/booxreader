@@ -469,61 +469,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         // 1. Draw Ask AI focus range highlight (jump target).
         val localFocus = getLocalRange(focusSelectionStart, focusSelectionEnd)
         if (localFocus != null) {
-            val start = localFocus.first
-            val end = localFocus.second
-            val startLine = l.getLineForOffset(start)
-            val endLine = l.getLineForOffset(end)
-            focusSelectionPath.reset()
-            for (line in startLine..endLine) {
-                val lineStart = if (line == startLine) start else l.getLineStart(line)
-                val lineEnd = if (line == endLine) end else l.getLineEnd(line)
-
-                val left =
-                        (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
-                                selectionPaddingHorizontal
-                val right =
-                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd)
-                        else l.width.toFloat()) + selectionPaddingHorizontal
-
-                val baseline = l.getLineBaseline(line).toFloat()
-                val fm = textPaint.fontMetrics
-                val top = baseline + fm.ascent - selectionPaddingVertical
-                val bottom = baseline + fm.descent + selectionPaddingVertical
-
-                focusSelectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
-            }
-            canvas.drawPath(focusSelectionPath, focusSelectionPaint)
+            drawHighlightPath(canvas, l, localFocus.first, localFocus.second, focusSelectionPath, focusSelectionPaint)
         }
 
         // 2. Draw Selection Background
         val localSelection = getLocalSelectionRange()
         if (localSelection != null) {
-            val start = localSelection.first
-            val end = localSelection.second
-
-            val startLine = l.getLineForOffset(start)
-            val endLine = l.getLineForOffset(end)
-            selectionPath.reset()
-            for (line in startLine..endLine) {
-                val lineStart = if (line == startLine) start else l.getLineStart(line)
-                val lineEnd = if (line == endLine) end else l.getLineEnd(line)
-
-                val left =
-                        (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
-                                selectionPaddingHorizontal
-                val right =
-                        (if (line == endLine) l.getPrimaryHorizontal(lineEnd)
-                        else l.width.toFloat()) + selectionPaddingHorizontal
-
-                // Use FontMetrics for tight vertical bounds (ignores line spacing multiplier)
-                val baseline = l.getLineBaseline(line).toFloat()
-                val fm = textPaint.fontMetrics
-                val top = baseline + fm.ascent - selectionPaddingVertical
-                val bottom = baseline + fm.descent + selectionPaddingVertical
-
-                selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
-            }
-            canvas.drawPath(selectionPath, selectionPaint)
+            drawHighlightPath(canvas, l, localSelection.first, localSelection.second, selectionPath, selectionPaint)
 
             // 3. Draw Handles (Premium Pill Style)
             drawHandles(canvas)
@@ -535,75 +487,91 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
         // 5. Draw Magnifier Overlay
         if (isMagnifying && (selectionStart != -1 || selectionEnd != -1)) {
-            val focusOffset = getActiveHandleLocalOffset()
-            if (focusOffset == null) {
-                return
-            }
-            val line = l.getLineForOffset(focusOffset)
-            val focusX = l.getPrimaryHorizontal(focusOffset) + paddingLeft
-            val focusY =
-                    l.getLineBottom(line).toFloat() -
-                            (l.getLineBottom(line) - l.getLineTop(line)) / 2f + paddingTop
-
-            val magnifierX = magnifierPos.x
-            val magnifierY = magnifierPos.y - magnifierRadius - 100f // Offset above finger
-
-            val path =
-                    Path().apply {
-                        addCircle(magnifierX, magnifierY, magnifierRadius, Path.Direction.CCW)
-                    }
-            canvas.save()
-            canvas.clipPath(path)
-
-            // Draw background for magnifier
-            canvas.drawColor(currentBackgroundColor)
-
-            // Scale and Translate to focus area
-            canvas.translate(magnifierX, magnifierY)
-            canvas.scale(magnifierScale, magnifierScale)
-            canvas.translate(-focusX, -focusY)
-
-            // Re-draw selection and text into magnifier
-            canvas.save()
-            canvas.translate(paddingLeft.toFloat(), paddingTop.toFloat())
-
-            val localMagSelection = getLocalSelectionRange()
-            if (localMagSelection != null) {
-                val start = localMagSelection.first
-                val end = localMagSelection.second
-                val startLine = l.getLineForOffset(start)
-                val endLine = l.getLineForOffset(end)
-
-                selectionPath.reset()
-                for (lineIdx in startLine..endLine) {
-                    val lineStart = if (lineIdx == startLine) start else l.getLineStart(lineIdx)
-                    val lineEnd = if (lineIdx == endLine) end else l.getLineEnd(lineIdx)
-                    val left =
-                            (if (lineIdx == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
-                                    selectionPaddingHorizontal
-                    val right =
-                            (if (lineIdx == endLine) l.getPrimaryHorizontal(lineEnd)
-                            else l.width.toFloat()) + selectionPaddingHorizontal
-
-                    // Use FontMetrics in magnifier too
-                    val baseline = l.getLineBaseline(lineIdx).toFloat()
-                    val fm = textPaint.fontMetrics
-                    val top = baseline + fm.ascent - selectionPaddingVertical
-                    val bottom = baseline + fm.descent + selectionPaddingVertical
-
-                    selectionPath.addRect(left, top, right, bottom, Path.Direction.CW)
-                }
-                canvas.drawPath(selectionPath, selectionPaint)
-            }
-
-            l.draw(canvas)
-            canvas.restore()
-
-            canvas.restore()
-
-            // Draw magnifier border
-            canvas.drawCircle(magnifierX, magnifierY, magnifierRadius, magnifierPaint)
+            drawMagnifier(canvas, l)
         }
+    }
+
+    private fun drawHighlightPath(
+            canvas: Canvas,
+            l: Layout,
+            start: Int,
+            end: Int,
+            path: Path,
+            paint: Paint
+    ) {
+        val startLine = l.getLineForOffset(start)
+        val endLine = l.getLineForOffset(end)
+        path.reset()
+        for (line in startLine..endLine) {
+            val lineStart = if (line == startLine) start else l.getLineStart(line)
+            val lineEnd = if (line == endLine) end else l.getLineEnd(line)
+
+            val left =
+                    (if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f) -
+                            selectionPaddingHorizontal
+            val right =
+                    (if (line == endLine) l.getPrimaryHorizontal(lineEnd)
+                    else l.width.toFloat()) + selectionPaddingHorizontal
+
+            val baseline = l.getLineBaseline(line).toFloat()
+            val fm = textPaint.fontMetrics
+            val top = baseline + fm.ascent - selectionPaddingVertical
+            val bottom = baseline + fm.descent + selectionPaddingVertical
+
+            path.addRect(left, top, right, bottom, Path.Direction.CW)
+        }
+        canvas.drawPath(path, paint)
+    }
+
+    private fun drawMagnifier(canvas: Canvas, l: Layout) {
+        val focusOffset = getActiveHandleLocalOffset() ?: return
+        val line = l.getLineForOffset(focusOffset)
+        val focusX = l.getPrimaryHorizontal(focusOffset) + paddingLeft
+        val focusY =
+                l.getLineBottom(line).toFloat() -
+                        (l.getLineBottom(line) - l.getLineTop(line)) / 2f + paddingTop
+
+        val magnifierX = magnifierPos.x
+        val magnifierY = magnifierPos.y - magnifierRadius - 100f // Offset above finger
+
+        val path =
+                Path().apply {
+                    addCircle(magnifierX, magnifierY, magnifierRadius, Path.Direction.CCW)
+                }
+        canvas.save()
+        canvas.clipPath(path)
+
+        // Draw background for magnifier
+        canvas.drawColor(currentBackgroundColor)
+
+        // Scale and Translate to focus area
+        canvas.translate(magnifierX, magnifierY)
+        canvas.scale(magnifierScale, magnifierScale)
+        canvas.translate(-focusX, -focusY)
+
+        // Re-draw selection and text into magnifier
+        canvas.save()
+        canvas.translate(paddingLeft.toFloat(), paddingTop.toFloat())
+
+        val localMagSelection = getLocalSelectionRange()
+        if (localMagSelection != null) {
+            drawHighlightPath(
+                canvas,
+                l,
+                localMagSelection.first,
+                localMagSelection.second,
+                selectionPath,
+                selectionPaint
+            )
+        }
+
+        l.draw(canvas)
+        canvas.restore()
+
+        canvas.restore()
+
+        // Draw magnifier border
+        canvas.drawCircle(magnifierX, magnifierY, magnifierRadius, magnifierPaint)
     }
 
     private class FootnoteSuperscriptSpan(private val shiftMultiplier: Float) :

@@ -2,6 +2,13 @@ name: '▶️ Gemini Invoke'
 
 on:
   workflow_call:
+    secrets:
+      GEMINI_API_KEY:
+        required: false
+      GOOGLE_API_KEY:
+        required: false
+      APP_PRIVATE_KEY:
+        required: false
     inputs:
       additional_context:
         type: 'string'
