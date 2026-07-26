@@ -79,13 +79,6 @@ class ReaderSettingsActivity : BaseActivity() {
             val disabledTextColor: Int
     )
 
-    private data class MagicTagRow(
-            val id: String?,
-            val titleInput: EditText,
-            val contentInput: EditText,
-            val container: View
-    )
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_reader_settings)
@@ -1008,129 +1001,16 @@ class ReaderSettingsActivity : BaseActivity() {
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
         val settings = ReaderSettings.fromPrefs(prefs)
 
-        val rows = mutableListOf<MagicTagRow>()
-        val contentLayout =
-                LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(32, 24, 32, 16)
-                }
-
-        val btnAdd =
-                Button(this).apply { text = getString(R.string.action_manage_magic_tags) + " +" }
-        contentLayout.addView(btnAdd)
-
-        val scrollView = android.widget.ScrollView(this).apply { addView(contentLayout) }
-
-        fun addRow(tag: MagicTag?) {
-            val rowContainer =
-                    LinearLayout(this).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(0, 16, 0, 16)
-                    }
-
-            val titleInput =
-                    EditText(this).apply {
-                        hint = "Tag Name"
-                        setText(tag?.label.orEmpty())
-                    }
-            val contentInput =
-                    EditText(this).apply {
-                        hint = "Tag Content"
-                        setText(tag?.content?.ifBlank { tag.label }.orEmpty())
-                        minLines = 2
-                    }
-            val btnDelete = Button(this).apply { text = "Delete" }
-
-            rowContainer.addView(titleInput)
-            rowContainer.addView(contentInput)
-            rowContainer.addView(btnDelete)
-
-            val row = MagicTagRow(tag?.id, titleInput, contentInput, rowContainer)
-            rows.add(row)
-            contentLayout.addView(rowContainer)
-
-            btnDelete.setOnClickListener {
-                rows.remove(row)
-                contentLayout.removeView(rowContainer)
-            }
+        val dialog = MagicTagManagerDialog(this, settings.magicTags) { updatedTags ->
+            val updatedSettings =
+                settings.copy(
+                    magicTags = updatedTags,
+                    updatedAt = System.currentTimeMillis()
+                )
+            updatedSettings.saveTo(prefs)
+            pushSettingsToCloud()
+            setResult(RESULT_OK)
         }
-
-        settings.magicTags.forEach { addRow(it) }
-
-        btnAdd.setOnClickListener { addRow(null) }
-
-        val dialog =
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle(getString(R.string.action_manage_magic_tags))
-                        .setView(scrollView)
-                        .setPositiveButton(android.R.string.ok, null)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
-                    ?.setOnClickListener {
-                        Log.d("MagicTags", "Save clicked; rows=${rows.size}")
-                        val seen = mutableSetOf<String>()
-                        val updatedTags =
-                                rows.mapIndexedNotNull { index, row ->
-                                    val title = row.titleInput.text.toString().trim()
-                                    val content =
-                                            row.contentInput.text.toString().trim().ifBlank {
-                                                title
-                                            }
-                                    if (title.isBlank()) {
-                                        if (content.isNotBlank()) {
-                                            Toast.makeText(
-                                                            this,
-                                                            getString(
-                                                                    R.string
-                                                                            .magic_tag_invalid_empty_name
-                                                            ),
-                                                            Toast.LENGTH_SHORT
-                                                    )
-                                                    .show()
-                                            return@setOnClickListener
-                                        }
-                                        return@mapIndexedNotNull null
-                                    }
-                                    if (!seen.add(title)) {
-                                        Toast.makeText(
-                                                        this,
-                                                        getString(
-                                                                R.string.magic_tag_invalid_duplicate
-                                                        ),
-                                                        Toast.LENGTH_SHORT
-                                                )
-                                                .show()
-                                        return@setOnClickListener
-                                    }
-                                    val id = row.id ?: "custom-${System.currentTimeMillis()}-$index"
-                                    MagicTag(
-                                            id = id,
-                                            label = title,
-                                            content = content,
-                                            description = content
-                                    )
-                                }
-                        val updatedSettings =
-                                settings.copy(
-                                        magicTags = updatedTags,
-                                        updatedAt = System.currentTimeMillis()
-                                )
-                        updatedSettings.saveTo(prefs)
-                        pushSettingsToCloud()
-                        setResult(RESULT_OK)
-                        Toast.makeText(
-                                        this,
-                                        getString(R.string.action_manage_magic_tags) + " OK",
-                                        Toast.LENGTH_SHORT
-                                )
-                                .show()
-                        dialog.dismiss()
-                    }
-        }
-
         dialog.show()
     }
 }
