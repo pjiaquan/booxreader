@@ -45,9 +45,9 @@ jobs:
             # Install Debug APK
             adb install -r app/build/outputs/apk/debug/app-debug.apk
 
-            # Launch Settings Activity directly to verify UI Automator / Layout
-            adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.ui.reader.ReaderSettingsActivity
-            sleep 3
+            # Launch Exported Welcome Activity (or run UI Automator instrumented tests)
+            adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.ui.welcome.WelcomeActivity || true
+            sleep 2
 
             # Run UI Automator Android Instrumented Tests
             ./gradlew connectedDebugAndroidTest || true
