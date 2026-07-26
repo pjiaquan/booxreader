@@ -20,6 +20,14 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.sse.EventSource
+import okhttp3.sse.EventSourceListener
+import okhttp3.sse.EventSources
+import org.json.JSONObject
 
 class BooxReaderApp : Application() {
 
@@ -34,6 +42,7 @@ class BooxReaderApp : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
     private var periodicSyncRunnable: Runnable = Runnable {}
+    private var realtimeEventSource: EventSource? = null
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(my.hinoki.booxreader.ui.common.LocaleHelper.onAttach(base))
@@ -72,6 +81,7 @@ class BooxReaderApp : Application() {
 
         // Upload any pending crash reports
         uploadPendingCrashReports()
+
 
 
         startRealtimeBookSync()
@@ -177,7 +187,6 @@ class BooxReaderApp : Application() {
         periodicSyncHandler = null
         stopRealtimeBookSync()
     }
-
 
     private var realtimeBookSyncClient: my.hinoki.booxreader.data.remote.PocketBaseSseClient? = null
 
