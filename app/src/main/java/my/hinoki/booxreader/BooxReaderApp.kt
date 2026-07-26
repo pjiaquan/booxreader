@@ -13,6 +13,7 @@ import my.hinoki.booxreader.data.core.CrashReportHandler
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
+import my.hinoki.booxreader.data.remote.PocketBaseRealtimeClient
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -27,6 +28,8 @@ class BooxReaderApp : Application() {
 
     lateinit var okHttpClient: OkHttpClient
         private set
+
+    private var realtimeClient: PocketBaseRealtimeClient? = null
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
@@ -70,8 +73,7 @@ class BooxReaderApp : Application() {
         // Upload any pending crash reports
         uploadPendingCrashReports()
 
-        // TODO: Implement PocketBase realtime sync (uses SSE instead of WebSocket)
-        // startRealtimeBookSync()
+        startRealtimeBookSync()
     }
 
     private fun initializeAiProfileSync() {
@@ -175,21 +177,46 @@ class BooxReaderApp : Application() {
         stopRealtimeBookSync()
     }
 
-    // TODO: Reimplement with PocketBase realtime (SSE-based)
     fun startRealtimeBookSync() {
-        // Stub: PocketBase realtime sync not yet implemented
-        android.util.Log.d(
-                "BooxReaderApp",
-                "startRealtimeBookSync - STUB: Not implemented for PocketBase yet"
-        )
+        if (tokenManager.getAccessToken() == null) {
+            android.util.Log.d("BooxReaderApp", "startRealtimeBookSync: Not logged in, skipping.")
+            return
+        }
+
+        if (realtimeClient == null) {
+            val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
+            realtimeClient = PocketBaseRealtimeClient(
+                pocketBaseUrl = pocketBaseUrl,
+                tokenManager = tokenManager,
+                client = okHttpClient,
+                coroutineScope = applicationScope
+            ).apply {
+                onBookChanged = {
+                    applicationScope.launch {
+                        try {
+                            val syncRepo = UserSyncRepository(applicationContext)
+                            syncRepo.pullBooks()
+                        } catch (e: Exception) {
+                            ErrorReporter.report(
+                                applicationContext,
+                                "BooxReaderApp.realtimeBookSync",
+                                "Failed to pull books on realtime event",
+                                e
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        realtimeClient?.start()
+        android.util.Log.d("BooxReaderApp", "startRealtimeBookSync: Started.")
     }
 
     fun stopRealtimeBookSync() {
-        // Stub: PocketBase realtime sync not yet implemented
-        android.util.Log.d(
-                "BooxReaderApp",
-                "stopRealtimeBookSync - STUB: Not implemented for PocketBase yet"
-        )
+        realtimeClient?.stop()
+        realtimeClient = null
+        android.util.Log.d("BooxReaderApp", "stopRealtimeBookSync: Stopped.")
     }
 
     private fun uploadPendingCrashReports() {
