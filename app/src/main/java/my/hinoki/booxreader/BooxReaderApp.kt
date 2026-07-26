@@ -13,6 +13,7 @@ import my.hinoki.booxreader.data.core.CrashReportHandler
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
+import my.hinoki.booxreader.data.remote.PocketBaseRealtimeClient
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -35,6 +36,8 @@ class BooxReaderApp : Application() {
 
     lateinit var okHttpClient: OkHttpClient
         private set
+
+    private var realtimeClient: PocketBaseRealtimeClient? = null
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
@@ -79,7 +82,8 @@ class BooxReaderApp : Application() {
         // Upload any pending crash reports
         uploadPendingCrashReports()
 
-        // Start realtime sync (uses SSE)
+
+
         startRealtimeBookSync()
     }
 
@@ -184,93 +188,49 @@ class BooxReaderApp : Application() {
         stopRealtimeBookSync()
     }
 
+    private var realtimeBookSyncClient: my.hinoki.booxreader.data.remote.PocketBaseSseClient? = null
+
+    // Reimplemented with PocketBase realtime (SSE-based)
     fun startRealtimeBookSync() {
-        stopRealtimeBookSync()
+        if (realtimeBookSyncClient != null) return
 
-        if (tokenManager.getAccessToken() == null) {
-            android.util.Log.d("BooxReaderApp", "startRealtimeBookSync: Not logged in")
-            return
-        }
+        android.util.Log.d("BooxReaderApp", "startRealtimeBookSync - Starting realtime sync for books")
 
-        val baseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
-        val request = Request.Builder()
-            .url("$baseUrl/api/realtime")
-            .build()
+        val syncRepo = my.hinoki.booxreader.data.repo.UserSyncRepository(applicationContext)
+        val baseUrl = my.hinoki.booxreader.BuildConfig.POCKETBASE_URL.trimEnd('/')
 
-        val factory = EventSources.createFactory(okHttpClient)
-        realtimeEventSource = factory.newEventSource(request, object : EventSourceListener() {
-            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                android.util.Log.d("BooxReaderApp", "Realtime event: type=$type data=$data")
-                if (type == "PB_CONNECT") {
+        realtimeBookSyncClient = my.hinoki.booxreader.data.remote.PocketBaseSseClient(
+            client = okHttpClient,
+            tokenManager = tokenManager,
+            baseUrl = baseUrl,
+            collectionName = "books",
+            onMessage = { json ->
+                applicationScope.launch {
                     try {
-                        val json = JSONObject(data)
-                        val clientId = json.optString("clientId")
-                        if (clientId.isNotEmpty()) {
-                            // Subscribe to books and progress
-                            val payload = JSONObject().apply {
-                                put("clientId", clientId)
-                                put("subscriptions", org.json.JSONArray().apply {
-                                    put("books")
-                                    put("progress")
-                                })
-                            }
-
-                            val postRequest = Request.Builder()
-                                .url("$baseUrl/api/realtime")
-                                .post(payload.toString().toRequestBody("application/json".toMediaType()))
-                                .build()
-
-                            // Make the POST request to set subscriptions
-                            applicationScope.launch(Dispatchers.IO) {
-                                try {
-                                    okHttpClient.newCall(postRequest).execute().use { response ->
-                                        if (!response.isSuccessful) {
-                                            android.util.Log.e("BooxReaderApp", "Failed to set subscriptions: ${response.code}")
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("BooxReaderApp", "Error setting subscriptions", e)
-                                }
-                            }
+                        val action = json.optString("action")
+                        val record = json.optJSONObject("record")
+                        if (action.isNotEmpty() && record != null) {
+                            android.util.Log.d("BooxReaderApp", "Realtime book sync action: $action")
+                            syncRepo.pullBooks()
+                            syncRepo.downloadPendingRemoteBooks()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("BooxReaderApp", "Failed to parse PB_CONNECT", e)
-                    }
-                } else if (!type.isNullOrEmpty() && type != "PB_CONNECT") {
-                    // Trigger sync based on collection update
-                    applicationScope.launch(Dispatchers.IO) {
-                        try {
-                            val syncRepo = UserSyncRepository(applicationContext)
-                            when (type) {
-                                "books" -> syncRepo.pullBooks()
-                                "progress" -> syncRepo.pullAllProgress()
-                                else -> {
-                                    syncRepo.pullBooks()
-                                    syncRepo.pullAllProgress()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("BooxReaderApp", "Error handling realtime event", e)
-                        }
+                        android.util.Log.e("BooxReaderApp", "Error in realtime book sync", e)
                     }
                 }
+            },
+            onError = { e ->
+                android.util.Log.e("BooxReaderApp", "Realtime book sync error", e)
             }
-
-            override fun onClosed(eventSource: EventSource) {
-                android.util.Log.d("BooxReaderApp", "Realtime connection closed")
-            }
-
-            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                android.util.Log.e("BooxReaderApp", "Realtime connection failed", t)
-                // Optional: add retry logic if needed
-            }
-        })
+        )
+        realtimeBookSyncClient?.start()
     }
 
     fun stopRealtimeBookSync() {
-        realtimeEventSource?.cancel()
-        realtimeEventSource = null
-        android.util.Log.d("BooxReaderApp", "Realtime connection stopped")
+        android.util.Log.d("BooxReaderApp", "stopRealtimeBookSync - Stopping realtime sync for books")
+        realtimeBookSyncClient?.stop()
+        realtimeBookSyncClient = null
+
     }
 
     private fun uploadPendingCrashReports() {

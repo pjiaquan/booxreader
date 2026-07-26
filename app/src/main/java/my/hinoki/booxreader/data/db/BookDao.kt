@@ -43,6 +43,9 @@ interface BookDao {
     @Query("DELETE FROM books WHERE bookId = :bookId")
     suspend fun deleteById(bookId: String)
 
+    @Query("DELETE FROM books WHERE bookId IN (:bookIds)")
+    suspend fun deleteByIds(bookIds: List<String>)
+
     @Query("DELETE FROM books")
     suspend fun deleteAll()
 
