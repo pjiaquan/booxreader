@@ -1065,12 +1065,8 @@ class AiNoteDetailActivity : BaseActivity() {
                     showRemainingCreditsToast()
                     binding.etFollowUp.setText("")
                 } else {
-                    Toast.makeText(
-                                    this@AiNoteDetailActivity,
-                                    getString(R.string.ai_note_follow_up_failed),
-                                    Toast.LENGTH_SHORT
-                            )
-                            .show()
+                    val errorInfo = repository.lastStreamingError ?: my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, null)
+                    my.hinoki.booxreader.data.remote.StreamingErrorHandler.showErrorDialog(this@AiNoteDetailActivity, errorInfo)
                 }
             } finally {
                 binding.btnFollowUp.isEnabled = true
@@ -1171,12 +1167,8 @@ class AiNoteDetailActivity : BaseActivity() {
                 triggerRelatedNotesLookup(updated, force = true)
                 showRemainingCreditsToast()
             } else {
-                Toast.makeText(
-                                this@AiNoteDetailActivity,
-                                getString(R.string.ai_note_streaming_failed),
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
+                val errorInfo = repository.lastStreamingError ?: my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, null)
+                my.hinoki.booxreader.data.remote.StreamingErrorHandler.showErrorDialog(this@AiNoteDetailActivity, errorInfo)
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             }

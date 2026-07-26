@@ -1,0 +1,90 @@
+package my.hinoki.booxreader.data.remote
+
+import android.content.Context
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.json.JSONObject
+
+data class StreamingErrorInfo(
+    val statusCode: Int,
+    val rawMessage: String,
+    val title: String,
+    val reason: String,
+    val resolution: String
+)
+
+object StreamingErrorHandler {
+
+    fun parseError(statusCode: Int, rawResponseBody: String?): StreamingErrorInfo {
+        val bodyStr = rawResponseBody.orEmpty()
+        var messageFromApi = ""
+
+        runCatching {
+            val json = JSONObject(bodyStr)
+            val errObj = json.optJSONObject("error")
+            if (errObj != null) {
+                messageFromApi = errObj.optString("message").ifBlank { errObj.optString("detail") }
+            } else {
+                messageFromApi = json.optString("message")
+            }
+        }
+
+        return when {
+            statusCode == 401 || statusCode == 403 -> StreamingErrorInfo(
+                statusCode = statusCode,
+                rawMessage = messageFromApi.ifBlank { "Unauthorized / Invalid API Key" },
+                title = "🔑 API Key 認證失敗 ($statusCode)",
+                reason = "API Key 無效、已過期或缺乏調用該 AI 模型的權限。",
+                resolution = "解法：請前往「設定 -> AI 設定檔」，檢查並更新您的 API Key。"
+            )
+            statusCode == 404 -> StreamingErrorInfo(
+                statusCode = statusCode,
+                rawMessage = messageFromApi.ifBlank { "Model or Endpoint Not Found" },
+                title = "🤖 模型或網址錯誤 (404)",
+                reason = "找不到所選的模型名稱或 Base URL 網址不正確。",
+                resolution = "解法：請在「AI 設定檔」點擊「取得最新模型」重新選擇模型，或檢查 Base URL 設定。"
+            )
+            statusCode == 429 -> StreamingErrorInfo(
+                statusCode = statusCode,
+                rawMessage = messageFromApi.ifBlank { "Rate limit / Quota exceeded" },
+                title = "⏱️ 超過請求頻率或額度限制 (429)",
+                reason = "您的 API 金鑰請求次數已達上限，或帳號額度已用盡。",
+                resolution = "解法：請稍等幾分鐘後再試，或在「AI 設定檔」切換至其他模型 Profile。"
+            )
+            statusCode in 500..599 -> StreamingErrorInfo(
+                statusCode = statusCode,
+                rawMessage = messageFromApi.ifBlank { "Server Error" },
+                title = "☁️ AI 伺服器內部錯誤 ($statusCode)",
+                reason = "AI 服務商（如 Google/OpenAI/Groq）伺服器目前忙碌或維護中。",
+                resolution = "解法：請點擊重試，或在「AI 設定檔」取消勾選「Streaming 串流」改用一般模式。"
+            )
+            else -> StreamingErrorInfo(
+                statusCode = statusCode,
+                rawMessage = messageFromApi.ifBlank { bodyStr.take(150) },
+                title = "⚠️ 串流回應失敗 ${if (statusCode > 0) "($statusCode)" else ""}",
+                reason = if (bodyStr.contains("timeout", ignoreCase = true) || statusCode == 0) {
+                    "網路連線逾時，或伺服器回應未符合 SSE 串流格式。"
+                } else {
+                    "無法正確完成 AI 串流對話。"
+                },
+                resolution = "解法：\n1. 檢查網路連線狀態\n2. 前往「AI 設定檔」取消勾選「使用 Streaming 串流」改用標準對話模式。"
+            )
+        }
+    }
+
+    fun showErrorDialog(context: Context, errorInfo: StreamingErrorInfo) {
+        val detailText = StringBuilder()
+            .append("【錯誤原因】\n").append(errorInfo.reason).append("\n\n")
+            .append("【如何處理】\n").append(errorInfo.resolution)
+            .apply {
+                if (errorInfo.rawMessage.isNotBlank()) {
+                    append("\n\n【詳細訊息】\n").append(errorInfo.rawMessage)
+                }
+            }.toString()
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(errorInfo.title)
+            .setMessage(detailText)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+}

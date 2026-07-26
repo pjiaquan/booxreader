@@ -49,6 +49,8 @@ class AiNoteRepository(
     private val dao = AppDatabase.get(context).aiNoteDao()
     private val bookDao = AppDatabase.get(context).bookDao()
 
+    var lastStreamingError: my.hinoki.booxreader.data.remote.StreamingErrorInfo? = null
+
     private fun prefs() = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
 
     fun isStreamingEnabled(): Boolean {
@@ -1830,6 +1832,7 @@ class AiNoteRepository(
 
                     val request = requestBuilder.build()
 
+                    lastStreamingError = null
                     client.newBuilder()
                             .connectTimeout(15, TimeUnit.SECONDS)
                             .readTimeout(0, TimeUnit.MILLISECONDS) // keep stream open
@@ -1840,6 +1843,7 @@ class AiNoteRepository(
                             .use { response ->
                                 if (!response.isSuccessful) {
                                     val errorBody = response.body?.string()
+                                    lastStreamingError = my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(response.code, errorBody)
                                     Log.e(
                                             TAG,
                                             "Streaming Request Failed: Code=${response.code}, Body=$errorBody"
@@ -1878,7 +1882,8 @@ class AiNoteRepository(
                                 Pair(serverText ?: fallbackText, content)
                             }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    lastStreamingError = my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, e.message)
+                    Log.e(TAG, "Streaming SSE failed: ${e.message}", e)
                     null
                 }
             }
