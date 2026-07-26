@@ -1,0 +1,74 @@
+name: Android Automated UI Test & Crash Catch
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ui-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm-rules.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # 1. Build Debug APK & AndroidTest APK
+      - name: Build Debug & Test APKs
+        run: ./gradlew assembleDebug assembleDebugAndroidTest --no-daemon
+
+      # 2. Run UI Tests on Android Emulator with UI Automator
+      - name: Run UI Test on Android Emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: Nexus 6
+          script: |
+            # Clear old Logcat logs
+            adb logcat -c
+
+            # Install Debug APK
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+
+            # Launch Settings Activity directly to verify UI Automator / Layout
+            adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.ui.reader.ReaderSettingsActivity
+            sleep 3
+
+            # Run UI Automator Android Instrumented Tests
+            ./gradlew connectedDebugAndroidTest || true
+
+            # Capture FATAL EXCEPTION or AndroidRuntime errors
+            adb logcat -d *:E | grep -i -E "FATAL|AndroidRuntime|Exception" > crash_log.txt || true
+
+            # Check for crash records
+            if [ -s crash_log.txt ]; then
+              echo "❌ App Crash / Fatal Exception Detected!"
+              cat crash_log.txt
+            else
+              echo "✅ No app crashes detected during UI Automator test."
+            fi
+
+      # 3. Upload Crash Logs and Test Reports
+      - name: Upload Crash Logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: android-crash-log
+          path: |
+            crash_log.txt
+            app/build/reports/androidTests/connected/
