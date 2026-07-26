@@ -217,6 +217,7 @@ dependencies {
 
     // --- OkHttp + Gson ---
     implementation(libs.squareup.okhttp)
+    implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation(libs.google.gson)
 
     // --- UI / Material ---
