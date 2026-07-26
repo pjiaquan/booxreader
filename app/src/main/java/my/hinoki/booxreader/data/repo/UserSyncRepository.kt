@@ -14,8 +14,14 @@ import java.net.URLEncoder
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.core.CrashReport
 import my.hinoki.booxreader.data.core.ErrorReporter
@@ -1184,18 +1190,20 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val localBooks = db.bookDao().getAllBooks()
-                                var syncedCount = 0
-                                for (book in localBooks) {
-                                        val synced =
-                                                pushBook(
-                                                        book,
-                                                        uploadFile = true,
-                                                        contentResolver = appContext.contentResolver
-                                                )
-                                        if (synced) {
-                                                syncedCount++
-                                        }
+
+                                val syncResults = coroutineScope {
+                                        localBooks.map { book ->
+                                                async {
+                                                        pushBook(
+                                                                book,
+                                                                uploadFile = true,
+                                                                contentResolver = appContext.contentResolver
+                                                        )
+                                                }
+                                        }.awaitAll()
                                 }
+
+                                var syncedCount = syncResults.count { it }
 
                                 val pendingDeletes = db.bookDao().getPendingDeletes()
                                 for (deletedBook in pendingDeletes) {
@@ -1231,16 +1239,21 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+
+                                val deletedBookIds = mutableListOf<String>()
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
-                                        val title = item["title"] as? String
-                                        val resolvedStoragePath = resolveStoragePathFromRecord(item)
                                         val deleted = item["deleted"] as? Boolean ?: false
 
                                         if (deleted) {
-                                                db.bookDao().deleteById(bookId)
+                                                deletedBookIds.add(bookId)
                                                 continue
                                         }
+
+                                        val title = item["title"] as? String
+                                        val resolvedStoragePath = resolveStoragePathFromRecord(item)
+
 
                                         // Check if book exists locally
                                         val existingBook =
@@ -1311,6 +1324,10 @@ class UserSyncRepository(
                                                         syncedCount++
                                                 }
                                         }
+                                }
+
+                                if (deletedBookIds.isNotEmpty()) {
+                                        db.bookDao().deleteByIds(deletedBookIds)
                                 }
 
                                 Log.d("UserSyncRepository", "pullBooks - Synced $syncedCount books")
@@ -2121,24 +2138,28 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val books = db.bookDao().getAllBooks()
-                                var pushedCount = 0
-                                for (book in books) {
-                                        val locatorJson = book.lastLocatorJson
-                                                ?: continue // nothing to push
-                                        try {
-                                                pushProgress(
-                                                        bookId = book.bookId,
-                                                        locatorJson = locatorJson,
-                                                        bookTitle = book.title
-                                                )
-                                                pushedCount++
-                                        } catch (e: Exception) {
-                                                Log.w(
-                                                        "UserSyncRepository",
-                                                        "pushAllLocalProgress - failed for ${book.bookId}",
-                                                        e
-                                                )
-                                        }
+                                val pushedCount = coroutineScope {
+                                        val results = books.mapNotNull { book ->
+                                                val locatorJson = book.lastLocatorJson ?: return@mapNotNull null
+                                                async {
+                                                        try {
+                                                                pushProgress(
+                                                                        bookId = book.bookId,
+                                                                        locatorJson = locatorJson,
+                                                                        bookTitle = book.title
+                                                                )
+                                                                true
+                                                        } catch (e: Exception) {
+                                                                Log.w(
+                                                                        "UserSyncRepository",
+                                                                        "pushAllLocalProgress - failed for ${book.bookId}",
+                                                                        e
+                                                                )
+                                                                false
+                                                        }
+                                                }
+                                        }.awaitAll()
+                                        results.count { it }
                                 }
                                 Log.d(
                                         "UserSyncRepository",
