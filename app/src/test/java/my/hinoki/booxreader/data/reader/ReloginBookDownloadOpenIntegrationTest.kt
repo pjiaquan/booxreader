@@ -96,12 +96,15 @@ class ReloginBookDownloadOpenIntegrationTest {
                 object : Dispatcher() {
                     override fun dispatch(request: RecordedRequest): MockResponse {
                         return when {
-                            request.path?.startsWith("/api/collections/books/records?") == true && request.method == "GET" -> {
-                                handleBooksRecordsRequest(recordId, bookId, fileName)
+
+                            request.path?.startsWith("/api/collections/books/records?") == true &&
+                                    request.method == "GET" -> {
+                                createBookRecordsResponse(recordId, bookId, fileName)
                             }
-                            request.path == "/api/files/books/$recordId/$fileName" && request.method == "GET" -> {
+                            request.path == "/api/files/books/$recordId/$fileName" &&
+                                    request.method == "GET" -> {
                                 downloadAuthHeader = request.getHeader("Authorization")
-                                handleFileDownloadRequest(epubBytes)
+                                createFileDownloadResponse(epubBytes)
                             }
                             else -> MockResponse().setResponseCode(404)
                         }
@@ -198,5 +201,26 @@ class ReloginBookDownloadOpenIntegrationTest {
         val field = UserSyncRepository::class.java.getDeclaredField("cachedUserId")
         field.isAccessible = true
         field.set(repo, userId)
+    }
+
+    private fun createBookRecordsResponse(
+        recordId: String,
+        bookId: String,
+        fileName: String
+    ): MockResponse {
+        return MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                """
+                {"items":[{"id":"$recordId","bookId":"$bookId","deleted":false,"bookFile":"$fileName"}],"page":1,"perPage":1,"totalItems":1,"totalPages":1}
+                """.trimIndent()
+            )
+    }
+
+    private fun createFileDownloadResponse(epubBytes: ByteArray): MockResponse {
+        return MockResponse()
+            .setResponseCode(200)
+            .setHeader("Content-Type", "application/epub+zip")
+            .setBody(Buffer().write(epubBytes))
     }
 }
