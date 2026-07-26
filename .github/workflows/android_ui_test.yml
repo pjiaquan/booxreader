@@ -42,23 +42,25 @@ jobs:
             # Clear old Logcat logs
             adb logcat -c
 
-            # Install Debug APK
+            # Install Debug APK and AndroidTest APK
             adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk || true
 
-            # Launch Exported Welcome Activity (or run UI Automator instrumented tests)
+            # Launch Welcome Activity
             adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.ui.welcome.WelcomeActivity || true
             sleep 2
 
-            # Run UI Automator Android Instrumented Tests
-            ./gradlew connectedDebugAndroidTest || true
+            # Run UI Automator Android Instrumented Tests via adb am instrument
+            adb shell am instrument -w -r my.hinoki.booxreader.test/androidx.test.runner.AndroidJUnitRunner || true
 
             # Capture FATAL EXCEPTION or AndroidRuntime errors
-            adb logcat -d *:E | grep -i -E "FATAL|AndroidRuntime|Exception" > crash_log.txt || true
+            adb logcat -d *:E | grep -i -E "FATAL|AndroidRuntime" > crash_log.txt || true
 
             # Check for crash records
             if [ -s crash_log.txt ]; then
               echo "❌ App Crash / Fatal Exception Detected!"
               cat crash_log.txt
+              exit 1
             else
               echo "✅ No app crashes detected during UI Automator test."
             fi

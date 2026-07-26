@@ -1,0 +1,20 @@
+07-26 10:44:53.115  1419  1419 E ContextImpl: java.lang.IllegalAccessException: Tried to access visual service LayoutInflater from a non-visual Context:com.android.documentsui.DocumentsApplication@4a0c95f
+07-26 10:44:53.120  1419  1419 E ViewConfiguration: java.lang.IllegalArgumentException: Tried to access UI constants from a non-visual Context:com.android.documentsui.DocumentsApplication@4a0c95f
+07-26 10:44:53.121  1419  1419 E ContextImpl: java.lang.IllegalAccessException: Tried to access visual service WindowManager from a non-visual Context:com.android.documentsui.DocumentsApplication@4a0c95f
+07-26 10:44:53.166  1419  1419 E ViewConfiguration: java.lang.IllegalArgumentException: Tried to access UI constants from a non-visual Context:com.android.documentsui.DocumentsApplication@4a0c95f
+07-26 10:44:53.166  1419  1419 E ViewConfiguration: java.lang.IllegalArgumentException: Tried to access UI constants from a non-visual Context:com.android.documentsui.DocumentsApplication@4a0c95f
+07-26 10:44:53.261  1419  1419 E ViewConfiguration: java.lang.IllegalArgumentException: Tried to access UI constants from a non-visual Context:com.android.documentsui.DocumentsApplication@4a0c95f
+07-26 10:44:54.693  1030  1030 E PhoneInterfaceManager: [PhoneIntfMgr] setPreferredNetworkType: CommandException: com.android.internal.telephony.CommandException: MODE_NOT_SUPPORTED
+07-26 10:44:55.138   898   898 E ContextImpl: java.lang.IllegalAccessException: Tried to access visual service WallpaperManager from a non-visual Context:android.app.Application@295845d
+07-26 10:44:56.613   512   659 E ConnectivityService: Exception adding interface: java.lang.IllegalStateException: android.os.ServiceSpecificException: Machine is not on the network (code 64)
+07-26 10:44:56.664   512   659 E ConnectivityService: Exception in networkAddRouteParcel for non-gateway: android.os.ServiceSpecificException: Machine is not on the network (code 64)
+07-26 10:44:56.665   512   659 E ConnectivityService: Exception in networkAddRouteParcel for gateway: android.os.ServiceSpecificException: Machine is not on the network (code 64)
+07-26 10:44:59.447   726  2053 E BackupHelper: java.io.FileNotFoundException: /data/user_de/0/com.android.permissioncontroller/files/delayed_restore_permissions.xml: open failed: ENOENT (No such file or directory)
+07-26 10:44:59.447   726  2053 E BackupHelper: Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+07-26 10:45:01.077  2067  2166 E BooxReaderApp: java.lang.Exception: SSE Failure with code: 403
+07-26 10:45:01.684  2067  2166 E BooxReaderApp: java.lang.Exception: SSE Failure with code: 403
+07-26 10:45:03.670  2067  2166 E BooxReaderApp: java.lang.Exception: SSE Failure with code: 403
+07-26 10:45:07.671  2067  2166 E BooxReaderApp: java.lang.Exception: SSE Failure with code: 403
+07-26 10:45:15.671  2067  2166 E BooxReaderApp: java.lang.Exception: SSE Failure with code: 403
+07-26 10:45:16.432   512   655 E WifiHealthMonitor:  Hit PackageManager exception
+07-26 10:45:16.432   512   655 E WifiHealthMonitor: android.content.pm.PackageManager$NameNotFoundException: com.google.android.wifi
