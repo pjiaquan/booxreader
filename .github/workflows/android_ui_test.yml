@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -53,8 +53,10 @@ jobs:
             # Run UI Automator Android Instrumented Tests via adb am instrument
             adb shell am instrument -w -r my.hinoki.booxreader.test/androidx.test.runner.AndroidJUnitRunner || true
 
-            # Capture FATAL EXCEPTION or AndroidRuntime errors
-            adb logcat -d *:E | grep -i -E "FATAL|AndroidRuntime" > crash_log.txt || true
+            # Capture only BooxReader-specific FATAL EXCEPTION or AndroidRuntime crashes.
+            # Filtering by package name prevents false positives from unrelated system-level
+            # errors (DocumentsUI, ConnectivityService, etc.) that appear on every emulator boot.
+            adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime" | grep "my\.hinoki\.booxreader" > crash_log.txt || true
 
             # Check for crash records
             if [ -s crash_log.txt ]; then
@@ -62,15 +64,13 @@ jobs:
               cat crash_log.txt
               exit 1
             else
-              echo "✅ No app crashes detected during UI Automator test."
+              echo "✅ No BooxReader app crashes detected during UI Automator test."
             fi
 
-      # 3. Upload Crash Logs and Test Reports
+      # 3. Upload Crash Logs
       - name: Upload Crash Logs
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: android-crash-log
-          path: |
-            crash_log.txt
-            app/build/reports/androidTests/connected/
+          path: crash_log.txt

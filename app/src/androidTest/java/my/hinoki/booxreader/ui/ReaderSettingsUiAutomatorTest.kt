@@ -50,25 +50,38 @@ class ReaderSettingsUiAutomatorTest {
 
     @Test
     fun testSettingsPageLayoutWithUiAutomator() {
-        // 1. Verify ReaderSettings Title / Activity is displayed
-        val settingsTitle = device.findObject(UiSelector().textContains("Settings").textContains("設定"))
-        // If not matched directly by text, check by activity elements or root ScrollView
+        // 1. Verify the settings screen is visible — check for the root package.
+        //    UiSelector.textContains() can only match ONE text criterion per selector;
+        //    chaining two .textContains() calls replaces the first with the second.
+        //    Use By.pkg() to confirm the activity is in the foreground instead.
+        assertTrue(
+            "Settings activity should be in the foreground",
+            device.hasObject(By.pkg(PACKAGE_NAME))
+        )
+
+        // 2. Verify the root ScrollView exists (its resource-id is settingsScroll)
         val settingsScroll = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/settingsScroll"))
-        assertTrue("Settings page root scroll view should exist", settingsScroll.exists() || device.hasObject(By.pkg(PACKAGE_NAME)))
+        assertTrue("Settings page root scroll view should exist", settingsScroll.exists())
 
-        // 2. Verify Section Cards exist using UiScrollable
-        val scrollable = UiScrollable(UiSelector().scrollable(true))
-
-        // Check Reading & Display Section
-        val pageTapSwitch = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/switchPageTap"))
-        if (pageTapSwitch.exists()) {
-            assertTrue("Tap to turn page switch should be visible", pageTapSwitch.isEnabled)
-        }
-
-        // Check Save Button in Footer
+        // 3. Verify the Save button is present and enabled
         val saveButton = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/btnSettingsSave"))
-        if (saveButton.exists()) {
-            assertTrue("Save button should be enabled", saveButton.isEnabled)
+        assertTrue("Save button should exist", saveButton.exists())
+        assertTrue("Save button should be enabled", saveButton.isEnabled)
+
+        // 4. Verify the Cancel button is present and enabled
+        val cancelButton = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/btnSettingsCancel"))
+        assertTrue("Cancel button should exist", cancelButton.exists())
+        assertTrue("Cancel button should be enabled", cancelButton.isEnabled)
+
+        // 5. Scroll down and verify the tap-to-turn switch if present
+        val scrollable = UiScrollable(UiSelector().scrollable(true))
+        val pageTapSwitch = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/switchPageTap"))
+        if (!pageTapSwitch.exists()) {
+            scrollable.scrollForward()
+        }
+        val pageTapSwitchAfterScroll = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/switchPageTap"))
+        if (pageTapSwitchAfterScroll.exists()) {
+            assertTrue("Tap to turn page switch should be enabled", pageTapSwitchAfterScroll.isEnabled)
         }
     }
 }
