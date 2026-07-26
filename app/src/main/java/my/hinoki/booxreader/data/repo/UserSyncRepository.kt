@@ -14,6 +14,9 @@ import java.net.URLEncoder
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BuildConfig
@@ -2121,24 +2124,28 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val books = db.bookDao().getAllBooks()
-                                var pushedCount = 0
-                                for (book in books) {
-                                        val locatorJson = book.lastLocatorJson
-                                                ?: continue // nothing to push
-                                        try {
-                                                pushProgress(
-                                                        bookId = book.bookId,
-                                                        locatorJson = locatorJson,
-                                                        bookTitle = book.title
-                                                )
-                                                pushedCount++
-                                        } catch (e: Exception) {
-                                                Log.w(
-                                                        "UserSyncRepository",
-                                                        "pushAllLocalProgress - failed for ${book.bookId}",
-                                                        e
-                                                )
-                                        }
+                                val pushedCount = coroutineScope {
+                                        val results = books.mapNotNull { book ->
+                                                val locatorJson = book.lastLocatorJson ?: return@mapNotNull null
+                                                async {
+                                                        try {
+                                                                pushProgress(
+                                                                        bookId = book.bookId,
+                                                                        locatorJson = locatorJson,
+                                                                        bookTitle = book.title
+                                                                )
+                                                                true
+                                                        } catch (e: Exception) {
+                                                                Log.w(
+                                                                        "UserSyncRepository",
+                                                                        "pushAllLocalProgress - failed for ${book.bookId}",
+                                                                        e
+                                                                )
+                                                                false
+                                                        }
+                                                }
+                                        }.awaitAll()
+                                        results.count { it }
                                 }
                                 Log.d(
                                         "UserSyncRepository",
