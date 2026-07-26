@@ -1,0 +1,1 @@
+echo "The CI failure is due to missing authentication credentials (GEMINI_API_KEY, GOOGLE_API_KEY, or GCP_WIF_PROVIDER) in the GitHub repository secrets/variables, which causes the 'google-github-actions/run-gemini-cli' action to fail. This is not a bug in the application code."
