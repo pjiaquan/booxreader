@@ -1234,16 +1234,21 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+
+                                val deletedBookIds = mutableListOf<String>()
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
-                                        val title = item["title"] as? String
-                                        val resolvedStoragePath = resolveStoragePathFromRecord(item)
                                         val deleted = item["deleted"] as? Boolean ?: false
 
                                         if (deleted) {
-                                                db.bookDao().deleteById(bookId)
+                                                deletedBookIds.add(bookId)
                                                 continue
                                         }
+
+                                        val title = item["title"] as? String
+                                        val resolvedStoragePath = resolveStoragePathFromRecord(item)
+
 
                                         // Check if book exists locally
                                         val existingBook =
@@ -1314,6 +1319,10 @@ class UserSyncRepository(
                                                         syncedCount++
                                                 }
                                         }
+                                }
+
+                                if (deletedBookIds.isNotEmpty()) {
+                                        db.bookDao().deleteByIds(deletedBookIds)
                                 }
 
                                 Log.d("UserSyncRepository", "pullBooks - Synced $syncedCount books")
