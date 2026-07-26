@@ -124,6 +124,11 @@
     <string name="reader_settings_cat_bookmarks_export">书签与数据导出</string>
     <string name="reader_settings_cat_system">应用程序偏好</string>
     <string name="reader_settings_font_size">字体大小</string>
+    <string name="fetch_models_button">获取最新模型</string>
+    <string name="fetch_models_loading">正在从 API 获取模型清单...</string>
+    <string name="fetch_models_success">已成功从 API 获取 %d 个模型</string>
+    <string name="fetch_models_error">无法从 API 获取，请从下方预设清单选择</string>
+    <string name="select_model_dialog_title">选择 AI 模型</string>
     <string name="reader_settings_daily_email_title">每日郵件摘要</string>
     <string name="reader_settings_daily_email_enable">啟用每日自動寄送</string>
     <string name="reader_settings_daily_email_time_label">寄送時間</string>

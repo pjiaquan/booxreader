@@ -4,8 +4,10 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
+import my.hinoki.booxreader.data.remote.AiModelFetcher
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.ui.common.BaseActivity
@@ -32,8 +34,47 @@ class AiProfileEditActivity : BaseActivity() {
             loadProfile(currentProfileId)
         }
 
+        binding.btnFetchModels.setOnClickListener {
+            fetchAndSelectModels()
+        }
+
         binding.btnSave.setOnClickListener {
             saveProfile()
+        }
+    }
+
+    private fun fetchAndSelectModels() {
+        val baseUrl = binding.etBaseUrl.text.toString()
+        val apiKey = binding.etApiKey.text.toString()
+
+        Toast.makeText(this, getString(R.string.fetch_models_loading), Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch {
+            val fetchedModels = AiModelFetcher.fetchModelsFromApi(baseUrl, apiKey)
+            val combinedList = if (fetchedModels.isNotEmpty()) {
+                Toast.makeText(
+                    this@AiProfileEditActivity,
+                    getString(R.string.fetch_models_success, fetchedModels.size),
+                    Toast.LENGTH_SHORT
+                ).show()
+                (fetchedModels + AiModelFetcher.defaultPresetModels).distinct()
+            } else {
+                Toast.makeText(
+                    this@AiProfileEditActivity,
+                    getString(R.string.fetch_models_error),
+                    Toast.LENGTH_SHORT
+                ).show()
+                AiModelFetcher.defaultPresetModels
+            }
+
+            val items = combinedList.toTypedArray()
+            MaterialAlertDialogBuilder(this@AiProfileEditActivity)
+                .setTitle(getString(R.string.select_model_dialog_title))
+                .setItems(items) { _, which ->
+                    binding.etModelName.setText(items[which])
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
     }
 

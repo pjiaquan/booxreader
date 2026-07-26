@@ -139,6 +139,11 @@
     <string name="reader_settings_cat_bookmarks_export">Bookmarks &amp; Export</string>
     <string name="reader_settings_cat_system">App Preferences</string>
     <string name="reader_settings_font_size">Font Size</string>
+    <string name="fetch_models_button">Fetch Models</string>
+    <string name="fetch_models_loading">Fetching models from API...</string>
+    <string name="fetch_models_success">Fetched %d models from API</string>
+    <string name="fetch_models_error">Could not fetch from API. Select from preset list below.</string>
+    <string name="select_model_dialog_title">Select AI Model</string>
     <string name="reader_settings_tap_to_turn">Tap to turn page</string>
     <string name="reader_settings_swipe_to_turn">Swipe to turn page</string>
     <string name="reader_settings_page_animation">Page Animation</string>
