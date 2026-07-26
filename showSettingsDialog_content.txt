@@ -1,0 +1,398 @@
+   826	    private fun showSettingsDialog() {
+   827	        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_reader_settings, null)
+   828	        val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
+   829	        val btnSettingsShowBookmarks =
+   830	                dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
+   831	        val switchPageTap =
+   832	                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
+   833	        val switchPageSwipe =
+   834	                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+   835	                        R.id.switchPageSwipe
+   836	                )
+   837	        val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
+   838	        val etApiKey = dialogView.findViewById<EditText>(R.id.etApiKey)
+   839	        val cbCustomExport = dialogView.findViewById<CheckBox>(R.id.cbCustomExportUrl)
+   840	        val etCustomExportUrl = dialogView.findViewById<EditText>(R.id.etCustomExportUrl)
+   841	        val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
+   842	        val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
+   843	        val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
+   844
+   845	        // dialogView is a ScrollView, so we need to get its child LinearLayout
+   846	        val layout =
+   847	                (dialogView as? android.view.ViewGroup)?.getChildAt(0) as?
+   848	                        android.widget.LinearLayout
+   849
+   850	        val btnAiProfiles = Button(this).apply { text = "AI Profiles (Switch Model/API)" }
+   851
+   852	        layout?.addView(btnAiProfiles, 2)
+   853
+   854	        btnManageMagicTags.setOnClickListener { showMagicTagManager() }
+   855
+   856	        // --- Reading Theme ---
+   857	        val themeTitle =
+   858	                TextView(this).apply {
+   859	                    text = "Reading Theme / 閱讀主題"
+   860	                    textSize = 16f
+   861	                    setTypeface(null, android.graphics.Typeface.BOLD)
+   862	                    setPadding(0, 16, 0, 8)
+   863	                }
+   864	        layout?.addView(themeTitle, 3)
+   865
+   866	        // Theme Buttons Container (Horizontal)
+   867	        val themeContainer =
+   868	                android.widget.LinearLayout(this).apply {
+   869	                    orientation = android.widget.LinearLayout.HORIZONTAL
+   870	                    weightSum = 3f
+   871	                    layoutParams =
+   872	                            android.widget.LinearLayout.LayoutParams(
+   873	                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+   874	                                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+   875	                            )
+   876	                }
+   877
+   878	        val btnNormal =
+   879	                Button(this).apply {
+   880	                    text = "Normal"
+   881	                    layoutParams =
+   882	                            android.widget.LinearLayout.LayoutParams(
+   883	                                    0,
+   884	                                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+   885	                                    1f
+   886	                            )
+   887	                    setOnClickListener {
+   888	                        applyContrastMode(ContrastMode.NORMAL)
+   889	                        Toast.makeText(this@ReaderActivity, "Normal Mode", Toast.LENGTH_SHORT)
+   890	                                .show()
+   891	                    }
+   892	                }
+   893	        val btnDark =
+   894	                Button(this).apply {
+   895	                    text = "Dark"
+   896	                    layoutParams =
+   897	                            android.widget.LinearLayout.LayoutParams(
+   898	                                    0,
+   899	                                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+   900	                                    1f
+   901	                            )
+   902	                    setOnClickListener {
+   903	                        applyContrastMode(ContrastMode.DARK)
+   904	                        Toast.makeText(this@ReaderActivity, "Dark Mode", Toast.LENGTH_SHORT).show()
+   905	                    }
+   906	                }
+   907	        val btnSepia =
+   908	                Button(this).apply {
+   909	                    text = "Sepia"
+   910	                    layoutParams =
+   911	                            android.widget.LinearLayout.LayoutParams(
+   912	                                    0,
+   913	                                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+   914	                                    1f
+   915	                            )
+   916	                    setOnClickListener {
+   917	                        applyContrastMode(ContrastMode.SEPIA)
+   918	                        Toast.makeText(this@ReaderActivity, "Sepia Mode", Toast.LENGTH_SHORT).show()
+   919	                    }
+   920	                }
+   921
+   922	        themeContainer.addView(btnNormal)
+   923	        themeContainer.addView(btnDark)
+   924	        themeContainer.addView(btnSepia)
+   925	        layout?.addView(themeContainer, 4)
+   926
+   927	        // --- Language Selection ---
+   928	        val languageTitle =
+   929	                TextView(this).apply {
+   930	                    text = "Language / 語言"
+   931	                    textSize = 16f
+   932	                    setTypeface(null, android.graphics.Typeface.BOLD)
+   933	                    setPadding(0, 16, 0, 8)
+   934	                }
+   935	        layout?.addView(languageTitle, 2)
+   936
+   937	        val languageGroup =
+   938	                android.widget.RadioGroup(this).apply {
+   939	                    orientation = android.widget.LinearLayout.VERTICAL
+   940	                }
+   941
+   942	        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
+   943	        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
+   944	        val rbChinese =
+   945	                android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
+   946
+   947	        languageGroup.addView(rbSystem)
+   948	        languageGroup.addView(rbEnglish)
+   949	        languageGroup.addView(rbChinese)
+   950	        layout?.addView(languageGroup, 3)
+   951
+   952	        // Load current Settings
+   953	        val readerSettings =
+   954	                ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
+   955
+   956	        when (readerSettings.language) {
+   957	            "zh" -> rbChinese.isChecked = true
+   958	            "en" -> rbEnglish.isChecked = true
+   959	            else -> rbSystem.isChecked = true
+   960	        }
+   961	        val prefs =
+   962	                getSharedPreferences(
+   963	                        PREFS_NAME,
+   964	                        MODE_PRIVATE
+   965	                ) // keep raw prefs for specific edits if needed or just use saveTo
+   966
+   967	        val switchPageAnimation =
+   968	                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+   969	                        R.id.switchPageAnimation
+   970	                )
+   971	        val switchPageIndicator =
+   972	                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+   973	                        R.id.switchPageIndicator
+   974	                )
+   975
+   976	        val switchConvertChinese =
+   977	                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
+   978	                        R.id.switchConvertChinese
+   979	                )
+   980
+   981	        etServerUrl.setText(readerSettings.serverBaseUrl)
+   982	        etApiKey.setText(readerSettings.apiKey)
+   983	        switchPageTap.isChecked = readerSettings.pageTapEnabled
+   984	        switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
+   985	        switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
+   986	        switchPageIndicator.isChecked = readerSettings.showPageIndicator
+   987	        switchConvertChinese.isChecked = readerSettings.convertToTraditionalChinese
+   988	        cbCustomExport.isChecked = readerSettings.exportToCustomUrl
+   989	        etCustomExportUrl.setText(readerSettings.exportCustomUrl)
+   990	        etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
+   991	        cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
+   992
+   993	        switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
+   994	            val currentSettings = ReaderSettings.fromPrefs(prefs)
+   995	            val updatedSettings =
+   996	                    currentSettings.copy(
+   997	                            convertToTraditionalChinese = isChecked,
+   998	                            updatedAt = System.currentTimeMillis()
+   999	                    )
+  1000	            updatedSettings.saveTo(prefs)
+  1001	            nativeNavigatorFragment?.setChineseConversionEnabled(isChecked)
+  1002
+  1003	            val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
+  1004	            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+  1005
+  1006	            if (isChecked) {
+  1007	                val probe =
+  1008	                        my.hinoki.booxreader.data.util.ChineseConverter.toTraditional("简体中文")
+  1009	                                .toString()
+  1010	                if (probe == "简体中文") {
+  1011	                    Toast.makeText(this, "簡體轉繁體字庫載入失敗，可能無法轉換", Toast.LENGTH_LONG).show()
+  1012	                }
+  1013	            }
+  1014	        }
+  1015
+  1016	        val seekBarTextSize = dialogView.findViewById<android.widget.SeekBar>(R.id.seekBarTextSize)
+  1017	        val tvTextSizeValue = dialogView.findViewById<android.widget.TextView>(R.id.tvTextSizeValue)
+  1018
+  1019	        seekBarTextSize.progress = readerSettings.textSize - 50
+  1020	        tvTextSizeValue.text = "${readerSettings.textSize}%"
+  1021
+  1022	        seekBarTextSize.setOnSeekBarChangeListener(
+  1023	                object : android.widget.SeekBar.OnSeekBarChangeListener {
+  1024	                    override fun onProgressChanged(
+  1025	                            seekBar: android.widget.SeekBar?,
+  1026	                            progress: Int,
+  1027	                            fromUser: Boolean
+  1028	                    ) {
+  1029	                        val size = progress + 50
+  1030	                        tvTextSizeValue.text = "$size%"
+  1031	                    }
+  1032
+  1033	                    override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+  1034
+  1035	                    override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+  1036	                }
+  1037	        )
+  1038
+  1039	        cbCustomExport.setOnCheckedChangeListener { _, isChecked ->
+  1040	            etCustomExportUrl.isEnabled = isChecked
+  1041	        }
+  1042	        btnTestExport.setOnClickListener {
+  1043	            val app = application as my.hinoki.booxreader.BooxReaderApp
+  1044	            val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
+  1045	            val baseUrl =
+  1046	                    etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
+  1047	            val targetUrl =
+  1048	                    if (cbCustomExport.isChecked &&
+  1049	                                    etCustomExportUrl.text.toString().trim().isNotEmpty()
+  1050	                    ) {
+  1051	                        etCustomExportUrl.text.toString().trim()
+  1052	                    } else {
+  1053	                        val trimmed = baseUrl.trimEnd('/')
+  1054	                        if (trimmed.isNotEmpty()) trimmed + HttpConfig.PATH_AI_NOTES_EXPORT else ""
+  1055	                    }
+  1056
+  1057	            if (targetUrl.isEmpty()) {
+  1058	                Toast.makeText(this, "請輸入有效的 URL", Toast.LENGTH_SHORT).show()
+  1059	                return@setOnClickListener
+  1060	            }
+  1061
+  1062	            btnTestExport.isEnabled = false
+  1063	            val originalText = btnTestExport.text
+  1064	            btnTestExport.text = "Testing..."
+  1065	            lifecycleScope.launch {
+  1066	                val result = repo.testExportEndpoint(targetUrl)
+  1067	                Toast.makeText(this@ReaderActivity, "Export test: $result", Toast.LENGTH_LONG)
+  1068	                        .show()
+  1069	                btnTestExport.text = originalText
+  1070	                btnTestExport.isEnabled = true
+  1071	            }
+  1072	        }
+  1073
+  1074	        fun normalizeUrl(raw: String): String {
+  1075	            val trimmed = raw.trim()
+  1076	            if (trimmed.isEmpty()) return ""
+  1077	            return if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)
+  1078	            ) {
+  1079	                trimmed
+  1080	            } else {
+  1081	                "https://$trimmed"
+  1082	            }
+  1083	        }
+  1084
+  1085	        val contrastMode =
+  1086	                ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
+  1087	        applySettingsDialogTheme(dialogView, contrastMode)
+  1088
+  1089	        val dialog =
+  1090	                AlertDialog.Builder(this)
+  1091	                        .setView(dialogView)
+  1092	                        .setPositiveButton("Close", null)
+  1093	                        .create()
+  1094
+  1095	        dialog.setOnShowListener {
+  1096	            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+  1097	                val currentSettings = ReaderSettings.fromPrefs(prefs)
+  1098	                val newUrlRaw = etServerUrl.text.toString().trim()
+  1099	                val newApiKey = etApiKey.text.toString().trim()
+  1100	                val newPageTap = switchPageTap.isChecked
+  1101	                val newPageSwipe = switchPageSwipe.isChecked
+  1102	                val newPageAnimation = switchPageAnimation.isChecked
+  1103	                val newShowPageIndicator = switchPageIndicator.isChecked
+  1104	                val newConvertChinese = switchConvertChinese.isChecked
+  1105	                val useCustomExport = cbCustomExport.isChecked
+  1106	                val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
+  1107	                val exportToLocal = cbLocalExport.isChecked
+  1108	                val newTextSize = seekBarTextSize.progress + 50
+  1109
+  1110	                val normalizedBaseUrl =
+  1111	                        if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw)
+  1112	                        else currentSettings.serverBaseUrl
+  1113	                val normalizedCustomUrl =
+  1114	                        if (useCustomExport && customExportUrlRaw.isNotEmpty())
+  1115	                                normalizeUrl(customExportUrlRaw)
+  1116	                        else ""
+  1117
+  1118	                if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.toHttpUrlOrNull() == null) {
+  1119	                    Toast.makeText(this, "Server URL is invalid", Toast.LENGTH_SHORT).show()
+  1120	                    return@setOnClickListener
+  1121	                }
+  1122	                if (useCustomExport &&
+  1123	                                customExportUrlRaw.isNotEmpty() &&
+  1124	                                normalizedCustomUrl.toHttpUrlOrNull() == null
+  1125	                ) {
+  1126	                    Toast.makeText(this, "Custom export URL is invalid", Toast.LENGTH_SHORT).show()
+  1127	                    return@setOnClickListener
+  1128	                }
+  1129
+  1130	                // Check if Chinese conversion setting changed
+  1131	                val conversionChanged =
+  1132	                        newConvertChinese != currentSettings.convertToTraditionalChinese
+  1133
+  1134	                // Update settings object
+  1135	                val updatedSettings =
+  1136	                        currentSettings.copy(
+  1137	                                serverBaseUrl = normalizedBaseUrl,
+  1138	                                apiKey = newApiKey,
+  1139	                                pageTapEnabled = newPageTap,
+  1140	                                pageSwipeEnabled = newPageSwipe,
+  1141	                                pageAnimationEnabled = newPageAnimation,
+  1142	                                showPageIndicator = newShowPageIndicator,
+  1143	                                convertToTraditionalChinese = newConvertChinese,
+  1144	                                exportToCustomUrl = useCustomExport,
+  1145	                                exportCustomUrl = normalizedCustomUrl,
+  1146	                                exportToLocalDownloads = exportToLocal,
+  1147	                                textSize = newTextSize,
+  1148	                                language =
+  1149	                                        when {
+  1150	                                            rbChinese.isChecked -> "zh"
+  1151	                                            rbEnglish.isChecked -> "en"
+  1152	                                            else -> "system"
+  1153	                                        },
+  1154	                                updatedAt = System.currentTimeMillis()
+  1155	                        )
+  1156
+  1157	                updatedSettings.saveTo(prefs)
+  1158
+  1159	                // Restart if language changed
+  1160	                if (updatedSettings.language != currentSettings.language) {
+  1161	                    val intent =
+  1162	                            Intent(
+  1163	                                    applicationContext,
+  1164	                                    my.hinoki.booxreader.ui.welcome.WelcomeActivity::class.java
+  1165	                            )
+  1166	                    intent.addFlags(
+  1167	                            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+  1168	                    )
+  1169	                    startActivity(intent)
+  1170	                    return@setOnClickListener
+  1171	                }
+  1172	                pageAnimationEnabled = updatedSettings.pageAnimationEnabled
+  1173	                pageSwipeEnabled = updatedSettings.pageSwipeEnabled
+  1174	                showPageIndicator = updatedSettings.showPageIndicator
+  1175	                nativeNavigatorFragment?.setPageIndicatorVisible(showPageIndicator)
+  1176
+  1177	                applyFontSize(newTextSize)
+  1178	                nativeNavigatorFragment?.setFontSize(newTextSize)
+  1179
+  1180	                // Reload content if Chinese conversion setting changed
+  1181	                if (conversionChanged) {
+  1182	                    nativeNavigatorFragment?.setChineseConversionEnabled(newConvertChinese)
+  1183	                    val message = if (newConvertChinese) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
+  1184	                    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+  1185	                }
+  1186
+  1187	                if (normalizedBaseUrl != currentSettings.serverBaseUrl) {
+  1188	                    Toast.makeText(this, "Server URL updated", Toast.LENGTH_SHORT).show()
+  1189	                }
+  1190	                if (newApiKey != currentSettings.apiKey) {
+  1191	                    Toast.makeText(this, "API Key updated", Toast.LENGTH_SHORT).show()
+  1192	                }
+  1193
+  1194	                pushSettingsToCloud()
+  1195	                dialog.dismiss()
+  1196	            }
+  1197	        }
+  1198
+  1199	        btnAiProfiles.setOnClickListener {
+  1200	            dialog.dismiss()
+  1201	            my.hinoki.booxreader.ui.settings.AiProfileListActivity.open(this@ReaderActivity)
+  1202	        }
+  1203
+  1204	        /* Removed redundant specific listeners as we save all on close now for simplicity and consistency */
+  1205
+  1206	        btnSettingsAddBookmark.setOnClickListener { addBookmarkFromCurrentPosition() }
+  1207	        btnSettingsShowBookmarks.setOnClickListener { openBookmarkList() }
+  1208
+  1209	        // Switch listeners update UI state but save happens on Close
+  1210	        switchPageTap.setOnCheckedChangeListener { _, isChecked -> pageTapEnabled = isChecked }
+  1211	        switchPageSwipe.setOnCheckedChangeListener { _, isChecked -> pageSwipeEnabled = isChecked }
+  1212	        switchPageAnimation.setOnCheckedChangeListener { _, isChecked ->
+  1213	            pageAnimationEnabled = isChecked
+  1214	            nativeNavigatorFragment?.setPageAnimationEnabled(isChecked)
+  1215	        }
+  1216	        switchPageIndicator.setOnCheckedChangeListener { _, isChecked ->
+  1217	            showPageIndicator = isChecked
+  1218	            nativeNavigatorFragment?.setPageIndicatorVisible(isChecked)
+  1219	        }
+  1220
+  1221	        dialog.show()
+  1222	    }
+  1223
