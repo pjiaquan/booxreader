@@ -5,7 +5,15 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
 open class TokenManager(private val context: Context) {
-    private val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+
+    private val masterKeyAlias by lazy {
+        try {
+            MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        } catch (e: Exception) {
+            android.util.Log.e("TokenManager", "Failed to create master key", e)
+            "_fallback_master_key_"
+        }
+    }
 
     private val sharedPreferences: android.content.SharedPreferences by lazy {
         try {
@@ -42,47 +50,34 @@ open class TokenManager(private val context: Context) {
     }
 
     open fun saveAccessToken(token: String) {
-        try {
-            sharedPreferences.edit().putString("access_token", token).apply()
-        } catch (e: Exception) {
-            android.util.Log.e("TokenManager", "Failed to save access token", e)
-        }
+        sharedPreferences.edit().putString("access_token", token).apply()
     }
 
     open fun getAccessToken(): String? {
-        return try {
-            sharedPreferences.getString("access_token", null)
-        } catch (e: Exception) {
-            android.util.Log.e("TokenManager", "Failed to read access token, clearing", e)
-            clearTokens()
-            null
-        }
-    }
-
-    open fun getRefreshToken(): String? {
-        return try {
-            sharedPreferences.getString("refresh_token", null)
-        } catch (e: Exception) {
-            android.util.Log.e("TokenManager", "Failed to read refresh token, clearing", e)
-            clearTokens()
-            null
-        }
+        return sharedPreferences.getString("access_token", null)
     }
 
     open fun saveRefreshToken(token: String) {
-        try {
-            sharedPreferences.edit().putString("refresh_token", token).apply()
-        } catch (e: Exception) {
-            android.util.Log.e("TokenManager", "Failed to save refresh token", e)
-        }
+        sharedPreferences.edit().putString("refresh_token", token).apply()
+    }
+
+    open fun getRefreshToken(): String? {
+        return sharedPreferences.getString("refresh_token", null)
+    }
+
+    open fun saveUser(userId: String, email: String) {
+        sharedPreferences.edit()
+            .putString("user_id", userId)
+            .putString("user_email", email)
+            .apply()
     }
 
     open fun clearTokens() {
-        try {
-            sharedPreferences.edit().clear().apply()
-        } catch (e: Exception) {
-            android.util.Log.e("TokenManager", "Failed to clear tokens", e)
-        }
+        sharedPreferences.edit()
+            .remove("access_token")
+            .remove("refresh_token")
+            .remove("user_id")
+            .remove("user_email")
+            .apply()
     }
 }
-

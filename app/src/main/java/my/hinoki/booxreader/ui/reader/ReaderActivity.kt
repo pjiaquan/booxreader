@@ -1226,8 +1226,21 @@ class ReaderActivity : BaseActivity() {
 
         root.setBackgroundColor(backgroundColor)
 
+        val cardBgColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#FFFFFF")
+            ContrastMode.DARK -> Color.parseColor("#1E1E1E")
+            ContrastMode.SEPIA -> Color.parseColor("#F7EFE0")
+            ContrastMode.HIGH_CONTRAST -> Color.parseColor("#121212")
+        }
+
         fun applyToView(view: View) {
-            if (view is ViewGroup && view.background != null) {
+            if (view is com.google.android.material.card.MaterialCardView) {
+                view.setCardBackgroundColor(cardBgColor)
+                view.strokeColor = dividerColor
+            } else if (view is ViewGroup &&
+                view !is com.google.android.material.textfield.TextInputLayout &&
+                view.background != null
+            ) {
                 view.setBackgroundColor(backgroundColor)
             }
             when (view) {

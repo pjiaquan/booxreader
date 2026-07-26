@@ -18,7 +18,13 @@ object DailySummaryEmailScheduler {
             settings: ReaderSettings,
             forceUpdate: Boolean = false
     ) {
-        val workManager = WorkManager.getInstance(context.applicationContext)
+        val workManager = try {
+            WorkManager.getInstance(context.applicationContext)
+        } catch (e: Exception) {
+            android.util.Log.e("DailySummaryEmailScheduler", "WorkManager not initialized", e)
+            null
+        } ?: return
+
         if (!settings.dailySummaryEmailEnabled) {
             workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
             return
