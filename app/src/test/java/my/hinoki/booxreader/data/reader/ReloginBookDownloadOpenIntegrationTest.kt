@@ -95,29 +95,16 @@ class ReloginBookDownloadOpenIntegrationTest {
         server.dispatcher =
                 object : Dispatcher() {
                     override fun dispatch(request: RecordedRequest): MockResponse {
-                        if (request.path?.startsWith("/api/collections/books/records?") == true &&
-                                        request.method == "GET"
-                        ) {
-                            return MockResponse()
-                                    .setResponseCode(200)
-                                    .setBody(
-                                            """
-                                            {"items":[{"id":"$recordId","bookId":"$bookId","deleted":false,"bookFile":"$fileName"}],"page":1,"perPage":1,"totalItems":1,"totalPages":1}
-                                            """.trimIndent()
-                                    )
+                        return when {
+                            request.path?.startsWith("/api/collections/books/records?") == true && request.method == "GET" -> {
+                                handleBooksRecordsRequest(recordId, bookId, fileName)
+                            }
+                            request.path == "/api/files/books/$recordId/$fileName" && request.method == "GET" -> {
+                                downloadAuthHeader = request.getHeader("Authorization")
+                                handleFileDownloadRequest(epubBytes)
+                            }
+                            else -> MockResponse().setResponseCode(404)
                         }
-
-                        if (request.path == "/api/files/books/$recordId/$fileName" &&
-                                        request.method == "GET"
-                        ) {
-                            downloadAuthHeader = request.getHeader("Authorization")
-                            return MockResponse()
-                                    .setResponseCode(200)
-                                    .setHeader("Content-Type", "application/epub+zip")
-                                    .setBody(Buffer().write(epubBytes))
-                        }
-
-                        return MockResponse().setResponseCode(404)
                     }
                 }
 
@@ -188,6 +175,23 @@ class ReloginBookDownloadOpenIntegrationTest {
         val publication = viewModel.publication.value
         assertNotNull("Downloaded EPUB should be openable after relogin", publication)
         assertEquals("Test Book", publication?.metadata?.title)
+    }
+
+    private fun handleBooksRecordsRequest(recordId: String, bookId: String, fileName: String): MockResponse {
+        return MockResponse()
+                .setResponseCode(200)
+                .setBody(
+                        """
+                        {"items":[{"id":"$recordId","bookId":"$bookId","deleted":false,"bookFile":"$fileName"}],"page":1,"perPage":1,"totalItems":1,"totalPages":1}
+                        """.trimIndent()
+                )
+    }
+
+    private fun handleFileDownloadRequest(epubBytes: ByteArray): MockResponse {
+        return MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/epub+zip")
+                .setBody(Buffer().write(epubBytes))
     }
 
     private fun setCachedUserId(repo: UserSyncRepository, userId: String) {
