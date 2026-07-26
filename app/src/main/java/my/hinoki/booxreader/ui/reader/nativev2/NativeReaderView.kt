@@ -634,130 +634,141 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                // If we are touching near a handle, start dragging it
-                if (selectionStart != -1) {
-                    if (isNear(x, y, selectionStart, true)) {
-                        activeHandle = 1
-                        isSelecting = true
-                        resetSelectionDragTracking(x, y, event.eventTime)
-                        onSelectionListener?.invoke(false, 0f, 0f)
-                        parent?.requestDisallowInterceptTouchEvent(true)
-                        return true
-                    } else if (isNear(x, y, selectionEnd, false)) {
-                        activeHandle = 2
-                        isSelecting = true
-                        resetSelectionDragTracking(x, y, event.eventTime)
-                        onSelectionListener?.invoke(false, 0f, 0f)
-                        parent?.requestDisallowInterceptTouchEvent(true)
-                        return true
-                    }
-                    // Even if not exactly near a handle, if selection exists, don't let parent
-                    // steal swipe
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                }
-                // Don't return true here yet, let gesture detector handle it
+                if (handleActionDown(x, y, event)) return true
             }
             MotionEvent.ACTION_MOVE -> {
-                if (isSelecting) {
-                    parent?.requestDisallowInterceptTouchEvent(
-                            true
-                    ) // Aggressively block parent (ViewPager/Pager)
-                    isMagnifying = true
-                    magnifierPos.set(x, y)
-
-                    val preciseMode = updateSelectionDragSpeed(x, y, event.eventTime)
-                    val activeLocalOffset =
-                            if (activeHandle == 1) toLocalOffset(selectionStart)
-                            else if (activeHandle == 2) toLocalOffset(selectionEnd) else null
-                    val localOffset =
-                            getLocalOffsetForPosition(
-                                    x = x,
-                                    y = y,
-                                    preciseMode = preciseMode,
-                                    anchorOffset = activeLocalOffset
-                            )
-                    if (localOffset != -1) {
-                        val offset = pageStartOffset + localOffset
-                        // Smart handle selection: if we just started dragging from a long press,
-                        // we can swap handle if the user moves to the left of the start
-                        if (activeHandle == 2 && offset < selectionStart) {
-                            val temp = selectionStart
-                            selectionStart = selectionEnd
-                            selectionEnd = temp
-                            activeHandle = 1
-                        } else if (activeHandle == 1 && offset > selectionEnd) {
-                            val temp = selectionStart
-                            selectionStart = selectionEnd
-                            selectionEnd = temp
-                            activeHandle = 2
-                        }
-
-                        if (activeHandle == 1) {
-                            selectionStart = offset
-                        } else if (activeHandle == 2) {
-                            selectionEnd = offset
-                        }
-
-                        // Force minimum 1 character selection
-                        if (selectionStart == selectionEnd) {
-                            val pageMin = pageStartOffset
-                            val pageMax = pageStartOffset + content.length
-                            if (activeHandle == 1) {
-                                selectionStart = (selectionEnd - 1).coerceAtLeast(pageMin)
-                            } else {
-                                selectionEnd = (selectionStart + 1).coerceAtMost(pageMax)
-                            }
-                        }
-
-                        invalidate()
-                        postInvalidateOnAnimation()
-                        maybeArmEdgeHold()
-                    } else {
-                        cancelEdgeHold()
-                    }
-                    return true
-                }
+                if (handleActionMove(x, y, event)) return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (isSelecting) {
-                    isSelecting = false
-                    activeHandle = 0
-                    isMagnifying = false
-                    cancelEdgeHold()
-                    resetSelectionDragTracking()
-                    postInvalidateOnAnimation()
-
-                    // Normalize selection after dragging for consistent state
-                    val s = min(selectionStart, selectionEnd)
-                    val e = max(selectionStart, selectionEnd)
-
-                    // Final safety check for 1-char
-                    if (s == e) {
-                        selectionStart = s
-                        selectionEnd = (s + 1).coerceAtMost(pageStartOffset + content.length)
-                    } else {
-                        selectionStart = s
-                        selectionEnd = e
-                    }
-
-                    // Trigger selection menu AFTER finger is lifted
-                    val l = layout
-                    val localEnd = toLocalOffset(selectionEnd)
-                    if (l != null && localEnd != null) {
-                        try {
-                            val line = l.getLineForOffset(localEnd)
-                            val menuX = l.getPrimaryHorizontal(localEnd) + paddingLeft
-                            val menuY = l.getLineTop(line).toFloat() + paddingTop
-                            onSelectionListener?.invoke(true, menuX, menuY)
-                        } catch (ex: Exception) {
-                            // Boundary safe
-                        }
-                    }
-                    return true
-                }
+                if (handleActionUpOrCancel()) return true
             }
         }
         return gestureHandled || true
+    }
+
+    private fun handleActionDown(x: Float, y: Float, event: MotionEvent): Boolean {
+        // If we are touching near a handle, start dragging it
+        if (selectionStart != -1) {
+            if (isNear(x, y, selectionStart, true)) {
+                activeHandle = 1
+                isSelecting = true
+                resetSelectionDragTracking(x, y, event.eventTime)
+                onSelectionListener?.invoke(false, 0f, 0f)
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
+            } else if (isNear(x, y, selectionEnd, false)) {
+                activeHandle = 2
+                isSelecting = true
+                resetSelectionDragTracking(x, y, event.eventTime)
+                onSelectionListener?.invoke(false, 0f, 0f)
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
+            }
+            // Even if not exactly near a handle, if selection exists, don't let parent
+            // steal swipe
+            parent?.requestDisallowInterceptTouchEvent(true)
+        }
+        // Don't return true here yet, let gesture detector handle it
+        return false
+    }
+
+    private fun handleActionMove(x: Float, y: Float, event: MotionEvent): Boolean {
+        if (!isSelecting) return false
+
+        parent?.requestDisallowInterceptTouchEvent(true) // Aggressively block parent (ViewPager/Pager)
+        isMagnifying = true
+        magnifierPos.set(x, y)
+
+        val preciseMode = updateSelectionDragSpeed(x, y, event.eventTime)
+        val activeLocalOffset =
+                if (activeHandle == 1) toLocalOffset(selectionStart)
+                else if (activeHandle == 2) toLocalOffset(selectionEnd) else null
+        val localOffset =
+                getLocalOffsetForPosition(
+                        x = x,
+                        y = y,
+                        preciseMode = preciseMode,
+                        anchorOffset = activeLocalOffset
+                )
+        if (localOffset != -1) {
+            val offset = pageStartOffset + localOffset
+            // Smart handle selection: if we just started dragging from a long press,
+            // we can swap handle if the user moves to the left of the start
+            if (activeHandle == 2 && offset < selectionStart) {
+                val temp = selectionStart
+                selectionStart = selectionEnd
+                selectionEnd = temp
+                activeHandle = 1
+            } else if (activeHandle == 1 && offset > selectionEnd) {
+                val temp = selectionStart
+                selectionStart = selectionEnd
+                selectionEnd = temp
+                activeHandle = 2
+            }
+
+            if (activeHandle == 1) {
+                selectionStart = offset
+            } else if (activeHandle == 2) {
+                selectionEnd = offset
+            }
+
+            // Force minimum 1 character selection
+            if (selectionStart == selectionEnd) {
+                val pageMin = pageStartOffset
+                val pageMax = pageStartOffset + content.length
+                if (activeHandle == 1) {
+                    selectionStart = (selectionEnd - 1).coerceAtLeast(pageMin)
+                } else {
+                    selectionEnd = (selectionStart + 1).coerceAtMost(pageMax)
+                }
+            }
+
+            invalidate()
+            postInvalidateOnAnimation()
+            maybeArmEdgeHold()
+        } else {
+            cancelEdgeHold()
+        }
+        return true
+    }
+
+    private fun handleActionUpOrCancel(): Boolean {
+        if (!isSelecting) return false
+
+        isSelecting = false
+        activeHandle = 0
+        isMagnifying = false
+        cancelEdgeHold()
+        resetSelectionDragTracking()
+        postInvalidateOnAnimation()
+
+        // Normalize selection after dragging for consistent state
+        val s = min(selectionStart, selectionEnd)
+        val e = max(selectionStart, selectionEnd)
+
+        // Final safety check for 1-char
+        if (s == e) {
+            selectionStart = s
+            selectionEnd = (s + 1).coerceAtMost(pageStartOffset + content.length)
+        } else {
+            selectionStart = s
+            selectionEnd = e
+        }
+
+        // Trigger selection menu AFTER finger is lifted
+        val l = layout
+        val localEnd = toLocalOffset(selectionEnd)
+        if (l != null && localEnd != null) {
+            try {
+                val line = l.getLineForOffset(localEnd)
+                val menuX = l.getPrimaryHorizontal(localEnd) + paddingLeft
+                val menuY = l.getLineTop(line).toFloat() + paddingTop
+                onSelectionListener?.invoke(true, menuX, menuY)
+            } catch (ex: Exception) {
+                // Boundary safe
+            }
+        }
+        return true
     }
 
     fun clearSelection() {
