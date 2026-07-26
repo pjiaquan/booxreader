@@ -1198,12 +1198,16 @@ class UserSyncRepository(
                                 }
 
                                 val pendingDeletes = db.bookDao().getPendingDeletes()
+                                val successfullyDeletedBookIds = mutableListOf<String>()
                                 for (deletedBook in pendingDeletes) {
                                         val deleted = softDeleteBook(deletedBook.bookId)
                                         if (deleted) {
-                                                db.bookDao().deleteById(deletedBook.bookId)
-                                                syncedCount++
+                                                successfullyDeletedBookIds.add(deletedBook.bookId)
                                         }
+                                }
+                                if (successfullyDeletedBookIds.isNotEmpty()) {
+                                        db.bookDao().deleteByIds(successfullyDeletedBookIds)
+                                        syncedCount += successfullyDeletedBookIds.size
                                 }
 
                                 Log.d(
