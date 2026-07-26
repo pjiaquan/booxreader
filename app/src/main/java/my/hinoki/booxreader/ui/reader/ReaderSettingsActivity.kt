@@ -70,6 +70,11 @@ class ReaderSettingsActivity : BaseActivity() {
 
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
 
+    private var selectedContrastMode: ContrastMode = ContrastMode.NORMAL
+    private var selectedDailySummaryHour: Int = 0
+    private var selectedDailySummaryMinute: Int = 0
+    private var topInsertIndex = 0
+
     private data class ButtonVisualStyle(
             val fillColor: Int,
             val pressedFillColor: Int,
@@ -157,186 +162,24 @@ class ReaderSettingsActivity : BaseActivity() {
         val splitSpacing = resources.getDimensionPixelSize(R.dimen.settings_split_spacing)
         val buttonHeight = resources.getDimensionPixelSize(R.dimen.settings_button_height)
 
-        var topInsertIndex = 0
+        topInsertIndex = 0
         fun insertTop(view: View) {
             layout?.addView(view, topInsertIndex)
             topInsertIndex += 1
         }
 
-        val languageTitle =
-                TextView(this).apply {
-                    text = getString(R.string.reader_settings_language_title)
-                    textSize = 18f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        topMargin = sectionSpacing
-                                    }
-                }
-        insertTop(languageTitle)
+        val (rbSystem, rbEnglish, rbChinese) = setupLanguageSection(sectionSpacing, itemSpacing) { insertTop(it) }
 
-        val languageGroup =
-                android.widget.RadioGroup(this).apply {
-                    orientation = android.widget.RadioGroup.VERTICAL
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        bottomMargin = itemSpacing
-                                    }
-                }
+        setupUserProfileSection(buttonHeight, sectionSpacing) { insertTop(it) }
 
-        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
-        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
-        val rbChinese =
-                android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
-        languageGroup.addView(rbSystem)
-        languageGroup.addView(rbEnglish)
-        languageGroup.addView(rbChinese)
-        insertTop(languageGroup)
+        setupThemeSection(buttonHeight, splitSpacing, sectionSpacing, dialogView) { insertTop(it) }
 
-        val btnUserProfile =
-                Button(this).apply {
-                    text = getString(R.string.reader_settings_user_profile)
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        bottomMargin = sectionSpacing
-                                    }
-                }
-        insertTop(btnUserProfile)
-
-        val themeTitle =
-                TextView(this).apply {
-                    text = getString(R.string.reader_settings_theme_title)
-                    textSize = 18f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.WRAP_CONTENT
-                            )
-                }
-        insertTop(themeTitle)
-
-        val themeContainer =
-                LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    weightSum = 3f
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.WRAP_CONTENT
-                            ).apply {
-                                bottomMargin = sectionSpacing
-                            }
-                }
-
-        var selectedContrastMode: ContrastMode =
-                ContrastMode.values()
-                        .getOrNull(
-                                ReaderSettings.fromPrefs(
-                                                getSharedPreferences(
-                                                        ReaderActivity.PREFS_NAME,
-                                                        MODE_PRIVATE
-                                                )
-                                        )
-                                        .contrastMode
-                        ) ?: ContrastMode.NORMAL
-
-        val btnNormal =
-                Button(this).apply {
-                    text = "Normal"
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                                    .apply {
-                                        marginEnd = splitSpacing / 2
-                                    }
-                    setOnClickListener {
-                        selectedContrastMode = ContrastMode.NORMAL
-                        applySettingsPageTheme(dialogView, selectedContrastMode)
-                        applySettingsChrome(selectedContrastMode)
-                        Toast.makeText(this@ReaderSettingsActivity, "Normal Mode", Toast.LENGTH_SHORT)
-                                .show()
-                    }
-                }
-        val btnDark =
-                Button(this).apply {
-                    text = "Dark"
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                                    .apply {
-                                        marginStart = splitSpacing / 2
-                                        marginEnd = splitSpacing / 2
-                                    }
-                    setOnClickListener {
-                        selectedContrastMode = ContrastMode.DARK
-                        applySettingsPageTheme(dialogView, selectedContrastMode)
-                        applySettingsChrome(selectedContrastMode)
-                        Toast.makeText(this@ReaderSettingsActivity, "Dark Mode", Toast.LENGTH_SHORT)
-                                .show()
-                    }
-                }
-        val btnSepia =
-                Button(this).apply {
-                    text = "Sepia"
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                                    .apply {
-                                        marginStart = splitSpacing / 2
-                                    }
-                    setOnClickListener {
-                        selectedContrastMode = ContrastMode.SEPIA
-                        applySettingsPageTheme(dialogView, selectedContrastMode)
-                        applySettingsChrome(selectedContrastMode)
-                        Toast.makeText(this@ReaderSettingsActivity, "Sepia Mode", Toast.LENGTH_SHORT)
-                                .show()
-                    }
-                }
-        themeContainer.addView(btnNormal)
-        themeContainer.addView(btnDark)
-        themeContainer.addView(btnSepia)
-        insertTop(themeContainer)
-
-        val btnAiProfiles =
-                Button(this).apply {
-                    text = getString(R.string.reader_settings_ai_profiles)
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        bottomMargin = sectionSpacing
-                                    }
-                }
-        insertTop(btnAiProfiles)
+        setupAiProfilesSection(buttonHeight, sectionSpacing) { insertTop(it) }
 
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
         val readerSettings = ReaderSettings.fromPrefs(prefs)
-        var selectedDailySummaryHour = readerSettings.dailySummaryEmailHour.coerceIn(0, 23)
-        var selectedDailySummaryMinute = readerSettings.dailySummaryEmailMinute.coerceIn(0, 59)
+        selectedDailySummaryHour = readerSettings.dailySummaryEmailHour.coerceIn(0, 23)
+        selectedDailySummaryMinute = readerSettings.dailySummaryEmailMinute.coerceIn(0, 59)
         selectedContrastMode =
                 ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
 
@@ -346,119 +189,16 @@ class ReaderSettingsActivity : BaseActivity() {
             else -> rbSystem.isChecked = true
         }
 
-        etServerUrl.setText(readerSettings.serverBaseUrl)
-        etApiKey.setText(readerSettings.apiKey)
-        switchPageTap.isChecked = readerSettings.pageTapEnabled
-        switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
-        switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
-        switchPageIndicator.isChecked = readerSettings.showPageIndicator
-        switchAutoCheckUpdates.isChecked = readerSettings.autoCheckUpdates
-        switchDailySummaryEmail.isChecked = readerSettings.dailySummaryEmailEnabled
-        etDailySummaryEmailTo.setText(readerSettings.dailySummaryEmailTo)
-        switchConvertChinese.isChecked = readerSettings.convertToTraditionalChinese
-        cbCustomExport.isChecked = readerSettings.exportToCustomUrl
-        etCustomExportUrl.setText(readerSettings.exportCustomUrl)
-        etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
-        cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
-        seekBarTextSize.progress = readerSettings.textSize - 50
-        tvTextSizeValue.text = "${readerSettings.textSize}%"
-        tvDailySummaryTimeValue.text =
-                formatTimeOfDay(selectedDailySummaryHour, selectedDailySummaryMinute)
-
-        fun applyDailySummaryControlsState() {
-            val enabled = switchDailySummaryEmail.isChecked
-            tvDailySummaryTimeValue.alpha = if (enabled) 1f else 0.6f
-            btnDailySummaryPickTime.isEnabled = enabled
-            etDailySummaryEmailTo.isEnabled = enabled
-        }
-        applyDailySummaryControlsState()
-
-        switchDailySummaryEmail.setOnCheckedChangeListener { _, _ ->
-            applyDailySummaryControlsState()
-        }
-        btnDailySummaryPickTime.setOnClickListener {
-            TimePickerDialog(
-                            this,
-                            { _, hourOfDay, minute ->
-                                selectedDailySummaryHour = hourOfDay
-                                selectedDailySummaryMinute = minute
-                                tvDailySummaryTimeValue.text =
-                                        formatTimeOfDay(
-                                                selectedDailySummaryHour,
-                                                selectedDailySummaryMinute
-                                        )
-                            },
-                            selectedDailySummaryHour,
-                            selectedDailySummaryMinute,
-                            true
-                    )
-                    .show()
-        }
-
-        seekBarTextSize.setOnSeekBarChangeListener(
-                object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(
-                            seekBar: SeekBar?,
-                            progress: Int,
-                            fromUser: Boolean
-                    ) {
-                        tvTextSizeValue.text = "${progress + 50}%"
-                    }
-
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                }
+        setupGeneralPreferences(
+                readerSettings, prefs, etServerUrl, etApiKey, switchPageTap, switchPageSwipe,
+                switchPageAnimation, switchPageIndicator, switchAutoCheckUpdates, switchDailySummaryEmail,
+                etDailySummaryEmailTo, switchConvertChinese, cbCustomExport, etCustomExportUrl,
+                cbLocalExport, seekBarTextSize, tvTextSizeValue
         )
 
-        switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
-            val currentSettings = ReaderSettings.fromPrefs(prefs)
-            val updatedSettings =
-                    currentSettings.copy(
-                            convertToTraditionalChinese = isChecked,
-                            updatedAt = System.currentTimeMillis()
-                    )
-            updatedSettings.saveTo(prefs)
-            setResult(RESULT_OK)
-            val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        }
+        setupDailySummary(switchDailySummaryEmail, tvDailySummaryTimeValue, btnDailySummaryPickTime, etDailySummaryEmailTo)
 
-        cbCustomExport.setOnCheckedChangeListener { _, isChecked ->
-            etCustomExportUrl.isEnabled = isChecked
-        }
-
-        btnTestExport.setOnClickListener {
-            val app = application as BooxReaderApp
-            val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
-            val baseUrl =
-                    etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
-            val targetUrl =
-                    if (cbCustomExport.isChecked &&
-                                    etCustomExportUrl.text.toString().trim().isNotEmpty()
-                    ) {
-                        etCustomExportUrl.text.toString().trim()
-                    } else {
-                        val trimmed = baseUrl.trimEnd('/')
-                        if (trimmed.isNotEmpty()) trimmed + HttpConfig.PATH_AI_NOTES_EXPORT else ""
-                    }
-
-            if (targetUrl.isEmpty()) {
-                Toast.makeText(this, "請輸入有效的 URL", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            btnTestExport.isEnabled = false
-            val originalText = btnTestExport.text
-            btnTestExport.text = "Testing..."
-            lifecycleScope.launch {
-                val result = repo.testExportEndpoint(targetUrl)
-                Toast.makeText(this@ReaderSettingsActivity, "Export test: $result", Toast.LENGTH_LONG)
-                        .show()
-                btnTestExport.text = originalText
-                btnTestExport.isEnabled = true
-            }
-        }
+        setupExportTest(cbCustomExport, etCustomExportUrl, btnTestExport, etServerUrl, readerSettings)
 
         btnManageMagicTags.setOnClickListener { showMagicTagManager() }
 
@@ -474,14 +214,6 @@ class ReaderSettingsActivity : BaseActivity() {
             if (!hasBookContext) return@setOnClickListener
             setResult(RESULT_OK, Intent().putExtra(EXTRA_ACTION, ACTION_SHOW_BOOKMARKS))
             finish()
-        }
-
-        btnUserProfile.setOnClickListener {
-            startActivity(Intent(this@ReaderSettingsActivity, UserProfileActivity::class.java))
-        }
-
-        btnAiProfiles.setOnClickListener {
-            my.hinoki.booxreader.ui.settings.AiProfileListActivity.open(this@ReaderSettingsActivity)
         }
 
         btnSettingsCancel.setOnClickListener { finish() }
@@ -935,6 +667,360 @@ class ReaderSettingsActivity : BaseActivity() {
                 textColor = textColor,
                 disabledTextColor = disabledTextColor
         )
+    }
+
+    private fun setupLanguageSection(
+            sectionSpacing: Int,
+            itemSpacing: Int,
+            insertTop: (View) -> Unit
+    ): Triple<android.widget.RadioButton, android.widget.RadioButton, android.widget.RadioButton> {
+        val languageTitle =
+                TextView(this).apply {
+                    text = getString(R.string.reader_settings_language_title)
+                    textSize = 18f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        topMargin = sectionSpacing
+                                    }
+                }
+        insertTop(languageTitle)
+
+        val languageGroup =
+                android.widget.RadioGroup(this).apply {
+                    orientation = android.widget.RadioGroup.VERTICAL
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        bottomMargin = itemSpacing
+                                    }
+                }
+
+        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
+        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
+        val rbChinese =
+                android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
+        languageGroup.addView(rbSystem)
+        languageGroup.addView(rbEnglish)
+        languageGroup.addView(rbChinese)
+        insertTop(languageGroup)
+
+        return Triple(rbSystem, rbEnglish, rbChinese)
+    }
+
+    private fun setupUserProfileSection(
+            buttonHeight: Int,
+            sectionSpacing: Int,
+            insertTop: (View) -> Unit
+    ) {
+        val btnUserProfile =
+                Button(this).apply {
+                    text = getString(R.string.reader_settings_user_profile)
+                    isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        bottomMargin = sectionSpacing
+                                    }
+                    setOnClickListener {
+                        startActivity(Intent(this@ReaderSettingsActivity, UserProfileActivity::class.java))
+                    }
+                }
+        insertTop(btnUserProfile)
+    }
+
+    private fun setupThemeSection(
+            buttonHeight: Int,
+            splitSpacing: Int,
+            sectionSpacing: Int,
+            dialogView: View,
+            insertTop: (View) -> Unit
+    ) {
+        val themeTitle =
+                TextView(this).apply {
+                    text = getString(R.string.reader_settings_theme_title)
+                    textSize = 18f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                            )
+                }
+        insertTop(themeTitle)
+
+        val themeContainer =
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    weightSum = 3f
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                bottomMargin = sectionSpacing
+                            }
+                }
+
+        selectedContrastMode =
+                ContrastMode.values()
+                        .getOrNull(
+                                ReaderSettings.fromPrefs(
+                                                getSharedPreferences(
+                                                        ReaderActivity.PREFS_NAME,
+                                                        MODE_PRIVATE
+                                                )
+                                        )
+                                        .contrastMode
+                        ) ?: ContrastMode.NORMAL
+
+        val btnNormal =
+                Button(this).apply {
+                    text = "Normal"
+                    isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                    .apply {
+                                        marginEnd = splitSpacing / 2
+                                    }
+                    setOnClickListener {
+                        selectedContrastMode = ContrastMode.NORMAL
+                        applySettingsPageTheme(dialogView, selectedContrastMode)
+                        applySettingsChrome(selectedContrastMode)
+                        Toast.makeText(this@ReaderSettingsActivity, "Normal Mode", Toast.LENGTH_SHORT)
+                                .show()
+                    }
+                }
+        val btnDark =
+                Button(this).apply {
+                    text = "Dark"
+                    isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                    .apply {
+                                        marginStart = splitSpacing / 2
+                                        marginEnd = splitSpacing / 2
+                                    }
+                    setOnClickListener {
+                        selectedContrastMode = ContrastMode.DARK
+                        applySettingsPageTheme(dialogView, selectedContrastMode)
+                        applySettingsChrome(selectedContrastMode)
+                        Toast.makeText(this@ReaderSettingsActivity, "Dark Mode", Toast.LENGTH_SHORT)
+                                .show()
+                    }
+                }
+        val btnSepia =
+                Button(this).apply {
+                    text = "Sepia"
+                    isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                                    .apply {
+                                        marginStart = splitSpacing / 2
+                                    }
+                    setOnClickListener {
+                        selectedContrastMode = ContrastMode.SEPIA
+                        applySettingsPageTheme(dialogView, selectedContrastMode)
+                        applySettingsChrome(selectedContrastMode)
+                        Toast.makeText(this@ReaderSettingsActivity, "Sepia Mode", Toast.LENGTH_SHORT)
+                                .show()
+                    }
+                }
+        themeContainer.addView(btnNormal)
+        themeContainer.addView(btnDark)
+        themeContainer.addView(btnSepia)
+        insertTop(themeContainer)
+    }
+
+    private fun setupAiProfilesSection(
+            buttonHeight: Int,
+            sectionSpacing: Int,
+            insertTop: (View) -> Unit
+    ) {
+        val btnAiProfiles =
+                Button(this).apply {
+                    text = getString(R.string.reader_settings_ai_profiles)
+                    isAllCaps = false
+                    minHeight = buttonHeight
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        bottomMargin = sectionSpacing
+                                    }
+                    setOnClickListener {
+                        my.hinoki.booxreader.ui.settings.AiProfileListActivity.open(this@ReaderSettingsActivity)
+                    }
+                }
+        insertTop(btnAiProfiles)
+    }
+
+    private fun setupDailySummary(
+            switchDailySummaryEmail: androidx.appcompat.widget.SwitchCompat,
+            tvDailySummaryTimeValue: TextView,
+            btnDailySummaryPickTime: Button,
+            etDailySummaryEmailTo: EditText
+    ) {
+        tvDailySummaryTimeValue.text =
+                formatTimeOfDay(selectedDailySummaryHour, selectedDailySummaryMinute)
+
+        fun applyDailySummaryControlsState() {
+            val enabled = switchDailySummaryEmail.isChecked
+            tvDailySummaryTimeValue.alpha = if (enabled) 1f else 0.6f
+            btnDailySummaryPickTime.isEnabled = enabled
+            etDailySummaryEmailTo.isEnabled = enabled
+        }
+        applyDailySummaryControlsState()
+
+        switchDailySummaryEmail.setOnCheckedChangeListener { _, _ ->
+            applyDailySummaryControlsState()
+        }
+        btnDailySummaryPickTime.setOnClickListener {
+            TimePickerDialog(
+                            this,
+                            { _, hourOfDay, minute ->
+                                selectedDailySummaryHour = hourOfDay
+                                selectedDailySummaryMinute = minute
+                                tvDailySummaryTimeValue.text =
+                                        formatTimeOfDay(
+                                                selectedDailySummaryHour,
+                                                selectedDailySummaryMinute
+                                        )
+                            },
+                            selectedDailySummaryHour,
+                            selectedDailySummaryMinute,
+                            true
+                    )
+                    .show()
+        }
+    }
+
+    private fun setupExportTest(
+            cbCustomExport: CheckBox,
+            etCustomExportUrl: EditText,
+            btnTestExport: Button,
+            etServerUrl: EditText,
+            readerSettings: ReaderSettings
+    ) {
+        cbCustomExport.setOnCheckedChangeListener { _, isChecked ->
+            etCustomExportUrl.isEnabled = isChecked
+        }
+
+        btnTestExport.setOnClickListener {
+            val app = application as BooxReaderApp
+            val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
+            val baseUrl =
+                    etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
+            val targetUrl =
+                    if (cbCustomExport.isChecked &&
+                                    etCustomExportUrl.text.toString().trim().isNotEmpty()
+                    ) {
+                        etCustomExportUrl.text.toString().trim()
+                    } else {
+                        val trimmed = baseUrl.trimEnd('/')
+                        if (trimmed.isNotEmpty()) trimmed + HttpConfig.PATH_AI_NOTES_EXPORT else ""
+                    }
+
+            if (targetUrl.isEmpty()) {
+                Toast.makeText(this, "請輸入有效的 URL", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            btnTestExport.isEnabled = false
+            val originalText = btnTestExport.text
+            btnTestExport.text = "Testing..."
+            lifecycleScope.launch {
+                val result = repo.testExportEndpoint(targetUrl)
+                Toast.makeText(this@ReaderSettingsActivity, "Export test: $result", Toast.LENGTH_LONG)
+                        .show()
+                btnTestExport.text = originalText
+                btnTestExport.isEnabled = true
+            }
+        }
+    }
+
+    private fun setupGeneralPreferences(
+            readerSettings: ReaderSettings,
+            prefs: android.content.SharedPreferences,
+            etServerUrl: EditText,
+            etApiKey: EditText,
+            switchPageTap: androidx.appcompat.widget.SwitchCompat,
+            switchPageSwipe: androidx.appcompat.widget.SwitchCompat,
+            switchPageAnimation: androidx.appcompat.widget.SwitchCompat,
+            switchPageIndicator: androidx.appcompat.widget.SwitchCompat,
+            switchAutoCheckUpdates: androidx.appcompat.widget.SwitchCompat,
+            switchDailySummaryEmail: androidx.appcompat.widget.SwitchCompat,
+            etDailySummaryEmailTo: EditText,
+            switchConvertChinese: androidx.appcompat.widget.SwitchCompat,
+            cbCustomExport: CheckBox,
+            etCustomExportUrl: EditText,
+            cbLocalExport: CheckBox,
+            seekBarTextSize: SeekBar,
+            tvTextSizeValue: TextView
+    ) {
+        etServerUrl.setText(readerSettings.serverBaseUrl)
+        etApiKey.setText(readerSettings.apiKey)
+        switchPageTap.isChecked = readerSettings.pageTapEnabled
+        switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
+        switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled
+        switchPageIndicator.isChecked = readerSettings.showPageIndicator
+        switchAutoCheckUpdates.isChecked = readerSettings.autoCheckUpdates
+        switchDailySummaryEmail.isChecked = readerSettings.dailySummaryEmailEnabled
+        etDailySummaryEmailTo.setText(readerSettings.dailySummaryEmailTo)
+        switchConvertChinese.isChecked = readerSettings.convertToTraditionalChinese
+        cbCustomExport.isChecked = readerSettings.exportToCustomUrl
+        etCustomExportUrl.setText(readerSettings.exportCustomUrl)
+        etCustomExportUrl.isEnabled = readerSettings.exportToCustomUrl
+        cbLocalExport.isChecked = readerSettings.exportToLocalDownloads
+        seekBarTextSize.progress = readerSettings.textSize - 50
+        tvTextSizeValue.text = "${readerSettings.textSize}%"
+
+        seekBarTextSize.setOnSeekBarChangeListener(
+                object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(
+                            seekBar: SeekBar?,
+                            progress: Int,
+                            fromUser: Boolean
+                    ) {
+                        tvTextSizeValue.text = "${progress + 50}%"
+                    }
+
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                }
+        )
+
+        switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
+            val currentSettings = ReaderSettings.fromPrefs(prefs)
+            val updatedSettings =
+                    currentSettings.copy(
+                            convertToTraditionalChinese = isChecked,
+                            updatedAt = System.currentTimeMillis()
+                    )
+            updatedSettings.saveTo(prefs)
+            setResult(RESULT_OK)
+            val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun applyButtonStyle(button: Button, style: ButtonVisualStyle) {
