@@ -600,6 +600,66 @@ class NativeNavigatorFragment : Fragment() {
         }
     }
 
+    private suspend fun parseResourceContent(pub: Publication, linkHref: String, link: org.readium.r2.shared.publication.Link): HtmlContentParser.ParsedResult {
+        val imageGetter = createImageGetter(pub, linkHref)
+        return withContext(Dispatchers.IO) {
+            val resource = pub.get(link)
+            val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
+            val textColor = currentThemeColors?.second ?: Color.BLACK
+            val parsedWithAnchors =
+                    HtmlContentParser.parseHtmlWithAnchors(html, textColor, imageGetter)
+            val converted = applyChineseConversion(parsedWithAnchors.content)
+            HtmlContentParser.ParsedResult(converted, parsedWithAnchors.anchorOffsets)
+        }
+    }
+
+    private fun resolveCurrentPage(pageCount: Int, jumpToLastPage: Boolean, linkHref: String) {
+        val pendingFragment = pendingNavigationFragment
+        val pendingProgression = pendingNavigationProgression
+        val selectionTarget = pendingSelectionFocusTarget
+        pendingNavigationFragment = null
+        pendingNavigationProgression = null
+        val loc = initialLocator
+        val focusedRange =
+                if (selectionTarget != null) {
+                    resolveSelectionFocusRange(selectionTarget)
+                } else {
+                    null
+                }
+        if (focusedRange != null && pageCount > 0) {
+            currentPageInResource =
+                    (pager?.findPageForOffset(focusedRange.start) ?: 0).coerceIn(0, pageCount - 1)
+            activeSelectionFocusRange = focusedRange
+            pendingSelectionFocusTarget = null
+            initialLocator = null
+        } else if (!pendingFragment.isNullOrBlank() && pageCount > 0) {
+            val pageForAnchor = findPageForFragment(pendingFragment)
+            if (pageForAnchor != null) {
+                currentPageInResource = pageForAnchor
+            } else {
+                val progression = pendingProgression ?: 0.0
+                currentPageInResource =
+                        (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+            }
+            initialLocator = null
+        } else if (pendingProgression != null && pageCount > 0) {
+            currentPageInResource =
+                    (pendingProgression * pageCount).toInt().coerceIn(0, pageCount - 1)
+            initialLocator = null
+        } else if (loc != null && hrefTargetsSameResource(loc.href.toString(), linkHref)) {
+            val progression = loc.locations.progression ?: 0.0
+            currentPageInResource =
+                    if (pageCount > 0) {
+                        (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                    } else {
+                        0
+                    }
+            initialLocator = null // Clear after use
+        } else if (jumpToLastPage) {
+            currentPageInResource = (pageCount - 1).coerceAtLeast(0)
+        }
+    }
+
     private suspend fun loadCurrentResource(jumpToLastPage: Boolean = false) {
         val pub =
                 publication
@@ -631,17 +691,7 @@ class NativeNavigatorFragment : Fragment() {
                 )
         convertToTraditionalChinese = settings.convertToTraditionalChinese
 
-        val imageGetter = createImageGetter(pub, link.href.toString())
-        val parsedResult =
-                withContext(Dispatchers.IO) {
-                    val resource = pub.get(link)
-                    val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8) ?: ""
-                    val textColor = currentThemeColors?.second ?: Color.BLACK
-                    val parsedWithAnchors =
-                            HtmlContentParser.parseHtmlWithAnchors(html, textColor, imageGetter)
-                    val converted = applyChineseConversion(parsedWithAnchors.content)
-                    HtmlContentParser.ParsedResult(converted, parsedWithAnchors.anchorOffsets)
-                }
+        val parsedResult = parseResourceContent(pub, link.href.toString(), link)
         resourceText = parsedResult.content
         currentAnchorOffsets = parsedResult.anchorOffsets
 
@@ -661,51 +711,7 @@ class NativeNavigatorFragment : Fragment() {
             currentPageInResource = 0
             loadCurrentResource()
         } else {
-            val pageCount = p?.pageCount ?: 0
-            val pendingFragment = pendingNavigationFragment
-            val pendingProgression = pendingNavigationProgression
-            val selectionTarget = pendingSelectionFocusTarget
-            pendingNavigationFragment = null
-            pendingNavigationProgression = null
-            val loc = initialLocator
-            val focusedRange =
-                    if (selectionTarget != null) {
-                        resolveSelectionFocusRange(selectionTarget)
-                    } else {
-                        null
-                    }
-            if (focusedRange != null && pageCount > 0) {
-                currentPageInResource =
-                        (p?.findPageForOffset(focusedRange.start) ?: 0).coerceIn(0, pageCount - 1)
-                activeSelectionFocusRange = focusedRange
-                pendingSelectionFocusTarget = null
-                initialLocator = null
-            } else if (!pendingFragment.isNullOrBlank() && pageCount > 0) {
-                val pageForAnchor = findPageForFragment(pendingFragment)
-                if (pageForAnchor != null) {
-                    currentPageInResource = pageForAnchor
-                } else {
-                    val progression = pendingProgression ?: 0.0
-                    currentPageInResource =
-                            (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
-                }
-                initialLocator = null
-            } else if (pendingProgression != null && pageCount > 0) {
-                currentPageInResource =
-                        (pendingProgression * pageCount).toInt().coerceIn(0, pageCount - 1)
-                initialLocator = null
-            } else if (loc != null && hrefTargetsSameResource(loc.href.toString(), link.href.toString())) {
-                val progression = loc.locations.progression ?: 0.0
-                currentPageInResource =
-                        if (pageCount > 0) {
-                            (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
-                        } else {
-                            0
-                        }
-                initialLocator = null // Clear after use
-            } else if (jumpToLastPage) {
-                currentPageInResource = (pageCount - 1).coerceAtLeast(0)
-            }
+            resolveCurrentPage(p?.pageCount ?: 0, jumpToLastPage, link.href.toString())
             displayCurrentPage()
         }
 
