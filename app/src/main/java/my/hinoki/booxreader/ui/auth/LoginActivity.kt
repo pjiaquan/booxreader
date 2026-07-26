@@ -122,7 +122,9 @@ class LoginActivity : BaseActivity() {
                         btnGoogle.isEnabled = true
                         progressBar.visibility = View.GONE
                         Toast.makeText(this@LoginActivity, state.message, Toast.LENGTH_SHORT).show()
-                        btnResend.visibility = if (isVerificationError(state.message)) View.VISIBLE else View.GONE
+
+                        btnResend.visibility =
+                                if (isVerificationError(state.message)) View.VISIBLE else View.GONE
                         tvRegister.visibility = View.VISIBLE
                         viewModel.resetState()
                     }
@@ -136,6 +138,11 @@ class LoginActivity : BaseActivity() {
                 }
             }
         }
+    }
+
+    private fun isVerificationError(message: String): Boolean {
+        return message.contains("not verified", ignoreCase = true) ||
+                message.contains("驗證", ignoreCase = true)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
