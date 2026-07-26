@@ -13,6 +13,7 @@ import my.hinoki.booxreader.data.core.CrashReportHandler
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.AuthInterceptor
+import my.hinoki.booxreader.data.remote.PocketBaseRealtimeClient
 import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -27,6 +28,8 @@ class BooxReaderApp : Application() {
 
     lateinit var okHttpClient: OkHttpClient
         private set
+
+    private var realtimeClient: PocketBaseRealtimeClient? = null
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
@@ -70,7 +73,7 @@ class BooxReaderApp : Application() {
         // Upload any pending crash reports
         uploadPendingCrashReports()
 
-        // Implement PocketBase realtime sync (uses SSE instead of WebSocket)
+
         startRealtimeBookSync()
     }
 
@@ -175,6 +178,7 @@ class BooxReaderApp : Application() {
         stopRealtimeBookSync()
     }
 
+
     private var realtimeBookSyncClient: my.hinoki.booxreader.data.remote.PocketBaseSseClient? = null
 
     // Reimplemented with PocketBase realtime (SSE-based)
@@ -217,6 +221,7 @@ class BooxReaderApp : Application() {
         android.util.Log.d("BooxReaderApp", "stopRealtimeBookSync - Stopping realtime sync for books")
         realtimeBookSyncClient?.stop()
         realtimeBookSyncClient = null
+
     }
 
     private fun uploadPendingCrashReports() {
