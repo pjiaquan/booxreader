@@ -16,7 +16,10 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
  */
 object ErrorReporter {
     private const val TAG = "ErrorReporter"
-    private val uploadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Made internal and var for testing
+    internal var uploadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    internal var syncRepositoryFactory: (Context) -> UserSyncRepository = { UserSyncRepository(it) }
 
     fun report(context: Context, source: String, message: String?, throwable: Throwable? = null) {
         val appContext = context.applicationContext
@@ -36,7 +39,7 @@ object ErrorReporter {
 
         uploadScope.launch {
             runCatching {
-                        val syncRepo = UserSyncRepository(appContext)
+                        val syncRepo = syncRepositoryFactory(appContext)
                         if (syncRepo.pushCrashReport(report)) {
                             crashHandler.markReportAsUploaded(report.createdAt)
                         }
@@ -50,7 +53,7 @@ object ErrorReporter {
         val crashHandler = CrashReportHandler.getInstance() ?: CrashReportHandler.install(appContext)
         uploadScope.launch {
             runCatching {
-                        val syncRepo = UserSyncRepository(appContext)
+                        val syncRepo = syncRepositoryFactory(appContext)
                         crashHandler.getPendingReports().forEach { report ->
                             if (syncRepo.pushCrashReport(report)) {
                                 crashHandler.markReportAsUploaded(report.createdAt)

@@ -2,13 +2,6 @@ name: '🔀 Gemini Triage'
 
 on:
   workflow_call:
-    secrets:
-      GEMINI_API_KEY:
-        required: false
-      GOOGLE_API_KEY:
-        required: false
-      APP_PRIVATE_KEY:
-        required: false
     inputs:
       additional_context:
         type: 'string'
@@ -65,7 +58,7 @@ jobs:
       - name: 'Run Gemini issue analysis'
         id: 'gemini_analysis'
         if: |-
-          ${{ steps.get_labels.outputs.available_labels != '' && (secrets.GEMINI_API_KEY != '' || secrets.GOOGLE_API_KEY != '' || vars.GCP_WIF_PROVIDER != '') }}
+          ${{ steps.get_labels.outputs.available_labels != '' }}
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         env:
           GITHUB_TOKEN: '' # Do NOT pass any auth tokens here since this runs on untrusted inputs
@@ -76,9 +69,8 @@ jobs:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
           gcp_service_account: '${{ vars.SERVICE_ACCOUNT_EMAIL }}'
-          gcp_token_format: ''
           gcp_workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
-          gemini_api_key: '${{ secrets.GEMINI_API_KEY || secrets.GITHUB_TOKEN }}'
+          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           gemini_cli_version: '${{ vars.GEMINI_CLI_VERSION }}'
           gemini_debug: '${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}'
           gemini_model: '${{ vars.GEMINI_MODEL }}'

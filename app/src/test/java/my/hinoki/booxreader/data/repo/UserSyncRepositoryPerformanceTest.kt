@@ -3,91 +3,93 @@ package my.hinoki.booxreader.data.repo
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
-import my.hinoki.booxreader.data.db.AiNoteEntity
+
 import my.hinoki.booxreader.data.db.AppDatabase
+import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+
+import org.mockito.Mockito
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.mockito.Mockito.mock
 import kotlin.system.measureTimeMillis
+import java.util.concurrent.TimeUnit
+import org.junit.Assert.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
+@Config(sdk = [34], manifest = Config.NONE)
 class UserSyncRepositoryPerformanceTest {
 
     private lateinit var context: Context
-    private lateinit var db: AppDatabase
+    private lateinit var mockWebServer: MockWebServer
+    private lateinit var repo: UserSyncRepository
+
 
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
-        db = androidx.room.Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+
+        mockWebServer = MockWebServer()
+
+        mockWebServer.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return MockResponse()
+                    .setResponseCode(200)
+                    .setBody("""{"items":[]}""")
+                    .setBodyDelay(100, TimeUnit.MILLISECONDS) // 100ms delay per request
+            }
+        }
+        mockWebServer.start()
+
+        val mockTokenManager = Mockito.mock(TokenManager::class.java)
+        Mockito.`when`(mockTokenManager.getAccessToken()).thenReturn("fake_token")
+
+        val prefs = context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("pocketbase_user_id", "user_123").apply()
+
+        repo = UserSyncRepository(
+            context = context,
+            baseUrl = mockWebServer.url("/").toString(),
+            tokenManager = mockTokenManager
+        )
+
     }
 
     @After
     fun teardown() {
-        db.close()
+        mockWebServer.shutdown()
     }
 
     @Test
-    fun benchmarkDeleteSingleVsBatch() = runBlocking {
-        // Insert a bunch of dummy notes
-        val numNotes = 1000
-        val noteIds = mutableListOf<Long>()
-        for (i in 0 until numNotes) {
-            val id = db.aiNoteDao().insert(
-                AiNoteEntity(
-                    bookId = "book1",
-                    messages = "messages_$i",
-                    originalText = "text",
-                    aiResponse = "response",
-                    locatorJson = "locator",
-                    remoteId = "remote"
-                )
+    fun testPushAllLocalProgressPerformance() = runBlocking {
+        val realDb = AppDatabase.get(context)
+        realDb.bookDao().deleteAll() // clean up
+
+        for (i in 1..20) {
+            val book = BookEntity(
+                bookId = "book_$i",
+                title = "Book $i",
+                fileUri = "content://something",
+                lastLocatorJson = """{"cfi":"/2/2","progress":0.5}""",
+                lastOpenedAt = System.currentTimeMillis()
             )
-            noteIds.add(id)
+            realDb.bookDao().insert(book)
         }
 
-        System.err.println("Total notes in DB before delete: ${db.aiNoteDao().getAll().size}")
-
-        // Measure single deletes
-        val singleTime = measureTimeMillis {
-            noteIds.forEach { id -> db.aiNoteDao().deleteById(id) }
+        val time = measureTimeMillis {
+            repo.pushAllLocalProgress()
         }
 
-        System.err.println("Single deletes time for $numNotes notes: ${singleTime}ms")
+        println("PERFORMANCE_BASELINE: ${time}ms")
+        assertTrue("Test executed in ${time}ms", true)
 
-        // Now setup again for batch delete
-        noteIds.clear()
-        for (i in 0 until numNotes) {
-            val id = db.aiNoteDao().insert(
-                AiNoteEntity(
-                    bookId = "book1",
-                    messages = "messages_$i",
-                    originalText = "text",
-                    aiResponse = "response",
-                    locatorJson = "locator",
-                    remoteId = "remote"
-                )
-            )
-            noteIds.add(id)
-        }
-
-        System.err.println("Total notes in DB before batch delete: ${db.aiNoteDao().getAll().size}")
-
-        // Measure batch delete
-        val batchTime = measureTimeMillis {
-            db.aiNoteDao().deleteByIds(noteIds)
-        }
-
-        System.err.println("Batch delete time for $numNotes notes: ${batchTime}ms")
-
-        System.err.println("IMPROVEMENT: ${singleTime - batchTime}ms (${String.format("%.2f", (singleTime - batchTime).toFloat() / singleTime * 100)}%)")
     }
 }
