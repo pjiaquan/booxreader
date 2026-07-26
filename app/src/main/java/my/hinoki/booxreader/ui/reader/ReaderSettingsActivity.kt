@@ -164,8 +164,11 @@ class ReaderSettingsActivity : BaseActivity() {
 
         topInsertIndex = 0
         fun insertTop(view: View) {
-            layout?.addView(view, topInsertIndex)
-            topInsertIndex += 1
+            if (layout != null) {
+                val safeIndex = topInsertIndex.coerceIn(0, layout.childCount)
+                layout.addView(view, safeIndex)
+                topInsertIndex += 1
+            }
         }
 
         val (rbSystem, rbEnglish, rbChinese) = setupLanguageSection(sectionSpacing, itemSpacing) { insertTop(it) }

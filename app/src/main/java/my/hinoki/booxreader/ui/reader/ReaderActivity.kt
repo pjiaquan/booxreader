@@ -824,6 +824,13 @@ class ReaderActivity : BaseActivity() {
     }
 
 
+    private fun safeAddViewAt(parent: android.widget.LinearLayout?, child: View, desiredIndex: Int) {
+        if (parent != null) {
+            val safeIndex = desiredIndex.coerceIn(0, parent.childCount)
+            parent.addView(child, safeIndex)
+        }
+    }
+
     private fun showSettingsDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_reader_settings, null)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -849,7 +856,7 @@ class ReaderActivity : BaseActivity() {
 
         val btnAiProfiles = Button(this).apply { text = "AI Profiles (Switch Model/API)" }
         val layout = (dialogView as? android.view.ViewGroup)?.getChildAt(0) as? android.widget.LinearLayout
-        layout?.addView(btnAiProfiles, 2)
+        safeAddViewAt(layout, btnAiProfiles, 2)
         btnAiProfiles.setOnClickListener {
             dialog.dismiss()
             my.hinoki.booxreader.ui.settings.AiProfileListActivity.open(this@ReaderActivity)
@@ -871,7 +878,7 @@ class ReaderActivity : BaseActivity() {
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setPadding(0, 16, 0, 8)
                 }
-        layout?.addView(themeTitle, 3) // Based on original index logic
+        safeAddViewAt(layout, themeTitle, 3)
 
         val themeContainer =
                 android.widget.LinearLayout(this).apply {
@@ -891,7 +898,7 @@ class ReaderActivity : BaseActivity() {
         themeContainer.addView(btnNormal)
         themeContainer.addView(btnDark)
         themeContainer.addView(btnSepia)
-        layout?.addView(themeContainer, 4)
+        safeAddViewAt(layout, themeContainer, 4)
     }
 
     private fun createThemeButton(title: String, mode: ContrastMode): Button {
@@ -918,7 +925,7 @@ class ReaderActivity : BaseActivity() {
                     setTypeface(null, android.graphics.Typeface.BOLD)
                     setPadding(0, 16, 0, 8)
                 }
-        layout?.addView(languageTitle, 2)
+        safeAddViewAt(layout, languageTitle, 2)
 
         val languageGroup =
                 android.widget.RadioGroup(this).apply {
@@ -933,7 +940,7 @@ class ReaderActivity : BaseActivity() {
         languageGroup.addView(rbSystem)
         languageGroup.addView(rbEnglish)
         languageGroup.addView(rbChinese)
-        layout?.addView(languageGroup, 3)
+        safeAddViewAt(layout, languageGroup, 3)
 
         when (readerSettings.language) {
             "zh" -> rbChinese.isChecked = true
