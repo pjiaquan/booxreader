@@ -176,14 +176,8 @@ class UserProfileActivity : BaseActivity() {
         lifecycleScope.launch {
             val result = authRepository.updateProfile(username, selectedAvatarUri)
             setBusy(false)
-            result.onSuccess { user ->
-                selectedAvatarUri = null
-                etUsername.setText(user.displayName ?: username)
-                tvEmail.text = user.email
-                loadAvatar(user.avatarUrl)
-                Toast.makeText(this@UserProfileActivity, R.string.profile_saved, Toast.LENGTH_SHORT)
-                        .show()
-            }.onFailure { error ->
+
+            result.onFailure { error ->
                 val message = error.message?.takeIf { it.isNotBlank() }
                 val text =
                         if (message == null) {
@@ -192,7 +186,16 @@ class UserProfileActivity : BaseActivity() {
                             getString(R.string.profile_save_failed) + ": " + message
                         }
                 Toast.makeText(this@UserProfileActivity, text, Toast.LENGTH_SHORT).show()
+                return@launch
             }
+
+            val user = result.getOrThrow()
+            selectedAvatarUri = null
+            etUsername.setText(user.displayName ?: username)
+            tvEmail.text = user.email
+            loadAvatar(user.avatarUrl)
+            Toast.makeText(this@UserProfileActivity, R.string.profile_saved, Toast.LENGTH_SHORT)
+                    .show()
         }
     }
 
@@ -220,17 +223,8 @@ class UserProfileActivity : BaseActivity() {
         lifecycleScope.launch {
             val result = authRepository.changePassword(currentPassword, newPassword)
             setBusy(false)
-            result.onSuccess {
-                etCurrentPassword.text?.clear()
-                etNewPassword.text?.clear()
-                etConfirmPassword.text?.clear()
-                Toast.makeText(
-                                this@UserProfileActivity,
-                                R.string.profile_password_updated,
-                                Toast.LENGTH_SHORT
-                        )
-                        .show()
-            }.onFailure { error ->
+
+            result.onFailure { error ->
                 val message = error.message?.takeIf { it.isNotBlank() }
                 val text =
                         if (message == null) {
@@ -239,7 +233,18 @@ class UserProfileActivity : BaseActivity() {
                             getString(R.string.profile_password_change_failed) + ": " + message
                         }
                 Toast.makeText(this@UserProfileActivity, text, Toast.LENGTH_SHORT).show()
+                return@launch
             }
+
+            etCurrentPassword.text?.clear()
+            etNewPassword.text?.clear()
+            etConfirmPassword.text?.clear()
+            Toast.makeText(
+                            this@UserProfileActivity,
+                            R.string.profile_password_updated,
+                            Toast.LENGTH_SHORT
+                    )
+                    .show()
         }
     }
 

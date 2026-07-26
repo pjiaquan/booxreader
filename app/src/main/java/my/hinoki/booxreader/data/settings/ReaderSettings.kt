@@ -32,75 +32,9 @@ data class ReaderSettings(
         val apiKey: String = "",
         val aiModelName: String = "deepseek-chat",
         // Default System Prompt
-        val aiSystemPrompt: String =
-                """
-你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
-
----
-
-# 🧩 **核心風格**
-
-## 1. 語氣
-- 生動、有溫度、帶點朋友式對話感。
-- 多用生活化比喻，例如：
-  - 把「神經網路」比喻成「一群靠瘋狂試錯而越來越聰明的猜謎團隊」。
-
-## 2. 回答目標
-- 不是只給答案，而是引導思考。
-- 解析要講清楚「為什麼」與「還能怎麼看」。
-- 偶爾丟出延伸小問題，激發好奇心。
-
----
-
-# 🧱 **回答格式（Markdown）**
-
-請盡量依框架作答，必要時可微調：
-
----
-
-### 🌟 核心瞬間
-- 用 1～3 句最濃縮、最畫面感的比喻或洞察抓住重點。
-
----
-
-### 📚 展開聊聊
-以自然口吻展開解析，不用學術腔。
-
-#### 🔸 專有名詞標註規則
-- **使用者提問中的中文關鍵詞語**
-  - 在回覆內容中**首次出現時**標註：詞語(pinyin，English)
-  - 若無合適英文可省略英文。
-- **你主動引入的新概念**
-  - 首次出現請添加粗體，如：**梯度下降**。
-- **已在對話中反覆提過的詞**  
-  - 可省略拼音標註，避免干擾閱讀。
-
-#### 🔸 語氣建議
-- 儘量用「我們」增加陪伴感：
-  - 「我們可以這樣理解…」
-  - 「這邊有個有趣的地方是…」
-
----
-
-### 💡 思維跳板
-- 用一個小問題延伸思考，例如與生活連結、假設情境、挑戰慣性思考。
-
----
-
-# 📌 回覆格式規範
-- 一律使用 Markdown。
-- 若涉及步驟、流程、比較，務必使用條列或表格。
-- 若使用者要求簡短回覆，也至少保留：
-  - 🌟 核心瞬間  
-  - 📚 展開聊聊（簡版）
-    """.trimIndent(),
+        val aiSystemPrompt: String = DEFAULT_AI_SYSTEM_PROMPT,
         // Default User Prompt Template
-        val aiUserPromptTemplate: String =
-                """
-%s
-
-[系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
-    """.trimIndent(),
+        val aiUserPromptTemplate: String = DEFAULT_AI_USER_PROMPT_TEMPLATE,
         // Generation Parameters
         val temperature: Double = 0.7,
         val maxTokens: Int = 4096,
@@ -218,51 +152,8 @@ data class ReaderSettings(
           val presencePenalty: Double
   )
   companion object {
-    const val PREFS_NAME = "reader_prefs"
-
-    val defaultMagicTags = listOf(
-        MagicTag(
-            id = "story-mode",
-            label = "[請講故事]",
-            content = "[請講故事]",
-            description = "強力觸發「歷史現場」與「文化深淵」模式，AI會優先挖掘概念背後的故事與神話。"
-        ),
-        MagicTag(
-            id = "cross-domain",
-            label = "[跨界聯想]",
-            content = "[跨界聯想]",
-            description = "強力觸發「跨界回響」，要求AI將概念與一個意想不到的領域進行類比。"
-        ),
-        MagicTag(
-            id = "no-formula",
-            label = "[無公式，純故事]",
-            content = "[無公式，純故事]",
-            description = "極致的人文體驗，關閉所有技術備忘，完全聚焦於歷史敘事、文化比喻與費曼解釋。"
-        ),
-        MagicTag(
-            id = "museum-guide",
-            label = "[像導覽博物館一樣]",
-            content = "[像導覽博物館一樣]",
-            description = "AI將以沉浸式導覽口吻，帶領您漫步於概念發展的歷史長廊中。"
-        )
-    )
-
-    fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
-      val updatedAt = prefs.getLong("settings_updated_at", 0L)
-
-      // Reconstruct defaults to use if prefs are missing (to avoid duplication if possible,
-      // but for simplicity in companion object, we might need to hardcode or instantiate default
-      // object.
-      // Better: use the default instance's values as fallback or just duplicate the string for now
-      // to avoid circular dependency issues)
-      // Ideally we instantiate an empty ReaderSettings() to get defaults but that's slightly
-      // inefficient.
-      // Let's copy the defaults here or just use empty string and handle logic?
-      // Standard practice: define constants for defaults.
-      // For now I'll paste the defaults to ensure robustness.
-
-      val defaultSystemPrompt =
-              """
+    val DEFAULT_AI_SYSTEM_PROMPT =
+"""
 你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
 
 ---
@@ -271,7 +162,6 @@ data class ReaderSettings(
 
 ## 1. 語氣
 - 生動、有溫度、帶點朋友式對話感。
-- 可以自然使用「嘿」、「你知道嗎？」這些語助詞，但勿過度。
 - 多用生活化比喻，例如：
   - 把「神經網路」比喻成「一群靠瘋狂試錯而越來越聰明的猜謎團隊」。
 
@@ -323,14 +213,48 @@ data class ReaderSettings(
 - 若使用者要求簡短回覆，也至少保留：
   - 🌟 核心瞬間  
   - 📚 展開聊聊（簡版）
-            """.trimIndent()
+    """.trimIndent()
 
-      val defaultUserPromptTemplate =
-              """
+    val DEFAULT_AI_USER_PROMPT_TEMPLATE =
+"""
 %s
 
 [系統提示：請閱讀使用者輸入；若有關鍵中文專有名詞，請在回覆中於首次出現時附上拼音，格式：詞語(pinyin) 或 詞語(pinyin，English)。僅在需要幫助理解時標註即可，並維持語句自然流暢。]
-            """.trimIndent()
+    """.trimIndent()
+
+    const val PREFS_NAME = "reader_prefs"
+
+    val defaultMagicTags = listOf(
+        MagicTag(
+            id = "story-mode",
+            label = "[請講故事]",
+            content = "[請講故事]",
+            description = "強力觸發「歷史現場」與「文化深淵」模式，AI會優先挖掘概念背後的故事與神話。"
+        ),
+        MagicTag(
+            id = "cross-domain",
+            label = "[跨界聯想]",
+            content = "[跨界聯想]",
+            description = "強力觸發「跨界回響」，要求AI將概念與一個意想不到的領域進行類比。"
+        ),
+        MagicTag(
+            id = "no-formula",
+            label = "[無公式，純故事]",
+            content = "[無公式，純故事]",
+            description = "極致的人文體驗，關閉所有技術備忘，完全聚焦於歷史敘事、文化比喻與費曼解釋。"
+        ),
+        MagicTag(
+            id = "museum-guide",
+            label = "[像導覽博物館一樣]",
+            content = "[像導覽博物館一樣]",
+            description = "AI將以沉浸式導覽口吻，帶領您漫步於概念發展的歷史長廊中。"
+        )
+    )
+
+    fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
+      val updatedAt = prefs.getLong("settings_updated_at", 0L)
+
+
 
       val magicTagsJson = prefs.getString("magic_tags", null)
       val hasMagicTagsKey = prefs.contains("magic_tags")
@@ -361,11 +285,11 @@ data class ReaderSettings(
               exportToLocalDownloads = prefs.getBoolean("export_to_local_downloads", false),
               apiKey = prefs.getString("api_key", "") ?: "",
               aiModelName = prefs.getString("ai_model_name", "deepseek-chat") ?: "deepseek-chat",
-              aiSystemPrompt = prefs.getString("ai_system_prompt", defaultSystemPrompt)
-                              ?: defaultSystemPrompt,
+              aiSystemPrompt = prefs.getString("ai_system_prompt", DEFAULT_AI_SYSTEM_PROMPT)
+                              ?: DEFAULT_AI_SYSTEM_PROMPT,
               aiUserPromptTemplate =
-                      prefs.getString("ai_user_prompt_template", defaultUserPromptTemplate)
-                              ?: defaultUserPromptTemplate,
+                      prefs.getString("ai_user_prompt_template", DEFAULT_AI_USER_PROMPT_TEMPLATE)
+                              ?: DEFAULT_AI_USER_PROMPT_TEMPLATE,
               temperature = prefs.getFloat("ai_temperature", 0.7f).toDouble(),
               maxTokens = prefs.getInt("ai_max_tokens", 4096),
               topP = prefs.getFloat("ai_top_p", 1.0f).toDouble(),
