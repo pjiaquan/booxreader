@@ -1622,171 +1622,180 @@ class AiNoteDetailActivity : BaseActivity() {
                         }
 
         items.forEachIndexed { index, item ->
-            val title = item.bookTitle?.takeIf { it.isNotBlank() } ?: "Note ${index + 1}"
-            val reason = item.reason ?: getString(R.string.ai_note_related_reason_default)
-            val snippet =
-                    (item.originalText ?: item.aiResponse)
-                            ?.replace(Regex("\\s+"), " ")
-                            ?.trim()
-                            ?.take(130)
-                            .orEmpty()
-            val scorePercent =
-                    ((item.score.coerceIn(0.0, 1.0) * 1000).roundToInt().toDouble() / 10.0)
+            val card = createRelatedNoteCard(item, index, palette)
+            container.addView(card)
+        }
 
-            val card =
-                    MaterialCardView(this).apply {
-                        layoutParams =
-                                LinearLayout.LayoutParams(
-                                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                                LinearLayout.LayoutParams.WRAP_CONTENT
-                                        )
-                                        .apply {
-                                            if (index > 0) topMargin = dp(12)
-                                        }
-                        radius = dp(18).toFloat()
-                        strokeWidth = dp(1)
-                        strokeColor = palette.cardBorder
-                        cardElevation = dp(0).toFloat()
-                        setCardBackgroundColor(palette.cardBg)
-                        rippleColor =
-                                ColorStateList.valueOf(
-                                        ColorUtils.setAlphaComponent(palette.accentColor, 70)
-                                )
-                        isClickable = true
-                        isFocusable = true
-                        setOnClickListener { openRelatedNote(item) }
-                    }
+        loadRecommendedTags(container, items, palette)
+    }
 
-            val content =
+    private fun createRelatedNoteCard(
+            item: AiNoteRepository.SemanticRelatedNote,
+            index: Int,
+            palette: RelatedNotePalette
+    ): MaterialCardView {
+        val title = item.bookTitle?.takeIf { it.isNotBlank() } ?: "Note ${index + 1}"
+        val reason = item.reason ?: getString(R.string.ai_note_related_reason_default)
+        val snippet =
+                (item.originalText ?: item.aiResponse)
+                        ?.replace(Regex("\\s+"), " ")
+                        ?.trim()
+                        ?.take(130)
+                        .orEmpty()
+        val scorePercent =
+                ((item.score.coerceIn(0.0, 1.0) * 1000).roundToInt().toDouble() / 10.0)
+
+        val card =
+                MaterialCardView(this).apply {
+                    layoutParams =
+                            LinearLayout.LayoutParams(
+                                            LinearLayout.LayoutParams.MATCH_PARENT,
+                                            LinearLayout.LayoutParams.WRAP_CONTENT
+                                    )
+                                    .apply {
+                                        if (index > 0) topMargin = dp(12)
+                                    }
+                    radius = dp(18).toFloat()
+                    strokeWidth = dp(1)
+                    strokeColor = palette.cardBorder
+                    cardElevation = dp(0).toFloat()
+                    setCardBackgroundColor(palette.cardBg)
+                    rippleColor =
+                            ColorStateList.valueOf(
+                                    ColorUtils.setAlphaComponent(palette.accentColor, 70)
+                            )
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { openRelatedNote(item) }
+                }
+
+        val content =
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                }
+
+        val titleView =
+                TextView(this).apply {
+                    text = title
+                    setTextColor(palette.titleColor)
+                    setTypeface(typeface, Typeface.BOLD)
+                    textSize = 17f
+                    maxLines = 2
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+        content.addView(titleView)
+
+        val rankView =
+                TextView(this).apply {
+                    text = "HISTORY MATCH  #${index + 1}"
+                    setTextColor(palette.mutedColor)
+                    textSize = 11f
+                    letterSpacing = 0.08f
+                }
+        val rankParams =
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply {
+                            topMargin = dp(4)
+                        }
+        content.addView(rankView, rankParams)
+
+        val metaView =
+                TextView(this).apply {
+                    text = getString(R.string.ai_note_related_similarity, scorePercent)
+                    setTextColor(palette.accentColor)
+                    textSize = 12f
+                    setPadding(dp(10), dp(4), dp(10), dp(4))
+                    background = pillBackground(palette.pillColor)
+                    setTypeface(typeface, Typeface.BOLD)
+                }
+        val metaParams =
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply {
+                            topMargin = dp(8)
+                        }
+        content.addView(metaView, metaParams)
+
+        val reasonView =
+                TextView(this).apply {
+                    text = reason
+                    setTextColor(palette.secondaryColor)
+                    textSize = 14f
+                    maxLines = 3
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }
+        val reasonParams =
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply {
+                            topMargin = dp(8)
+                        }
+        content.addView(reasonView, reasonParams)
+
+        if (snippet.isNotBlank()) {
+            val snippetContainer =
                     LinearLayout(this).apply {
                         orientation = LinearLayout.VERTICAL
-                        setPadding(dp(14), dp(12), dp(14), dp(12))
+                        setPadding(dp(10), dp(8), dp(10), dp(8))
+                        background =
+                                GradientDrawable().apply {
+                                    shape = GradientDrawable.RECTANGLE
+                                    cornerRadius = dp(12).toFloat()
+                                    setColor(palette.snippetBg)
+                                    setStroke(
+                                            dp(1),
+                                            ColorUtils.setAlphaComponent(palette.cardBorder, 140)
+                                    )
+                                }
                     }
-
-            val titleView =
+            val snippetView =
                     TextView(this).apply {
-                        text = title
-                        setTextColor(palette.titleColor)
-                        setTypeface(typeface, Typeface.BOLD)
-                        textSize = 17f
-                        maxLines = 2
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                    }
-            content.addView(titleView)
-
-            val rankView =
-                    TextView(this).apply {
-                        text = "HISTORY MATCH  #${index + 1}"
-                        setTextColor(palette.mutedColor)
-                        textSize = 11f
-                        letterSpacing = 0.08f
-                    }
-            val rankParams =
-                    LinearLayout.LayoutParams(
-                                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                                    LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-                            .apply {
-                                topMargin = dp(4)
-                            }
-            content.addView(rankView, rankParams)
-
-            val metaView =
-                    TextView(this).apply {
-                        text = getString(R.string.ai_note_related_similarity, scorePercent)
-                        setTextColor(palette.accentColor)
-                        textSize = 12f
-                        setPadding(dp(10), dp(4), dp(10), dp(4))
-                        background = pillBackground(palette.pillColor)
-                        setTypeface(typeface, Typeface.BOLD)
-                    }
-            val metaParams =
-                    LinearLayout.LayoutParams(
-                                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                                    LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-                            .apply {
-                                topMargin = dp(8)
-                            }
-            content.addView(metaView, metaParams)
-
-            val reasonView =
-                    TextView(this).apply {
-                        text = reason
+                        text = snippet
                         setTextColor(palette.secondaryColor)
-                        textSize = 14f
+                        textSize = 13f
                         maxLines = 3
                         ellipsize = android.text.TextUtils.TruncateAt.END
+                        setLineSpacing(dp(2).toFloat(), 1f)
                     }
-            val reasonParams =
+            snippetContainer.addView(snippetView)
+            val snippetParams =
                     LinearLayout.LayoutParams(
                                     LinearLayout.LayoutParams.MATCH_PARENT,
                                     LinearLayout.LayoutParams.WRAP_CONTENT
                             )
                             .apply {
-                                topMargin = dp(8)
+                                topMargin = dp(6)
                             }
-            content.addView(reasonView, reasonParams)
-
-            if (snippet.isNotBlank()) {
-                val snippetContainer =
-                        LinearLayout(this).apply {
-                            orientation = LinearLayout.VERTICAL
-                            setPadding(dp(10), dp(8), dp(10), dp(8))
-                            background =
-                                    GradientDrawable().apply {
-                                        shape = GradientDrawable.RECTANGLE
-                                        cornerRadius = dp(12).toFloat()
-                                        setColor(palette.snippetBg)
-                                        setStroke(
-                                                dp(1),
-                                                ColorUtils.setAlphaComponent(palette.cardBorder, 140)
-                                        )
-                                    }
-                        }
-                val snippetView =
-                        TextView(this).apply {
-                            text = snippet
-                            setTextColor(palette.secondaryColor)
-                            textSize = 13f
-                            maxLines = 3
-                            ellipsize = android.text.TextUtils.TruncateAt.END
-                            setLineSpacing(dp(2).toFloat(), 1f)
-                        }
-                snippetContainer.addView(snippetView)
-                val snippetParams =
-                        LinearLayout.LayoutParams(
-                                        LinearLayout.LayoutParams.MATCH_PARENT,
-                                        LinearLayout.LayoutParams.WRAP_CONTENT
-                                )
-                                .apply {
-                                    topMargin = dp(6)
-                                }
-                content.addView(snippetContainer, snippetParams)
-            }
-
-            val actionView =
-                    TextView(this).apply {
-                        text = getString(R.string.ai_note_related_open_action) + "  ›"
-                        setTextColor(palette.actionColor)
-                        setTypeface(typeface, Typeface.BOLD)
-                        textSize = 13f
-                    }
-            val actionParams =
-                    LinearLayout.LayoutParams(
-                                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                                    LinearLayout.LayoutParams.WRAP_CONTENT
-                            )
-                            .apply {
-                                topMargin = dp(10)
-                            }
-            content.addView(actionView, actionParams)
-
-            card.addView(content)
-            container.addView(card)
+            content.addView(snippetContainer, snippetParams)
         }
 
-        loadRecommendedTags(container, items, palette)
+        val actionView =
+                TextView(this).apply {
+                    text = getString(R.string.ai_note_related_open_action) + "  ›"
+                    setTextColor(palette.actionColor)
+                    setTypeface(typeface, Typeface.BOLD)
+                    textSize = 13f
+                }
+        val actionParams =
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply {
+                            topMargin = dp(10)
+                        }
+        content.addView(actionView, actionParams)
+
+        card.addView(content)
+        return card
     }
 
     private data class RelatedNotePalette(
