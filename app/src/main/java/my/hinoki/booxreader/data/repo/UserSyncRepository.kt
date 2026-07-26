@@ -16,6 +16,9 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.core.CrashReport
 import my.hinoki.booxreader.data.core.ErrorReporter
@@ -1184,18 +1187,20 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val localBooks = db.bookDao().getAllBooks()
-                                var syncedCount = 0
-                                for (book in localBooks) {
-                                        val synced =
-                                                pushBook(
-                                                        book,
-                                                        uploadFile = true,
-                                                        contentResolver = appContext.contentResolver
-                                                )
-                                        if (synced) {
-                                                syncedCount++
-                                        }
+
+                                val syncResults = coroutineScope {
+                                        localBooks.map { book ->
+                                                async {
+                                                        pushBook(
+                                                                book,
+                                                                uploadFile = true,
+                                                                contentResolver = appContext.contentResolver
+                                                        )
+                                                }
+                                        }.awaitAll()
                                 }
+
+                                var syncedCount = syncResults.count { it }
 
                                 val pendingDeletes = db.bookDao().getPendingDeletes()
                                 for (deletedBook in pendingDeletes) {
