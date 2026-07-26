@@ -40,18 +40,11 @@ jobs:
           env | grep '^DEBUG_'
 
   dispatch:
-    # For PRs: only if not from a fork
-    # For issues: only on open/reopen
-    # For comments: only if user types @gemini-cli and is OWNER/MEMBER/COLLABORATOR
+    # For PRs / issues / comments: only if user types @gemini-cli and is OWNER/MEMBER/COLLABORATOR
     if: |-
-      (
-        github.event_name == 'issues' &&
-        contains(fromJSON('["opened", "reopened"]'), github.event.action)
-      ) || (
-        github.event.sender.type == 'User' &&
-        startsWith(github.event.comment.body || github.event.review.body || github.event.issue.body, '@gemini-cli') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association)
-      )
+      github.event.sender.type == 'User' &&
+      startsWith(github.event.comment.body || github.event.review.body || github.event.issue.body, '@gemini-cli') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association)
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -87,11 +80,7 @@ jobs:
             const request = process.env.REQUEST;
             core.setOutput('request', request);
 
-            if (['issues.opened', 'issues.reopened'].includes(eventType)) {
-              core.setOutput('command', 'triage');
-            } else if (request.startsWith("@gemini-cli /triage")) {
-              core.setOutput('command', 'triage');
-            } else if (request.startsWith("@gemini-cli")) {
+            if (request.startsWith("@gemini-cli")) {
               const additionalContext = request.replace(/^@gemini-cli/, '').trim();
               core.setOutput('command', 'invoke');
               core.setOutput('additional_context', additionalContext);
@@ -111,21 +100,6 @@ jobs:
             --body "${MESSAGE}" \
             --repo "${REPOSITORY}"
 
-  triage:
-    needs: 'dispatch'
-    if: |-
-      ${{ needs.dispatch.outputs.command == 'triage' }}
-    uses: './.github/workflows/gemini-triage.yml'
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-      issues: 'write'
-      pull-requests: 'write'
-    with:
-      additional_context: '${{ needs.dispatch.outputs.additional_context }}'
-    secrets:
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
   invoke:
     needs: 'dispatch'
     if: |-
@@ -144,7 +118,6 @@ jobs:
   fallthrough:
     needs:
       - 'dispatch'
-      - 'triage'
       - 'invoke'
     if: |-
       ${{ always() && !cancelled() && (failure() || needs.dispatch.outputs.command == 'fallthrough') }}

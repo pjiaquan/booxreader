@@ -91,8 +91,8 @@ android {
         applicationId = "my.hinoki.booxreader"
         minSdk = 24
         targetSdk = 35
-        versionCode = 254
-        versionName = "1.1.253"
+        versionCode = 255
+        versionName = "1.1.254"
 
         buildConfigField("String", "POCKETBASE_URL", "\"$pocketbaseUrl\"")
         buildConfigField("String", "R2_ENDPOINT", "\"$r2Endpoint\"")
