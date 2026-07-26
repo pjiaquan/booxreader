@@ -155,9 +155,4 @@ class LoginActivity : BaseActivity() {
             }
         }
     }
-
-    private fun isVerificationError(message: String): Boolean {
-        return message.contains("not verified", ignoreCase = true) ||
-                message.contains("驗證", ignoreCase = true)
-    }
 }
