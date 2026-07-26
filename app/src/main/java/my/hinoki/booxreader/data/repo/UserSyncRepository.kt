@@ -1696,7 +1696,7 @@ class UserSyncRepository(
                         }
                 }
                 if (duplicateIds.isEmpty()) return
-                duplicateIds.forEach { id -> db.aiNoteDao().deleteById(id) }
+                db.aiNoteDao().deleteByIds(duplicateIds)
                 Log.d(
                         "UserSyncRepository",
                         "cleanupDuplicateNotes - Removed ${duplicateIds.size} duplicate notes"

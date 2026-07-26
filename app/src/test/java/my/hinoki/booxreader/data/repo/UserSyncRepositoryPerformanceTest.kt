@@ -3,6 +3,7 @@ package my.hinoki.booxreader.data.repo
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
+
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
@@ -10,10 +11,12 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+
 import org.mockito.Mockito
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -29,9 +32,11 @@ class UserSyncRepositoryPerformanceTest {
     private lateinit var mockWebServer: MockWebServer
     private lateinit var repo: UserSyncRepository
 
+
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+
         mockWebServer = MockWebServer()
 
         mockWebServer.dispatcher = object : Dispatcher() {
@@ -55,6 +60,7 @@ class UserSyncRepositoryPerformanceTest {
             baseUrl = mockWebServer.url("/").toString(),
             tokenManager = mockTokenManager
         )
+
     }
 
     @After
@@ -84,5 +90,6 @@ class UserSyncRepositoryPerformanceTest {
 
         println("PERFORMANCE_BASELINE: ${time}ms")
         assertTrue("Test executed in ${time}ms", true)
+
     }
 }
