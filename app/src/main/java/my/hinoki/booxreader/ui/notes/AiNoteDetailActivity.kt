@@ -387,6 +387,18 @@ class AiNoteDetailActivity : BaseActivity() {
                     ContrastMode.HIGH_CONTRAST -> Color.parseColor("#202020")
                 }
 
+        applyBaseViewColors(mode, backgroundColor, textColor, secondaryTextColor, hintColor)
+        applyMainButtonStyles(mode, backgroundColor, textColor)
+        applySystemUiStyles(mode, backgroundColor, topBarColor, topBarContentColor)
+    }
+
+    private fun applyBaseViewColors(
+            mode: ContrastMode,
+            backgroundColor: Int,
+            textColor: Int,
+            secondaryTextColor: Int,
+            hintColor: Int
+    ) {
         binding.root.setBackgroundColor(backgroundColor)
         binding.scrollView.setBackgroundColor(backgroundColor)
         binding.llInputArea.setBackgroundColor(backgroundColor)
@@ -414,7 +426,13 @@ class AiNoteDetailActivity : BaseActivity() {
                                 else 0.12f
                         )
                 )
+    }
 
+    private fun applyMainButtonStyles(
+            mode: ContrastMode,
+            backgroundColor: Int,
+            textColor: Int
+    ) {
         val accentColor =
                 when (mode) {
                     ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
@@ -483,7 +501,14 @@ class AiNoteDetailActivity : BaseActivity() {
                                 ),
                         cornerRadiusDp = 20f
                 )
+    }
 
+    private fun applySystemUiStyles(
+            mode: ContrastMode,
+            backgroundColor: Int,
+            topBarColor: Int,
+            topBarContentColor: Int
+    ) {
         updateMagicTagStyles()
         supportActionBar?.setBackgroundDrawable(ColorDrawable(topBarColor))
         applyActionBarContentColor(topBarContentColor)
