@@ -59,8 +59,9 @@
         <activity
             android:name="my.hinoki.booxreader.ui.reader.ReaderSettingsActivity"
             android:exported="false"
-            android:theme="@style/AppTheme.ActionBar"
+            android:theme="@style/AppTheme.ReaderSettings"
             android:label="@string/reader_settings_title" />
+
 
         <activity
             android:name="my.hinoki.booxreader.ui.bookmarks.BookmarkListActivity"

@@ -20,6 +20,21 @@
         <item name="android:windowBackground">?attr/colorSurface</item>
     </style>
 
+    <!-- ReaderSettingsActivity: Material3-based theme so Material3 attrs (colorSurface,
+         MaterialCardView, etc.) resolve correctly on all API levels. Preserves action bar colors. -->
+    <style name="AppTheme.ReaderSettings" parent="Theme.Material3.DayNight">
+        <item name="windowActionModeOverlay">true</item>
+        <item name="actionModeStyle">@style/Widget.App.ActionMode</item>
+        <item name="colorPrimary">@color/action_bar_surface</item>
+        <item name="colorOnPrimary">@color/action_bar_on_surface</item>
+        <item name="colorControlNormal">@color/action_bar_on_surface</item>
+        <item name="actionMenuTextColor">@color/action_bar_on_surface</item>
+        <item name="android:statusBarColor">@color/action_bar_surface</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+    </style>
+
+
+
     <style name="AppTheme.ActionBar.AiNoteDetail" parent="AppTheme.ActionBar">
         <item name="colorPrimary">@color/ai_note_top_bar</item>
         <item name="colorPrimaryVariant">@color/ai_note_top_bar</item>
