@@ -59,8 +59,11 @@ class ReaderSettingsUiAutomatorTest {
             device.hasObject(By.pkg(PACKAGE_NAME))
         )
 
-        // 2. Verify the root ScrollView exists (its resource-id is settingsScroll)
-        val settingsScroll = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/settingsScroll"))
+        // 2. Verify the root ScrollView exists (the <include> tag assigns resource-id settingsContent)
+        var settingsScroll = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/settingsContent"))
+        if (!settingsScroll.exists()) {
+            settingsScroll = device.findObject(UiSelector().resourceId("$PACKAGE_NAME:id/settingsScroll"))
+        }
         assertTrue("Settings page root scroll view should exist", settingsScroll.exists())
 
         // 3. Verify the Save button is present and enabled
