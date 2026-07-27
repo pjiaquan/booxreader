@@ -24,7 +24,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -81,7 +81,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -211,7 +211,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -352,7 +352,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -410,7 +410,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -488,7 +488,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -594,7 +594,7 @@
             android:layout_marginBottom="@dimen/spacing_md"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
@@ -704,7 +704,7 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:strokeColor="?android:attr/listDivider"
+            app:strokeColor="?attr/colorOutlineVariant"
             app:strokeWidth="1dp">
             <LinearLayout
                 android:layout_width="match_parent"
