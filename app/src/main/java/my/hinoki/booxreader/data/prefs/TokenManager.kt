@@ -11,7 +11,7 @@ open class TokenManager(private val context: Context) {
             MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
         } catch (e: Exception) {
             android.util.Log.e("TokenManager", "Failed to create master key", e)
-            "_fallback_master_key_"
+            throw RuntimeException("Failed to create master key", e)
         }
     }
 
