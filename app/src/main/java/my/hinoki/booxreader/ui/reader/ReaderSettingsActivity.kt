@@ -1,18 +1,17 @@
 package my.hinoki.booxreader.ui.reader
 
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
-import android.app.TimePickerDialog
-import android.os.Build
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.os.Build
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
-import android.util.Log
 import android.util.Patterns
 import android.view.MenuItem
 import android.view.View
@@ -20,11 +19,13 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
-import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.ViewCompat
@@ -32,7 +33,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
-import com.google.gson.Gson
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
@@ -40,11 +40,11 @@ import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
-import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import my.hinoki.booxreader.ui.auth.UserProfileActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
+import my.hinoki.booxreader.ui.settings.AiProfileListActivity
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 class ReaderSettingsActivity : BaseActivity() {
@@ -73,15 +73,14 @@ class ReaderSettingsActivity : BaseActivity() {
     private var selectedContrastMode: ContrastMode = ContrastMode.NORMAL
     private var selectedDailySummaryHour: Int = 0
     private var selectedDailySummaryMinute: Int = 0
-    private var topInsertIndex = 0
 
     private data class ButtonVisualStyle(
-            val fillColor: Int,
-            val pressedFillColor: Int,
-            val disabledFillColor: Int,
-            val strokeColor: Int,
-            val textColor: Int,
-            val disabledTextColor: Int
+        val fillColor: Int,
+        val pressedFillColor: Int,
+        val disabledFillColor: Int,
+        val strokeColor: Int,
+        val textColor: Int,
+        val disabledTextColor: Int
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,109 +110,105 @@ class ReaderSettingsActivity : BaseActivity() {
         btnSettingsSave.isAllCaps = false
         btnSettingsCancel.isAllCaps = false
 
-        val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
-        val btnSettingsShowBookmarks =
-                dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
-        val switchPageTap =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchPageTap)
-        val switchPageSwipe =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
-                        R.id.switchPageSwipe
-                )
+        // Account & Profile
+        val btnUserProfile = dialogView.findViewById<Button>(R.id.btnUserProfile)
+        val btnAiProfiles = dialogView.findViewById<Button>(R.id.btnAiProfiles)
+        btnUserProfile?.setOnClickListener {
+            startActivity(Intent(this, UserProfileActivity::class.java))
+        }
+        btnAiProfiles?.setOnClickListener {
+            AiProfileListActivity.open(this)
+        }
+
+        // Reading & Theme Controls
+        val btnThemeNormal = dialogView.findViewById<Button>(R.id.btnThemeNormal)
+        val btnThemeDark = dialogView.findViewById<Button>(R.id.btnThemeDark)
+        val btnThemeSepia = dialogView.findViewById<Button>(R.id.btnThemeSepia)
+        val btnThemeHighContrast = dialogView.findViewById<Button>(R.id.btnThemeHighContrast)
+        val seekBarTextSize = dialogView.findViewById<SeekBar>(R.id.seekBarTextSize)
+        val tvTextSizeValue = dialogView.findViewById<TextView>(R.id.tvTextSizeValue)
+
+        // Navigation & Display Controls
+        val switchPageTap = dialogView.findViewById<SwitchCompat>(R.id.switchPageTap)
+        val switchPageSwipe = dialogView.findViewById<SwitchCompat>(R.id.switchPageSwipe)
+        val switchPageAnimation = dialogView.findViewById<SwitchCompat>(R.id.switchPageAnimation)
+        val switchPageIndicator = dialogView.findViewById<SwitchCompat>(R.id.switchPageIndicator)
+        val switchConvertChinese = dialogView.findViewById<SwitchCompat>(R.id.switchConvertChinese)
+
+        // Language Controls
+        val rbLanguageSystem = dialogView.findViewById<RadioButton>(R.id.rbLanguageSystem)
+        val rbLanguageEnglish = dialogView.findViewById<RadioButton>(R.id.rbLanguageEnglish)
+        val rbLanguageChinese = dialogView.findViewById<RadioButton>(R.id.rbLanguageChinese)
+
+        // AI & Cloud Sync Controls
+        val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
         val etApiKey = dialogView.findViewById<EditText>(R.id.etApiKey)
+
+        // Daily Digest Controls
+        val switchDailySummaryEmail = dialogView.findViewById<SwitchCompat>(R.id.switchDailySummaryEmail)
+        val tvDailySummaryTimeValue = dialogView.findViewById<TextView>(R.id.tvDailySummaryTimeValue)
+        val btnDailySummaryPickTime = dialogView.findViewById<Button>(R.id.btnDailySummaryPickTime)
+        val etDailySummaryEmailTo = dialogView.findViewById<EditText>(R.id.etDailySummaryEmailTo)
+
+        // Bookmarks & Export Controls
+        val btnSettingsAddBookmark = dialogView.findViewById<Button>(R.id.btnSettingsAddBookmark)
+        val btnSettingsShowBookmarks = dialogView.findViewById<Button>(R.id.btnSettingsShowBookmarks)
         val cbCustomExport = dialogView.findViewById<CheckBox>(R.id.cbCustomExportUrl)
         val etCustomExportUrl = dialogView.findViewById<EditText>(R.id.etCustomExportUrl)
         val cbLocalExport = dialogView.findViewById<CheckBox>(R.id.cbLocalExport)
         val btnTestExport = dialogView.findViewById<Button>(R.id.btnTestExportEndpoint)
-        val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
-        val switchPageAnimation =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
-                        R.id.switchPageAnimation
-                )
-        val switchPageIndicator =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
-                        R.id.switchPageIndicator
-                )
-        val switchAutoCheckUpdates =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
-                        R.id.switchAutoCheckUpdates
-                )
-        val switchDailySummaryEmail =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
-                        R.id.switchDailySummaryEmail
-                )
-        val tvDailySummaryTimeValue =
-                dialogView.findViewById<TextView>(R.id.tvDailySummaryTimeValue)
-        val btnDailySummaryPickTime =
-                dialogView.findViewById<Button>(R.id.btnDailySummaryPickTime)
-        val etDailySummaryEmailTo =
-                dialogView.findViewById<EditText>(R.id.etDailySummaryEmailTo)
-        val switchConvertChinese =
-                dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(
-                        R.id.switchConvertChinese
-                )
-        val seekBarTextSize = dialogView.findViewById<SeekBar>(R.id.seekBarTextSize)
-        val tvTextSizeValue = dialogView.findViewById<TextView>(R.id.tvTextSizeValue)
 
-        val layout = (dialogView as? ViewGroup)?.getChildAt(0) as? LinearLayout
-        val sectionSpacing = resources.getDimensionPixelSize(R.dimen.settings_section_spacing)
-        val itemSpacing = resources.getDimensionPixelSize(R.dimen.settings_item_spacing)
-        val splitSpacing = resources.getDimensionPixelSize(R.dimen.settings_split_spacing)
-        val buttonHeight = resources.getDimensionPixelSize(R.dimen.settings_button_height)
-
-        topInsertIndex = 0
-        fun insertTop(view: View) {
-            if (layout != null) {
-                val safeIndex = topInsertIndex.coerceIn(0, layout.childCount)
-                layout.addView(view, safeIndex)
-                topInsertIndex += 1
-            }
-        }
-
-        val (rbSystem, rbEnglish, rbChinese) = setupLanguageSection(sectionSpacing, itemSpacing) { insertTop(it) }
-
-        setupUserProfileSection(buttonHeight, sectionSpacing) { insertTop(it) }
-
-        setupThemeSection(buttonHeight, splitSpacing, sectionSpacing, dialogView) { insertTop(it) }
-
-        setupAiProfilesSection(buttonHeight, sectionSpacing) { insertTop(it) }
+        // App Preferences
+        val switchAutoCheckUpdates = dialogView.findViewById<SwitchCompat>(R.id.switchAutoCheckUpdates)
 
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
         val readerSettings = ReaderSettings.fromPrefs(prefs)
         selectedDailySummaryHour = readerSettings.dailySummaryEmailHour.coerceIn(0, 23)
         selectedDailySummaryMinute = readerSettings.dailySummaryEmailMinute.coerceIn(0, 59)
-        selectedContrastMode =
-                ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
+        selectedContrastMode = ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
 
+        // Set Language selection
         when (readerSettings.language) {
-            "zh" -> rbChinese.isChecked = true
-            "en" -> rbEnglish.isChecked = true
-            else -> rbSystem.isChecked = true
+            "zh" -> rbLanguageChinese?.isChecked = true
+            "en" -> rbLanguageEnglish?.isChecked = true
+            else -> rbLanguageSystem?.isChecked = true
         }
 
+        // Setup Theme selection buttons
+        fun updateThemeSelection(mode: ContrastMode) {
+            selectedContrastMode = mode
+            applySettingsPageTheme(dialogView, selectedContrastMode)
+            applySettingsChrome(selectedContrastMode)
+            updateThemeButtonsSelection(dialogView, selectedContrastMode)
+        }
+
+        btnThemeNormal?.setOnClickListener { updateThemeSelection(ContrastMode.NORMAL) }
+        btnThemeDark?.setOnClickListener { updateThemeSelection(ContrastMode.DARK) }
+        btnThemeSepia?.setOnClickListener { updateThemeSelection(ContrastMode.SEPIA) }
+        btnThemeHighContrast?.setOnClickListener { updateThemeSelection(ContrastMode.HIGH_CONTRAST) }
+
         setupGeneralPreferences(
-                readerSettings, prefs, etServerUrl, etApiKey, switchPageTap, switchPageSwipe,
-                switchPageAnimation, switchPageIndicator, switchAutoCheckUpdates, switchDailySummaryEmail,
-                etDailySummaryEmailTo, switchConvertChinese, cbCustomExport, etCustomExportUrl,
-                cbLocalExport, seekBarTextSize, tvTextSizeValue
+            readerSettings, prefs, etServerUrl, etApiKey, switchPageTap, switchPageSwipe,
+            switchPageAnimation, switchPageIndicator, switchAutoCheckUpdates, switchDailySummaryEmail,
+            etDailySummaryEmailTo, switchConvertChinese, cbCustomExport, etCustomExportUrl,
+            cbLocalExport, seekBarTextSize, tvTextSizeValue
         )
 
         setupDailySummary(switchDailySummaryEmail, tvDailySummaryTimeValue, btnDailySummaryPickTime, etDailySummaryEmailTo)
-
         setupExportTest(cbCustomExport, etCustomExportUrl, btnTestExport, etServerUrl, readerSettings)
 
-        btnManageMagicTags.setOnClickListener { showMagicTagManager() }
+        btnManageMagicTags?.setOnClickListener { showMagicTagManager() }
 
         val hasBookContext = !intent.getStringExtra(EXTRA_BOOK_KEY).isNullOrBlank()
-        btnSettingsAddBookmark.isEnabled = hasBookContext
-        btnSettingsShowBookmarks.isEnabled = hasBookContext
-        btnSettingsAddBookmark.setOnClickListener {
+        btnSettingsAddBookmark?.isEnabled = hasBookContext
+        btnSettingsShowBookmarks?.isEnabled = hasBookContext
+        btnSettingsAddBookmark?.setOnClickListener {
             if (!hasBookContext) return@setOnClickListener
             setResult(RESULT_OK, Intent().putExtra(EXTRA_ACTION, ACTION_ADD_BOOKMARK))
             finish()
         }
-        btnSettingsShowBookmarks.setOnClickListener {
+        btnSettingsShowBookmarks?.setOnClickListener {
             if (!hasBookContext) return@setOnClickListener
             setResult(RESULT_OK, Intent().putExtra(EXTRA_ACTION, ACTION_SHOW_BOOKMARKS))
             finish()
@@ -223,56 +218,95 @@ class ReaderSettingsActivity : BaseActivity() {
         btnSettingsSave.setOnClickListener {
             val latestSettings = ReaderSettings.fromPrefs(prefs)
             saveSettings(
-                    prefs = prefs,
-                    currentSettings = latestSettings,
-                    selectedContrastMode = selectedContrastMode,
-                    rbChinese = rbChinese,
-                    rbEnglish = rbEnglish,
-                    etServerUrl = etServerUrl,
-                    etApiKey = etApiKey,
-                    switchPageTap = switchPageTap,
-                    switchPageSwipe = switchPageSwipe,
-                    switchPageAnimation = switchPageAnimation,
-                    switchPageIndicator = switchPageIndicator,
-                    switchAutoCheckUpdates = switchAutoCheckUpdates,
-                    switchDailySummaryEmail = switchDailySummaryEmail,
-                    dailySummaryHour = selectedDailySummaryHour,
-                    dailySummaryMinute = selectedDailySummaryMinute,
-                    etDailySummaryEmailTo = etDailySummaryEmailTo,
-                    switchConvertChinese = switchConvertChinese,
-                    cbCustomExport = cbCustomExport,
-                    etCustomExportUrl = etCustomExportUrl,
-                    cbLocalExport = cbLocalExport,
-                    seekBarTextSize = seekBarTextSize
+                prefs = prefs,
+                currentSettings = latestSettings,
+                selectedContrastMode = selectedContrastMode,
+                rbChinese = rbLanguageChinese ?: RadioButton(this),
+                rbEnglish = rbLanguageEnglish ?: RadioButton(this),
+                etServerUrl = etServerUrl,
+                etApiKey = etApiKey,
+                switchPageTap = switchPageTap,
+                switchPageSwipe = switchPageSwipe,
+                switchPageAnimation = switchPageAnimation,
+                switchPageIndicator = switchPageIndicator,
+                switchAutoCheckUpdates = switchAutoCheckUpdates,
+                switchDailySummaryEmail = switchDailySummaryEmail,
+                dailySummaryHour = selectedDailySummaryHour,
+                dailySummaryMinute = selectedDailySummaryMinute,
+                etDailySummaryEmailTo = etDailySummaryEmailTo,
+                switchConvertChinese = switchConvertChinese,
+                cbCustomExport = cbCustomExport,
+                etCustomExportUrl = etCustomExportUrl,
+                cbLocalExport = cbLocalExport,
+                seekBarTextSize = seekBarTextSize
             )
         }
 
         applySettingsPageTheme(dialogView, selectedContrastMode)
         applySettingsChrome(selectedContrastMode)
+        updateThemeButtonsSelection(dialogView, selectedContrastMode)
+    }
+
+    private fun updateThemeButtonsSelection(root: View, mode: ContrastMode) {
+        val btnNormal = root.findViewById<Button>(R.id.btnThemeNormal) ?: return
+        val btnDark = root.findViewById<Button>(R.id.btnThemeDark) ?: return
+        val btnSepia = root.findViewById<Button>(R.id.btnThemeSepia) ?: return
+        val btnHighContrast = root.findViewById<Button>(R.id.btnThemeHighContrast) ?: return
+
+        val primaryStyle = primarySettingsButtonStyle(mode)
+        val backgroundColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val textColor = when (mode) {
+            ContrastMode.NORMAL -> Color.BLACK
+            ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+            ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+            ContrastMode.HIGH_CONTRAST -> Color.WHITE
+        }
+        val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
+        val secondaryFill = ColorUtils.blendARGB(backgroundColor, textColor, if (isDarkMode) 0.22f else 0.11f)
+        val secondaryStyle = buttonStyle(
+            fillColor = secondaryFill,
+            textColor = when (mode) {
+                ContrastMode.NORMAL -> Color.parseColor("#16324F")
+                else -> textColor
+            },
+            backgroundColor = backgroundColor,
+            darkMode = isDarkMode,
+            strokeColor = ColorUtils.setAlphaComponent(textColor, if (isDarkMode) 80 else 56)
+        )
+
+        applyButtonStyle(btnNormal, if (mode == ContrastMode.NORMAL) primaryStyle else secondaryStyle)
+        applyButtonStyle(btnDark, if (mode == ContrastMode.DARK) primaryStyle else secondaryStyle)
+        applyButtonStyle(btnSepia, if (mode == ContrastMode.SEPIA) primaryStyle else secondaryStyle)
+        applyButtonStyle(btnHighContrast, if (mode == ContrastMode.HIGH_CONTRAST) primaryStyle else secondaryStyle)
     }
 
     private fun saveSettings(
-            prefs: android.content.SharedPreferences,
-            currentSettings: ReaderSettings,
-            selectedContrastMode: ContrastMode,
-            rbChinese: android.widget.RadioButton,
-            rbEnglish: android.widget.RadioButton,
-            etServerUrl: EditText,
-            etApiKey: EditText,
-            switchPageTap: androidx.appcompat.widget.SwitchCompat,
-            switchPageSwipe: androidx.appcompat.widget.SwitchCompat,
-            switchPageAnimation: androidx.appcompat.widget.SwitchCompat,
-            switchPageIndicator: androidx.appcompat.widget.SwitchCompat,
-            switchAutoCheckUpdates: androidx.appcompat.widget.SwitchCompat,
-            switchDailySummaryEmail: androidx.appcompat.widget.SwitchCompat,
-            dailySummaryHour: Int,
-            dailySummaryMinute: Int,
-            etDailySummaryEmailTo: EditText,
-            switchConvertChinese: androidx.appcompat.widget.SwitchCompat,
-            cbCustomExport: CheckBox,
-            etCustomExportUrl: EditText,
-            cbLocalExport: CheckBox,
-            seekBarTextSize: SeekBar
+        prefs: android.content.SharedPreferences,
+        currentSettings: ReaderSettings,
+        selectedContrastMode: ContrastMode,
+        rbChinese: RadioButton,
+        rbEnglish: RadioButton,
+        etServerUrl: EditText,
+        etApiKey: EditText,
+        switchPageTap: SwitchCompat,
+        switchPageSwipe: SwitchCompat,
+        switchPageAnimation: SwitchCompat,
+        switchPageIndicator: SwitchCompat,
+        switchAutoCheckUpdates: SwitchCompat,
+        switchDailySummaryEmail: SwitchCompat,
+        dailySummaryHour: Int,
+        dailySummaryMinute: Int,
+        etDailySummaryEmailTo: EditText,
+        switchConvertChinese: SwitchCompat,
+        cbCustomExport: CheckBox,
+        etCustomExportUrl: EditText,
+        cbLocalExport: CheckBox,
+        seekBarTextSize: SeekBar
     ) {
         val newUrlRaw = etServerUrl.text.toString().trim()
         val newApiKey = etApiKey.text.toString().trim()
@@ -289,69 +323,54 @@ class ReaderSettingsActivity : BaseActivity() {
         val exportToLocal = cbLocalExport.isChecked
         val newTextSize = seekBarTextSize.progress + 50
 
-        val normalizedBaseUrl =
-                if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw) else currentSettings.serverBaseUrl
-        val normalizedCustomUrl =
-                if (useCustomExport && customExportUrlRaw.isNotEmpty())
-                        normalizeUrl(customExportUrlRaw)
-                else ""
+        val normalizedBaseUrl = if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw) else currentSettings.serverBaseUrl
+        val normalizedCustomUrl = if (useCustomExport && customExportUrlRaw.isNotEmpty()) normalizeUrl(customExportUrlRaw) else ""
 
         if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.toHttpUrlOrNull() == null) {
             Toast.makeText(this, "Server URL is invalid", Toast.LENGTH_SHORT).show()
             return
         }
-        if (useCustomExport &&
-                        customExportUrlRaw.isNotEmpty() &&
-                        normalizedCustomUrl.toHttpUrlOrNull() == null
-        ) {
+        if (useCustomExport && customExportUrlRaw.isNotEmpty() && normalizedCustomUrl.toHttpUrlOrNull() == null) {
             Toast.makeText(this, "Custom export URL is invalid", Toast.LENGTH_SHORT).show()
             return
         }
-        if (newDailySummaryEmailTo.isNotEmpty() &&
-                        !Patterns.EMAIL_ADDRESS.matcher(newDailySummaryEmailTo).matches()
-        ) {
+        if (newDailySummaryEmailTo.isNotEmpty() && !Patterns.EMAIL_ADDRESS.matcher(newDailySummaryEmailTo).matches()) {
             Toast.makeText(this, getString(R.string.reader_settings_invalid_email), Toast.LENGTH_SHORT).show()
             return
         }
 
-        val updatedSettings =
-                currentSettings.copy(
-                        serverBaseUrl = normalizedBaseUrl,
-                        apiKey = newApiKey,
-                        pageTapEnabled = newPageTap,
-                        pageSwipeEnabled = newPageSwipe,
-                        pageAnimationEnabled = newPageAnimation,
-                        showPageIndicator = newShowPageIndicator,
-                        autoCheckUpdates = newAutoCheckUpdates,
-                        dailySummaryEmailEnabled = newDailySummaryEmailEnabled,
-                        dailySummaryEmailHour = dailySummaryHour.coerceIn(0, 23),
-                        dailySummaryEmailMinute = dailySummaryMinute.coerceIn(0, 59),
-                        dailySummaryEmailTo = newDailySummaryEmailTo,
-                        convertToTraditionalChinese = newConvertChinese,
-                        exportToCustomUrl = useCustomExport,
-                        exportCustomUrl = normalizedCustomUrl,
-                        exportToLocalDownloads = exportToLocal,
-                        textSize = newTextSize,
-                        contrastMode = selectedContrastMode.ordinal,
-                        language =
-                                when {
-                                    rbChinese.isChecked -> "zh"
-                                    rbEnglish.isChecked -> "en"
-                                    else -> "system"
-                                },
-                        updatedAt = System.currentTimeMillis()
-                )
+        val updatedSettings = currentSettings.copy(
+            serverBaseUrl = normalizedBaseUrl,
+            apiKey = newApiKey,
+            pageTapEnabled = newPageTap,
+            pageSwipeEnabled = newPageSwipe,
+            pageAnimationEnabled = newPageAnimation,
+            showPageIndicator = newShowPageIndicator,
+            autoCheckUpdates = newAutoCheckUpdates,
+            dailySummaryEmailEnabled = newDailySummaryEmailEnabled,
+            dailySummaryEmailHour = dailySummaryHour.coerceIn(0, 23),
+            dailySummaryEmailMinute = dailySummaryMinute.coerceIn(0, 59),
+            dailySummaryEmailTo = newDailySummaryEmailTo,
+            convertToTraditionalChinese = newConvertChinese,
+            exportToCustomUrl = useCustomExport,
+            exportCustomUrl = normalizedCustomUrl,
+            exportToLocalDownloads = exportToLocal,
+            textSize = newTextSize,
+            contrastMode = selectedContrastMode.ordinal,
+            language = when {
+                rbChinese.isChecked -> "zh"
+                rbEnglish.isChecked -> "en"
+                else -> "system"
+            },
+            updatedAt = System.currentTimeMillis()
+        )
 
         updatedSettings.saveTo(prefs)
         DailySummaryEmailScheduler.schedule(this, updatedSettings, forceUpdate = true)
         pushSettingsToCloud()
 
         if (updatedSettings.language != currentSettings.language) {
-            val intent =
-                    Intent(
-                            applicationContext,
-                            my.hinoki.booxreader.ui.welcome.WelcomeActivity::class.java
-                    )
+            val intent = Intent(applicationContext, my.hinoki.booxreader.ui.welcome.WelcomeActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             startActivity(intent)
             finish()
@@ -377,55 +396,38 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun applySettingsPageTheme(root: View, mode: ContrastMode) {
-        val backgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
-                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        val textColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
-                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
-                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
-                }
-        val hintColor =
-                ColorUtils.setAlphaComponent(
-                        textColor,
-                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190
-                        else 140
-                )
-        val dividerColor =
-                ColorUtils.setAlphaComponent(
-                        textColor,
-                        if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 90
-                        else 60
-                )
+        val backgroundColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val textColor = when (mode) {
+            ContrastMode.NORMAL -> Color.BLACK
+            ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+            ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+            ContrastMode.HIGH_CONTRAST -> Color.WHITE
+        }
+        val hintColor = ColorUtils.setAlphaComponent(
+            textColor,
+            if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190 else 140
+        )
+        val dividerColor = ColorUtils.setAlphaComponent(
+            textColor,
+            if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 90 else 60
+        )
         val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
-        val secondaryFill =
-                ColorUtils.blendARGB(
-                        backgroundColor,
-                        textColor,
-                        if (isDarkMode) 0.22f else 0.11f
-                )
-        val secondaryStyle =
-                buttonStyle(
-                        fillColor = secondaryFill,
-                        textColor =
-                                when (mode) {
-                                    ContrastMode.NORMAL -> Color.parseColor("#16324F")
-                                    else -> textColor
-                                },
-                        backgroundColor = backgroundColor,
-                        darkMode = isDarkMode,
-                        strokeColor =
-                                ColorUtils.setAlphaComponent(
-                                        textColor,
-                                        if (isDarkMode) 80 else 56
-                                )
-                )
+        val secondaryFill = ColorUtils.blendARGB(backgroundColor, textColor, if (isDarkMode) 0.22f else 0.11f)
+        val secondaryStyle = buttonStyle(
+            fillColor = secondaryFill,
+            textColor = when (mode) {
+                ContrastMode.NORMAL -> Color.parseColor("#16324F")
+                else -> textColor
+            },
+            backgroundColor = backgroundColor,
+            darkMode = isDarkMode,
+            strokeColor = ColorUtils.setAlphaComponent(textColor, if (isDarkMode) 80 else 56)
+        )
 
         root.setBackgroundColor(backgroundColor)
 
@@ -452,11 +454,15 @@ class ReaderSettingsActivity : BaseActivity() {
                     view.setHintTextColor(hintColor)
                 }
                 is Button -> {
-                    applyButtonStyle(
-                            view,
-                            if (isPrimarySettingsContentButton(view)) primarySettingsButtonStyle(mode)
-                            else secondaryStyle
-                    )
+                    if (isPrimarySettingsContentButton(view)) {
+                        applyButtonStyle(view, primarySettingsButtonStyle(mode))
+                    } else if (!isThemeChoiceButton(view)) {
+                        applyButtonStyle(view, secondaryStyle)
+                    }
+                }
+                is RadioButton -> {
+                    view.setTextColor(textColor)
+                    view.buttonTintList = ColorStateList.valueOf(textColor)
                 }
                 is android.widget.CompoundButton -> {
                     view.setTextColor(textColor)
@@ -485,6 +491,16 @@ class ReaderSettingsActivity : BaseActivity() {
         applyToView(root)
     }
 
+    private fun isThemeChoiceButton(button: Button): Boolean {
+        return when (button.id) {
+            R.id.btnThemeNormal,
+            R.id.btnThemeDark,
+            R.id.btnThemeSepia,
+            R.id.btnThemeHighContrast -> true
+            else -> false
+        }
+    }
+
     private fun isPrimarySettingsContentButton(button: Button): Boolean {
         return when (button.id) {
             R.id.btnManageMagicTags,
@@ -494,33 +510,28 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun primarySettingsButtonStyle(mode: ContrastMode): ButtonVisualStyle {
-        val backgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
-                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        val accentColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
-                    ContrastMode.DARK -> Color.parseColor("#86AEEA")
-                    ContrastMode.SEPIA -> Color.parseColor("#8A6740")
-                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
-                }
+        val backgroundColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val accentColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
+            ContrastMode.DARK -> Color.parseColor("#86AEEA")
+            ContrastMode.SEPIA -> Color.parseColor("#8A6740")
+            ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
+        }
         val darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
-        val textColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
-                    else ->
-                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
-                            else Color.WHITE
-                }
+        val textColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
+            else -> if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+        }
         return buttonStyle(
-                fillColor = accentColor,
-                textColor = textColor,
-                backgroundColor = backgroundColor,
-                darkMode = darkMode
+            fillColor = accentColor,
+            textColor = textColor,
+            backgroundColor = backgroundColor,
+            darkMode = darkMode
         )
     }
 
@@ -542,34 +553,30 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun applySettingsChrome(mode: ContrastMode) {
-        val pageColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F8F9FB")
-                    ContrastMode.DARK -> Color.parseColor("#0B0E13")
-                    ContrastMode.SEPIA -> Color.parseColor("#F0E6D3")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        val barColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#EEF1F5")
-                    ContrastMode.DARK -> Color.parseColor("#0A0D12")
-                    ContrastMode.SEPIA -> Color.parseColor("#E7D9BF")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        val footerColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F2F4F8")
-                    ContrastMode.DARK -> Color.parseColor("#0E1217")
-                    ContrastMode.SEPIA -> Color.parseColor("#EBDDCA")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        val dividerColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#D9DEE6")
-                    ContrastMode.DARK -> Color.parseColor("#26303A")
-                    ContrastMode.SEPIA -> Color.parseColor("#CCBCA0")
-                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
-                }
+        val pageColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#F8F9FB")
+            ContrastMode.DARK -> Color.parseColor("#0B0E13")
+            ContrastMode.SEPIA -> Color.parseColor("#F0E6D3")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val barColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#EEF1F5")
+            ContrastMode.DARK -> Color.parseColor("#0A0D12")
+            ContrastMode.SEPIA -> Color.parseColor("#E7D9BF")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val footerColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#F2F4F8")
+            ContrastMode.DARK -> Color.parseColor("#0E1217")
+            ContrastMode.SEPIA -> Color.parseColor("#EBDDCA")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val dividerColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#D9DEE6")
+            ContrastMode.DARK -> Color.parseColor("#26303A")
+            ContrastMode.SEPIA -> Color.parseColor("#CCBCA0")
+            ContrastMode.HIGH_CONTRAST -> Color.WHITE
+        }
 
         findViewById<View>(R.id.readerSettingsRoot).setBackgroundColor(pageColor)
         findViewById<View>(R.id.settingsFooter).setBackgroundColor(footerColor)
@@ -598,305 +605,81 @@ class ReaderSettingsActivity : BaseActivity() {
     private fun styleFooterButtons(mode: ContrastMode) {
         val cancel = findViewById<Button>(R.id.btnSettingsCancel)
         val save = findViewById<Button>(R.id.btnSettingsSave)
-        val backgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
-                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        val textColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
-                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
-                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
-                }
+        val backgroundColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
+            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
+            ContrastMode.HIGH_CONTRAST -> Color.BLACK
+        }
+        val textColor = when (mode) {
+            ContrastMode.NORMAL -> Color.BLACK
+            ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+            ContrastMode.SEPIA -> Color.parseColor("#5B4636")
+            ContrastMode.HIGH_CONTRAST -> Color.WHITE
+        }
         val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
-        val accentColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
-                    ContrastMode.DARK -> Color.parseColor("#86AEEA")
-                    ContrastMode.SEPIA -> Color.parseColor("#8A6740")
-                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
-                }
-        val primaryTextColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
-                    else ->
-                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
-                            else Color.WHITE
-                }
-        val primaryStyle =
-                buttonStyle(
-                        fillColor = accentColor,
-                        textColor = primaryTextColor,
-                        backgroundColor = backgroundColor,
-                        darkMode = isDarkMode
-                )
-        val secondaryFill =
-                ColorUtils.blendARGB(
-                        backgroundColor,
-                        textColor,
-                        if (isDarkMode) 0.22f else 0.11f
-                )
-        val secondaryStyle =
-                buttonStyle(
-                        fillColor = secondaryFill,
-                        textColor =
-                                when (mode) {
-                                    ContrastMode.NORMAL -> Color.parseColor("#16324F")
-                                    else -> textColor
-                                },
-                        backgroundColor = backgroundColor,
-                        darkMode = isDarkMode,
-                        strokeColor =
-                                ColorUtils.setAlphaComponent(
-                                        textColor,
-                                        if (isDarkMode) 80 else 56
-                                )
-                )
+        val accentColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
+            ContrastMode.DARK -> Color.parseColor("#86AEEA")
+            ContrastMode.SEPIA -> Color.parseColor("#8A6740")
+            ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
+        }
+        val primaryTextColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
+            else -> if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
+        }
+        val primaryStyle = buttonStyle(
+            fillColor = accentColor,
+            textColor = primaryTextColor,
+            backgroundColor = backgroundColor,
+            darkMode = isDarkMode
+        )
+        val secondaryFill = ColorUtils.blendARGB(backgroundColor, textColor, if (isDarkMode) 0.22f else 0.11f)
+        val secondaryStyle = buttonStyle(
+            fillColor = secondaryFill,
+            textColor = when (mode) {
+                ContrastMode.NORMAL -> Color.parseColor("#16324F")
+                else -> textColor
+            },
+            backgroundColor = backgroundColor,
+            darkMode = isDarkMode,
+            strokeColor = ColorUtils.setAlphaComponent(textColor, if (isDarkMode) 80 else 56)
+        )
         applyButtonStyle(cancel, secondaryStyle)
         applyButtonStyle(save, primaryStyle)
     }
 
     private fun buttonStyle(
-            fillColor: Int,
-            textColor: Int,
-            backgroundColor: Int,
-            darkMode: Boolean,
-            strokeColor: Int = Color.TRANSPARENT
+        fillColor: Int,
+        textColor: Int,
+        backgroundColor: Int,
+        darkMode: Boolean,
+        strokeColor: Int = Color.TRANSPARENT
     ): ButtonVisualStyle {
-        val pressedFillColor =
-                if (darkMode) {
-                    ColorUtils.blendARGB(fillColor, Color.WHITE, 0.10f)
-                } else {
-                    ColorUtils.blendARGB(fillColor, Color.BLACK, 0.10f)
-                }
+        val pressedFillColor = if (darkMode) {
+            ColorUtils.blendARGB(fillColor, Color.WHITE, 0.10f)
+        } else {
+            ColorUtils.blendARGB(fillColor, Color.BLACK, 0.10f)
+        }
         val disabledFillColor = ColorUtils.blendARGB(fillColor, backgroundColor, 0.55f)
         val disabledTextColor = ColorUtils.setAlphaComponent(textColor, if (darkMode) 160 else 140)
         return ButtonVisualStyle(
-                fillColor = fillColor,
-                pressedFillColor = pressedFillColor,
-                disabledFillColor = disabledFillColor,
-                strokeColor = strokeColor,
-                textColor = textColor,
-                disabledTextColor = disabledTextColor
+            fillColor = fillColor,
+            pressedFillColor = pressedFillColor,
+            disabledFillColor = disabledFillColor,
+            strokeColor = strokeColor,
+            textColor = textColor,
+            disabledTextColor = disabledTextColor
         )
     }
 
-    private fun setupLanguageSection(
-            sectionSpacing: Int,
-            itemSpacing: Int,
-            insertTop: (View) -> Unit
-    ): Triple<android.widget.RadioButton, android.widget.RadioButton, android.widget.RadioButton> {
-        val languageTitle =
-                TextView(this).apply {
-                    text = getString(R.string.reader_settings_language_title)
-                    textSize = 18f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        topMargin = sectionSpacing
-                                    }
-                }
-        insertTop(languageTitle)
-
-        val languageGroup =
-                android.widget.RadioGroup(this).apply {
-                    orientation = android.widget.RadioGroup.VERTICAL
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        bottomMargin = itemSpacing
-                                    }
-                }
-
-        val rbSystem = android.widget.RadioButton(this).apply { text = "System Default (跟隨系統)" }
-        val rbEnglish = android.widget.RadioButton(this).apply { text = "English" }
-        val rbChinese =
-                android.widget.RadioButton(this).apply { text = "Traditional Chinese (繁體中文)" }
-        languageGroup.addView(rbSystem)
-        languageGroup.addView(rbEnglish)
-        languageGroup.addView(rbChinese)
-        insertTop(languageGroup)
-
-        return Triple(rbSystem, rbEnglish, rbChinese)
-    }
-
-    private fun setupUserProfileSection(
-            buttonHeight: Int,
-            sectionSpacing: Int,
-            insertTop: (View) -> Unit
-    ) {
-        val btnUserProfile =
-                Button(this).apply {
-                    text = getString(R.string.reader_settings_user_profile)
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        bottomMargin = sectionSpacing
-                                    }
-                    setOnClickListener {
-                        startActivity(Intent(this@ReaderSettingsActivity, UserProfileActivity::class.java))
-                    }
-                }
-        insertTop(btnUserProfile)
-    }
-
-    private fun setupThemeSection(
-            buttonHeight: Int,
-            splitSpacing: Int,
-            sectionSpacing: Int,
-            dialogView: View,
-            insertTop: (View) -> Unit
-    ) {
-        val themeTitle =
-                TextView(this).apply {
-                    text = getString(R.string.reader_settings_theme_title)
-                    textSize = 18f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
-                    setPadding(0, 0, 0, resources.getDimensionPixelSize(R.dimen.spacing_sm))
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.WRAP_CONTENT
-                            )
-                }
-        insertTop(themeTitle)
-
-        val themeContainer =
-                LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    weightSum = 3f
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.WRAP_CONTENT
-                            ).apply {
-                                bottomMargin = sectionSpacing
-                            }
-                }
-
-        selectedContrastMode =
-                ContrastMode.values()
-                        .getOrNull(
-                                ReaderSettings.fromPrefs(
-                                                getSharedPreferences(
-                                                        ReaderActivity.PREFS_NAME,
-                                                        MODE_PRIVATE
-                                                )
-                                        )
-                                        .contrastMode
-                        ) ?: ContrastMode.NORMAL
-
-        val btnNormal =
-                Button(this).apply {
-                    text = "Normal"
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                                    .apply {
-                                        marginEnd = splitSpacing / 2
-                                    }
-                    setOnClickListener {
-                        selectedContrastMode = ContrastMode.NORMAL
-                        applySettingsPageTheme(dialogView, selectedContrastMode)
-                        applySettingsChrome(selectedContrastMode)
-                        Toast.makeText(this@ReaderSettingsActivity, "Normal Mode", Toast.LENGTH_SHORT)
-                                .show()
-                    }
-                }
-        val btnDark =
-                Button(this).apply {
-                    text = "Dark"
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                                    .apply {
-                                        marginStart = splitSpacing / 2
-                                        marginEnd = splitSpacing / 2
-                                    }
-                    setOnClickListener {
-                        selectedContrastMode = ContrastMode.DARK
-                        applySettingsPageTheme(dialogView, selectedContrastMode)
-                        applySettingsChrome(selectedContrastMode)
-                        Toast.makeText(this@ReaderSettingsActivity, "Dark Mode", Toast.LENGTH_SHORT)
-                                .show()
-                    }
-                }
-        val btnSepia =
-                Button(this).apply {
-                    text = "Sepia"
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                                    .apply {
-                                        marginStart = splitSpacing / 2
-                                    }
-                    setOnClickListener {
-                        selectedContrastMode = ContrastMode.SEPIA
-                        applySettingsPageTheme(dialogView, selectedContrastMode)
-                        applySettingsChrome(selectedContrastMode)
-                        Toast.makeText(this@ReaderSettingsActivity, "Sepia Mode", Toast.LENGTH_SHORT)
-                                .show()
-                    }
-                }
-        themeContainer.addView(btnNormal)
-        themeContainer.addView(btnDark)
-        themeContainer.addView(btnSepia)
-        insertTop(themeContainer)
-    }
-
-    private fun setupAiProfilesSection(
-            buttonHeight: Int,
-            sectionSpacing: Int,
-            insertTop: (View) -> Unit
-    ) {
-        val btnAiProfiles =
-                Button(this).apply {
-                    text = getString(R.string.reader_settings_ai_profiles)
-                    isAllCaps = false
-                    minHeight = buttonHeight
-                    layoutParams =
-                            LinearLayout.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    .apply {
-                                        bottomMargin = sectionSpacing
-                                    }
-                    setOnClickListener {
-                        my.hinoki.booxreader.ui.settings.AiProfileListActivity.open(this@ReaderSettingsActivity)
-                    }
-                }
-        insertTop(btnAiProfiles)
-    }
-
     private fun setupDailySummary(
-            switchDailySummaryEmail: androidx.appcompat.widget.SwitchCompat,
-            tvDailySummaryTimeValue: TextView,
-            btnDailySummaryPickTime: Button,
-            etDailySummaryEmailTo: EditText
+        switchDailySummaryEmail: SwitchCompat,
+        tvDailySummaryTimeValue: TextView,
+        btnDailySummaryPickTime: Button,
+        etDailySummaryEmailTo: EditText
     ) {
-        tvDailySummaryTimeValue.text =
-                formatTimeOfDay(selectedDailySummaryHour, selectedDailySummaryMinute)
+        tvDailySummaryTimeValue.text = formatTimeOfDay(selectedDailySummaryHour, selectedDailySummaryMinute)
 
         fun applyDailySummaryControlsState() {
             val enabled = switchDailySummaryEmail.isChecked
@@ -911,30 +694,25 @@ class ReaderSettingsActivity : BaseActivity() {
         }
         btnDailySummaryPickTime.setOnClickListener {
             TimePickerDialog(
-                            this,
-                            { _, hourOfDay, minute ->
-                                selectedDailySummaryHour = hourOfDay
-                                selectedDailySummaryMinute = minute
-                                tvDailySummaryTimeValue.text =
-                                        formatTimeOfDay(
-                                                selectedDailySummaryHour,
-                                                selectedDailySummaryMinute
-                                        )
-                            },
-                            selectedDailySummaryHour,
-                            selectedDailySummaryMinute,
-                            true
-                    )
-                    .show()
+                this,
+                { _, hourOfDay, minute ->
+                    selectedDailySummaryHour = hourOfDay
+                    selectedDailySummaryMinute = minute
+                    tvDailySummaryTimeValue.text = formatTimeOfDay(selectedDailySummaryHour, selectedDailySummaryMinute)
+                },
+                selectedDailySummaryHour,
+                selectedDailySummaryMinute,
+                true
+            ).show()
         }
     }
 
     private fun setupExportTest(
-            cbCustomExport: CheckBox,
-            etCustomExportUrl: EditText,
-            btnTestExport: Button,
-            etServerUrl: EditText,
-            readerSettings: ReaderSettings
+        cbCustomExport: CheckBox,
+        etCustomExportUrl: EditText,
+        btnTestExport: Button,
+        etServerUrl: EditText,
+        readerSettings: ReaderSettings
     ) {
         cbCustomExport.setOnCheckedChangeListener { _, isChecked ->
             etCustomExportUrl.isEnabled = isChecked
@@ -943,17 +721,13 @@ class ReaderSettingsActivity : BaseActivity() {
         btnTestExport.setOnClickListener {
             val app = application as BooxReaderApp
             val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
-            val baseUrl =
-                    etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
-            val targetUrl =
-                    if (cbCustomExport.isChecked &&
-                                    etCustomExportUrl.text.toString().trim().isNotEmpty()
-                    ) {
-                        etCustomExportUrl.text.toString().trim()
-                    } else {
-                        val trimmed = baseUrl.trimEnd('/')
-                        if (trimmed.isNotEmpty()) trimmed + HttpConfig.PATH_AI_NOTES_EXPORT else ""
-                    }
+            val baseUrl = etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
+            val targetUrl = if (cbCustomExport.isChecked && etCustomExportUrl.text.toString().trim().isNotEmpty()) {
+                etCustomExportUrl.text.toString().trim()
+            } else {
+                val trimmed = baseUrl.trimEnd('/')
+                if (trimmed.isNotEmpty()) trimmed + HttpConfig.PATH_AI_NOTES_EXPORT else ""
+            }
 
             if (targetUrl.isEmpty()) {
                 Toast.makeText(this, "請輸入有效的 URL", Toast.LENGTH_SHORT).show()
@@ -965,8 +739,7 @@ class ReaderSettingsActivity : BaseActivity() {
             btnTestExport.text = "Testing..."
             lifecycleScope.launch {
                 val result = repo.testExportEndpoint(targetUrl)
-                Toast.makeText(this@ReaderSettingsActivity, "Export test: $result", Toast.LENGTH_LONG)
-                        .show()
+                Toast.makeText(this@ReaderSettingsActivity, "Export test: $result", Toast.LENGTH_LONG).show()
                 btnTestExport.text = originalText
                 btnTestExport.isEnabled = true
             }
@@ -974,23 +747,23 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun setupGeneralPreferences(
-            readerSettings: ReaderSettings,
-            prefs: android.content.SharedPreferences,
-            etServerUrl: EditText,
-            etApiKey: EditText,
-            switchPageTap: androidx.appcompat.widget.SwitchCompat,
-            switchPageSwipe: androidx.appcompat.widget.SwitchCompat,
-            switchPageAnimation: androidx.appcompat.widget.SwitchCompat,
-            switchPageIndicator: androidx.appcompat.widget.SwitchCompat,
-            switchAutoCheckUpdates: androidx.appcompat.widget.SwitchCompat,
-            switchDailySummaryEmail: androidx.appcompat.widget.SwitchCompat,
-            etDailySummaryEmailTo: EditText,
-            switchConvertChinese: androidx.appcompat.widget.SwitchCompat,
-            cbCustomExport: CheckBox,
-            etCustomExportUrl: EditText,
-            cbLocalExport: CheckBox,
-            seekBarTextSize: SeekBar,
-            tvTextSizeValue: TextView
+        readerSettings: ReaderSettings,
+        prefs: android.content.SharedPreferences,
+        etServerUrl: EditText,
+        etApiKey: EditText,
+        switchPageTap: SwitchCompat,
+        switchPageSwipe: SwitchCompat,
+        switchPageAnimation: SwitchCompat,
+        switchPageIndicator: SwitchCompat,
+        switchAutoCheckUpdates: SwitchCompat,
+        switchDailySummaryEmail: SwitchCompat,
+        etDailySummaryEmailTo: EditText,
+        switchConvertChinese: SwitchCompat,
+        cbCustomExport: CheckBox,
+        etCustomExportUrl: EditText,
+        cbLocalExport: CheckBox,
+        seekBarTextSize: SeekBar,
+        tvTextSizeValue: TextView
     ) {
         etServerUrl.setText(readerSettings.serverBaseUrl)
         etApiKey.setText(readerSettings.apiKey)
@@ -1010,28 +783,22 @@ class ReaderSettingsActivity : BaseActivity() {
         tvTextSizeValue.text = "${readerSettings.textSize}%"
 
         seekBarTextSize.setOnSeekBarChangeListener(
-                object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(
-                            seekBar: SeekBar?,
-                            progress: Int,
-                            fromUser: Boolean
-                    ) {
-                        tvTextSizeValue.text = "${progress + 50}%"
-                    }
-
-                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-
-                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    tvTextSizeValue.text = "${progress + 50}%"
                 }
+
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            }
         )
 
         switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
             val currentSettings = ReaderSettings.fromPrefs(prefs)
-            val updatedSettings =
-                    currentSettings.copy(
-                            convertToTraditionalChinese = isChecked,
-                            updatedAt = System.currentTimeMillis()
-                    )
+            val updatedSettings = currentSettings.copy(
+                convertToTraditionalChinese = isChecked,
+                updatedAt = System.currentTimeMillis()
+            )
             updatedSettings.saveTo(prefs)
             setResult(RESULT_OK)
             val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
@@ -1043,28 +810,27 @@ class ReaderSettingsActivity : BaseActivity() {
         val normal = createRoundedBackground(style.fillColor, style.strokeColor)
         val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
         val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
-        button.background =
-                StateListDrawable().apply {
-                    addState(intArrayOf(-android.R.attr.state_enabled), disabled)
-                    addState(intArrayOf(android.R.attr.state_pressed), pressed)
-                    addState(intArrayOf(android.R.attr.state_focused), pressed)
-                    addState(intArrayOf(), normal)
-                }
+        button.background = StateListDrawable().apply {
+            addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+            addState(intArrayOf(android.R.attr.state_pressed), pressed)
+            addState(intArrayOf(android.R.attr.state_focused), pressed)
+            addState(intArrayOf(), normal)
+        }
         button.setTextColor(
-                ColorStateList(
-                        arrayOf(
-                                intArrayOf(-android.R.attr.state_enabled),
-                                intArrayOf()
-                        ),
-                        intArrayOf(style.disabledTextColor, style.textColor)
-                )
+            ColorStateList(
+                arrayOf(
+                    intArrayOf(-android.R.attr.state_enabled),
+                    intArrayOf()
+                ),
+                intArrayOf(style.disabledTextColor, style.textColor)
+            )
         )
     }
 
     private fun createRoundedBackground(
-            fillColor: Int,
-            strokeColor: Int,
-            cornerRadiusDp: Float = 14f
+        fillColor: Int,
+        strokeColor: Int,
+        cornerRadiusDp: Float = 14f
     ): GradientDrawable {
         val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
         return GradientDrawable().apply {
@@ -1079,21 +845,19 @@ class ReaderSettingsActivity : BaseActivity() {
 
     private fun applyActionBarContentColor(barColor: Int) {
         val title = getString(R.string.reader_settings_title)
-        val contentColor =
-                if (ColorUtils.calculateLuminance(barColor) > 0.5) Color.BLACK else Color.WHITE
+        val contentColor = if (ColorUtils.calculateLuminance(barColor) > 0.5) Color.BLACK else Color.WHITE
 
         val styledTitle = SpannableString(title).apply {
             setSpan(ForegroundColorSpan(contentColor), 0, length, 0)
         }
         supportActionBar?.title = styledTitle
 
-        val backDrawable =
-                AppCompatResources.getDrawable(this, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
-                        ?.mutate()
-                        ?.let { drawable ->
-                            DrawableCompat.setTint(drawable, contentColor)
-                            drawable
-                        }
+        val backDrawable = AppCompatResources.getDrawable(this, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+            ?.mutate()
+            ?.let { drawable ->
+                DrawableCompat.setTint(drawable, contentColor)
+                drawable
+            }
         if (backDrawable != null) {
             supportActionBar?.setHomeAsUpIndicator(backDrawable)
         }
@@ -1104,11 +868,10 @@ class ReaderSettingsActivity : BaseActivity() {
         val settings = ReaderSettings.fromPrefs(prefs)
 
         val dialog = MagicTagManagerDialog(this, settings.magicTags) { updatedTags ->
-            val updatedSettings =
-                settings.copy(
-                    magicTags = updatedTags,
-                    updatedAt = System.currentTimeMillis()
-                )
+            val updatedSettings = settings.copy(
+                magicTags = updatedTags,
+                updatedAt = System.currentTimeMillis()
+            )
             updatedSettings.saveTo(prefs)
             pushSettingsToCloud()
             setResult(RESULT_OK)
