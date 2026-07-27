@@ -1214,7 +1214,9 @@ class UserSyncRepository(
                                         }
                                 }
                                 if (successfullyDeletedBookIds.isNotEmpty()) {
-                                        db.bookDao().deleteByIds(successfullyDeletedBookIds)
+                                        successfullyDeletedBookIds.chunked(900).forEach { chunk ->
+                                                db.bookDao().deleteByIds(chunk)
+                                        }
                                         syncedCount += successfullyDeletedBookIds.size
                                 }
 
@@ -1331,7 +1333,9 @@ class UserSyncRepository(
                                 }
 
                                 if (deletedBookIds.isNotEmpty()) {
-                                        db.bookDao().deleteByIds(deletedBookIds)
+                                        deletedBookIds.chunked(900).forEach { chunk ->
+                                                db.bookDao().deleteByIds(chunk)
+                                        }
                                 }
 
                                 Log.d("UserSyncRepository", "pullBooks - Synced $syncedCount books")
@@ -1700,7 +1704,9 @@ class UserSyncRepository(
                         }
                 }
                 if (duplicateIds.isEmpty()) return
-                db.aiNoteDao().deleteByIds(duplicateIds)
+                duplicateIds.chunked(900).forEach { chunk ->
+                        db.aiNoteDao().deleteByIds(chunk)
+                }
                 Log.d(
                         "UserSyncRepository",
                         "cleanupDuplicateNotes - Removed ${duplicateIds.size} duplicate notes"

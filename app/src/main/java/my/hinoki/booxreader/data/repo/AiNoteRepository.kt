@@ -328,7 +328,9 @@ class AiNoteRepository(
 
     suspend fun getByIds(ids: Collection<Long>): List<AiNoteEntity> {
         if (ids.isEmpty()) return emptyList()
-        return dao.getByIds(ids.toList()).map { normalizeForRead(it) }
+        return ids.chunked(900).flatMap { chunk ->
+            dao.getByIds(chunk.toList()).map { normalizeForRead(it) }
+        }
     }
 
     suspend fun findNoteByText(text: String): AiNoteEntity? {
@@ -1215,7 +1217,9 @@ class AiNoteRepository(
                 if (noteIds.isEmpty()) {
                     return@withContext DeleteResult(0, 0)
                 }
-                val notes = dao.getByIds(noteIds.toList())
+                val notes = noteIds.chunked(900).flatMap { chunk ->
+                    dao.getByIds(chunk.toList())
+                }
                 var deletedCount = 0
                 var failedCount = 0
                 for (note in notes) {
@@ -1280,7 +1284,7 @@ class AiNoteRepository(
         val bookTitlesById: Map<String, String?> =
                 notes.mapNotNull { it.bookId }.distinct().let { ids ->
                     if (ids.isEmpty()) emptyMap()
-                    else bookDao.getByIds(ids).associateBy({ it.bookId }, { it.title })
+                    else ids.chunked(900).flatMap { chunk -> bookDao.getByIds(chunk) }.associateBy({ it.bookId }, { it.title })
                 }
 
         val notesArray =
