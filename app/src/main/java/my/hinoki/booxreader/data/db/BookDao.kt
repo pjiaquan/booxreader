@@ -28,6 +28,9 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE deleted = 0 ORDER BY lastOpenedAt DESC LIMIT :limit")
     fun getRecent(limit: Int): Flow<List<BookEntity>>
 
+    @Query("SELECT * FROM books WHERE bookId = :bookId AND deleted = 0")
+    suspend fun getById(bookId: String): BookEntity?
+
     @Query("SELECT * FROM books WHERE bookId IN (:ids) AND deleted = 0")
     suspend fun getByIds(ids: List<String>): List<BookEntity>
 
