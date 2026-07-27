@@ -45,6 +45,7 @@ class UserSyncRepositoryBookSyncTest {
 
     @After
     fun tearDown() {
+        AppDatabase.resetInstanceForTesting()
         server.shutdown()
     }
 

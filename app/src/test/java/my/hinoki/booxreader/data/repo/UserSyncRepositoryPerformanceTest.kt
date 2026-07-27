@@ -65,6 +65,7 @@ class UserSyncRepositoryPerformanceTest {
 
     @After
     fun teardown() {
+        AppDatabase.resetInstanceForTesting()
         mockWebServer.shutdown()
     }
 

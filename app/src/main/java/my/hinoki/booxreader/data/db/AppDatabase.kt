@@ -173,5 +173,16 @@ abstract class AppDatabase : RoomDatabase() {
                 .build().also { INSTANCE = it }
             }
         }
+
+        @androidx.annotation.VisibleForTesting
+        fun resetInstanceForTesting() {
+            synchronized(this) {
+                try {
+                    INSTANCE?.close()
+                } catch (_: Exception) {}
+                INSTANCE = null
+            }
+        }
     }
 }
+

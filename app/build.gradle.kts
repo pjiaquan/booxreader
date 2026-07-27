@@ -157,9 +157,17 @@ android {
         }
     }
 
-
-
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
+
+tasks.withType<Test>().configureEach {
+    forkEvery = 10
+}
+
 
 configurations.all {
     exclude(group = "com.intellij", module = "annotations")
