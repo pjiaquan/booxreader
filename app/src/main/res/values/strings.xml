@@ -128,6 +128,8 @@
     <string name="forgot_email_dialog_cancel">Cancel</string>
     <string name="forgot_email_success">Account recovery request sent. Please check your inbox.</string>
     <string name="forgot_email_prompt">Please enter your email to request recovery.</string>
+    <string name="login_continue_as_guest">Continue as Guest</string>
+    <string name="guest_mode_notice">Using Guest Mode. Cloud sync is disabled.</string>
     <string name="email_label">Email</string>
     <string name="password_label">Password</string>
     <string name="ai_profile_sync">Sync with Cloud</string>

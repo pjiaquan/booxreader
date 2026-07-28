@@ -113,8 +113,16 @@
             android:layout_height="wrap_content"
             android:text="@string/login_no_account_register"
             android:layout_marginTop="24dp"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="16dp"
             android:textColor="?attr/colorPrimary"/>
+
+        <Button
+            android:id="@+id/btnGuestMode"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/login_continue_as_guest"
+            android:layout_marginBottom="32dp"/>
 
     </LinearLayout>
 </ScrollView>

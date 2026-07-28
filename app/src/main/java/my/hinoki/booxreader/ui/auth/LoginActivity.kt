@@ -43,6 +43,7 @@ class LoginActivity : BaseActivity() {
         val btnResend = findViewById<Button>(R.id.btnResendVerification)
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
+        val btnGuestMode = findViewById<Button>(R.id.btnGuestMode)
         val loginScroll = findViewById<ScrollView>(R.id.loginScroll)
 
         if (tokenManager.isRememberMeEnabled()) {
@@ -105,6 +106,16 @@ class LoginActivity : BaseActivity() {
 
         tvRegister.setOnClickListener { startActivity(Intent(this, RegisterActivity::class.java)) }
 
+        btnGuestMode.setOnClickListener {
+            tokenManager.saveGuestMode(true)
+            Toast.makeText(this, getString(R.string.guest_mode_notice), Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, my.hinoki.booxreader.ui.main.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            startActivity(intent)
+            finish()
+        }
+
         lifecycleScope.launch {
             viewModel.authState.collect { state ->
                 when (state) {
@@ -114,8 +125,10 @@ class LoginActivity : BaseActivity() {
                         progressBar.visibility = View.VISIBLE
                         btnResend.visibility = View.GONE
                         tvRegister.visibility = View.GONE
+                        btnGuestMode.visibility = View.GONE
                     }
                     is AuthState.Success -> {
+                        tokenManager.saveGuestMode(false)
                         Toast.makeText(
                                         this@LoginActivity,
                                         getString(R.string.login_success),
@@ -145,6 +158,7 @@ class LoginActivity : BaseActivity() {
                         btnResend.visibility =
                                 if (isVerificationError(state.message)) View.VISIBLE else View.GONE
                         tvRegister.visibility = View.VISIBLE
+                        btnGuestMode.visibility = View.VISIBLE
                         viewModel.resetState()
                     }
                     else -> {
@@ -153,6 +167,7 @@ class LoginActivity : BaseActivity() {
                         progressBar.visibility = View.GONE
                         btnResend.visibility = View.GONE
                         tvRegister.visibility = View.VISIBLE
+                        btnGuestMode.visibility = View.VISIBLE
                     }
                 }
             }

@@ -96,7 +96,8 @@ class WelcomeActivity : BaseActivity() {
         binding.btnGrant.setOnClickListener { checkAndRequestPermissions() }
 
         binding.btnSkip.setOnClickListener {
-            // User chose to skip, we still mark first run as complete but maybe without permissions
+            // User chose to skip, set guest mode and mark first run complete
+            (application as my.hinoki.booxreader.BooxReaderApp).tokenManager.saveGuestMode(true)
             markFirstRunComplete()
             navigateToMain()
         }

@@ -50,7 +50,10 @@ open class TokenManager(private val context: Context) {
     }
 
     open fun saveAccessToken(token: String) {
-        sharedPreferences.edit().putString("access_token", token).apply()
+        sharedPreferences.edit()
+            .putString("access_token", token)
+            .putBoolean("guest_mode", false)
+            .apply()
     }
 
     open fun getAccessToken(): String? {
@@ -78,6 +81,7 @@ open class TokenManager(private val context: Context) {
             .remove("refresh_token")
             .remove("user_id")
             .remove("user_email")
+            .putBoolean("guest_mode", false)
             .apply()
     }
 
@@ -101,5 +105,13 @@ open class TokenManager(private val context: Context) {
 
     open fun getSavedEmail(): String? {
         return sharedPreferences.getString("saved_email", null)
+    }
+
+    open fun saveGuestMode(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean("guest_mode", enabled).apply()
+    }
+
+    open fun isGuestMode(): Boolean {
+        return sharedPreferences.getBoolean("guest_mode", false)
     }
 }

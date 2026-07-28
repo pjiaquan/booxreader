@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.AttrRes
 import androidx.core.app.ActivityCompat
@@ -135,9 +136,9 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check if user is signed in
-        if (!isSignedIn()) {
-            // User not signed in, redirect to login
+        // Check if user is signed in or in guest mode
+        if (!isAllowedAccess()) {
+            // User not signed in and not in guest mode, redirect to login
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
@@ -222,16 +223,18 @@ class MainActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Check if user is still signed in
-        if (!isSignedIn()) {
+        // Check if user is still signed in or in guest mode
+        if (!isAllowedAccess()) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
         }
 
         // Note: Books are now automatically observed via Flow
-        // No need to manually call loadRecentBooks() here
-        startPeriodicProgressSync()
+        // Periodic progress sync only runs if user is signed in
+        if (isSignedIn()) {
+            startPeriodicProgressSync()
+        }
     }
 
     override fun onPause() {
@@ -241,6 +244,7 @@ class MainActivity : BaseActivity() {
 
     private fun startPeriodicProgressSync() {
         progressSyncJob?.cancel()
+        if (!isSignedIn()) return
         progressSyncJob =
                 lifecycleScope.launch {
                     while (true) {
@@ -265,12 +269,22 @@ class MainActivity : BaseActivity() {
                 }
     }
 
+    private fun isAllowedAccess(): Boolean {
+        val app = application as BooxReaderApp
+        return !app.tokenManager.getAccessToken().isNullOrBlank() || app.tokenManager.isGuestMode()
+    }
+
     private fun isSignedIn(): Boolean {
         val app = application as BooxReaderApp
         return !app.tokenManager.getAccessToken().isNullOrBlank()
     }
 
     private fun performFullSync() {
+        if (!isSignedIn()) {
+            binding.swipeRefreshLayout.isRefreshing = false
+            Toast.makeText(this, getString(R.string.guest_mode_notice), Toast.LENGTH_SHORT).show()
+            return
+        }
         lifecycleScope.launch {
             binding.swipeRefreshLayout.isRefreshing = true
             try {

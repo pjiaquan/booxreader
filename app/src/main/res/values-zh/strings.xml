@@ -108,6 +108,8 @@
     <string name="forgot_email_dialog_cancel">取消</string>
     <string name="forgot_email_success">账号找回请求已发送，请检查您的邮箱。</string>
     <string name="forgot_email_prompt">请输入您的 Email 以请求找回。</string>
+    <string name="login_continue_as_guest">以访客身份继续</string>
+    <string name="guest_mode_notice">已开启访客模式，云端同步功能暂不可用。</string>
     <string name="email_label">电子邮箱</string>
     <string name="password_label">密碼</string>
     <string name="ai_profile_sync">雲端同步</string>

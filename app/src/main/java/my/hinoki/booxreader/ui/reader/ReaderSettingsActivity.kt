@@ -543,10 +543,13 @@ class ReaderSettingsActivity : BaseActivity() {
     private fun applyFooterInsets() {
         val root = findViewById<View>(R.id.readerSettingsRoot)
         val footer = findViewById<View>(R.id.settingsFooter)
+        val scroll = findViewById<View>(R.id.settingsScroll)
         val baseBottom = footer.paddingBottom
+        val baseTopScroll = scroll?.paddingTop ?: 0
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
             val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             footer.updatePadding(bottom = baseBottom + systemBars.bottom)
+            scroll?.updatePadding(top = baseTopScroll + systemBars.top)
             windowInsets
         }
         ViewCompat.requestApplyInsets(root)

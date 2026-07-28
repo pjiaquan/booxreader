@@ -48,4 +48,25 @@ class TokenManagerTest {
         assertFalse(tokenManager.isRememberMeEnabled())
         assertNull(tokenManager.getSavedEmail())
     }
+
+    @Test
+    fun `saveGuestMode updates guest mode state`() {
+        assertFalse(tokenManager.isGuestMode())
+
+        tokenManager.saveGuestMode(true)
+        assertTrue(tokenManager.isGuestMode())
+
+        tokenManager.saveGuestMode(false)
+        assertFalse(tokenManager.isGuestMode())
+    }
+
+    @Test
+    fun `saveAccessToken resets guest mode to false`() {
+        tokenManager.saveGuestMode(true)
+        assertTrue(tokenManager.isGuestMode())
+
+        tokenManager.saveAccessToken("dummy_token")
+        assertFalse(tokenManager.isGuestMode())
+        assertEquals("dummy_token", tokenManager.getAccessToken())
+    }
 }
