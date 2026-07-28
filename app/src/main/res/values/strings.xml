@@ -119,6 +119,15 @@
     <string name="login_no_account_register">No account? Register here</string>
     <string name="login_resend_prompt">Please enter email and password to resend verification</string>
     <string name="login_success">Login Successful</string>
+    <string name="login_remember_me">Remember Me</string>
+    <string name="login_forgot_email">Forgot Email?</string>
+    <string name="forgot_email_dialog_title">Forgot Email</string>
+    <string name="forgot_email_dialog_message">If you forgot your registered email address, please enter your display name or email to receive account recovery instructions.</string>
+    <string name="forgot_email_dialog_hint">Enter display name or email</string>
+    <string name="forgot_email_dialog_send">Send Recovery Email</string>
+    <string name="forgot_email_dialog_cancel">Cancel</string>
+    <string name="forgot_email_success">Account recovery request sent. Please check your inbox.</string>
+    <string name="forgot_email_prompt">Please enter your email to request recovery.</string>
     <string name="email_label">Email</string>
     <string name="password_label">Password</string>
     <string name="ai_profile_sync">Sync with Cloud</string>

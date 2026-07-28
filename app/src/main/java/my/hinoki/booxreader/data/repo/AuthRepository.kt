@@ -196,6 +196,36 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                         }
                 }
 
+        suspend fun requestPasswordReset(email: String): Result<Unit> =
+                withContext(Dispatchers.IO) {
+                        runCatching {
+                                val requestBody =
+                                        gson.toJson(mapOf("email" to email))
+                                                .toRequestBody("application/json".toMediaType())
+
+                                val request =
+                                        Request.Builder()
+                                                .url(
+                                                        "$pocketBaseUrl/api/collections/users/request-password-reset"
+                                                )
+                                                .post(requestBody)
+                                                .build()
+
+                                val response = httpClient.newCall(request).execute()
+
+                                if (!response.isSuccessful) {
+                                        val errorBody = response.body?.string() ?: ""
+                                        Log.e(
+                                                "AuthRepository",
+                                                "Request password reset failed: $errorBody"
+                                        )
+                                        throw Exception(
+                                                "Failed to send reset email: ${response.code}"
+                                        )
+                                }
+                        }
+                }
+
         suspend fun googleLogin(idToken: String): Result<UserEntity> =
                 withContext(Dispatchers.IO) {
                         runCatching {

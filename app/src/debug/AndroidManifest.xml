@@ -15,5 +15,27 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="my.hinoki.booxreader.ui.reader.ReaderSettingsActivity"
+            android:exported="true"
+            android:enabled="true"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="my.hinoki.booxreader.DEBUG_OPEN_READER_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="my.hinoki.booxreader.ui.auth.LoginActivity"
+            android:exported="true"
+            android:enabled="true"
+            tools:replace="android:exported">
+            <intent-filter>
+                <action android:name="my.hinoki.booxreader.DEBUG_OPEN_LOGIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

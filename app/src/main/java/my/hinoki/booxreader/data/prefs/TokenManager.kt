@@ -80,4 +80,26 @@ open class TokenManager(private val context: Context) {
             .remove("user_email")
             .apply()
     }
+
+    open fun saveRememberMe(remember: Boolean, email: String) {
+        if (remember) {
+            sharedPreferences.edit()
+                .putBoolean("remember_me", true)
+                .putString("saved_email", email)
+                .apply()
+        } else {
+            sharedPreferences.edit()
+                .putBoolean("remember_me", false)
+                .remove("saved_email")
+                .apply()
+        }
+    }
+
+    open fun isRememberMeEnabled(): Boolean {
+        return sharedPreferences.getBoolean("remember_me", false)
+    }
+
+    open fun getSavedEmail(): String? {
+        return sharedPreferences.getString("saved_email", null)
+    }
 }

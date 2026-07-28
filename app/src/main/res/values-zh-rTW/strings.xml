@@ -99,6 +99,15 @@
     <string name="login_no_account_register">沒有帳號？點此註冊</string>
     <string name="login_resend_prompt">請輸入帳號密碼以重寄驗證信</string>
     <string name="login_success">登入成功</string>
+    <string name="login_remember_me">記住我</string>
+    <string name="login_forgot_email">忘記 Email？</string>
+    <string name="forgot_email_dialog_title">忘記 Email</string>
+    <string name="forgot_email_dialog_message">如果您忘記了註冊的 Email 地址，請輸入您的顯示名稱或 Email 以發送帳號找回說明。</string>
+    <string name="forgot_email_dialog_hint">輸入顯示名稱或 Email</string>
+    <string name="forgot_email_dialog_send">發送找回郵件</string>
+    <string name="forgot_email_dialog_cancel">取消</string>
+    <string name="forgot_email_success">帳號找回請求已發送，請檢查您的信箱。</string>
+    <string name="forgot_email_prompt">請輸入您的 Email 以請求找回。</string>
     <string name="email_label">電子郵件</string>
     <string name="password_label">密碼</string>
     <string name="ai_profile_sync">雲端同步</string>

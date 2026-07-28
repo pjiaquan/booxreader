@@ -16,6 +16,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import android.widget.CheckBox
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.ui.common.BaseActivity
 
@@ -25,6 +28,7 @@ class LoginActivity : BaseActivity() {
     private val RC_SIGN_IN = 9001
 
     private val googleHelper by lazy { GoogleSignInHelper(this) }
+    private val tokenManager by lazy { (application as BooxReaderApp).tokenManager }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,12 +36,22 @@ class LoginActivity : BaseActivity() {
 
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
+        val cbRememberMe = findViewById<CheckBox>(R.id.cbRememberMe)
+        val tvForgotEmail = findViewById<TextView>(R.id.tvForgotEmail)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val btnGoogle = findViewById<Button>(R.id.btnGoogleSignIn)
         val btnResend = findViewById<Button>(R.id.btnResendVerification)
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
         val tvRegister = findViewById<TextView>(R.id.tvRegister)
         val loginScroll = findViewById<ScrollView>(R.id.loginScroll)
+
+        if (tokenManager.isRememberMeEnabled()) {
+            val savedEmail = tokenManager.getSavedEmail()
+            if (!savedEmail.isNullOrBlank()) {
+                etEmail.setText(savedEmail)
+                cbRememberMe.isChecked = true
+            }
+        }
 
         val baseBottomPadding = loginScroll.paddingBottom
         ViewCompat.setOnApplyWindowInsetsListener(loginScroll) { view, insets ->
@@ -64,11 +78,16 @@ class LoginActivity : BaseActivity() {
         }
 
         btnLogin.setOnClickListener {
-            val email = etEmail.text.toString()
+            val email = etEmail.text.toString().trim()
             val pass = etPassword.text.toString()
             if (email.isNotBlank() && pass.isNotBlank()) {
+                tokenManager.saveRememberMe(cbRememberMe.isChecked, email)
                 viewModel.login(email, pass)
             }
+        }
+
+        tvForgotEmail.setOnClickListener {
+            showForgotEmailDialog(etEmail.text.toString().trim())
         }
 
         btnGoogle.setOnClickListener { googleHelper.signIn(RC_SIGN_IN) }
@@ -154,5 +173,39 @@ class LoginActivity : BaseActivity() {
                 }
             }
         }
+    }
+
+    private fun showForgotEmailDialog(currentEmailInput: String) {
+        val input = EditText(this).apply {
+            hint = getString(R.string.forgot_email_dialog_hint)
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            if (currentEmailInput.isNotBlank()) {
+                setText(currentEmailInput)
+            }
+        }
+
+        val container = android.widget.FrameLayout(this).apply {
+            val margin = (16 * resources.displayMetrics.density).toInt()
+            setPadding(margin, margin / 2, margin, margin / 2)
+            addView(input)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.forgot_email_dialog_title))
+            .setMessage(getString(R.string.forgot_email_dialog_message))
+            .setView(container)
+            .setPositiveButton(getString(R.string.forgot_email_dialog_send)) { dialog, _ ->
+                val inputEmail = input.text.toString().trim()
+                if (inputEmail.isNotBlank()) {
+                    viewModel.requestPasswordReset(inputEmail)
+                } else {
+                    Toast.makeText(this, getString(R.string.forgot_email_prompt), Toast.LENGTH_SHORT).show()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(getString(R.string.forgot_email_dialog_cancel)) { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
     }
 }

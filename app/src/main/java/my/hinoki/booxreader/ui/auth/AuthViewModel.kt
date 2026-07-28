@@ -82,6 +82,40 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun requestPasswordReset(email: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepo.requestPasswordReset(email)
+            result.fold(
+                    onSuccess = {
+                        val msg =
+                                getApplication<Application>()
+                                        .getString(
+                                                my.hinoki
+                                                        .booxreader
+                                                        .R
+                                                        .string
+                                                        .forgot_email_success
+                                        )
+                        _authState.value = AuthState.Error(msg)
+                    },
+                    onFailure = {
+                        val msg =
+                                it.message
+                                        ?: getApplication<Application>()
+                                                .getString(
+                                                        my.hinoki
+                                                                .booxreader
+                                                                .R
+                                                                .string
+                                                                .auth_login_failed
+                                                )
+                        _authState.value = AuthState.Error(msg)
+                    }
+            )
+        }
+    }
+
     fun googleLogin(idToken: String, email: String?, name: String?) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
