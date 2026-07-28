@@ -249,7 +249,7 @@ class AiNoteRepository(
             bookTitle: String? = null
     ): Long {
         val resolvedTitle =
-                bookTitle ?: bookId?.let { id -> bookDao.getByIds(listOf(id)).firstOrNull()?.title }
+                bookTitle ?: bookId?.let { id -> bookDao.getById(id)?.title }
 
         val messages =
                 JSONArray().apply {

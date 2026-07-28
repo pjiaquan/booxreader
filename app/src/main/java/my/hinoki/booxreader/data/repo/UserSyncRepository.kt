@@ -1263,7 +1263,7 @@ class UserSyncRepository(
 
                                         // Check if book exists locally
                                         val existingBook =
-                                                db.bookDao().getByIds(listOf(bookId)).firstOrNull()
+                                                db.bookDao().getById(bookId)
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
@@ -2382,7 +2382,7 @@ class UserSyncRepository(
                                 }
 
                                 val localUri = Uri.fromFile(cachedFile)
-                                db.bookDao().getByIds(listOf(bookId)).firstOrNull()?.let { local ->
+                                db.bookDao().getById(bookId)?.let { local ->
                                         if (local.fileUri.startsWith("pocketbase://")) {
                                                 db.bookDao()
                                                         .insert(local.copy(fileUri = localUri.toString()))
@@ -3153,7 +3153,7 @@ class UserSyncRepository(
                 locatorJson: String,
                 remoteUpdatedAt: Long
         ): Boolean {
-                val local = db.bookDao().getByIds(listOf(bookId)).firstOrNull() ?: return false
+                val local = db.bookDao().getById(bookId) ?: return false
                 val localHasProgress = !local.lastLocatorJson.isNullOrBlank()
                 val remoteIsNewerOrEqual = remoteUpdatedAt >= local.lastOpenedAt
                 val shouldApply = !localHasProgress || remoteIsNewerOrEqual

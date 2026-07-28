@@ -17,7 +17,7 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
     private val bookDao = AppDatabase.get(context).bookDao()
 
     suspend fun getBook(bookId: String): BookEntity? {
-        return bookDao.getByIds(listOf(bookId)).firstOrNull()
+        return bookDao.getById(bookId)
     }
 
     /** 用 fileUri 當 key，若不存在就建立一筆新的 BookEntity */
@@ -58,7 +58,7 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
         bookDao.updateProgress(bookId, locatorJson, now)
 
         // Push to 'progress' collection for Web Client compatibility
-        val entity = bookDao.getByIds(listOf(bookId)).firstOrNull()
+        val entity = bookDao.getById(bookId)
         if (entity != null) {
             try {
                 syncRepo?.pushProgress(
@@ -99,9 +99,7 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
             bookDao.deleteById(bookId)
         } else {
             // Soft delete locally
-            val entity =
-                    bookDao.getByIds(listOf(bookId))
-                            .firstOrNull() // Note: getByIds now filters deleted=0, so this works
+            val entity = bookDao.getById(bookId) // Note: getById now filters deleted=0, so this works
             // for active books
 
             // Wait, getByIds filters deleted=0. If I just updated BookDao to filter deleted=0,
@@ -142,7 +140,7 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
     suspend fun markCompleted(bookId: String) {
         // 標記為已讀完：寫入全書進度 100%
         val entity =
-                bookDao.getByIds(listOf(bookId)).firstOrNull()
+                bookDao.getById(bookId)
                         ?: throw IllegalStateException("Book not found with ID: $bookId")
 
         // 使用書籍來源或 fallback URI 建立 Locator
@@ -167,7 +165,7 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
     }
 
     private suspend fun pushSnapshot(bookId: String) {
-        val entity = bookDao.getByIds(listOf(bookId)).firstOrNull() ?: return
+        val entity = bookDao.getById(bookId) ?: return
         try {
             syncRepo?.pushBook(entity)
         } catch (_: Exception) {}
