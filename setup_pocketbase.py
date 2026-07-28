@@ -90,27 +90,98 @@ def authenticate_admin(base_url, email, password, verify_ssl=True):
     sys.exit(1)
 
 
-def create_collection(base_url, token, collection_data):
-    """Create a single collection in phases: fields, user relation, rules, indexes."""
+def build_collection_map(base_url, token):
+    """Build a mapping of collection names and IDs to their live PocketBase IDs."""
+    collections_url = f"{base_url}/api/collections"
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        res = requests.get(collections_url, headers=headers)
+        res.raise_for_status()
+        data = res.json()
+        items = data.get("items", data) if isinstance(data, dict) else data
+        c_map = {}
+        for c in items:
+            cid = c.get("id")
+            cname = c.get("name")
+            if cid:
+                c_map[cid] = cid
+            if cname and cid:
+                c_map[cname] = cid
+        if "users" in c_map:
+            c_map["_pb_users_auth_"] = c_map["users"]
+        return c_map
+    except Exception:
+        return {}
+
+
+def create_collection(base_url, token, collection_data, collection_map=None, include_relations=True):
+    """Create or update a single collection with fields, rules, and indexes."""
     collections_url = f"{base_url}/api/collections"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    
+    if collection_map is None:
+        collection_map = build_collection_map(base_url, token)
+
     collection_name = collection_data.get("name")
-    all_fields = collection_data.get("fields", [])
-    
-    # Separate relation fields from regular fields
-    regular_fields = []
-    relation_fields = []
-    
+    if collection_name.startswith("_") or collection_name == "users":
+        if include_relations:
+            print(f"   Skipping system/built-in collection '{collection_name}'")
+        return True
+
+    all_fields = collection_data.get("fields") or collection_data.get("schema") or []
+
+    def clean_field(field):
+        f = field.copy()
+        if f.get("type") == "file":
+            opts = (f.get("options") or {}).copy()
+            try:
+                ms = int(opts.get("maxSize", 0) or 0)
+            except (TypeError, ValueError):
+                ms = 0
+            if ms <= 0:
+                opts["maxSize"] = 5242880
+            if not opts.get("maxSelect"):
+                opts["maxSelect"] = 1
+            f["options"] = opts
+        elif f.get("type") == "select":
+            opts = (f.get("options") or {}).copy()
+            if not opts.get("values"):
+                opts["values"] = ["default"]
+            if not opts.get("maxSelect"):
+                opts["maxSelect"] = 1
+            f["options"] = opts
+        elif f.get("type") == "relation":
+            opts = (f.get("options") or {}).copy()
+            rel_target = opts.get("collectionId")
+            if not rel_target or rel_target in ["_pb_users_auth_", "users"]:
+                opts["collectionId"] = collection_map.get("users", "_pb_users_auth_")
+            elif rel_target in collection_map:
+                opts["collectionId"] = collection_map[rel_target]
+            f["options"] = opts
+        return f
+
+    cleaned_fields = []
     for field in all_fields:
-        if field.get("type") == "relation":
-            relation_fields.append(field)
-        else:
-            regular_fields.append(field)
-    
+        if field.get("name") in ["id", "created", "updated"] or field.get("system"):
+            continue
+        if not include_relations and field.get("type") == "relation":
+            continue
+        cleaned_fields.append(clean_field(field))
+
+    collection_payload = {
+        "name": collection_name,
+        "type": collection_data.get("type", "base"),
+        "schema": cleaned_fields,
+        "listRule": collection_data.get("listRule") if include_relations else None,
+        "viewRule": collection_data.get("viewRule") if include_relations else None,
+        "createRule": collection_data.get("createRule") if include_relations else None,
+        "updateRule": collection_data.get("updateRule") if include_relations else None,
+        "deleteRule": collection_data.get("deleteRule") if include_relations else None,
+        "indexes": collection_data.get("indexes", []) if include_relations else []
+    }
+
     def get_existing_collection():
         response = requests.get(collections_url, headers=headers)
         response.raise_for_status()
@@ -121,132 +192,40 @@ def create_collection(base_url, token, collection_data):
                 return c
         return None
 
-    def normalize_relation_field(field):
-        if field.get("name") == "user" and field.get("options", {}).get("collectionId") == "_pb_users_auth_":
-            field_copy = field.copy()
-            field_copy["options"] = field.get("options", {}).copy()
-            field_copy["options"]["collectionId"] = "users"
-            return field_copy
-        return field
-
-    def merge_fields(existing_fields, desired_fields):
-        existing_by_name = {f.get("name"): f for f in existing_fields}
-        merged = list(existing_fields)
-        added = 0
-        for f in desired_fields:
-            name = f.get("name")
-            if not name or name in existing_by_name:
-                continue
-            merged.append(normalize_relation_field(f))
-            added += 1
-        return merged, added
-
-    collection_id = None
-    current_fields = []
-
-    # Phase 1: Create collection with non-relation fields only (or load existing)
-    collection_bare = {
-        "name": collection_data.get("name"),
-        "type": collection_data.get("type"),
-        "fields": regular_fields,  # Only non-relation fields
-        "listRule": None,
-        "viewRule": None,
-        "createRule": None,
-        "updateRule": None,
-        "deleteRule": None
-    }
-
-    print(f"   Creating with {len(regular_fields)} regular fields (+ {len(relation_fields)} relation fields to add later)")
-
     try:
-        response = requests.post(collections_url, headers=headers, json=collection_bare)
+        response = requests.post(collections_url, headers=headers, json=collection_payload)
 
         if response.status_code == 400:
             error_data = response.json() if response.text else {}
             if "already exists" in str(error_data).lower() or "name_exists" in str(error_data):
                 existing = get_existing_collection()
-                if not existing:
-                    print(f"❌ Failed to load existing collection '{collection_name}'")
-                    return False
-                collection_id = existing.get("id")
-                current_fields = existing.get("fields", [])
-                print(f"⚠️  Collection '{collection_name}' already exists, updating rules/fields/indexes...")
+                if existing:
+                    collection_id = existing.get("id")
+                    update_url = f"{collections_url}/{collection_id}"
+                    update_resp = requests.patch(update_url, headers=headers, json=collection_payload)
+                    if update_resp.status_code == 200:
+                        if include_relations:
+                            print(f"⚠️  Updated collection: {collection_name}")
+                        return True
+                    else:
+                        if include_relations:
+                            print(f"⚠️  Collection '{collection_name}' exists, patch response: {update_resp.status_code} {update_resp.text}")
+                        return True
             else:
-                print(f"   Error response: {response.text}")
+                if include_relations:
+                    print(f"   Error response: {response.text}")
+                return False
 
-        if collection_id is None:
-            response.raise_for_status()
-            created_collection = response.json()
-            collection_id = created_collection.get("id")
-            current_fields = regular_fields.copy()
+        response.raise_for_status()
+        if include_relations:
             print(f"✅ Created collection: {collection_name}")
-
-        # Phase 2: Add relation fields and any missing fields
-        update_url = f"{collections_url}/{collection_id}"
-        desired_fields = regular_fields + relation_fields
-        merged_fields, added_fields = merge_fields(current_fields, desired_fields)
-        if added_fields > 0:
-            fields_update = {"fields": merged_fields}
-            try:
-                update_response = requests.patch(update_url, headers=headers, json=fields_update)
-                update_response.raise_for_status()
-                print(f"   ✅ Added {added_fields} missing field(s)")
-            except requests.exceptions.RequestException as e:
-                print(f"   ⚠️  Warning: Failed to add missing fields: {e}")
-                if hasattr(e, 'response') and e.response and e.response.text:
-                    error_msg = e.response.text[:300]
-                    print(f"      {error_msg}")
-
-        # Phase 3: Update with API rules
-        if collection_data.get("listRule") is not None or collection_data.get("createRule"):
-            rules_update = {
-                "listRule": collection_data.get("listRule"),
-                "viewRule": collection_data.get("viewRule"),
-                "createRule": collection_data.get("createRule"),
-                "updateRule": collection_data.get("updateRule"),
-                "deleteRule": collection_data.get("deleteRule")
-            }
-
-            try:
-                update_response = requests.patch(update_url, headers=headers, json=rules_update)
-                update_response.raise_for_status()
-                print(f"   ✅ Added API rules")
-            except requests.exceptions.RequestException as e:
-                print(f"   ⚠️  Warning: Failed to add API rules: {e}")
-                if hasattr(e, 'response') and e.response is not None:
-                    try:
-                        error_text = e.response.text
-                    except Exception:
-                        error_text = None
-                    if error_text:
-                        print(f"      {error_text}")
-
-        # Phase 4: Update with indexes
-        if collection_data.get("indexes"):
-            indexes_update = {
-                "indexes": collection_data.get("indexes")
-            }
-
-            try:
-                update_response = requests.patch(update_url, headers=headers, json=indexes_update)
-                update_response.raise_for_status()
-                print(f"   ✅ Added indexes")
-            except requests.exceptions.RequestException as e:
-                print(f"   ⚠️  Warning: Failed to add indexes: {e}")
-                if hasattr(e, 'response') and e.response is not None:
-                    try:
-                        error_text = e.response.text
-                    except Exception:
-                        error_text = None
-                    if error_text:
-                        print(f"      {error_text}")
-
         return True
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Failed to create/update collection '{collection_name}': {e}")
-        if hasattr(e, 'response') and e.response and e.response.text:
-            print(f"   Response: {e.response.text}")
+        if include_relations:
+            print(f"❌ Failed to create/update collection '{collection_name}': {e}")
+            if hasattr(e, 'response') and e.response and e.response.text:
+                print(f"   Response: {e.response.text}")
         return False
 
 
@@ -753,9 +732,16 @@ def main():
     if auto_added > 0:
         print(f"   ✅ Added {auto_added} missing required collection(s) from bundled defaults")
     
+    print("📦 Creating base collections (Pass 1)...")
+    collection_map = build_collection_map(base_url, token)
+    for collection_data in collections:
+        create_collection(base_url, token, collection_data, collection_map, include_relations=False)
+
+    print("\n📦 Updating relation fields, rules & indexes (Pass 2)...")
+    collection_map = build_collection_map(base_url, token)
     created_count = 0
     for collection_data in collections:
-        if create_collection(base_url, token, collection_data):
+        if create_collection(base_url, token, collection_data, collection_map, include_relations=True):
             created_count += 1
 
     ensure_embedding_vector_capacity(base_url, token, verify_ssl=verify_ssl, min_max=200000)
