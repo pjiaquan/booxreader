@@ -106,6 +106,14 @@ class BookmarkListActivity : BaseActivity() {
                 android.R.layout.simple_list_item_1,
                 labels
             )
+
+            if (labels.isEmpty()) {
+                binding.listBookmarks.visibility = android.view.View.GONE
+                binding.tvEmptyState.visibility = android.view.View.VISIBLE
+            } else {
+                binding.listBookmarks.visibility = android.view.View.VISIBLE
+                binding.tvEmptyState.visibility = android.view.View.GONE
+            }
         }
     }
 }
