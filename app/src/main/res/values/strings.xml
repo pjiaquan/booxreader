@@ -203,6 +203,7 @@
     <string name="main_recent_title">Recent Books</string>
     <string name="main_recent_hint">Tap to continue reading</string>
     <string name="main_empty_state">No reading history. Pick an EPUB to start!</string>
+    <string name="bookmark_empty_state">No bookmarks found. Add one while reading!</string>
     <string name="welcome_title">Welcome to BooxReader</string>
     <string name="welcome_subtitle">Your minimalist e-book reader optimized for E-Ink devices.</string>
     <string name="welcome_permission_title">Permission Required</string>

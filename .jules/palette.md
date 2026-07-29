@@ -1,3 +1,3 @@
-## 2024-05-18 - Added accessibility to selectable items
-**Learning:** Found checkboxes in Android item layouts (e.g., `item_ai_note_selectable.xml`) that were completely missing textual descriptors (`contentDescription` or `text`), making them invisible to screen readers or unintelligible.
-**Action:** Always ensure that `contentDescription` is dynamically assigned in adapter code when adjacent item text changes, ensuring screen readers announce the exact context of the selection (e.g. `getString(R.string.ai_note_select_note, noteText)`).
+## 2024-05-24 - Missing Empty States in List Views
+**Learning:** Found that multiple list activities in the app (like `BookmarkListActivity`, `AiNoteListActivity`, etc.) lack empty states. When a list is empty, users see a blank screen instead of a helpful prompt, which can lead to confusion.
+**Action:** Always check for an empty state implementation when creating or modifying activities/fragments that display data lists. A `TextView` configured for empty state should be present and toggled based on the adapter's data count.
