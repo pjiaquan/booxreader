@@ -197,7 +197,7 @@ class BooxReaderApp : Application() {
         android.util.Log.d("BooxReaderApp", "startRealtimeBookSync - Starting realtime sync for books")
 
         val syncRepo = my.hinoki.booxreader.data.repo.UserSyncRepository(applicationContext)
-        val baseUrl = my.hinoki.booxreader.BuildConfig.POCKETBASE_URL.trimEnd('/')
+        val baseUrl = tokenManager.getBackendUrl()
 
         realtimeBookSyncClient = my.hinoki.booxreader.data.remote.PocketBaseSseClient(
             client = okHttpClient,

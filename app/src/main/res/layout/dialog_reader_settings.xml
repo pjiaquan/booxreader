@@ -216,13 +216,15 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
+                android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:layout_marginTop="@dimen/spacing_lg"
+                    android:layout_marginEnd="@dimen/spacing_lg"
+                    android:layout_marginBottom="@dimen/spacing_sm"
                     android:text="@string/reader_settings_cat_reading"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textSize="17sp"
@@ -230,12 +232,19 @@
 
                 <!-- Tap to turn -->
                 <LinearLayout
+                    android:id="@+id/rowPageTap"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_sm"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal">
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -248,17 +257,35 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchPageTap"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
 
                 <!-- Swipe to turn -->
                 <LinearLayout
+                    android:id="@+id/rowPageSwipe"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_sm"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal">
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -271,17 +298,35 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchPageSwipe"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
 
                 <!-- Page Animation -->
                 <LinearLayout
+                    android:id="@+id/rowPageAnimation"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_sm"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal">
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -294,17 +339,35 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchPageAnimation"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
 
                 <!-- Show Page Indicator -->
                 <LinearLayout
+                    android:id="@+id/rowPageIndicator"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_sm"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal">
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -317,16 +380,35 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchPageIndicator"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
 
                 <!-- Convert Chinese -->
                 <LinearLayout
+                    android:id="@+id/rowConvertChinese"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal">
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -339,7 +421,12 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchConvertChinese"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
 
             </LinearLayout>
@@ -357,48 +444,124 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
+                android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_sm"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="@dimen/spacing_lg"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="@dimen/spacing_xs"
                     android:text="@string/reader_settings_language_title"
                     android:textColor="?android:attr/textColorPrimary"
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
-                <RadioGroup
-                    android:id="@+id/rgLanguage"
+                <!-- System Default Row -->
+                <LinearLayout
+                    android:id="@+id/rowLangSystem"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:minHeight="48dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingEnd="@dimen/spacing_lg">
 
-                    <RadioButton
-                        android:id="@+id/rbLanguageSystem"
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:minHeight="44dp"
+                        android:layout_weight="1"
                         android:text="@string/reader_settings_lang_system"
+                        android:textColor="?android:attr/textColorPrimary"
                         android:textSize="15sp" />
 
-                    <RadioButton
-                        android:id="@+id/rbLanguageEnglish"
-                        android:layout_width="match_parent"
+                    <ImageView
+                        android:id="@+id/ivCheckLangSystem"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_check_24"
+                        app:tint="#007AFF" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
+
+                <!-- English Row -->
+                <LinearLayout
+                    android:id="@+id/rowLangEnglish"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingEnd="@dimen/spacing_lg">
+
+                    <TextView
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:minHeight="44dp"
+                        android:layout_weight="1"
                         android:text="@string/reader_settings_lang_english"
+                        android:textColor="?android:attr/textColorPrimary"
                         android:textSize="15sp" />
 
-                    <RadioButton
-                        android:id="@+id/rbLanguageChinese"
-                        android:layout_width="match_parent"
+                    <ImageView
+                        android:id="@+id/ivCheckLangEnglish"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_check_24"
+                        android:visibility="gone"
+                        app:tint="#007AFF" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
+
+                <!-- Chinese Row -->
+                <LinearLayout
+                    android:id="@+id/rowLangChinese"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="@dimen/spacing_xs">
+
+                    <TextView
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:minHeight="44dp"
+                        android:layout_weight="1"
                         android:text="@string/reader_settings_lang_chinese"
+                        android:textColor="?android:attr/textColorPrimary"
                         android:textSize="15sp" />
-                </RadioGroup>
+
+                    <ImageView
+                        android:id="@+id/ivCheckLangChinese"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_check_24"
+                        android:visibility="gone"
+                        app:tint="#007AFF" />
+                </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -506,11 +669,15 @@
                     android:textStyle="bold" />
 
                 <LinearLayout
+                    android:id="@+id/rowDailySummaryEmail"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="@dimen/spacing_md"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
+                    android:minHeight="52dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -524,7 +691,12 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchDailySummaryEmail"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -599,12 +771,14 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
+                android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:layout_marginTop="@dimen/spacing_lg"
+                    android:layout_marginEnd="@dimen/spacing_lg"
                     android:layout_marginBottom="@dimen/spacing_md"
                     android:text="@string/reader_settings_cat_bookmarks_export"
                     android:textColor="?android:attr/textColorPrimary"
@@ -614,6 +788,8 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:layout_marginEnd="@dimen/spacing_lg"
                     android:layout_marginBottom="@dimen/spacing_md"
                     android:orientation="horizontal">
 
@@ -645,55 +821,131 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginBottom="@dimen/spacing_md"
+                    android:layout_marginStart="@dimen/spacing_lg"
                     android:background="?android:attr/listDivider" />
 
-                <CheckBox
-                    android:id="@+id/cbCustomExportUrl"
+                <!-- Use Custom Export URL -->
+                <LinearLayout
+                    android:id="@+id/rowCustomExport"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_xs"
-                    android:minHeight="44dp"
-                    android:text="@string/reader_settings_custom_export_checkbox"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_xs"
-                    android:text="@string/reader_settings_custom_export_label"
-                    android:textColor="?android:attr/textColorSecondary"
-                    android:textSize="13sp" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_custom_export_checkbox"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
 
-                <EditText
-                    android:id="@+id/etCustomExportUrl"
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/cbCustomExportUrl"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:enabled="false"
-                    android:hint="@string/reader_settings_custom_export_hint"
-                    android:inputType="textUri"
-                    android:textSize="14sp" />
+                    android:orientation="vertical"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="@dimen/spacing_md">
 
-                <CheckBox
-                    android:id="@+id/cbLocalExport"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="@dimen/spacing_xs"
+                        android:text="@string/reader_settings_custom_export_label"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="13sp" />
+
+                    <EditText
+                        android:id="@+id/etCustomExportUrl"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:enabled="false"
+                        android:hint="@string/reader_settings_custom_export_hint"
+                        android:inputType="textUri"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
+
+                <!-- Save AI Notes to Downloads -->
+                <LinearLayout
+                    android:id="@+id/rowLocalExport"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:minHeight="44dp"
-                    android:text="@string/reader_settings_local_export_checkbox"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textSize="15sp" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="52dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="@dimen/spacing_lg"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="@dimen/spacing_lg"
+                    android:paddingBottom="12dp">
 
-                <Button
-                    android:id="@+id/btnTestExportEndpoint"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/reader_settings_local_export_checkbox"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/cbLocalExport"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="@dimen/spacing_lg"
+                    android:background="?android:attr/listDivider" />
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="@dimen/settings_button_height"
-                    android:text="@string/reader_settings_test_export"
-                    android:textAllCaps="false" />
+                    android:padding="@dimen/spacing_lg">
+
+                    <Button
+                        android:id="@+id/btnTestExportEndpoint"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/settings_button_height"
+                        android:text="@string/reader_settings_test_export"
+                        android:textAllCaps="false" />
+                </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -722,10 +974,14 @@
                     android:textStyle="bold" />
 
                 <LinearLayout
+                    android:id="@+id/rowAutoCheckUpdates"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
-                    android:minHeight="48dp"
+                    android:minHeight="52dp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -739,11 +995,28 @@
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchAutoCheckUpdates"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        android:thumb="@drawable/ios_switch_thumb"
+                        android:track="@drawable/ios_switch_track"
+                        app:showText="false"
+                        app:splitTrack="false"
+                        app:switchMinWidth="51dp" />
                 </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <!-- App Version Footer -->
+        <TextView
+            android:id="@+id/tvAppVersion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_lg"
+            android:layout_marginBottom="@dimen/spacing_xl"
+            android:gravity="center"
+            android:text="BooxReader"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="13sp" />
 
     </LinearLayout>
 </ScrollView>

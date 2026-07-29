@@ -114,4 +114,16 @@ open class TokenManager(private val context: Context) {
     open fun isGuestMode(): Boolean {
         return sharedPreferences.getBoolean("guest_mode", false)
     }
+
+    open fun saveCustomBackendUrl(url: String) {
+        sharedPreferences.edit().putString("custom_backend_url", url.trim()).apply()
+    }
+
+    open fun getCustomBackendUrl(): String? {
+        return sharedPreferences.getString("custom_backend_url", null)?.takeIf { it.isNotBlank() }
+    }
+
+    open fun getBackendUrl(): String {
+        return (getCustomBackendUrl() ?: my.hinoki.booxreader.BuildConfig.POCKETBASE_URL).trimEnd('/')
+    }
 }

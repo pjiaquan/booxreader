@@ -22,7 +22,7 @@
 
     <!-- ReaderSettingsActivity: Material3-based theme so Material3 attrs (colorSurface,
          MaterialCardView, etc.) resolve correctly on all API levels. Preserves action bar colors. -->
-    <style name="AppTheme.ReaderSettings" parent="Theme.Material3.DayNight">
+    <style name="AppTheme.ReaderSettings" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="windowActionModeOverlay">true</item>
         <item name="actionModeStyle">@style/Widget.App.ActionMode</item>
         <item name="colorPrimary">@color/action_bar_surface</item>
