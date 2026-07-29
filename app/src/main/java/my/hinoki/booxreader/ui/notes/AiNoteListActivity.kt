@@ -1135,6 +1135,7 @@ class AiNoteListActivity : BaseActivity() {
             holder.cbSelect.buttonTintList = ColorStateList.valueOf(listTextColor)
             holder.cbSelect.visibility = if (selectionActionMode != null) View.VISIBLE else View.GONE
             holder.cbSelect.isChecked = selectedNoteIds.contains(note.id)
+            holder.cbSelect.contentDescription = getString(R.string.ai_note_select_note, holder.tvText.text.take(20))
             holder.cbSelect.isClickable = false
             holder.cbSelect.isFocusable = false
             return rootView
