@@ -306,4 +306,6 @@
     <string name="update_install_success">Updated to version %1$s</string>
     <string name="update_install_failed_or_cancelled">Update was not installed</string>
     <string name="ai_note_select_note">Select note %1$s</string>
+
+<string name="reader_settings_lang_selected">Selected</string>
 </resources>
