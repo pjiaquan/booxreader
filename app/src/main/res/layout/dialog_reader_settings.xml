@@ -484,6 +484,7 @@
                         android:id="@+id/ivCheckLangSystem"
                         android:layout_width="22dp"
                         android:layout_height="22dp"
+                        android:contentDescription="@string/reader_settings_lang_selected"
                         android:src="@drawable/ic_check_24"
                         app:tint="#007AFF" />
                 </LinearLayout>
@@ -520,6 +521,7 @@
                         android:id="@+id/ivCheckLangEnglish"
                         android:layout_width="22dp"
                         android:layout_height="22dp"
+                        android:contentDescription="@string/reader_settings_lang_selected"
                         android:src="@drawable/ic_check_24"
                         android:visibility="gone"
                         app:tint="#007AFF" />
@@ -558,6 +560,7 @@
                         android:id="@+id/ivCheckLangChinese"
                         android:layout_width="22dp"
                         android:layout_height="22dp"
+                        android:contentDescription="@string/reader_settings_lang_selected"
                         android:src="@drawable/ic_check_24"
                         android:visibility="gone"
                         app:tint="#007AFF" />
