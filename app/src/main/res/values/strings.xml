@@ -308,4 +308,5 @@
     <string name="ai_note_select_note">Select note %1$s</string>
 
 <string name="reader_settings_lang_selected">Selected</string>
+    <string name="magic_tag_add">Add Tag</string>
 </resources>
