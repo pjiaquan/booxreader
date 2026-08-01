@@ -44,6 +44,7 @@
                 android:id="@+id/etUsername"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autofillHints="username"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
                 android:inputType="textPersonName" />
@@ -88,6 +89,7 @@
                 android:id="@+id/etCurrentPassword"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autofillHints="password"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
                 android:inputType="textPassword" />
@@ -107,6 +109,7 @@
                 android:id="@+id/etNewPassword"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autofillHints="newPassword"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
                 android:inputType="textPassword" />
@@ -126,6 +129,7 @@
                 android:id="@+id/etConfirmPassword"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:autofillHints="newPassword"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
                 android:inputType="textPassword" />
