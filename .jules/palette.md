@@ -9,3 +9,7 @@
 ## 2024-07-31 - Hardcoded contentDescription in FloatingActionButton
 **Learning:** Found that `activity_magic_tag_list.xml` had a hardcoded `contentDescription="Add Tag"`. Hardcoded strings for accessibility descriptions should be avoided as they cannot be localized.
 **Action:** Always extract hardcoded accessibility descriptions to `strings.xml` using the `@string/` format, just like regular text strings, to ensure proper localization support for screen reader users.
+
+## 2024-05-18 - Improve Form UX with autofillHints
+**Learning:** Providing `autofillHints` (like `emailAddress`, `password`, `newPassword`, and `username`) on form inputs significantly improves the user experience by allowing password managers and keyboards to autofill credentials quickly. It makes sign-up and log-in flows much faster and reduces friction for the user.
+**Action:** Always include `android:autofillHints` on EditText and TextInputEditText components where personal or credential data (email, usernames, passwords) is requested.
