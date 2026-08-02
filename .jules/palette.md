@@ -13,3 +13,6 @@
 ## 2024-05-18 - Improve Form UX with autofillHints
 **Learning:** Providing `autofillHints` (like `emailAddress`, `password`, `newPassword`, and `username`) on form inputs significantly improves the user experience by allowing password managers and keyboards to autofill credentials quickly. It makes sign-up and log-in flows much faster and reduces friction for the user.
 **Action:** Always include `android:autofillHints` on EditText and TextInputEditText components where personal or credential data (email, usernames, passwords) is requested.
+## 2024-11-20 - Adding autofillHints to forms
+**Learning:** Found multiple places where credential inputs (like API keys) and personal inputs (like emails) were missing `autofillHints`. This prevents password managers from working effectively.
+**Action:** Consistently add `android:autofillHints` (e.g. `password`, `emailAddress`, `newPassword`, `username`) to `EditText` and `TextInputEditText` views that ask for user data to ensure a smooth authentication experience.
