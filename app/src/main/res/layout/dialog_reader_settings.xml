@@ -640,6 +640,7 @@
                     android:id="@+id/etApiKey"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:autofillHints="password"
                     android:hint="@string/reader_settings_api_key_hint"
                     android:inputType="textPassword"
                     android:textSize="14sp" />
@@ -755,6 +756,7 @@
                     android:id="@+id/etDailySummaryEmailTo"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:autofillHints="emailAddress"
                     android:hint="@string/reader_settings_daily_email_to_hint"
                     android:inputType="textEmailAddress"
                     android:textSize="14sp" />
