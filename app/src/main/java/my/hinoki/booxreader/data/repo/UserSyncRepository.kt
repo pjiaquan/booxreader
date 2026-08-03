@@ -1248,6 +1248,18 @@ class UserSyncRepository(
 
                                 val deletedBookIds = mutableListOf<String>()
 
+                                val activeBookIdsToFetch = items.mapNotNull { item ->
+                                        if (item["deleted"] as? Boolean == true) null
+                                        else item["bookId"] as? String
+                                }
+                                val existingBooks = if (activeBookIdsToFetch.isEmpty()) {
+                                        emptyMap()
+                                } else {
+                                        activeBookIdsToFetch.chunked(900)
+                                                .flatMap { chunk -> db.bookDao().getByIds(chunk) }
+                                                .associateBy { it.bookId }
+                                }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val deleted = item["deleted"] as? Boolean ?: false
@@ -1262,8 +1274,7 @@ class UserSyncRepository(
 
 
                                         // Check if book exists locally
-                                        val existingBook =
-                                                db.bookDao().getById(bookId)
+                                        val existingBook = existingBooks[bookId]
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
@@ -2108,6 +2119,16 @@ class UserSyncRepository(
                                                 perPage = 100
                                         )
                                 var mergedCount = 0
+
+                                val bookIdsToFetch = items.mapNotNull { it["bookId"] as? String }.distinct()
+                                val existingBooks = if (bookIdsToFetch.isEmpty()) {
+                                        emptyMap()
+                                } else {
+                                        bookIdsToFetch.chunked(900)
+                                                .flatMap { chunk -> db.bookDao().getByIds(chunk) }
+                                                .associateBy { it.bookId }
+                                }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val locatorJson = item["locatorJson"] as? String ?: continue
@@ -2117,7 +2138,8 @@ class UserSyncRepository(
                                                 mergeRemoteProgressIntoLocalBook(
                                                         bookId = bookId,
                                                         locatorJson = locatorJson,
-                                                        remoteUpdatedAt = remoteUpdatedAt
+                                                        remoteUpdatedAt = remoteUpdatedAt,
+                                                        localBook = existingBooks[bookId]
                                                 )
                                         if (merged) {
                                                 mergedCount++
@@ -3151,9 +3173,10 @@ class UserSyncRepository(
         private suspend fun mergeRemoteProgressIntoLocalBook(
                 bookId: String,
                 locatorJson: String,
-                remoteUpdatedAt: Long
+                remoteUpdatedAt: Long,
+                localBook: BookEntity? = null
         ): Boolean {
-                val local = db.bookDao().getById(bookId) ?: return false
+                val local = localBook ?: db.bookDao().getById(bookId) ?: return false
                 val localHasProgress = !local.lastLocatorJson.isNullOrBlank()
                 val remoteIsNewerOrEqual = remoteUpdatedAt >= local.lastOpenedAt
                 val shouldApply = !localHasProgress || remoteIsNewerOrEqual
