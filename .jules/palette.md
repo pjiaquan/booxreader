@@ -13,3 +13,7 @@
 ## 2024-05-18 - Improve Form UX with autofillHints
 **Learning:** Providing `autofillHints` (like `emailAddress`, `password`, `newPassword`, and `username`) on form inputs significantly improves the user experience by allowing password managers and keyboards to autofill credentials quickly. It makes sign-up and log-in flows much faster and reduces friction for the user.
 **Action:** Always include `android:autofillHints` on EditText and TextInputEditText components where personal or credential data (email, usernames, passwords) is requested.
+
+## 2024-05-19 - Missing Password Toggle on Opaque Inputs
+**Learning:** Found that opaque text inputs, specifically API keys in `activity_ai_profile_edit.xml`, were lacking a way for users to verify their input (e.g., a "show/hide" toggle). Given the long, complex nature of API keys on a mobile keyboard, lacking visual verification leads to significant friction and typos.
+**Action:** When using `TextInputEditText` for opaque strings like API keys or passwords in Android layouts, ensure the wrapping `TextInputLayout` includes `app:endIconMode="password_toggle"` to allow users to verify their input without compromising security.
