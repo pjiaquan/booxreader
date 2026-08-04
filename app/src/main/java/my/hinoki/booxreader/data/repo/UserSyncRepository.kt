@@ -1248,6 +1248,18 @@ class UserSyncRepository(
 
                                 val deletedBookIds = mutableListOf<String>()
 
+                                // Bolt: Pre-fetch all books in the payload to avoid N+1 queries.
+                                // We extract the bookIds, query them in batches, and cache the results.
+                                val allBookIds = items.mapNotNull { it["bookId"] as? String }.distinct()
+                                val cachedBooks = if (allBookIds.isNotEmpty()) {
+                                        allBookIds.chunked(900)
+                                                .flatMap { chunk -> db.bookDao().getByIds(chunk) }
+                                                .associateBy { it.bookId }
+                                                .toMutableMap()
+                                } else {
+                                        mutableMapOf()
+                                }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val deleted = item["deleted"] as? Boolean ?: false
@@ -1261,9 +1273,8 @@ class UserSyncRepository(
                                         val resolvedStoragePath = resolveStoragePathFromRecord(item)
 
 
-                                        // Check if book exists locally
-                                        val existingBook =
-                                                db.bookDao().getById(bookId)
+                                        // Check if book exists locally using the in-memory cache
+                                        val existingBook = cachedBooks[bookId]
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
@@ -1288,6 +1299,7 @@ class UserSyncRepository(
                                                                 deleted = false
                                                         )
                                                 db.bookDao().insert(newBook)
+                                                cachedBooks[bookId] = newBook
                                                 syncedCount++
                                         } else {
                                                 val remoteFileUri =
@@ -1327,6 +1339,7 @@ class UserSyncRepository(
                                                                                 }
                                                                 )
                                                         db.bookDao().insert(updatedBook)
+                                                        cachedBooks[bookId] = updatedBook
                                                         syncedCount++
                                                 }
                                         }
