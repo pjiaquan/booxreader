@@ -1248,6 +1248,19 @@ class UserSyncRepository(
 
                                 val deletedBookIds = mutableListOf<String>()
 
+                                // ⚡ Bolt: Prevent N+1 queries by pre-fetching all required BookEntities
+                                // and caching them in an in-memory Map for O(1) lookups during the sync loop.
+                                val relevantBookIds = items.mapNotNull {
+                                    if (it["deleted"] as? Boolean != true) it["bookId"] as? String else null
+                                }
+                                val existingBooksMap = if (relevantBookIds.isEmpty()) {
+                                    emptyMap()
+                                } else {
+                                    relevantBookIds.chunked(900).flatMap { chunk ->
+                                        db.bookDao().getByIds(chunk)
+                                    }.associateBy { it.bookId }
+                                }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val deleted = item["deleted"] as? Boolean ?: false
@@ -1261,9 +1274,9 @@ class UserSyncRepository(
                                         val resolvedStoragePath = resolveStoragePathFromRecord(item)
 
 
-                                        // Check if book exists locally
+                                        // Check if book exists locally (using O(1) map lookup instead of N+1 DB queries)
                                         val existingBook =
-                                                db.bookDao().getById(bookId)
+                                                existingBooksMap[bookId]
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
