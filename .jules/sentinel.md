@@ -2,3 +2,8 @@
 **Vulnerability:** In `TokenManager.kt`, if MasterKeys creation fails, it falls back to a hardcoded string `"_fallback_master_key_"`. This is a critical vulnerability because an attacker could extract this key from the app and use it to decrypt the tokens.
 **Learning:** Hardcoded cryptographic keys defeat the purpose of encryption, turning it into easily reversible obfuscation.
 **Prevention:** Avoid falling back to hardcoded keys. If key generation fails, it should throw an exception to let the caller fallback to explicitly unencrypted shared preferences rather than giving a false sense of security with a hardcoded cryptographic alias.
+
+## 2025-05-19 - Token Leakage via Global OkHttpClient Interceptor
+**Vulnerability:** The global `AuthInterceptor` unconditionally added the `Authorization: Bearer <token>` header to all outgoing requests. If the `OkHttpClient` instance was reused to make requests to third-party domains (e.g., external APIs, webhooks, or downloaded image URLs), the access token would be leaked to those domains.
+**Learning:** OkHttpClient instances are often shared across the app for performance. A global interceptor that adds sensitive headers must always validate the destination host to prevent Server-Side Request Forgery (SSRF) risks and token leakage.
+**Prevention:** Always validate `originalRequest.url.host` against the expected backend host before attaching authentication tokens in OkHttp interceptors.
