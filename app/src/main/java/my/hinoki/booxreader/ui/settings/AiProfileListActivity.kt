@@ -175,6 +175,11 @@ class AiProfileListActivity : BaseActivity() {
     private fun setLoading(loading: Boolean) {
         binding.loadingOverlay.visibility = if (loading) View.VISIBLE else View.GONE
         binding.recyclerView.visibility = if (loading) View.INVISIBLE else View.VISIBLE
+        if (loading) {
+            binding.tvEmptyState.visibility = View.GONE
+        } else {
+            binding.tvEmptyState.visibility = if (adapter.itemCount == 0) View.VISIBLE else View.GONE
+        }
         binding.btnSync.isEnabled = !loading
         binding.btnImport.isEnabled = !loading
         binding.btnCreate.isEnabled = !loading
@@ -226,6 +231,7 @@ class AiProfileListActivity : BaseActivity() {
         binding.bottomBar.setBackgroundColor(barSurfaceColor)
         binding.loadingOverlay.setBackgroundColor(listBackgroundColor)
         binding.tvLoading.setTextColor(listTextColor)
+        binding.tvEmptyState.setTextColor(listSecondaryTextColor)
         val accentColor =
             when (mode) {
                 ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
@@ -372,6 +378,7 @@ class AiProfileListActivity : BaseActivity() {
             val currentIds = profiles.map { it.id }.toSet()
             selectedProfileIds.retainAll(currentIds)
             adapter.submitList(profiles)
+            binding.tvEmptyState.visibility = if (profiles.isEmpty()) View.VISIBLE else View.GONE
             updateSelectionUi()
         }
     }
