@@ -135,6 +135,7 @@
     <string name="ai_profile_sync">Sync with Cloud</string>
     <string name="ai_profile_import_json">Import JSON File</string>
     <string name="ai_profile_create_new">Create New</string>
+    <string name="ai_profile_empty_state">No AI profiles found. Create or import one.</string>
     <string name="register_title">Create Account</string>
     <string name="register_button">Register</string>
     <string name="recent_book_title_placeholder">Book title</string>

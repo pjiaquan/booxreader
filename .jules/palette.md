@@ -13,3 +13,10 @@
 ## 2024-05-18 - Improve Form UX with autofillHints
 **Learning:** Providing `autofillHints` (like `emailAddress`, `password`, `newPassword`, and `username`) on form inputs significantly improves the user experience by allowing password managers and keyboards to autofill credentials quickly. It makes sign-up and log-in flows much faster and reduces friction for the user.
 **Action:** Always include `android:autofillHints` on EditText and TextInputEditText components where personal or credential data (email, usernames, passwords) is requested.
+## 2024-11-20 - Missing List Empty States
+**Learning:** Found that multiple lists (like `AiProfileListActivity`) lacked empty states, leaving users with a confusing blank screen when no items are present.
+**Action:** When implementing new lists or reviewing existing ones, always ensure a `tvEmptyState` view is provided and integrated with the adapter/loading logic to guide the user.
+
+## 2024-11-20 - API Key Masking
+**Learning:** Opaque credential fields like API keys were being entered with `textPassword` input types but lacked the `password_toggle` end icon, making it impossible for users to verify their input.
+**Action:** Always wrap `TextInputEditText` components for sensitive data in a `TextInputLayout` with `app:endIconMode="password_toggle"` and provide `android:autofillHints="password"` for password managers.
