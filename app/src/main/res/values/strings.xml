@@ -82,6 +82,7 @@
     <string name="ai_note_semantic_search_status_none">No semantic matches for "%1$s"</string>
     <string name="ai_note_semantic_search_failed">Semantic search failed</string>
     <string name="ai_note_semantic_item_meta">Similarity %1$.1f%% • %2$s</string>
+    <string name="ai_note_empty_state">No AI notes found.</string>
     <string name="profile_username_placeholder">User Name</string>
     <string name="profile_email_placeholder">user@example.com</string>
     <string name="profile_logout">Logout</string>

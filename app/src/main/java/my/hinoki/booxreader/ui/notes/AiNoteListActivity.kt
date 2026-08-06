@@ -256,6 +256,7 @@ class AiNoteListActivity : BaseActivity() {
     private fun setupList() {
         adapter = NoteListAdapter()
         binding.listAiNotes.adapter = adapter
+        binding.listAiNotes.emptyView = binding.tvEmptyState
         binding.listAiNotes.setOnItemClickListener { _, _, position, _ ->
             val note = notes.getOrNull(position) ?: return@setOnItemClickListener
             if (selectionActionMode != null) {
