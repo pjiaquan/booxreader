@@ -1248,6 +1248,13 @@ class UserSyncRepository(
 
                                 val deletedBookIds = mutableListOf<String>()
 
+                                val activeBookIds = items.mapNotNull {
+                                        if (it["deleted"] as? Boolean == true) null else it["bookId"] as? String
+                                }
+                                val existingBooksMap = activeBookIds.chunked(900)
+                                        .flatMap { chunk -> db.bookDao().getByIds(chunk) }
+                                        .associateBy { it.bookId }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val deleted = item["deleted"] as? Boolean ?: false
@@ -1262,8 +1269,7 @@ class UserSyncRepository(
 
 
                                         // Check if book exists locally
-                                        val existingBook =
-                                                db.bookDao().getById(bookId)
+                                        val existingBook = existingBooksMap[bookId]
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
