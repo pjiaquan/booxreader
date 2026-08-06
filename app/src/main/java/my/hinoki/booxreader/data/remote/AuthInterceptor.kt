@@ -15,8 +15,19 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
 
         val accessToken = tokenManager.getAccessToken()
 
-        // If token exists, add it. Otherwise proceed without it (e.g. login/register endpoints)
-        val newRequest = if (accessToken != null) {
+        // SECURITY: Only send token to our own backend to prevent token leakage
+        // to third-party domains (e.g. when downloading external book covers)
+        val backendUrlStr = tokenManager.getBackendUrl()
+        val isBackendHost = try {
+            val backendHost = java.net.URL(backendUrlStr).host
+            originalRequest.url.host == backendHost
+        } catch (e: Exception) {
+            // If URL parsing fails, default to safe behavior
+            false
+        }
+
+        // If token exists and request is to backend, add it. Otherwise proceed without it.
+        val newRequest = if (accessToken != null && isBackendHost) {
             originalRequest.newBuilder()
                 .header("Authorization", "Bearer $accessToken")
                 .build()
