@@ -1248,6 +1248,13 @@ class UserSyncRepository(
 
                                 val deletedBookIds = mutableListOf<String>()
 
+                                val activeBookIds = items.mapNotNull {
+                                        if (it["deleted"] as? Boolean == true) null else it["bookId"] as? String
+                                }
+                                val existingBooksMap = activeBookIds.chunked(900)
+                                        .flatMap { db.bookDao().getByIds(it) }
+                                        .associateBy { it.bookId }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val deleted = item["deleted"] as? Boolean ?: false
@@ -1263,7 +1270,7 @@ class UserSyncRepository(
 
                                         // Check if book exists locally
                                         val existingBook =
-                                                db.bookDao().getById(bookId)
+                                                existingBooksMap[bookId]
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
@@ -2108,6 +2115,12 @@ class UserSyncRepository(
                                                 perPage = 100
                                         )
                                 var mergedCount = 0
+
+                                val bookIds = items.mapNotNull { it["bookId"] as? String }
+                                val existingBooksMap = bookIds.chunked(900)
+                                        .flatMap { db.bookDao().getByIds(it) }
+                                        .associateBy { it.bookId }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val locatorJson = item["locatorJson"] as? String ?: continue
@@ -2117,7 +2130,8 @@ class UserSyncRepository(
                                                 mergeRemoteProgressIntoLocalBook(
                                                         bookId = bookId,
                                                         locatorJson = locatorJson,
-                                                        remoteUpdatedAt = remoteUpdatedAt
+                                                        remoteUpdatedAt = remoteUpdatedAt,
+                                                        localBook = existingBooksMap[bookId]
                                                 )
                                         if (merged) {
                                                 mergedCount++
@@ -3151,9 +3165,10 @@ class UserSyncRepository(
         private suspend fun mergeRemoteProgressIntoLocalBook(
                 bookId: String,
                 locatorJson: String,
-                remoteUpdatedAt: Long
+                remoteUpdatedAt: Long,
+                localBook: my.hinoki.booxreader.data.db.BookEntity? = null
         ): Boolean {
-                val local = db.bookDao().getById(bookId) ?: return false
+                val local = localBook ?: db.bookDao().getById(bookId) ?: return false
                 val localHasProgress = !local.lastLocatorJson.isNullOrBlank()
                 val remoteIsNewerOrEqual = remoteUpdatedAt >= local.lastOpenedAt
                 val shouldApply = !localHasProgress || remoteIsNewerOrEqual
