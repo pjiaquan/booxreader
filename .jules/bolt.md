@@ -4,3 +4,6 @@
 ## 2025-03-05 - Avoid IN clauses for single-entity lookups
 **Learning:** Room/SQLite incurs unnecessary overhead when using an `IN` clause (e.g. `getByIds(listOf(id))`) for single entity lookups, including list allocation, SQLite IN operator processing, and collection extraction operations like `.firstOrNull()`.
 **Action:** Always create and use a dedicated `getById(id)` method with an exact match query (`WHERE id = :id`) instead of reusing batch methods with single-element lists.
+## 2025-05-18 - Fix N+1 queries by chunk prefetching
+**Learning:** Room/SQLite database lookups inside loops (`getById` inside a loop) cause significant performance overhead (N+1 query problem).
+**Action:** Extract unique keys before the loop, fetch them in chunks (e.g., `chunked(900)`) using `getByIds`, cache them using `associateBy`, and perform O(1) map lookups within the loop instead of database calls.
