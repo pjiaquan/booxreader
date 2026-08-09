@@ -251,6 +251,18 @@ class AiNoteListActivity : BaseActivity() {
         binding.etSemanticSearch.isEnabled = interactive
         updateSemanticSearchClearIcon()
         exportMenuItem?.isEnabled = interactive
+
+        updateEmptyState()
+    }
+
+    private fun updateEmptyState() {
+        if (!isInitialLoadInProgress && !isSemanticSearchInProgress && notes.isEmpty()) {
+            binding.listAiNotes.visibility = View.GONE
+            binding.tvEmptyState.visibility = View.VISIBLE
+        } else {
+            binding.listAiNotes.visibility = if (isInitialLoadInProgress) View.INVISIBLE else View.VISIBLE
+            binding.tvEmptyState.visibility = View.GONE
+        }
     }
 
     private fun setupList() {
@@ -540,6 +552,7 @@ class AiNoteListActivity : BaseActivity() {
                 binding.tvSemanticSearchStatus.visibility = View.GONE
                 syncSelectionWithVisibleNotes()
                 adapter.notifyDataSetChanged()
+                updateEmptyState()
             } catch (e: Exception) {
                 allNotes = emptyList()
                 notes = emptyList()
@@ -587,6 +600,7 @@ class AiNoteListActivity : BaseActivity() {
                 notes = matchedNotes
                 syncSelectionWithVisibleNotes()
                 adapter.notifyDataSetChanged()
+                updateEmptyState()
 
                 showSemanticSearchResultStatus(query, notes.size)
             } catch (e: Exception) {
@@ -616,6 +630,7 @@ class AiNoteListActivity : BaseActivity() {
         syncSelectionWithVisibleNotes()
         binding.tvSemanticSearchStatus.visibility = View.GONE
         adapter.notifyDataSetChanged()
+        updateEmptyState()
     }
 
     private fun emailDailySummary() {
