@@ -1248,6 +1248,13 @@ class UserSyncRepository(
 
                                 val deletedBookIds = mutableListOf<String>()
 
+                                // Pre-fetch existing books to avoid N+1 queries
+                                val allBookIds = items.mapNotNull { it["bookId"] as? String }.distinct()
+                                val cachedBooks = mutableMapOf<String, BookEntity>()
+                                allBookIds.chunked(900).forEach { chunk ->
+                                        cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
+                                }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val deleted = item["deleted"] as? Boolean ?: false
@@ -1262,8 +1269,7 @@ class UserSyncRepository(
 
 
                                         // Check if book exists locally
-                                        val existingBook =
-                                                db.bookDao().getById(bookId)
+                                        val existingBook = cachedBooks[bookId]
 
                                         if (existingBook == null) {
                                                 // New book from cloud.
@@ -1288,6 +1294,7 @@ class UserSyncRepository(
                                                                 deleted = false
                                                         )
                                                 db.bookDao().insert(newBook)
+                                                cachedBooks[bookId] = newBook
                                                 syncedCount++
                                         } else {
                                                 val remoteFileUri =
@@ -1327,6 +1334,7 @@ class UserSyncRepository(
                                                                                 }
                                                                 )
                                                         db.bookDao().insert(updatedBook)
+                                                        cachedBooks[bookId] = updatedBook
                                                         syncedCount++
                                                 }
                                         }
@@ -2108,18 +2116,34 @@ class UserSyncRepository(
                                                 perPage = 100
                                         )
                                 var mergedCount = 0
+
+                                val allBookIds = items.mapNotNull { it["bookId"] as? String }.distinct()
+                                val cachedBooks = mutableMapOf<String, BookEntity>()
+                                allBookIds.chunked(900).forEach { chunk ->
+                                        cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
+                                }
+
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val locatorJson = item["locatorJson"] as? String ?: continue
                                         val remoteUpdatedAt = parseEpochMillis(item["updatedAt"])
                                         cacheProgress(bookId, locatorJson, remoteUpdatedAt)
+
+                                        val localBook = cachedBooks[bookId]
                                         val merged =
                                                 mergeRemoteProgressIntoLocalBook(
                                                         bookId = bookId,
                                                         locatorJson = locatorJson,
-                                                        remoteUpdatedAt = remoteUpdatedAt
+                                                        remoteUpdatedAt = remoteUpdatedAt,
+                                                        localBook = localBook
                                                 )
                                         if (merged) {
+                                                if (localBook != null) {
+                                                        cachedBooks[bookId] = localBook.copy(
+                                                                lastLocatorJson = locatorJson,
+                                                                lastOpenedAt = maxOf(localBook.lastOpenedAt, remoteUpdatedAt)
+                                                        )
+                                                }
                                                 mergedCount++
                                         }
                                 }
@@ -3151,9 +3175,10 @@ class UserSyncRepository(
         private suspend fun mergeRemoteProgressIntoLocalBook(
                 bookId: String,
                 locatorJson: String,
-                remoteUpdatedAt: Long
+                remoteUpdatedAt: Long,
+                localBook: BookEntity? = null
         ): Boolean {
-                val local = db.bookDao().getById(bookId) ?: return false
+                val local = localBook ?: db.bookDao().getById(bookId) ?: return false
                 val localHasProgress = !local.lastLocatorJson.isNullOrBlank()
                 val remoteIsNewerOrEqual = remoteUpdatedAt >= local.lastOpenedAt
                 val shouldApply = !localHasProgress || remoteIsNewerOrEqual
