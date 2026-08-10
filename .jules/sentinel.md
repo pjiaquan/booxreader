@@ -6,3 +6,9 @@
 **Vulnerability:** The app enables cleartext traffic globally in `AndroidManifest.xml` (`android:usesCleartextTraffic="true"`) and also overrides it for a specific domain in `network_security_config.xml` (`cleartextTrafficPermitted="true"`). This allows the app to communicate over unencrypted HTTP connections, exposing user data to interception and manipulation.
 **Learning:** Cleartext traffic should be disabled by default to ensure all communication occurs over secure HTTPS connections.
 **Prevention:** Remove `android:usesCleartextTraffic="true"` from the manifest and disable it in the network security config unless strictly necessary for specific, isolated use cases (like local network debugging).
+
+## 2025-05-18 - Auth Interceptor Token Leakage
+**Vulnerability:** The OkHttpClient `AuthInterceptor` unconditionally added the `Authorization: Bearer <token>` header to all requests that were not explicitly tagged with `SKIP_AUTH`. This causes the user's access token to be leaked to third-party services (like the Gemini API) if the same OkHttpClient instance is shared.
+**Learning:** Global HTTP interceptors that inject credentials must always validate the destination host to prevent unintentional token disclosure to third-party domains.
+**Prevention:** Implement host validation in authentication interceptors by comparing `originalRequest.url.host` against the expected backend host before attaching the authorization header.
+
