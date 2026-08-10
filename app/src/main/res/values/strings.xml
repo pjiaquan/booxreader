@@ -311,4 +311,6 @@
 <string name="reader_settings_lang_selected">Selected</string>
     <string name="magic_tag_add">Add Tag</string>
     <string name="ai_note_empty_state">No AI notes found. Ask AI a question while reading!</string>
+    <string name="ai_profile_select_checkbox">Select profile</string>
+    <string name="ai_note_select_checkbox">Select note</string>
 </resources>
