@@ -309,4 +309,5 @@
 
 <string name="reader_settings_lang_selected">Selected</string>
     <string name="magic_tag_add">Add Tag</string>
+    <string name="ai_note_empty_state">No AI notes found. Ask AI a question while reading!</string>
 </resources>

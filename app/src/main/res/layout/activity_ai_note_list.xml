@@ -68,6 +68,16 @@
             android:paddingStart="@dimen/spacing_md"
             android:paddingEnd="@dimen/spacing_md" />
 
+        <TextView
+            android:id="@+id/tvEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/ai_note_empty_state"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/progressBar"
             style="?android:attr/progressBarStyleLarge"
