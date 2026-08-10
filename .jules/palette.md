@@ -15,5 +15,10 @@
 **Action:** Always include `android:autofillHints` on EditText and TextInputEditText components where personal or credential data (email, usernames, passwords) is requested.
 
 ## 2024-08-09 - Missing Empty States in List Views
-**Learning:** Found that `AiNoteListActivity` lacked an empty state when no notes were available, leaving a blank screen that could be confusing to users.
-**Action:** Added a helpful empty state (`tvEmptyState`) with actionable text ("Ask AI a question while reading!") to guide the user on what to do when the list is empty. This improves the overall user experience by providing clear guidance.
+**Learning:** Found that `AiNoteListActivity` and `AiProfileListActivity` lacked an empty state when no notes/profiles were available, leaving a blank screen that could be confusing to users.
+**Action:** Added helpful empty states (`tvEmptyState`) with actionable text to guide the user on what to do when the list is empty. This improves the overall user experience by providing clear guidance.
+
+## 2024-11-20 - API Key Masking
+**Learning:** Opaque credential fields like API keys were being entered with `textPassword` input types but lacked the `password_toggle` end icon, making it impossible for users to verify their input.
+**Action:** Always wrap `TextInputEditText` components for sensitive data in a `TextInputLayout` with `app:endIconMode="password_toggle"` and provide `android:autofillHints="password"` for password managers.
+

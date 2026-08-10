@@ -18,6 +18,17 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:listitem="@layout/item_ai_profile" />
 
+    <TextView
+        android:id="@+id/tvEmptyState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/ai_profile_empty_state"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/selectionBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <LinearLayout
         android:id="@+id/selectionBar"
         android:layout_width="0dp"
