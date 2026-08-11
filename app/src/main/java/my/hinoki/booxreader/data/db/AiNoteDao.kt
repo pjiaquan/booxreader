@@ -17,6 +17,9 @@ interface AiNoteDao {
     @Query("SELECT * FROM ai_notes WHERE remoteId = :remoteId LIMIT 1")
     suspend fun getByRemoteId(remoteId: String): AiNoteEntity?
     
+    @Query("SELECT * FROM ai_notes WHERE remoteId IN (:remoteIds)")
+    suspend fun getByRemoteIds(remoteIds: List<String>): List<AiNoteEntity>
+
     @Query("SELECT * FROM ai_notes WHERE remoteId IS NULL")
     suspend fun getLocalOnly(): List<AiNoteEntity>
 
