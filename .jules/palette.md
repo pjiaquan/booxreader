@@ -21,3 +21,6 @@
 **Learning:** Opaque credential fields like API keys were being entered with `textPassword` input types but lacked the `password_toggle` end icon, making it impossible for users to verify their input.
 **Action:** Always wrap `TextInputEditText` components for sensitive data in a `TextInputLayout` with `app:endIconMode="password_toggle"` and provide `android:autofillHints="password"` for password managers.
 
+## 2023-10-27 - Toggleable API Keys
+**Learning:** API keys are often treated as opaque strings, making them difficult to verify when typed or pasted blindly, similar to passwords.
+**Action:** Always wrap `TextInputEditText` for opaque strings like API keys in a `TextInputLayout` and use `app:endIconMode="password_toggle"` to allow users to reveal the input securely.
