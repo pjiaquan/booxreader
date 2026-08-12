@@ -8,3 +8,7 @@
 ## 2024-05-18 - [Optimized N+1 Room query in Sync processing]
 **Learning:** Room database queries executed inside loops over large lists (e.g., syncing items from remote to local) will cause significant N+1 query bottlenecks and GC churn, drastically slowing down synchronization on large collections.
 **Action:** Always pre-fetch needed entities via chunked IN queries (`getByIds(ids)`) before the loop, and construct an in-memory map (`associateBy`) for O(1) lookups during iteration. Update the map when entities are saved locally to maintain correct state inside the loop.
+
+## 2026-08-12 - Optimize N+1 query during pullNotes syncing
+**Learning:** The previous implementation queried the local database row-by-row during loop execution, causing serious N+1 lookup inefficiencies on `pullNotes` inside `UserSyncRepository`.
+**Action:** Use an in-memory Map pre-populated with chunked queries via `.associateBy` for O(1) loop operations.
