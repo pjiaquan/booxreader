@@ -1634,6 +1634,12 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+                                val remoteIds = items.mapNotNull { it["id"] as? String }.distinct()
+                                val cachedNotesByRemoteId = mutableMapOf<String, AiNoteEntity>()
+                                remoteIds.chunked(900).forEach { chunk ->
+                                        cachedNotesByRemoteId.putAll(db.aiNoteDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
+                                }
+
                                 for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val note =
@@ -1658,12 +1664,15 @@ class UserSyncRepository(
                                                                         ?: System.currentTimeMillis()
                                                 )
 
-                                        val existing = db.aiNoteDao().getByRemoteId(remoteId)
+                                        val existing = cachedNotesByRemoteId[remoteId]
                                         if (existing == null) {
-                                                db.aiNoteDao().insert(note)
+                                                val newId = db.aiNoteDao().insert(note)
+                                                cachedNotesByRemoteId[remoteId] = note.copy(id = newId)
                                                 syncedCount++
                                         } else if (note.updatedAt > existing.updatedAt) {
-                                                db.aiNoteDao().update(note.copy(id = existing.id))
+                                                val updatedNote = note.copy(id = existing.id)
+                                                db.aiNoteDao().update(updatedNote)
+                                                cachedNotesByRemoteId[remoteId] = updatedNote
                                                 syncedCount++
                                         }
                                 }
