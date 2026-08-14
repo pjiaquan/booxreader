@@ -6,6 +6,8 @@ import androidx.security.crypto.MasterKeys
 
 open class TokenManager(private val context: Context) {
 
+    internal var sharedPrefsOverride: android.content.SharedPreferences? = null
+
     private val masterKeyAlias by lazy {
         try {
             MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -15,7 +17,10 @@ open class TokenManager(private val context: Context) {
         }
     }
 
-    private val sharedPreferences: android.content.SharedPreferences by lazy {
+    private val sharedPreferences: android.content.SharedPreferences
+        get() = sharedPrefsOverride ?: lazySharedPreferences.value
+
+    private val lazySharedPreferences: Lazy<android.content.SharedPreferences> = lazy {
         try {
             createEncryptedSharedPreferences()
         } catch (e: Exception) {
@@ -33,8 +38,8 @@ open class TokenManager(private val context: Context) {
             } catch (retryEx: Exception) {
                 android.util.Log.e("TokenManager", "Failed to create encrypted shared prefs on retry", retryEx)
                 retryEx.printStackTrace()
-                // If still failing, create fallback plain shared prefs (less secure but functional)
-                context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                // Do not fallback to plain shared prefs as it will store sensitive tokens unencrypted
+                throw IllegalStateException("Failed to initialize encrypted shared preferences after retry", retryEx)
             }
         }
     }

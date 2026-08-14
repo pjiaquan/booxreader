@@ -12,3 +12,13 @@
 **Learning:** Global HTTP interceptors that inject credentials must always validate the destination host to prevent unintentional token disclosure to third-party domains.
 **Prevention:** Implement host validation in authentication interceptors by comparing `originalRequest.url.host` against the expected backend host before attaching the authorization header.
 
+
+## 2025-05-24 - Silent security fallback in EncryptedSharedPreferences
+**Vulnerability:** `TokenManager.kt` was silently falling back to a plaintext `SharedPreferences` when `EncryptedSharedPreferences` failed to initialize (e.g. due to Keystore corruption). This stored sensitive user access tokens and refresh tokens completely unencrypted without any warning.
+**Learning:** Catching cryptographic exceptions and falling back to a less secure method creates a dangerous downgrade attack vector and gives a false sense of security.
+**Prevention:** If secure storage mechanisms fail, the application must throw an exception or fail securely, ensuring sensitive credentials are never stored in plaintext by accident.
+
+## 2025-05-24 - Network Security Config Cleartext Protection
+**Vulnerability:** The application was missing a `<base-config cleartextTrafficPermitted="false" />` declaration in `network_security_config.xml`, leaving older Android versions potentially vulnerable to unencrypted HTTP traffic outside of explicit domain blocks.
+**Learning:** Always apply a global `base-config` deny-by-default for cleartext traffic as a defense-in-depth measure.
+**Prevention:** Ensure `network_security_config.xml` includes `<base-config cleartextTrafficPermitted="false" />`.

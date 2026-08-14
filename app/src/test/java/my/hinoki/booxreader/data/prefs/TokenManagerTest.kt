@@ -25,6 +25,7 @@ class TokenManagerTest {
         // Clear auth_prefs before test
         context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE).edit().clear().commit()
         tokenManager = TokenManager(context)
+        tokenManager.sharedPrefsOverride = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
     }
 
     @Test
