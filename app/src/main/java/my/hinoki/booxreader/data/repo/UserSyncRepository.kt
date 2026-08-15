@@ -1634,6 +1634,12 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+                                val allRemoteIds = items.mapNotNull { it["id"] as? String }.distinct()
+                                val cachedNotes = mutableMapOf<String, AiNoteEntity>()
+                                allRemoteIds.chunked(900).forEach { chunk ->
+                                        cachedNotes.putAll(db.aiNoteDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
+                                }
+
                                 for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val note =
@@ -1658,12 +1664,14 @@ class UserSyncRepository(
                                                                         ?: System.currentTimeMillis()
                                                 )
 
-                                        val existing = db.aiNoteDao().getByRemoteId(remoteId)
+                                        val existing = cachedNotes[remoteId]
                                         if (existing == null) {
-                                                db.aiNoteDao().insert(note)
+                                                val insertedId = db.aiNoteDao().insert(note)
+                                                cachedNotes[remoteId] = note.copy(id = insertedId)
                                                 syncedCount++
                                         } else if (note.updatedAt > existing.updatedAt) {
                                                 db.aiNoteDao().update(note.copy(id = existing.id))
+                                                cachedNotes[remoteId] = note.copy(id = existing.id)
                                                 syncedCount++
                                         }
                                 }

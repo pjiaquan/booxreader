@@ -1,0 +1,5 @@
+1. Read AiNoteDao.kt to see how to fetch multiple `AiNoteEntity`s by `remoteId`.
+2. There isn't one. I will add `getByRemoteIds` query.
+3. In `UserSyncRepository.kt`, pre-fetch the existing notes by `remoteId` before the `for (item in items)` loop. Store them in a map `cachedNotes: MutableMap<String, AiNoteEntity>`.
+4. Inside the loop, replace `val existing = db.aiNoteDao().getByRemoteId(remoteId)` with `val existing = cachedNotes[remoteId]`.
+5. Update `cachedNotes` whenever an insert or update happens.

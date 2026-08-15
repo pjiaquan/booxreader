@@ -8,3 +8,6 @@
 ## 2024-05-18 - [Optimized N+1 Room query in Sync processing]
 **Learning:** Room database queries executed inside loops over large lists (e.g., syncing items from remote to local) will cause significant N+1 query bottlenecks and GC churn, drastically slowing down synchronization on large collections.
 **Action:** Always pre-fetch needed entities via chunked IN queries (`getByIds(ids)`) before the loop, and construct an in-memory map (`associateBy`) for O(1) lookups during iteration. Update the map when entities are saved locally to maintain correct state inside the loop.
+## 2025-03-08 - Precision in search-and-replace
+**Learning:** Using overly generic SEARCH blocks in `replace_with_git_merge_diff` can cause identical blocks of code in completely unrelated functions to be mistakenly patched, introducing dead code or logic errors.
+**Action:** Always include surrounding context (like function definitions, specific variable declarations, or unique comments) in the SEARCH block to ensure the patch applies exactly where intended.
