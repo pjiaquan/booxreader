@@ -17,7 +17,8 @@
             android:id="@+id/cbSelect"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="12dp" />
+            android:layout_marginEnd="12dp"
+            android:contentDescription="@string/ai_profile_select_checkbox" />
 
         <TextView
             android:id="@+id/tvName"
