@@ -636,14 +636,19 @@
                     android:textColor="?android:attr/textColorSecondary"
                     android:textSize="13sp" />
 
-                <EditText
-                    android:id="@+id/etApiKey"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:autofillHints="password"
-                    android:hint="@string/reader_settings_api_key_hint"
-                    android:inputType="textPassword"
-                    android:textSize="14sp" />
+                    app:endIconMode="password_toggle">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etApiKey"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:autofillHints="password"
+                        android:hint="@string/reader_settings_api_key_hint"
+                        android:inputType="textPassword"
+                        android:textSize="14sp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
