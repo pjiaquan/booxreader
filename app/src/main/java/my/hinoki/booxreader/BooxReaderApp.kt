@@ -72,19 +72,20 @@ class BooxReaderApp : Application() {
                 )
         )
 
-        // Initialize automatic AI profile sync
-        initializeAiProfileSync()
+        val isRobolectric = android.os.Build.FINGERPRINT == "robolectric" || android.os.Build.HARDWARE == "robolectric"
+        if (!isRobolectric) {
+            // Initialize automatic AI profile sync
+            initializeAiProfileSync()
 
-        // Background check: upload any local books whose file is missing on the server.
-        // This ensures books added on this device are always available for other devices to sync.
-        initializeBackgroundBookUpload()
+            // Background check: upload any local books whose file is missing on the server.
+            // This ensures books added on this device are always available for other devices to sync.
+            initializeBackgroundBookUpload()
 
-        // Upload any pending crash reports
-        uploadPendingCrashReports()
+            // Upload any pending crash reports
+            uploadPendingCrashReports()
 
-
-
-        startRealtimeBookSync()
+            startRealtimeBookSync()
+        }
     }
 
     private fun initializeAiProfileSync() {
