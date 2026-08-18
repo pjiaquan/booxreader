@@ -1431,6 +1431,12 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+                                val allRemoteIds = items.mapNotNull { it["id"] as? String }.distinct()
+                                val cachedBookmarks = mutableMapOf<String, BookmarkEntity>()
+                                allRemoteIds.chunked(900).forEach { chunk ->
+                                        cachedBookmarks.putAll(db.bookmarkDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
+                                }
+
                                 for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val bookmarkBookId = item["bookId"] as? String ?: continue
@@ -1442,8 +1448,10 @@ class UserSyncRepository(
                                                 }
                                                         ?: System.currentTimeMillis()
 
+                                        val existing = cachedBookmarks[remoteId]
                                         val bookmark =
                                                 BookmarkEntity(
+                                                        id = existing?.id ?: 0L,
                                                         remoteId = remoteId,
                                                         bookId = bookmarkBookId,
                                                         locatorJson = locatorJson,
@@ -1451,8 +1459,11 @@ class UserSyncRepository(
                                                         isSynced = true
                                                 )
 
-                                        db.bookmarkDao().insert(bookmark)
-                                        syncedCount++
+                                        if (existing == null || existing.locatorJson != locatorJson || existing.bookId != bookmarkBookId) {
+                                                val insertedId = db.bookmarkDao().insert(bookmark)
+                                                cachedBookmarks[remoteId] = bookmark.copy(id = insertedId)
+                                                syncedCount++
+                                        }
                                 }
 
                                 Log.d(
