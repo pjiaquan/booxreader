@@ -24,3 +24,6 @@
 ## 2023-10-27 - Toggleable API Keys
 **Learning:** API keys are often treated as opaque strings, making them difficult to verify when typed or pasted blindly, similar to passwords.
 **Action:** Always wrap `TextInputEditText` for opaque strings like API keys in a `TextInputLayout` and use `app:endIconMode="password_toggle"` to allow users to reveal the input securely.
+## 2024-05-19 - Form Keyboard Navigation Improvements
+**Learning:** For email inputs using `TextInputEditText` inside `TextInputLayout`, setting `android:inputType="textEmailAddress"` is often not enough. If there are subsequent fields (like a password field), explicitly adding `android:imeOptions="actionNext"` allows the user to tap "Next" on the soft keyboard instead of "Done" or "Enter", smoothly shifting focus without collapsing the keyboard. This significantly speeds up form filling.
+**Action:** When auditing forms with multiple inputs (e.g. Login, Registration), ensure that `android:imeOptions="actionNext"` is applied to all fields except the last one, which should use `android:imeOptions="actionDone"`.
