@@ -100,7 +100,7 @@ class PocketBaseRealtimeClient(
                 val request = Request.Builder()
                     .url("$pocketBaseUrl/api/realtime")
                     .post(requestBody)
-                    .header("Authorization", token)
+                    .header("Authorization", "Bearer $token")
                     .build()
 
                 client.newCall(request).execute().use { response ->

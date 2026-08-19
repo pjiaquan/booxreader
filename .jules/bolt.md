@@ -11,6 +11,8 @@
 ## 2025-03-08 - Precision in search-and-replace
 **Learning:** Using overly generic SEARCH blocks in `replace_with_git_merge_diff` can cause identical blocks of code in completely unrelated functions to be mistakenly patched, introducing dead code or logic errors.
 **Action:** Always include surrounding context (like function definitions, specific variable declarations, or unique comments) in the SEARCH block to ensure the patch applies exactly where intended.
-## 2025-03-08 - Optimized N+1 Room query in Bookmark Sync processing
-**Learning:** Room database queries executed inside loops over large lists (e.g., syncing bookmarks from remote to local) will cause significant N+1 query bottlenecks and GC churn, drastically slowing down synchronization on large collections.
-**Action:** Always pre-fetch needed entities via chunked IN queries (`getByRemoteIds(ids)`) before the loop, and construct an in-memory map (`associateBy`) for O(1) lookups during iteration. Update the map when entities are saved locally to maintain correct state inside the loop. Avoid unconditionally inserting items inside a loop without checking if an existing item in the DB matches.
+
+## 2026-08-19 - Prevent Blind REPLACE in Sync processing
+**Learning:** Blindly inserting entities into a Room DAO using `OnConflictStrategy.REPLACE` inside a loop causes excessive disk I/O and SQLite churn even if the data hasn't changed.
+**Action:** Pre-fetch existing entities, compare timestamps or content (e.g., `bookmark.updatedAt > existing.updatedAt`), and conditionally skip the `insert()` operation when the data is identical or stale.
+
