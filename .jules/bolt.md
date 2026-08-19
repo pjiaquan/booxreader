@@ -11,3 +11,6 @@
 ## 2025-03-08 - Precision in search-and-replace
 **Learning:** Using overly generic SEARCH blocks in `replace_with_git_merge_diff` can cause identical blocks of code in completely unrelated functions to be mistakenly patched, introducing dead code or logic errors.
 **Action:** Always include surrounding context (like function definitions, specific variable declarations, or unique comments) in the SEARCH block to ensure the patch applies exactly where intended.
+## 2026-08-19 - Prevent Blind REPLACE in Sync processing
+**Learning:** Blindly inserting entities into a Room DAO using `OnConflictStrategy.REPLACE` inside a loop causes excessive disk I/O and SQLite churn even if the data hasn't changed.
+**Action:** Pre-fetch existing entities, compare timestamps or content (e.g., `bookmark.updatedAt > existing.updatedAt`), and conditionally skip the `insert()` operation when the data is identical or stale.
