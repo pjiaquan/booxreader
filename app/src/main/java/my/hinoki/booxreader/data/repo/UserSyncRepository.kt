@@ -1431,6 +1431,15 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
+                                // ⚡ Bolt: Performance Optimization (Memory O(1) Cache vs Disk O(N) Write)
+                                // Pre-fetch existing bookmarks via chunked IN queries and cache them in an in-memory map.
+                                // This turns O(N) database operations into O(1) memory lookups, avoiding the N+1 problem.
+                                val allRemoteIds = items.mapNotNull { it["id"] as? String }.distinct()
+                                val cachedBookmarks = mutableMapOf<String, BookmarkEntity>()
+                                allRemoteIds.chunked(900).forEach { chunk ->
+                                        cachedBookmarks.putAll(db.bookmarkDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
+                                }
+
                                 for (item in items) {
                                         val remoteId = item["id"] as? String ?: continue
                                         val bookmarkBookId = item["bookId"] as? String ?: continue
@@ -1442,8 +1451,13 @@ class UserSyncRepository(
                                                 }
                                                         ?: System.currentTimeMillis()
 
+                                        val existing = cachedBookmarks[remoteId]
+                                        // ⚡ Bolt: Performance Optimization (Avoid Blind Replace)
+                                        // Only insert/update if the remote record is newer or doesn't exist locally.
+                                        // This prevents excessive blind REPLACE disk I/O operations from BookmarkDao.
                                         val bookmark =
                                                 BookmarkEntity(
+                                                        id = existing?.id ?: 0L,
                                                         remoteId = remoteId,
                                                         bookId = bookmarkBookId,
                                                         locatorJson = locatorJson,
@@ -1451,8 +1465,10 @@ class UserSyncRepository(
                                                         isSynced = true
                                                 )
 
-                                        db.bookmarkDao().insert(bookmark)
-                                        syncedCount++
+                                        if (existing == null || bookmark.updatedAt > existing.updatedAt) {
+                                                db.bookmarkDao().insert(bookmark)
+                                                syncedCount++
+                                        }
                                 }
 
                                 Log.d(
