@@ -47,7 +47,8 @@
                 android:autofillHints="username"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:inputType="textPersonName" />
+                android:inputType="textPersonName"
+                android:imeOptions="actionDone" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
@@ -92,7 +93,8 @@
                 android:autofillHints="password"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:inputType="textPassword" />
+                android:inputType="textPassword"
+                android:imeOptions="actionNext" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -112,7 +114,8 @@
                 android:autofillHints="newPassword"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:inputType="textPassword" />
+                android:inputType="textPassword"
+                android:imeOptions="actionNext" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -132,7 +135,8 @@
                 android:autofillHints="newPassword"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:inputType="textPassword" />
+                android:inputType="textPassword"
+                android:imeOptions="actionDone" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <Button
