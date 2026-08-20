@@ -19,10 +19,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.core.CrashReport
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AiNoteEntity
