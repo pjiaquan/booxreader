@@ -1828,6 +1828,7 @@ class UserSyncRepository(
                                 .filterValues { it.size > 1 }
                 var changedCount = 0
                 var activeProfileId = ReaderSettings.fromPrefs(prefs).activeProfileId
+                val deletedIds = mutableSetOf<Long>()
 
                 for ((_, group) in grouped) {
                         val keep = group.reduce { best, next ->
@@ -1835,6 +1836,7 @@ class UserSyncRepository(
                         }
                         group.filter { it.id != keep.id }.forEach { duplicate ->
                                 db.aiProfileDao().deleteById(duplicate.id)
+                                deletedIds.add(duplicate.id)
                                 changedCount++
                                 if (activeProfileId == duplicate.id) {
                                         activeProfileId = keep.id
@@ -1850,9 +1852,8 @@ class UserSyncRepository(
                 }
 
                 val fallback =
-                        db.aiProfileDao()
-                                .getAllList()
-                                .filter { hasUsableApiKey(it.apiKey) }
+                        allProfiles
+                                .filter { it.id !in deletedIds && hasUsableApiKey(it.apiKey) }
                                 .maxByOrNull { it.updatedAt }
                                 ?: return changedCount
 
