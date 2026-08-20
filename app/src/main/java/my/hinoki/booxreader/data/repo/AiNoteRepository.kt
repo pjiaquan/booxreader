@@ -1220,8 +1220,9 @@ class AiNoteRepository(
                 val notes = noteIds.chunked(900).flatMap { chunk ->
                     dao.getByIds(chunk.toList())
                 }
-                var deletedCount = 0
                 var failedCount = 0
+                val idsToDelete = mutableListOf<Long>()
+
                 for (note in notes) {
                     if (!note.remoteId.isNullOrBlank()) {
                         val deletedRemote = syncRepo?.deleteAiNote(note.remoteId) ?: true
@@ -1230,9 +1231,15 @@ class AiNoteRepository(
                             continue
                         }
                     }
-                    dao.deleteById(note.id)
-                    deletedCount++
+                    idsToDelete.add(note.id)
                 }
+
+                var deletedCount = 0
+                // ⚡ Optimized: Replaced N+1 dao.deleteById with batch deletion to reduce SQLite overhead
+                idsToDelete.chunked(900).forEach { chunk ->
+                    deletedCount += dao.deleteByIds(chunk)
+                }
+
                 DeleteResult(deletedCount = deletedCount, failedCount = failedCount)
             }
 
