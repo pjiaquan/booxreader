@@ -1,0 +1,20 @@
+<<<<<<< SEARCH
+package my.hinoki.booxreader.data.repo
+
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.util.Log
+=======
+package my.hinoki.booxreader.data.repo
+
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.util.Log
+import androidx.room.withTransaction
+>>>>>>> REPLACE
