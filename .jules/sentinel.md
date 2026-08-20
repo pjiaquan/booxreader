@@ -23,3 +23,6 @@
 **Learning:** Always apply a global `base-config` deny-by-default for cleartext traffic as a defense-in-depth measure.
 **Prevention:** Ensure `network_security_config.xml` includes `<base-config cleartextTrafficPermitted="false" />`.
 ## 2026-08-19 - Proper Bearer Token Formatting\n**Vulnerability:** In `PocketBaseRealtimeClient.kt`, the raw access token was being sent in the `Authorization` header instead of the standard `Bearer <token>` format.\n**Learning:** While some specific backends may be forgiving, failing to use the standard `Bearer` prefix can cause authentication failures when interacting with strict reverse proxies, WAFs, or standard server implementations.\n**Prevention:** Always prepend `Bearer ` to access tokens in the `Authorization` header for standard OAuth2/JWT authentication schemes.\n
+## 2026-08-20 - Prevent Sensitive Data Logging in AuthRepository
+**Learning:** When using `request_plan_review`, the automated reviewer will reject plans proposing to modify code that is not explicitly confirmed by tool traces, or plans that include vague steps like 'inspect and fix'. Make sure required context and line numbers are present in the trace.
+**Action:** Use specific tool calls (e.g., `grep`) to explicitly confirm line numbers and context before drafting a plan, and restrict modifications only to those verified lines.
