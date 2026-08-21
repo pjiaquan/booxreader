@@ -64,7 +64,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 val responseBody = response.body?.string() ?: ""
 
                                 if (!response.isSuccessful) {
-                                        Log.e("AuthRepository", "Login failed: $responseBody")
+                                        Log.e("AuthRepository", "Login failed with code: ${response.code}")
                                         throw Exception("Login failed: ${response.code}")
                                 }
 
@@ -121,7 +121,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 if (!response.isSuccessful) {
                                         Log.e(
                                                 "AuthRepository",
-                                                "Registration failed: $responseBody"
+                                                "Registration failed with code: ${response.code}"
                                         )
                                         throw Exception("Registration failed: ${response.code}")
                                 }
@@ -187,7 +187,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         val errorBody = response.body?.string() ?: ""
                                         Log.e(
                                                 "AuthRepository",
-                                                "Resend verification failed: $errorBody"
+                                                "Resend verification failed with code: ${response.code}"
                                         )
                                         throw Exception(
                                                 "Failed to resend verification: ${response.code}"
@@ -217,7 +217,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         val errorBody = response.body?.string() ?: ""
                                         Log.e(
                                                 "AuthRepository",
-                                                "Request password reset failed: $errorBody"
+                                                "Request password reset failed with code: ${response.code}"
                                         )
                                         throw Exception(
                                                 "Failed to send reset email: ${response.code}"
@@ -346,7 +346,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         if (!response.isSuccessful) {
                                                 Log.e(
                                                         "AuthRepository",
-                                                        "changePassword failed: $responseBody"
+                                                        "changePassword failed with code: ${response.code}"
                                                 )
                                                 throw Exception(
                                                         "Failed to change password: ${response.code}"
@@ -390,7 +390,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         if (!response.isSuccessful) {
                                                 Log.w(
                                                         "AuthRepository",
-                                                        "getCurrentUser auth-refresh failed: ${response.code} $responseBody"
+                                                        "getCurrentUser auth-refresh failed with code: ${response.code}"
                                                 )
                                                 return@runCatching null
                                         }
@@ -423,7 +423,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                 httpClient.newCall(request).execute().use { response ->
                         val responseBody = response.body?.string().orEmpty()
                         if (!response.isSuccessful) {
-                                Log.e("AuthRepository", "Profile update failed: $responseBody")
+                                Log.e("AuthRepository", "Profile update failed with code: ${response.code}")
                                 throw Exception("Profile update failed: ${response.code}")
                         }
                         val record =
