@@ -52,7 +52,7 @@ class BookmarkListActivity : BaseActivity() {
 
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
         syncRepo = UserSyncRepository(app)
-        repo = BookmarkRepository(app, app.okHttpClient, syncRepo)
+        repo = BookmarkRepository(app, syncRepo)
 
         bookId = intent.getStringExtra(EXTRA_BOOK_ID) ?: run {
             finish()

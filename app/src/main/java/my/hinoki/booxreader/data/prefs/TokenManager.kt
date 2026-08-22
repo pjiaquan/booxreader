@@ -4,7 +4,8 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
-open class TokenManager(private val context: Context) {
+open class TokenManager(private val context: Context) :
+    my.hinoki.booxreader.data.auth.TokenProvider {
 
     internal var sharedPrefsOverride: android.content.SharedPreferences? = null
 
@@ -67,7 +68,7 @@ open class TokenManager(private val context: Context) {
             .apply()
     }
 
-    open fun getAccessToken(): String? {
+    override fun getAccessToken(): String? {
         return sharedPreferences.getString("access_token", null)
     }
 
@@ -134,7 +135,7 @@ open class TokenManager(private val context: Context) {
         return sharedPreferences.getString("custom_backend_url", null)?.takeIf { it.isNotBlank() }
     }
 
-    open fun getBackendUrl(): String {
+    override fun getBackendUrl(): String {
         return (getCustomBackendUrl() ?: my.hinoki.booxreader.BuildConfig.POCKETBASE_URL).trimEnd('/')
     }
 }

@@ -58,6 +58,7 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
+import my.hinoki.booxreader.data.remote.StreamingErrorDialog
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
@@ -1069,7 +1070,7 @@ class AiNoteDetailActivity : BaseActivity() {
                     binding.etFollowUp.setText("")
                 } else {
                     val errorInfo = repository.lastStreamingError ?: my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, null)
-                    my.hinoki.booxreader.data.remote.StreamingErrorHandler.showErrorDialog(this@AiNoteDetailActivity, errorInfo)
+                    StreamingErrorDialog.show(this@AiNoteDetailActivity, errorInfo)
                 }
             } finally {
                 binding.btnFollowUp.isEnabled = true
@@ -1171,7 +1172,7 @@ class AiNoteDetailActivity : BaseActivity() {
                 showRemainingCreditsToast()
             } else {
                 val errorInfo = repository.lastStreamingError ?: my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, null)
-                my.hinoki.booxreader.data.remote.StreamingErrorHandler.showErrorDialog(this@AiNoteDetailActivity, errorInfo)
+                StreamingErrorDialog.show(this@AiNoteDetailActivity, errorInfo)
                 binding.btnPublish.isEnabled = true
                 binding.btnPublish.text = getString(R.string.ai_note_publish_retry)
             }

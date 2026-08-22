@@ -1,11 +1,11 @@
 package my.hinoki.booxreader.data.remote
 
-import my.hinoki.booxreader.data.prefs.TokenManager
+import my.hinoki.booxreader.data.auth.TokenProvider
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.Response
 
-class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
+class AuthInterceptor(private val tokenProvider: TokenProvider) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         
@@ -14,10 +14,10 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
             return chain.proceed(originalRequest)
         }
 
-        val backendUrl = tokenManager.getBackendUrl().toHttpUrlOrNull()
+        val backendUrl = tokenProvider.getBackendUrl().toHttpUrlOrNull()
         val isBackendRequest = originalRequest.url.host == backendUrl?.host
 
-        val accessToken = tokenManager.getAccessToken()
+        val accessToken = tokenProvider.getAccessToken()
 
         // If token exists and request is to backend, add it. Otherwise proceed without it (e.g. login/register or third-party APIs)
         val newRequest = if (accessToken != null && isBackendRequest) {

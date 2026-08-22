@@ -11,13 +11,10 @@ import org.readium.r2.shared.publication.Locator
 import my.hinoki.booxreader.data.remote.BookmarkPublisher
 
 import my.hinoki.booxreader.data.remote.HttpConfig
-
-import okhttp3.OkHttpClient
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 
 class BookmarkRepository(
     private val context: Context,
-    private val client: OkHttpClient,
     private val syncRepo: UserSyncRepository? = null
 ) {
 
@@ -29,8 +26,8 @@ class BookmarkRepository(
         return prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL) ?: HttpConfig.DEFAULT_BASE_URL
     }
 
-    // ✨ 新增：HTTP 發佈工具
-    private val publisher = BookmarkPublisher(baseUrlProvider = { getBaseUrl(context) }, client = client)
+    // ✨ 新增：HTTP 發佈工具（KMP Ktor 版本）
+    private val publisher = BookmarkPublisher(baseUrlProvider = { getBaseUrl(context) })
 
     suspend fun getBookmarks(bookId: String): List<BookmarkEntity> =
         withContext(Dispatchers.IO) {

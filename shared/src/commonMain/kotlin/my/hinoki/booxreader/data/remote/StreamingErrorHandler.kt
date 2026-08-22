@@ -1,8 +1,10 @@
 package my.hinoki.booxreader.data.remote
 
-import android.content.Context
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 
 data class StreamingErrorInfo(
     val statusCode: Int,
@@ -12,6 +14,7 @@ data class StreamingErrorInfo(
     val resolution: String
 )
 
+/** 解析 AI 串流錯誤（純邏輯，KMP commonMain）。UI 對話框由 Android 端提供。 */
 object StreamingErrorHandler {
 
     fun parseError(statusCode: Int, rawResponseBody: String?): StreamingErrorInfo {
@@ -19,13 +22,14 @@ object StreamingErrorHandler {
         var messageFromApi = ""
 
         runCatching {
-            val json = JSONObject(bodyStr)
-            val errObj = json.optJSONObject("error")
-            if (errObj != null) {
-                messageFromApi = errObj.optString("message").ifBlank { errObj.optString("detail") }
-            } else {
-                messageFromApi = json.optString("message")
-            }
+            val json = Json.parseToJsonElement(bodyStr).jsonObject
+            val errObj = json["error"] as? JsonObject
+            messageFromApi =
+                if (errObj != null) {
+                    errObj.optString("message").ifBlank { errObj.optString("detail") }
+                } else {
+                    json.optString("message")
+                }
         }
 
         return when {
@@ -71,20 +75,6 @@ object StreamingErrorHandler {
         }
     }
 
-    fun showErrorDialog(context: Context, errorInfo: StreamingErrorInfo) {
-        val detailText = StringBuilder()
-            .append("【錯誤原因】\n").append(errorInfo.reason).append("\n\n")
-            .append("【如何處理】\n").append(errorInfo.resolution)
-            .apply {
-                if (errorInfo.rawMessage.isNotBlank()) {
-                    append("\n\n【詳細訊息】\n").append(errorInfo.rawMessage)
-                }
-            }.toString()
-
-        MaterialAlertDialogBuilder(context)
-            .setTitle(errorInfo.title)
-            .setMessage(detailText)
-            .setPositiveButton(android.R.string.ok, null)
-            .show()
-    }
+    private fun JsonObject.optString(name: String): String =
+        (this[name] as? JsonPrimitive)?.contentOrNull.orEmpty()
 }

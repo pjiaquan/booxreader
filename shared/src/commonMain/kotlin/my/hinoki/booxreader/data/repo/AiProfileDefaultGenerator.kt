@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
 import my.hinoki.booxreader.data.db.AiProfileEntity
+import my.hinoki.booxreader.data.platform.currentEpochMillis
 
 /**
  * Factory for creating default AI profiles
@@ -28,8 +29,8 @@ class AiProfileDefaultGenerator {
             enableGoogleSearch = false,
             extraParamsJson = null,
             remoteId = null,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis(),
+            createdAt = currentEpochMillis(),
+            updatedAt = currentEpochMillis(),
             isSynced = false
         )
     }

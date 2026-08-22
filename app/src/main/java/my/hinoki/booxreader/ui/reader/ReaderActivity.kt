@@ -88,7 +88,7 @@ class ReaderActivity : BaseActivity() {
                 return ReaderViewModel(
                         app,
                         BookRepository(app, syncRepo),
-                        BookmarkRepository(app, app.okHttpClient, syncRepo),
+                        BookmarkRepository(app, syncRepo),
                         AiNoteRepository(app, app.okHttpClient, syncRepo),
                         syncRepo,
                         my.hinoki.booxreader.data.remote.ProgressPublisher(
