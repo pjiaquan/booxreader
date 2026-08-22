@@ -16,3 +16,7 @@
 **Learning:** Blindly inserting entities into a Room DAO using `OnConflictStrategy.REPLACE` inside a loop causes excessive disk I/O and SQLite churn even if the data hasn't changed.
 **Action:** Pre-fetch existing entities, compare timestamps or content (e.g., `bookmark.updatedAt > existing.updatedAt`), and conditionally skip the `insert()` operation when the data is identical or stale.
 
+
+## 2024-05-14 - Optimize redundant DB queries with in-memory tracking
+**Learning:** When replacing redundant database queries (`getAllList()`) with an existing in-memory list, ensure any intervening database state changes (like deletions) are reflected in the cached list.
+**Action:** Use a tracking collection (e.g., `deletedIds = mutableSetOf<Long>()`) to record deletions and filter the reused memory list against it (e.g., `allProfiles.filter { it.id !in deletedIds }`) before processing.
