@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.db.BookProgressUpdate
 import my.hinoki.booxreader.data.core.CrashReport
+import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
