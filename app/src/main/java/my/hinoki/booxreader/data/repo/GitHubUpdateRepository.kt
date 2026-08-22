@@ -6,11 +6,11 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
-import com.google.gson.Gson
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import my.hinoki.booxreader.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,7 +21,7 @@ class GitHubUpdateRepository(private val context: Context) {
                     .connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(15, TimeUnit.SECONDS)
                     .build()
-    private val gson = Gson()
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val repoOwner = "pjiaquan"
     private val repoName = "booxreader"
@@ -39,7 +39,7 @@ class GitHubUpdateRepository(private val context: Context) {
                     client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) return@withContext null
                         val body = response.body?.string() ?: return@withContext null
-                        gson.fromJson(body, GitHubRelease::class.java)
+                        json.decodeFromString<GitHubRelease>(body)
                     }
                 } catch (e: Exception) {
                     Log.e("GitHubUpdateRepo", "Error fetching latest release", e)

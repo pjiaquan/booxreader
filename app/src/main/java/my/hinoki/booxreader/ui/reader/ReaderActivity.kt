@@ -99,8 +99,7 @@ class ReaderActivity : BaseActivity() {
                                             )
                                     prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                                             ?: HttpConfig.DEFAULT_BASE_URL
-                                },
-                                client = app.okHttpClient
+                                }
                         )
                 ) as
                         T

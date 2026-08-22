@@ -210,6 +210,9 @@ tasks.register("incrementVersionCode") {
 dependencies {
     // --- Shared KMP module (pure data layer code) ---
     implementation(project(":shared"))
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
 
     // --- Readium Kotlin Toolkit ---
     implementation(libs.readium.shared)

@@ -9,17 +9,21 @@
 
 | 項目 | 評估 |
 |---|---|
-| **可行性** | ✅ 可行。Kotlin 技術棧 + KMP 生態成熟（Room 2.8.4 已官方支援 KMP） |
-| **建議路徑** | Kotlin Multiplatform：抽取 `:shared` 共用層 + Compose Multiplatform 重寫 UI |
+| **可行性** | ✅ 可行。Kotlin 技術棧 + KMP 生態成熟（Room 2.8.4 已官方支援 KMP）；⚠️ 閱讀引擎需以 Readium Swift Toolkit 在 iOS 端原生實作 |
+| **建議路徑** | Kotlin Multiplatform：抽取 `:shared` 共用層（同步/業務邏輯）+ 各平台原生閱讀器 UI |
 | **程式碼共用率** | 資料層約 **65–75%** 可直接共用；UI 層（18 個 XML layout）**需全部重寫**為 Compose |
 | **總工作量** | 約 **35–55 人天**（單人 2–3 個月，含 iOS 整合與測試） |
 | **最大風險** | 閱讀器 UI（~5,000 LOC 的 XML View 互動程式）重寫 + Apple 簽名/上架流程 |
 | **前置需求** | Mac + Xcode、Apple Developer 帳號（$99/年）或免費帳號 7 天簽名 |
 
 **關鍵好消息**：
-- 閱讀引擎 [Readium Kotlin Toolkit](https://github.com/readium/kotlin-toolkit) 3.1.2 本身就是 KMP 專案，**支援 iOS target**，且有 [Compose 整合討論](https://github.com/readium/kotlin-toolkit/discussions/552)——閱讀核心不必重寫。
-- [Room 2.8.4 起已重構為 KMP 程式庫](https://developer.android.com/jetpack/androidx/releases/room)，現有 `@Entity`/`@Dao`/`@Database` 程式碼幾乎可原封不動搬進 shared 層。
 - 雲端同步（Supabase/PocketBase REST + SSE）是純 HTTP 邏輯，跨客戶端共用同一份資料。
+- [Room 2.8.4 起已重構為 KMP 程式庫](https://developer.android.com/jetpack/androidx/releases/room)，現有 `@Entity`/`@Dao`/`@Database` 程式碼幾乎可原封不動搬進 shared 層。
+
+**⚠️ 重要更正（2026-08-22 實測）**：
+- Readium Kotlin Toolkit 3.1.2 在 Maven Central **只有 Android artifact（無 iOS klib）**——官方 [KMP 支援討論 #547](https://github.com/readium/kotlin-toolkit/discussions/547) 顯示 iOS 支援仍在開發中，尚未發佈。
+- 影響：閱讀核心（Readium + org.json 的 Locator 序列化）**無法放進 commonMain**；iOS 端需改用原生 [Readium Swift Toolkit](https://github.com/readium/swift-toolkit)（同一套規格的原生 Swift 實作），或自行以 iOS target 從 source 建置 readium-kotlin-toolkit。
+- 結論：`:shared` 共用層聚焦**同步/業務邏輯**（不需 Readium），閱讀器 UI 在 iOS 端用 Swift Toolkit 各自實作。
 
 ---
 
@@ -66,7 +70,7 @@
 
 | 依賴 | 現況版本 | KMP/iOS 支援 | 處置 |
 |---|---|---|---|
-| Readium Kotlin Toolkit | 3.1.2 | ✅ 支援 iOS | **保留**，共用閱讀核心 |
+| **Readium Kotlin Toolkit** | 3.1.2 | ⚠️ **Android-only**（iOS 未發佈，見上方更正） | iOS 改用 [Readium Swift Toolkit](https://github.com/readium/swift-toolkit)；閱讀邏輯不進 commonMain |
 | kotlinx-coroutines / datetime | — | ✅ | 保留 |
 | **OkHttp** | 4.12.0 | ❌ JVM-only（5.x 亦不支援 KMP） | 改用 **Ktor client**（15 個檔案需改 import + 少量 API） |
 | **Gson** | 2.10.1 | ❌ JVM-only | 改用 **kotlinx.serialization**（11 個檔案，需加 `@Serializable`） |
