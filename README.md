@@ -22,6 +22,15 @@ Private EPUB reader for Android with resilient cloud sync and AI-linked notes, t
 - Debug: `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 - Release: `adb install -r app/build/outputs/apk/release/app-release.apk`
 
+## Releases
+
+Releases are built and published automatically by GitHub Actions:
+
+- **Daily** — `daily-release.yml` runs every day at 02:00 UTC. If there are new commits since the last tag, it bumps `versionCode`/`versionName` (`incrementVersionCode` task), commits the bump to `main`, tags it `v<versionName>`, and publishes the signed APK/AAB through the shared pipeline (`release-build.yml`). It skips automatically when nothing changed since the last tag.
+- **Manual** — push a `v*` tag, or trigger the *Android Release APK* workflow from the Actions tab (you may specify a tag).
+
+Telegram release notifications are sent when `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` secrets are configured.
+
 ## Helper script
 
 `./run.sh` automates building + installing. It only uninstalls when a signing-key mismatch is confirmed (or when Android reports a signature incompatibility during install).
