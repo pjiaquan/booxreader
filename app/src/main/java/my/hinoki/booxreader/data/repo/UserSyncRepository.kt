@@ -436,7 +436,7 @@ class UserSyncRepository(
                 if (!response.isSuccessful) {
                         val message =
                                 "Request failed: ${response.code} ${request.method} ${request.url}"
-                        Log.e("UserSyncRepository", "$message body=$body")
+                        Log.e("UserSyncRepository", message)
 
                         if (response.code == 401) {
                                 Log.w("UserSyncRepository", "Received 401 Unauthorized, clearing local session")
@@ -458,7 +458,7 @@ class UserSyncRepository(
                                         message
                                 )
                         }
-                        throw Exception("PocketBase request failed: ${response.code} $body")
+                        throw Exception("PocketBase request failed: ${response.code}")
                 }
 
                 return body
