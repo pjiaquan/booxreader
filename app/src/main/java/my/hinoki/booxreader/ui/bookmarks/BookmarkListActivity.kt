@@ -38,7 +38,6 @@ class BookmarkListActivity : BaseActivity() {
     }
 
     private lateinit var binding: ActivityBookmarkListBinding
-//    private val viewModel: ReaderViewModel by viewModels()
     private lateinit var repo: BookmarkRepository
     private lateinit var syncRepo: UserSyncRepository
     private lateinit var bookId: String

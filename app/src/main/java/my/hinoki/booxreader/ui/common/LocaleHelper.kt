@@ -1,7 +1,6 @@
 package my.hinoki.booxreader.ui.common
 
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList

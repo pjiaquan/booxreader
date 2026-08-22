@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import androidx.room.withTransaction
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
@@ -19,8 +20,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import my.hinoki.booxreader.data.db.BookProgressUpdate
 import my.hinoki.booxreader.data.core.CrashReport
-import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
@@ -2149,28 +2150,37 @@ class UserSyncRepository(
                                         cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
                                 }
 
+                                val updates = mutableListOf<BookProgressUpdate>()
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val locatorJson = item["locatorJson"] as? String ?: continue
                                         val remoteUpdatedAt = parseEpochMillis(item["updatedAt"])
                                         cacheProgress(bookId, locatorJson, remoteUpdatedAt)
 
-                                        val localBook = cachedBooks[bookId]
-                                        val merged =
-                                                mergeRemoteProgressIntoLocalBook(
-                                                        bookId = bookId,
-                                                        locatorJson = locatorJson,
-                                                        remoteUpdatedAt = remoteUpdatedAt,
-                                                        localBook = localBook
-                                                )
-                                        if (merged) {
-                                                if (localBook != null) {
-                                                        cachedBooks[bookId] = localBook.copy(
-                                                                lastLocatorJson = locatorJson,
-                                                                lastOpenedAt = maxOf(localBook.lastOpenedAt, remoteUpdatedAt)
-                                                        )
+                                        val localBook = cachedBooks[bookId] ?: continue
+                                        val localHasProgress = !localBook.lastLocatorJson.isNullOrBlank()
+                                        val remoteIsNewerOrEqual = remoteUpdatedAt >= localBook.lastOpenedAt
+                                        val shouldApply = !localHasProgress || remoteIsNewerOrEqual
+                                        if (!shouldApply) {
+                                                continue
+                                        }
+                                        if (localBook.lastLocatorJson == locatorJson && localBook.lastOpenedAt >= remoteUpdatedAt) {
+                                                continue
+                                        }
+                                        val mergedTime = maxOf(localBook.lastOpenedAt, remoteUpdatedAt)
+                                        updates.add(BookProgressUpdate(bookId, locatorJson, mergedTime))
+
+                                        cachedBooks[bookId] = localBook.copy(
+                                                lastLocatorJson = locatorJson,
+                                                lastOpenedAt = mergedTime
+                                        )
+                                        mergedCount++
+                                }
+                                if (updates.isNotEmpty()) {
+                                        db.withTransaction {
+                                                updates.chunked(900).forEach { chunk ->
+                                                        db.bookDao().updateProgressBatch(chunk)
                                                 }
-                                                mergedCount++
                                         }
                                 }
                                 Log.d(

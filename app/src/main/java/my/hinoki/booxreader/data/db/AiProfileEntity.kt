@@ -2,7 +2,6 @@ package my.hinoki.booxreader.data.db
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.util.UUID
 
 @Entity(tableName = "ai_profiles")
 data class AiProfileEntity(

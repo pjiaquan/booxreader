@@ -20,14 +20,7 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.sse.EventSource
-import okhttp3.sse.EventSourceListener
-import okhttp3.sse.EventSources
-import org.json.JSONObject
 
 class BooxReaderApp : Application() {
 
