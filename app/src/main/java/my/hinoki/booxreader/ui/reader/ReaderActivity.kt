@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.reader
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import android.content.Intent
@@ -153,7 +154,7 @@ class ReaderActivity : BaseActivity() {
 
                 val action = result.data?.getStringExtra(ReaderSettingsActivity.EXTRA_ACTION)
                 val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                val settings = ReaderSettings.fromPrefs(prefs)
+                val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
                 applyReaderSettings(settings)
                 nativeNavigatorFragment?.setChineseConversionEnabled(
                         settings.convertToTraditionalChinese
@@ -732,7 +733,7 @@ class ReaderActivity : BaseActivity() {
             return
         }
         lifecycleScope.launch {
-            val settings = ReaderSettings.fromPrefs(getSharedPreferences(PREFS_NAME, MODE_PRIVATE))
+            val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)))
             val recipientEmail =
                     runCatching {
                                 AppDatabase.get(applicationContext)
@@ -833,7 +834,7 @@ class ReaderActivity : BaseActivity() {
     private fun showSettingsDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_reader_settings, null)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val readerSettings = ReaderSettings.fromPrefs(prefs)
+        val readerSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
 
         setupDialogLayout(dialogView)
         val (rbSystem, rbEnglish, rbChinese) = setupLanguageSection(dialogView, readerSettings)
@@ -1023,12 +1024,12 @@ class ReaderActivity : BaseActivity() {
     private fun setupChineseConversionSwitch(dialogView: View, prefs: android.content.SharedPreferences) {
         val switchConvertChinese = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switchConvertChinese)
         switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
-            val currentSettings = ReaderSettings.fromPrefs(prefs)
+            val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
             val updatedSettings = currentSettings.copy(
                     convertToTraditionalChinese = isChecked,
                     updatedAt = System.currentTimeMillis()
             )
-            updatedSettings.saveTo(prefs)
+            updatedSettings.saveTo(SharedPreferencesStorage(prefs))
             nativeNavigatorFragment?.setChineseConversionEnabled(isChecked)
 
             val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
@@ -1108,7 +1109,7 @@ class ReaderActivity : BaseActivity() {
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
-                val currentSettings = ReaderSettings.fromPrefs(prefs)
+                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
                 val newUrlRaw = etServerUrl.text.toString().trim()
                 val newApiKey = etApiKey.text.toString().trim()
                 val newPageTap = switchPageTap.isChecked
@@ -1153,7 +1154,7 @@ class ReaderActivity : BaseActivity() {
                         },
                         updatedAt = System.currentTimeMillis()
                 )
-                updatedSettings.saveTo(prefs)
+                updatedSettings.saveTo(SharedPreferencesStorage(prefs))
 
                 if (updatedSettings.language != currentSettings.language) {
                     val intent = Intent(applicationContext, my.hinoki.booxreader.ui.welcome.WelcomeActivity::class.java)
@@ -1342,7 +1343,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun showMagicTagManager() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val settings = ReaderSettings.fromPrefs(prefs)
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
 
         val rows = mutableListOf<MagicTagRow>()
         val contentLayout =
@@ -1463,8 +1464,8 @@ class ReaderActivity : BaseActivity() {
                                         updatedAt = System.currentTimeMillis()
                                 )
                         Log.d("MagicTags", "Persisting tags count=${updatedTags.size}")
-                        updatedSettings.saveTo(prefs)
-                        val persisted = ReaderSettings.fromPrefs(prefs).magicTags
+                        updatedSettings.saveTo(SharedPreferencesStorage(prefs))
+                        val persisted = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs)).magicTags
                         val persistedSignature =
                                 persisted.joinToString("|") {
                                     "${it.id}:${it.label}:${it.content}:${it.role}"
@@ -1523,7 +1524,7 @@ class ReaderActivity : BaseActivity() {
 
     private fun pushSettingsToCloud() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        lifecycleScope.launch { syncRepo.pushSettings(ReaderSettings.fromPrefs(prefs)) }
+        lifecycleScope.launch { syncRepo.pushSettings(ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))) }
     }
 
     private fun applyFontSize(sizePercent: Int) {

@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -104,7 +105,7 @@ class UserSyncRepositoryMagicTagTest {
     fun pullSettingsIfNewer_clearsLocalMagicTagsWhenRemoteFieldMissing() = runBlocking {
         val prefs = context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
         val localTags = listOf(MagicTag(id = "local", label = "Local Tag", content = "Local Content"))
-        ReaderSettings(magicTags = localTags, updatedAt = 1000L).saveTo(prefs)
+        ReaderSettings(magicTags = localTags, updatedAt = 1000L).saveTo(SharedPreferencesStorage(prefs))
 
         val remoteSettingsItem =
                 JSONObject()
@@ -168,7 +169,7 @@ class UserSyncRepositoryMagicTagTest {
         assertNotNull("Expected remote settings to be pulled", pulled)
         assertEquals(emptyList<MagicTag>(), pulled!!.magicTags)
 
-        val persisted = ReaderSettings.fromPrefs(prefs)
+        val persisted = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
         assertEquals(emptyList<MagicTag>(), persisted.magicTags)
     }
 

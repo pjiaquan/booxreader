@@ -1,4 +1,5 @@
 package my.hinoki.booxreader
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.app.Application
 import android.content.Context
@@ -60,9 +61,9 @@ class BooxReaderApp : Application() {
 
         DailySummaryEmailScheduler.schedule(
                 this,
-                ReaderSettings.fromPrefs(
+                ReaderSettings.fromStorage(SharedPreferencesStorage(
                         getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
-                )
+                ))
         )
 
         val isRobolectric = android.os.Build.FINGERPRINT == "robolectric" || android.os.Build.HARDWARE == "robolectric"

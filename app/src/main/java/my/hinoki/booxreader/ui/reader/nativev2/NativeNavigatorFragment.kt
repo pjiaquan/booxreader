@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.reader.nativev2
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -351,13 +352,13 @@ class NativeNavigatorFragment : Fragment() {
 
         // Get current settings to check if conversion is enabled
         val settings =
-                ReaderSettings.fromPrefs(
+                ReaderSettings.fromStorage(SharedPreferencesStorage(
                         requireContext()
                                 .getSharedPreferences(
                                         ReaderActivity.PREFS_NAME,
                                         android.content.Context.MODE_PRIVATE
                                 )
-                )
+                ))
 
         // 1. Handle internal links / footnotes
         if (url.startsWith("#") || !url.contains("://")) {
@@ -485,13 +486,13 @@ class NativeNavigatorFragment : Fragment() {
 
         if (width > 0 && height > 0) {
             val settings =
-                    ReaderSettings.fromPrefs(
+                    ReaderSettings.fromStorage(SharedPreferencesStorage(
                             requireContext()
                                     .getSharedPreferences(
                                             ReaderActivity.PREFS_NAME,
                                             android.content.Context.MODE_PRIVATE
                                     )
-                    )
+                    ))
             val newTextSize = (settings.textSize.toFloat() / 100f) * 70f
             binding.nativeReaderView.setTextSize(newTextSize)
 
@@ -682,13 +683,13 @@ class NativeNavigatorFragment : Fragment() {
 
         // Get current settings to check if conversion is enabled
         val settings =
-                ReaderSettings.fromPrefs(
+                ReaderSettings.fromStorage(SharedPreferencesStorage(
                         requireContext()
                                 .getSharedPreferences(
                                         ReaderActivity.PREFS_NAME,
                                         android.content.Context.MODE_PRIVATE
                                 )
-                )
+                ))
         convertToTraditionalChinese = settings.convertToTraditionalChinese
 
         val parsedResult = parseResourceContent(pub, link.href.toString(), link)

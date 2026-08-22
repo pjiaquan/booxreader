@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import android.content.Intent
@@ -584,7 +585,7 @@ class UserSyncRepository(
 
                                 val remoteSettings = latestSettingsRecord(items) ?: return@withContext null
                                 val remoteUpdatedAt = longValue(remoteSettings["updatedAt"])
-                                val localSettings = ReaderSettings.fromPrefs(prefs)
+                                val localSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
 
                                 if (remoteUpdatedAt > localSettings.updatedAt) {
                                         // Remote is newer, update local
@@ -593,7 +594,7 @@ class UserSyncRepository(
                                                         remoteSettings,
                                                         fallbackMagicTags = emptyList()
                                                 )
-                                        updated.saveTo(prefs)
+                                        updated.saveTo(SharedPreferencesStorage(prefs))
                                         Log.d(
                                                 "UserSyncRepository",
                                                 "pullSettingsIfNewer - Settings pulled and saved"
@@ -613,7 +614,7 @@ class UserSyncRepository(
                 }
 
         /** Push current settings to PocketBase. Creates a new record or updates existing one. */
-        suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromPrefs(prefs)) =
+        suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))) =
                 withContext(io) {
                         try {
                                 val userId =
@@ -1793,7 +1794,7 @@ class UserSyncRepository(
         }
 
         private fun applyProfileToLocalSettings(profile: AiProfileEntity) {
-                val currentSettings = ReaderSettings.fromPrefs(prefs)
+                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
                 currentSettings
                         .copy(
                                 aiModelName = profile.modelName,
@@ -1812,7 +1813,7 @@ class UserSyncRepository(
                                 activeProfileId = profile.id,
                                 updatedAt = System.currentTimeMillis()
                         )
-                        .saveTo(prefs)
+                        .saveTo(SharedPreferencesStorage(prefs))
         }
 
         private suspend fun cleanupDuplicateProfilesAndRepairActive(): Int {
@@ -1825,7 +1826,7 @@ class UserSyncRepository(
                                 .groupBy { profileNameKey(it.name) }
                                 .filterValues { it.size > 1 }
                 var changedCount = 0
-                var activeProfileId = ReaderSettings.fromPrefs(prefs).activeProfileId
+                var activeProfileId = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs)).activeProfileId
                 val deletedIds = mutableSetOf<Long>()
 
                 for ((_, group) in grouped) {

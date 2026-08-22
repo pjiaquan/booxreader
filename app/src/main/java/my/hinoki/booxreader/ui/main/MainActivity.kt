@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.main
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.Manifest
 import android.content.Intent
@@ -677,9 +678,9 @@ class MainActivity : BaseActivity() {
 
     private fun checkForUpdates() {
         val settings =
-                ReaderSettings.fromPrefs(
+                ReaderSettings.fromStorage(SharedPreferencesStorage(
                         getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
-                )
+                ))
         if (!settings.autoCheckUpdates) return
 
         lifecycleScope.launch {

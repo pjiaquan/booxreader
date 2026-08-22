@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.notes
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import android.content.Intent
@@ -335,9 +336,9 @@ class AiNoteListActivity : BaseActivity() {
 
     private fun applyThemeFromSettings() {
         val settings =
-                ReaderSettings.fromPrefs(
+                ReaderSettings.fromStorage(SharedPreferencesStorage(
                         getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
-                )
+                ))
         val mode = ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
         applyContrastMode(mode)
     }
@@ -637,9 +638,9 @@ class AiNoteListActivity : BaseActivity() {
         lifecycleScope.launch {
             val sourceNotes = runCatching { repo.getAll() }.getOrElse { allNotes }
             val settings =
-                    ReaderSettings.fromPrefs(
+                    ReaderSettings.fromStorage(SharedPreferencesStorage(
                             getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
-                    )
+                    ))
             val recipientEmail =
                     runCatching {
                                 AppDatabase.get(applicationContext)
@@ -1158,7 +1159,7 @@ class AiNoteListActivity : BaseActivity() {
     }
 
     private fun shouldRequestStoragePermission(): Boolean {
-        val settings = ReaderSettings.fromPrefs(getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE))
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)))
         if (!settings.exportToLocalDownloads) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return false // scoped storage; we save in app dir without permission
         val granted = ContextCompat.checkSelfPermission(

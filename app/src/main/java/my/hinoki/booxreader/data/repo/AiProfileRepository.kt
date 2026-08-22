@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import androidx.lifecycle.LiveData
@@ -142,11 +143,11 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     }
                 }
                 dao.delete(profile)
-                val currentSettings = ReaderSettings.fromPrefs(prefs)
+                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
                 if (currentSettings.activeProfileId == profile.id) {
                     currentSettings
                             .copy(activeProfileId = -1L, updatedAt = System.currentTimeMillis())
-                            .saveTo(prefs)
+                            .saveTo(SharedPreferencesStorage(prefs))
                 }
                 ensureSingleProfileAppliedIfNeeded()
                 true
@@ -157,7 +158,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                 val profile = dao.getById(profileId) ?: return@withContext
 
                 // Load current settings to preserve other values (font, tap, etc)
-                val currentSettings = ReaderSettings.fromPrefs(prefs)
+                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
 
                 val newSettings =
                         currentSettings.copy(
@@ -178,7 +179,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                                 activeProfileId = profile.id
                         )
 
-                newSettings.saveTo(prefs)
+                newSettings.saveTo(SharedPreferencesStorage(prefs))
 
                 // Also push new settings to Firebase
                 syncRepo.pushSettings(newSettings)
@@ -243,7 +244,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
         val profiles = dao.getAllList()
         if (profiles.size != 1) return
         val onlyProfile = profiles.first()
-        val currentSettings = ReaderSettings.fromPrefs(prefs)
+        val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
         if (currentSettings.activeProfileId == onlyProfile.id) return
         applyProfile(onlyProfile.id)
     }

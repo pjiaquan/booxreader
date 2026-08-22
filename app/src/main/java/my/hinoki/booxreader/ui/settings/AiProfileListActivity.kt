@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.settings
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.app.Activity
 import android.content.Intent
@@ -143,7 +144,7 @@ class AiProfileListActivity : BaseActivity() {
 
     private fun updateActiveProfileId() {
         val prefs = getSharedPreferences(my.hinoki.booxreader.data.settings.ReaderSettings.PREFS_NAME, android.content.Context.MODE_PRIVATE)
-        val settings = my.hinoki.booxreader.data.settings.ReaderSettings.fromPrefs(prefs)
+        val settings = my.hinoki.booxreader.data.settings.ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
         adapter.setActiveProfileId(settings.activeProfileId)
     }
 
@@ -189,9 +190,9 @@ class AiProfileListActivity : BaseActivity() {
 
     private fun applyThemeFromSettings() {
         val settings =
-                ReaderSettings.fromPrefs(
+                ReaderSettings.fromStorage(SharedPreferencesStorage(
                         getSharedPreferences(ReaderSettings.PREFS_NAME, MODE_PRIVATE)
-                )
+                ))
         val mode = ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
         applyContrastMode(mode)
     }

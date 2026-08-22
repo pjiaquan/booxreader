@@ -1,8 +1,9 @@
 package my.hinoki.booxreader.data.settings
 
-import android.content.SharedPreferences
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import my.hinoki.booxreader.data.platform.currentEpochMillis
 import my.hinoki.booxreader.data.remote.HttpConfig
 
 enum class ContrastMode {
@@ -52,52 +53,47 @@ data class ReaderSettings(
         val dailySummaryEmailMinute: Int = 0,
         val dailySummaryEmailTo: String = "",
         val language: String = "system", // "system", "en", "zh"
-        val updatedAt: Long = System.currentTimeMillis(),
+        val updatedAt: Long = currentEpochMillis(),
         val activeProfileId: Long = -1L,
         val magicTags: List<MagicTag> = defaultMagicTags
 ) {
 
-  fun saveTo(prefs: SharedPreferences) {
-    val timestamp = if (updatedAt > 0) updatedAt else System.currentTimeMillis()
-    val gson = Gson()
-    val magicTagsJson = gson.toJson(magicTags)
+  fun saveTo(storage: KeyValueStorage) {
+    val timestamp = if (updatedAt > 0) updatedAt else currentEpochMillis()
+    val magicTagsJson = json.encodeToString(magicTags)
 
-    prefs.edit()
-            // 字體大小使用本地設定
-            // 字體粗細使用預設值，不在此處儲存
-            .putBoolean("page_tap_enabled", pageTapEnabled)
-            .putBoolean("page_swipe_enabled", pageSwipeEnabled)
-            .putInt("text_size", textSize)
-            .putInt("contrast_mode", contrastMode)
-            .putBoolean("convert_to_traditional_chinese", convertToTraditionalChinese)
-            .putString("server_base_url", serverBaseUrl)
-            .putBoolean("export_to_custom_url", exportToCustomUrl)
-            .putString("export_custom_url", exportCustomUrl)
-            .putBoolean("export_to_local_downloads", exportToLocalDownloads)
-            .putString("api_key", apiKey)
-            .putString("ai_model_name", aiModelName)
-            .putString("ai_system_prompt", aiSystemPrompt)
-            .putString("ai_user_prompt_template", aiUserPromptTemplate)
-            .putFloat("ai_temperature", temperature.toFloat())
-            .putInt("ai_max_tokens", maxTokens)
-            .putFloat("ai_top_p", topP.toFloat())
-            .putFloat("ai_frequency_penalty", frequencyPenalty.toFloat())
-            .putFloat("ai_presence_penalty", presencePenalty.toFloat())
-            .putString("ai_assistant_role", assistantRole)
-            .putBoolean("ai_enable_google_search", enableGoogleSearch)
-            .putBoolean("use_streaming", useStreaming)
-            .putBoolean("page_animation_enabled", pageAnimationEnabled)
-            .putBoolean("show_page_indicator", showPageIndicator)
-            .putBoolean("auto_check_updates", autoCheckUpdates)
-            .putBoolean("daily_summary_email_enabled", dailySummaryEmailEnabled)
-            .putInt("daily_summary_email_hour", dailySummaryEmailHour.coerceIn(0, 23))
-            .putInt("daily_summary_email_minute", dailySummaryEmailMinute.coerceIn(0, 59))
-            .putString("daily_summary_email_to", dailySummaryEmailTo)
-            .putString("app_language", language)
-            .putLong("active_ai_profile_id", activeProfileId)
-            .putLong("settings_updated_at", timestamp)
-            .putString("magic_tags", magicTagsJson)
-            .apply()
+    storage.putBoolean("page_tap_enabled", pageTapEnabled)
+    storage.putBoolean("page_swipe_enabled", pageSwipeEnabled)
+    storage.putInt("text_size", textSize)
+    storage.putInt("contrast_mode", contrastMode)
+    storage.putBoolean("convert_to_traditional_chinese", convertToTraditionalChinese)
+    storage.putString("server_base_url", serverBaseUrl)
+    storage.putBoolean("export_to_custom_url", exportToCustomUrl)
+    storage.putString("export_custom_url", exportCustomUrl)
+    storage.putBoolean("export_to_local_downloads", exportToLocalDownloads)
+    storage.putString("api_key", apiKey)
+    storage.putString("ai_model_name", aiModelName)
+    storage.putString("ai_system_prompt", aiSystemPrompt)
+    storage.putString("ai_user_prompt_template", aiUserPromptTemplate)
+    storage.putFloat("ai_temperature", temperature.toFloat())
+    storage.putInt("ai_max_tokens", maxTokens)
+    storage.putFloat("ai_top_p", topP.toFloat())
+    storage.putFloat("ai_frequency_penalty", frequencyPenalty.toFloat())
+    storage.putFloat("ai_presence_penalty", presencePenalty.toFloat())
+    storage.putString("ai_assistant_role", assistantRole)
+    storage.putBoolean("ai_enable_google_search", enableGoogleSearch)
+    storage.putBoolean("use_streaming", useStreaming)
+    storage.putBoolean("page_animation_enabled", pageAnimationEnabled)
+    storage.putBoolean("show_page_indicator", showPageIndicator)
+    storage.putBoolean("auto_check_updates", autoCheckUpdates)
+    storage.putBoolean("daily_summary_email_enabled", dailySummaryEmailEnabled)
+    storage.putInt("daily_summary_email_hour", dailySummaryEmailHour.coerceIn(0, 23))
+    storage.putInt("daily_summary_email_minute", dailySummaryEmailMinute.coerceIn(0, 59))
+    storage.putString("daily_summary_email_to", dailySummaryEmailTo)
+    storage.putString("app_language", language)
+    storage.putLong("active_ai_profile_id", activeProfileId)
+    storage.putLong("settings_updated_at", timestamp)
+    storage.putString("magic_tags", magicTagsJson)
   }
 
   /**
@@ -152,6 +148,8 @@ data class ReaderSettings(
           val presencePenalty: Double
   )
   companion object {
+    private val json = Json { ignoreUnknownKeys = true }
+
     val DEFAULT_AI_SYSTEM_PROMPT =
 """
 你是一位「知識解析助手」，擅長把艱深概念用生活化方式講得好懂、好玩。所有回覆請**優先使用繁體中文**，除非使用者指定其他語言。
@@ -251,18 +249,15 @@ data class ReaderSettings(
         )
     )
 
-    fun fromPrefs(prefs: SharedPreferences): ReaderSettings {
-      val updatedAt = prefs.getLong("settings_updated_at", 0L)
+    fun fromStorage(storage: KeyValueStorage): ReaderSettings {
+      val updatedAt = storage.getLong("settings_updated_at", 0L)
 
-
-
-      val magicTagsJson = prefs.getString("magic_tags", null)
-      val hasMagicTagsKey = prefs.contains("magic_tags")
+      val magicTagsJson = storage.getString("magic_tags")
+      val hasMagicTagsKey = storage.contains("magic_tags")
       val magicTags = if (magicTagsJson != null) {
           try {
-              val type = object : TypeToken<List<MagicTag>>() {}.type
-              Gson().fromJson<List<MagicTag>>(magicTagsJson, type)
-                  ?: if (hasMagicTagsKey) emptyList() else defaultMagicTags
+              json.decodeFromString<List<MagicTag>>(magicTagsJson)
+                  .let { if (it.isNotEmpty() || hasMagicTagsKey) it else defaultMagicTags }
           } catch (e: Exception) {
               if (hasMagicTagsKey) emptyList() else defaultMagicTags
           }
@@ -273,41 +268,38 @@ data class ReaderSettings(
       return ReaderSettings(
               // 字體大小使用本地設定
               // 字體粗細使用預設值，不在此處讀取
-              pageTapEnabled = prefs.getBoolean("page_tap_enabled", true),
-              pageSwipeEnabled = prefs.getBoolean("page_swipe_enabled", true),
-              textSize = prefs.getInt("text_size", 96),
-              contrastMode = prefs.getInt("contrast_mode", ContrastMode.NORMAL.ordinal),
-              convertToTraditionalChinese = prefs.getBoolean("convert_to_traditional_chinese", true),
-              serverBaseUrl = prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
-                              ?: HttpConfig.DEFAULT_BASE_URL,
-              exportToCustomUrl = prefs.getBoolean("export_to_custom_url", false),
-              exportCustomUrl = prefs.getString("export_custom_url", "") ?: "",
-              exportToLocalDownloads = prefs.getBoolean("export_to_local_downloads", false),
-              apiKey = prefs.getString("api_key", "") ?: "",
-              aiModelName = prefs.getString("ai_model_name", "deepseek-chat") ?: "deepseek-chat",
-              aiSystemPrompt = prefs.getString("ai_system_prompt", DEFAULT_AI_SYSTEM_PROMPT)
-                              ?: DEFAULT_AI_SYSTEM_PROMPT,
+              pageTapEnabled = storage.getBoolean("page_tap_enabled", true),
+              pageSwipeEnabled = storage.getBoolean("page_swipe_enabled", true),
+              textSize = storage.getInt("text_size", 96),
+              contrastMode = storage.getInt("contrast_mode", ContrastMode.NORMAL.ordinal),
+              convertToTraditionalChinese = storage.getBoolean("convert_to_traditional_chinese", true),
+              serverBaseUrl = storage.getString("server_base_url") ?: HttpConfig.DEFAULT_BASE_URL,
+              exportToCustomUrl = storage.getBoolean("export_to_custom_url", false),
+              exportCustomUrl = storage.getString("export_custom_url") ?: "",
+              exportToLocalDownloads = storage.getBoolean("export_to_local_downloads", false),
+              apiKey = storage.getString("api_key") ?: "",
+              aiModelName = storage.getString("ai_model_name") ?: "deepseek-chat",
+              aiSystemPrompt = storage.getString("ai_system_prompt") ?: DEFAULT_AI_SYSTEM_PROMPT,
               aiUserPromptTemplate =
-                      prefs.getString("ai_user_prompt_template", DEFAULT_AI_USER_PROMPT_TEMPLATE)
-                              ?: DEFAULT_AI_USER_PROMPT_TEMPLATE,
-              temperature = prefs.getFloat("ai_temperature", 0.7f).toDouble(),
-              maxTokens = prefs.getInt("ai_max_tokens", 4096),
-              topP = prefs.getFloat("ai_top_p", 1.0f).toDouble(),
-              frequencyPenalty = prefs.getFloat("ai_frequency_penalty", 0.0f).toDouble(),
-              presencePenalty = prefs.getFloat("ai_presence_penalty", 0.0f).toDouble(),
-              assistantRole = prefs.getString("ai_assistant_role", "assistant") ?: "assistant",
-              enableGoogleSearch = prefs.getBoolean("ai_enable_google_search", true),
-              useStreaming = prefs.getBoolean("use_streaming", false),
-              pageAnimationEnabled = prefs.getBoolean("page_animation_enabled", false),
-              showPageIndicator = prefs.getBoolean("show_page_indicator", true),
-              autoCheckUpdates = prefs.getBoolean("auto_check_updates", true),
-              dailySummaryEmailEnabled = prefs.getBoolean("daily_summary_email_enabled", false),
-              dailySummaryEmailHour = prefs.getInt("daily_summary_email_hour", 21).coerceIn(0, 23),
-              dailySummaryEmailMinute = prefs.getInt("daily_summary_email_minute", 0).coerceIn(0, 59),
-              dailySummaryEmailTo = prefs.getString("daily_summary_email_to", "") ?: "",
-              language = prefs.getString("app_language", "system") ?: "system",
+                      storage.getString("ai_user_prompt_template") ?: DEFAULT_AI_USER_PROMPT_TEMPLATE,
+              temperature = storage.getFloat("ai_temperature", 0.7f).toDouble(),
+              maxTokens = storage.getInt("ai_max_tokens", 4096),
+              topP = storage.getFloat("ai_top_p", 1.0f).toDouble(),
+              frequencyPenalty = storage.getFloat("ai_frequency_penalty", 0.0f).toDouble(),
+              presencePenalty = storage.getFloat("ai_presence_penalty", 0.0f).toDouble(),
+              assistantRole = storage.getString("ai_assistant_role") ?: "assistant",
+              enableGoogleSearch = storage.getBoolean("ai_enable_google_search", true),
+              useStreaming = storage.getBoolean("use_streaming", false),
+              pageAnimationEnabled = storage.getBoolean("page_animation_enabled", false),
+              showPageIndicator = storage.getBoolean("show_page_indicator", true),
+              autoCheckUpdates = storage.getBoolean("auto_check_updates", true),
+              dailySummaryEmailEnabled = storage.getBoolean("daily_summary_email_enabled", false),
+              dailySummaryEmailHour = storage.getInt("daily_summary_email_hour", 21).coerceIn(0, 23),
+              dailySummaryEmailMinute = storage.getInt("daily_summary_email_minute", 0).coerceIn(0, 59),
+              dailySummaryEmailTo = storage.getString("daily_summary_email_to") ?: "",
+              language = storage.getString("app_language") ?: "system",
               updatedAt = updatedAt,
-              activeProfileId = prefs.getLong("active_ai_profile_id", -1L),
+              activeProfileId = storage.getLong("active_ai_profile_id", -1L),
               magicTags = magicTags
       )
     }

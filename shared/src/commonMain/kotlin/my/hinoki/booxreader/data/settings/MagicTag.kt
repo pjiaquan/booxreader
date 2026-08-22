@@ -1,5 +1,8 @@
 package my.hinoki.booxreader.data.settings
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class MagicTag(
     val id: String,
     val label: String,

@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -52,9 +53,9 @@ class AiProfileRepositoryTest {
         assertEquals(1, profiles.size)
         assertEquals("Gemini", profiles.first().name)
 
-        val settings = ReaderSettings.fromPrefs(
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(
             context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
-        )
+        ))
         assertEquals(profiles.first().id, settings.activeProfileId)
     }
 
@@ -115,7 +116,7 @@ class AiProfileRepositoryTest {
         repository.applyProfile(profile2Id)
 
         val prefs = context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
-        val settings = ReaderSettings.fromPrefs(prefs)
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
         assertEquals(profile2Id, settings.activeProfileId)
         assertEquals("claude-3-5-sonnet", settings.aiModelName)
         assertEquals("sk-ant-123", settings.apiKey)

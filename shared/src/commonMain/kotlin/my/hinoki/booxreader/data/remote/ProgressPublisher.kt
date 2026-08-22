@@ -8,6 +8,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import my.hinoki.booxreader.data.platform.currentEpochMillis
 
 /**
  * 將閱讀進度發布到伺服器。KMP 版本：OkHttp→Ktor、Gson→kotlinx.serialization。
@@ -25,7 +26,7 @@ class ProgressPublisher(
         val payload = ProgressPayload(
             bookId = bookId,
             locatorJson = locatorJson,
-            updatedAt = System.currentTimeMillis()
+            updatedAt = currentEpochMillis()
         )
 
         val body = json.encodeToString(payload)

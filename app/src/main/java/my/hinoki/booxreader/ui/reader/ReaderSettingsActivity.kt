@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.reader
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.app.TimePickerDialog
 import android.content.Context
@@ -198,7 +199,7 @@ class ReaderSettingsActivity : BaseActivity() {
         tvAppVersion?.text = "BooxReader v${my.hinoki.booxreader.BuildConfig.VERSION_NAME}"
 
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
-        val readerSettings = ReaderSettings.fromPrefs(prefs)
+        val readerSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
         selectedDailySummaryHour = readerSettings.dailySummaryEmailHour.coerceIn(0, 23)
         selectedDailySummaryMinute = readerSettings.dailySummaryEmailMinute.coerceIn(0, 59)
         selectedContrastMode = ContrastMode.values().getOrNull(readerSettings.contrastMode) ?: ContrastMode.NORMAL
@@ -259,7 +260,7 @@ class ReaderSettingsActivity : BaseActivity() {
 
         btnSettingsCancel.setOnClickListener { finish() }
         btnSettingsSave.setOnClickListener {
-            val latestSettings = ReaderSettings.fromPrefs(prefs)
+            val latestSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
             saveSettings(
                 prefs = prefs,
                 currentSettings = latestSettings,
@@ -431,7 +432,7 @@ class ReaderSettingsActivity : BaseActivity() {
             updatedAt = System.currentTimeMillis()
         )
 
-        updatedSettings.saveTo(prefs)
+        updatedSettings.saveTo(SharedPreferencesStorage(prefs))
         DailySummaryEmailScheduler.schedule(this, updatedSettings, forceUpdate = true)
         pushSettingsToCloud()
 
@@ -628,7 +629,7 @@ class ReaderSettingsActivity : BaseActivity() {
 
     private fun pushSettingsToCloud() {
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
-        lifecycleScope.launch { syncRepo.pushSettings(ReaderSettings.fromPrefs(prefs)) }
+        lifecycleScope.launch { syncRepo.pushSettings(ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))) }
     }
 
     private fun applyFooterInsets() {
@@ -888,12 +889,12 @@ class ReaderSettingsActivity : BaseActivity() {
         )
 
         switchConvertChinese.setOnCheckedChangeListener { _, isChecked ->
-            val currentSettings = ReaderSettings.fromPrefs(prefs)
+            val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
             val updatedSettings = currentSettings.copy(
                 convertToTraditionalChinese = isChecked,
                 updatedAt = System.currentTimeMillis()
             )
-            updatedSettings.saveTo(prefs)
+            updatedSettings.saveTo(SharedPreferencesStorage(prefs))
             setResult(RESULT_OK)
             val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
@@ -959,14 +960,14 @@ class ReaderSettingsActivity : BaseActivity() {
 
     private fun showMagicTagManager() {
         val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
-        val settings = ReaderSettings.fromPrefs(prefs)
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
 
         val dialog = MagicTagManagerDialog(this, settings.magicTags) { updatedTags ->
             val updatedSettings = settings.copy(
                 magicTags = updatedTags,
                 updatedAt = System.currentTimeMillis()
             )
-            updatedSettings.saveTo(prefs)
+            updatedSettings.saveTo(SharedPreferencesStorage(prefs))
             pushSettingsToCloud()
             setResult(RESULT_OK)
         }

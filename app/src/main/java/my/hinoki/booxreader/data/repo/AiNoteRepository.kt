@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.Manifest
 import android.content.ContentValues
@@ -363,7 +364,7 @@ class AiNoteRepository(
     }
 
     private fun getSettings(): ReaderSettings {
-        return ReaderSettings.fromPrefs(prefs())
+        return ReaderSettings.fromStorage(SharedPreferencesStorage(prefs()))
     }
 
     private fun parseExtraParamsJson(raw: String?): JSONObject? {

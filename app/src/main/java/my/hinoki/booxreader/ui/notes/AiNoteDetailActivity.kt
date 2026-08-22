@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.ui.notes
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -332,7 +333,7 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun applyThemeFromSettings() {
-        val settings = ReaderSettings.fromPrefs(settingsPrefs)
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(settingsPrefs))
         val mode = ContrastMode.values().getOrNull(settings.contrastMode) ?: ContrastMode.NORMAL
         applyContrastMode(mode)
     }
@@ -922,12 +923,12 @@ class AiNoteDetailActivity : BaseActivity() {
 
         // Update AI model info and disclaimer
         val settings =
-                my.hinoki.booxreader.data.settings.ReaderSettings.fromPrefs(
+                my.hinoki.booxreader.data.settings.ReaderSettings.fromStorage(SharedPreferencesStorage(
                         getSharedPreferences(
                                 my.hinoki.booxreader.data.settings.ReaderSettings.PREFS_NAME,
                                 Context.MODE_PRIVATE
                         )
-                )
+                ))
         binding.tvAiModelInfo.text =
                 getString(R.string.ai_note_model_info_format, settings.aiModelName)
         binding.tvAiDisclaimer.text = getString(R.string.ai_note_model_disclaimer)
@@ -2063,7 +2064,7 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun setupMagicTags() {
-        val settings = ReaderSettings.fromPrefs(settingsPrefs)
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(settingsPrefs))
         val magicTags = settings.magicTags
 
         binding.cgMagicTags.removeAllViews()

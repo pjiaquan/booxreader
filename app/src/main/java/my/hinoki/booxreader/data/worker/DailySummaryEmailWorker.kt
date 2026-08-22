@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.worker
+import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
 import androidx.work.CoroutineWorker
@@ -23,7 +24,7 @@ class DailySummaryEmailWorker(
                         ReaderSettings.PREFS_NAME,
                         Context.MODE_PRIVATE
                 )
-        val settings = ReaderSettings.fromPrefs(prefs)
+        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
         if (!settings.dailySummaryEmailEnabled) {
             return Result.success()
         }

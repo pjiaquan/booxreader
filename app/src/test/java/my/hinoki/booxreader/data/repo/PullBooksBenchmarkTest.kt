@@ -40,7 +40,9 @@ class PullBooksBenchmarkTest {
     @After
     fun teardown() {
         server.shutdown()
-        AppDatabase.get(context).close()
+        // Use the shared reset (close + null the singleton) so the next test
+        // recreates the database instead of reusing a closed instance.
+        AppDatabase.resetInstanceForTesting()
     }
 
     @Test
