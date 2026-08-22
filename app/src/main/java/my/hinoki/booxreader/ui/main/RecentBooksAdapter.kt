@@ -36,6 +36,8 @@ class RecentBooksAdapter(
 
         private val tvTime: TextView = itemView.findViewById(R.id.tvTime)
         private val tvProgress: TextView = itemView.findViewById(R.id.tvProgress)
+        private val progressBook: android.widget.ProgressBar =
+                itemView.findViewById(R.id.progressBook)
         private val tvCompleted: TextView = itemView.findViewById(R.id.tvCompleted)
         private val btnMenu: ImageButton = itemView.findViewById(R.id.btnMenu)
 
@@ -80,10 +82,12 @@ class RecentBooksAdapter(
 
                 // 
                 tvProgress.text = itemView.context.getString(R.string.book_progress_format, percentage)
+                progressBook.progress = percentage
                 tvCompleted.visibility = if (percentage >= 99) View.VISIBLE else View.GONE
             } else {
                 // 
                 tvProgress.text = itemView.context.getString(R.string.book_progress_format, 0)
+                progressBook.progress = 0
                 tvCompleted.visibility = View.GONE
             }
 

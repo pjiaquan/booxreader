@@ -36,6 +36,8 @@ class LoginActivity : BaseActivity() {
 
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
+        val tilEmail = findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tilEmail)
+        val tilPassword = findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.tilPassword)
         val cbRememberMe = findViewById<CheckBox>(R.id.cbRememberMe)
         val tvForgotEmail = findViewById<TextView>(R.id.tvForgotEmail)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
@@ -81,11 +83,45 @@ class LoginActivity : BaseActivity() {
         btnLogin.setOnClickListener {
             val email = etEmail.text.toString().trim()
             val pass = etPassword.text.toString()
-            if (email.isNotBlank() && pass.isNotBlank()) {
-                tokenManager.saveRememberMe(cbRememberMe.isChecked, email)
-                viewModel.login(email, pass)
+
+            // Inline field validation with friendly error messages
+            var valid = true
+            if (email.isBlank()) {
+                tilEmail.error = getString(R.string.login_error_email_required)
+                valid = false
+            } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                tilEmail.error = getString(R.string.login_error_email_invalid)
+                valid = false
             }
+            if (pass.isBlank()) {
+                tilPassword.error = getString(R.string.login_error_password_required)
+                valid = false
+            }
+            if (!valid) return@setOnClickListener
+
+            tokenManager.saveRememberMe(cbRememberMe.isChecked, email)
+            viewModel.login(email, pass)
         }
+
+        // Clear inline errors as soon as the user starts typing again
+        etEmail.addTextChangedListener(
+                object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                    override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
+                        if (tilEmail.isErrorEnabled) tilEmail.error = null
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                }
+        )
+        etPassword.addTextChangedListener(
+                object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                    override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {
+                        if (tilPassword.isErrorEnabled) tilPassword.error = null
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
+                }
+        )
 
         tvForgotEmail.setOnClickListener {
             showForgotEmailDialog(etEmail.text.toString().trim())

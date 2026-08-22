@@ -540,6 +540,31 @@ class ReaderSettingsActivity : BaseActivity() {
                     view.progressTintList = ColorStateList.valueOf(textColor)
                     view.thumbTintList = ColorStateList.valueOf(textColor)
                 }
+                is ImageView -> {
+                    when (view.tag) {
+                        "settings_icon" -> {
+                            // Section header icon: tinted circle + icon
+                            val circleColor =
+                                ColorUtils.blendARGB(
+                                    backgroundColor,
+                                    textColor,
+                                    if (isDarkMode) 0.22f else 0.12f
+                                )
+                            val iconColor =
+                                ColorUtils.setAlphaComponent(
+                                    textColor,
+                                    if (isDarkMode) 230 else 200
+                                )
+                            view.backgroundTintList = ColorStateList.valueOf(circleColor)
+                            view.imageTintList = ColorStateList.valueOf(iconColor)
+                        }
+                        "check_icon" -> {
+                            // Language selection checkmark
+                            view.imageTintList = ColorStateList.valueOf(textColor)
+                        }
+                        else -> { /* leave default icons untouched */ }
+                    }
+                }
                 else -> {
                     val height = view.layoutParams?.height ?: 0
                     if (height in 1..2) {

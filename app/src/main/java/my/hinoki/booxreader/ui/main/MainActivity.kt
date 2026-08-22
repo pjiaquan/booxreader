@@ -15,7 +15,10 @@ import androidx.annotation.AttrRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +39,7 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.databinding.ActivityMainBinding
 import my.hinoki.booxreader.ui.auth.LoginActivity
+import my.hinoki.booxreader.ui.auth.UserProfileActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.reader.ReaderActivity
 import my.hinoki.booxreader.ui.reader.ReaderSettingsActivity
@@ -155,11 +159,24 @@ class MainActivity : BaseActivity() {
 
         binding.btnSettings.setOnClickListener { ReaderSettingsActivity.open(this, null) }
 
+        binding.btnProfile.setOnClickListener {
+            startActivity(Intent(this, UserProfileActivity::class.java))
+        }
+
+        binding.btnEmptyAdd.setOnClickListener {
+            pickEpub.launch(arrayOf("application/epub+zip"))
+        }
+
+        applyFabInsets()
+
         binding.recyclerRecent.layoutManager = LinearLayoutManager(this)
         binding.recyclerRecent.adapter = recentAdapter
 
         // Start observing books flow
         observeRecentBooks()
+
+        // Greeting + library stats
+        setupGreetingAndStats()
 
         // Check and request file permissions
         checkAndRequestFilePermissions()
@@ -455,15 +472,63 @@ class MainActivity : BaseActivity() {
         lifecycleScope.launch {
             bookRepository.getRecent(10).collectLatest { recent ->
                 if (recent.isEmpty()) {
-                    binding.tvEmptyState.visibility = android.view.View.VISIBLE
+                    binding.llEmptyState.visibility = android.view.View.VISIBLE
                     binding.recyclerRecent.visibility = android.view.View.GONE
                 } else {
-                    binding.tvEmptyState.visibility = android.view.View.GONE
+                    binding.llEmptyState.visibility = android.view.View.GONE
                     binding.recyclerRecent.visibility = android.view.View.VISIBLE
                     recentAdapter.submitList(recent)
                 }
             }
         }
+    }
+
+    /** 依時間顯示問候語，並計算書庫統計（總數 / 完成 / 平均進度） */
+    private fun setupGreetingAndStats() {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val greeting =
+                when {
+                    hour < 12 -> getString(R.string.main_greeting_morning)
+                    hour < 18 -> getString(R.string.main_greeting_afternoon)
+                    else -> getString(R.string.main_greeting_evening)
+                }
+        binding.tvTitle.text = greeting
+
+        lifecycleScope.launch {
+            val books = withContext(Dispatchers.IO) { bookRepository.getAllBooksSync() }
+            binding.tvStatBooksValue.text = books.size.toString()
+
+            var completed = 0
+            var totalProgress = 0f
+            var progressCount = 0
+            for (book in books) {
+                val locator =
+                        my.hinoki.booxreader.reader.LocatorJsonHelper.fromJson(book.lastLocatorJson)
+                val p =
+                        locator?.locations?.totalProgression
+                                ?: locator?.locations?.progression
+                                ?: 0.0
+                if (p > 0 && p <= 1.0) {
+                    totalProgress += p.toFloat()
+                    progressCount++
+                    if (p >= 0.99) completed++
+                }
+            }
+            binding.tvStatCompletedValue.text = completed.toString()
+            val avg = if (progressCount > 0) (totalProgress / progressCount * 100).toInt() else 0
+            binding.tvStatProgressValue.text = getString(R.string.main_stat_percent_format, avg)
+        }
+    }
+
+    private fun applyFabInsets() {
+        val fab = binding.btnOpenEpub
+        val baseBottom = fab.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(fab) { view, insets ->
+            val bottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.updatePadding(bottom = baseBottom + bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(fab)
     }
 
     private fun loadRecentBooks() {

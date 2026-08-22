@@ -88,6 +88,11 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
         return bookDao.getRecent(limit).first()
     }
 
+    /** 取得全部未刪除的書（用於首頁統計） */
+    suspend fun getAllBooksSync(): List<BookEntity> {
+        return bookDao.getAllBooks()
+    }
+
     suspend fun deleteBook(bookId: String) {
         // 1. Notify cloud (Soft Delete)
         // If success -> Delete locally (Hard)

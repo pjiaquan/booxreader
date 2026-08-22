@@ -1,5 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- =====================================================================
+         BooxReader Design System — Night Palette (Material 3 semantics)
+         ===================================================================== -->
+
+    <!-- Brand / Primary (blue identity, lightened for dark surfaces) -->
+    <color name="primary">#64B5FF</color>
+    <color name="primary_variant">#7CC0FF</color>
+    <color name="on_primary">#003258</color>
+    <color name="primary_container">#00497E</color>
+    <color name="on_primary_container">#D3E7FF</color>
+
+    <!-- Secondary -->
+    <color name="secondary">#B3C8DC</color>
+    <color name="secondary_variant">#98AFC5</color>
+    <color name="on_secondary">#243140</color>
+    <color name="secondary_container">#3B4857</color>
+    <color name="on_secondary_container">#DAE9F9</color>
+
+    <!-- Tertiary -->
+    <color name="tertiary">#FFC46B</color>
+    <color name="on_tertiary">#4A3100</color>
+    <color name="tertiary_container">#6B4700</color>
+    <color name="on_tertiary_container">#FFDEA6</color>
+
+    <!-- Background / Surface -->
+    <color name="background">#0F1115</color>
+    <color name="on_background">#E2E6EC</color>
+    <color name="surface">#15171C</color>
+    <color name="on_surface">#E2E6EC</color>
+    <color name="surface_variant">#33383F</color>
+    <color name="on_surface_variant">#B9C2CC</color>
+    <color name="surface_container_lowest">#101217</color>
+    <color name="surface_container_low">#1B1E24</color>
+    <color name="surface_container">#20232A</color>
+    <color name="surface_container_high">#272B32</color>
+    <color name="surface_container_highest">#2E333B</color>
+
+    <!-- Outline -->
+    <color name="outline">#8E97A2</color>
+    <color name="outline_variant">#3E454E</color>
+
+    <!-- Error / Success -->
+    <color name="error">#FFB4AB</color>
+    <color name="on_error">#690005</color>
+    <color name="error_container">#93000A</color>
+    <color name="on_error_container">#FFDAD6</color>
+    <color name="success">#81C995</color>
+    <color name="on_success">#0B3D12</color>
+    <color name="success_container">#1B3A23</color>
+    <color name="on_success_container">#C8E6C9</color>
+
+    <!-- =====================================================================
+         Legacy colors (kept for compatibility with existing layouts/code)
+         ===================================================================== -->
+
     <!-- Recent Book Item Colors (Night) -->
     <color name="recent_book_title">#FFFFFF</color>
     <color name="recent_book_secondary">#BDBDBD</color>
