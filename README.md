@@ -2,6 +2,7 @@
 
 Private EPUB reader for Android with resilient cloud sync and AI-linked notes, tuned for e-ink devices (Boox).
 
+[Website](https://pjiaquan.github.io/booxreader/) ·
 [GitHub Releases (APK)](https://github.com/pjiaquan/booxreader/releases) ·
 [Privacy Policy](docs/privacy.html)
 
