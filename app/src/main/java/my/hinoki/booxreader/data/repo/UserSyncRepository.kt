@@ -7,7 +7,6 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.room.withTransaction
-import androidx.room.withTransaction
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
@@ -21,8 +20,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import my.hinoki.booxreader.data.db.BookProgressUpdate
 import kotlinx.coroutines.coroutineScope
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.core.CrashReport
@@ -2155,7 +2153,7 @@ class UserSyncRepository(
                                         cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
                                 }
 
-                                val updates = mutableListOf<my.hinoki.booxreader.data.db.BookProgressUpdate>()
+                                val updates = mutableListOf<BookProgressUpdate>()
                                 for (item in items) {
                                         val bookId = item["bookId"] as? String ?: continue
                                         val locatorJson = item["locatorJson"] as? String ?: continue
@@ -2173,7 +2171,7 @@ class UserSyncRepository(
                                                 continue
                                         }
                                         val mergedTime = maxOf(localBook.lastOpenedAt, remoteUpdatedAt)
-                                        updates.add(my.hinoki.booxreader.data.db.BookProgressUpdate(bookId, locatorJson, mergedTime))
+                                        updates.add(BookProgressUpdate(bookId, locatorJson, mergedTime))
 
                                         cachedBooks[bookId] = localBook.copy(
                                                 lastLocatorJson = locatorJson,
