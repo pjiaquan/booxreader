@@ -23,3 +23,8 @@
 **Learning:** Always apply a global `base-config` deny-by-default for cleartext traffic as a defense-in-depth measure.
 **Prevention:** Ensure `network_security_config.xml` includes `<base-config cleartextTrafficPermitted="false" />`.
 ## 2026-08-19 - Proper Bearer Token Formatting\n**Vulnerability:** In `PocketBaseRealtimeClient.kt`, the raw access token was being sent in the `Authorization` header instead of the standard `Bearer <token>` format.\n**Learning:** While some specific backends may be forgiving, failing to use the standard `Bearer` prefix can cause authentication failures when interacting with strict reverse proxies, WAFs, or standard server implementations.\n**Prevention:** Always prepend `Bearer ` to access tokens in the `Authorization` header for standard OAuth2/JWT authentication schemes.\n
+
+## 2026-08-19 - Response Body Data Leakage in Logs
+**Vulnerability:** The application was logging raw HTTP response bodies and error bodies directly to Logcat via `Log.e` on authentication endpoints (e.g. `Login failed: $responseBody`). This is a critical security vulnerability as it can leak sensitive information like PII, stack traces, and session tokens to device logs accessible by other apps or debugging tools.
+**Learning:** Never log raw HTTP response bodies or error payloads from authentication or sensitive endpoints.
+**Prevention:** Always log generic error messages alongside the HTTP status code (e.g., `Login failed with code: ${response.code}`) to aid in debugging without exposing sensitive data.
