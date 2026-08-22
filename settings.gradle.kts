@@ -29,3 +29,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "booxreader"
 include(":app")
+include(":shared")

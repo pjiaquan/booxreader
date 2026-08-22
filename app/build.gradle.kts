@@ -208,6 +208,9 @@ tasks.register("incrementVersionCode") {
 }
 
 dependencies {
+    // --- Shared KMP module (pure data layer code) ---
+    implementation(project(":shared"))
+
     // --- Readium Kotlin Toolkit ---
     implementation(libs.readium.shared)
     implementation(libs.readium.streamer)
