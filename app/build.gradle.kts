@@ -218,10 +218,7 @@ dependencies {
     implementation(libs.readium.shared)
     implementation(libs.readium.streamer)
 
-    // --- Room ---
-    implementation(libs.androidx.room.runtime)
-    ksp(libs.androidx.room.compiler)
-    implementation(libs.androidx.room.ktx)
+    // Room 已移至 :shared KMP 模組（此處由 :shared androidMain 傳遞提供）
 
     // --- Lifecycle ---
     implementation(libs.androidx.lifecycle.viewmodel.ktx)

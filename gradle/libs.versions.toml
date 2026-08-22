@@ -11,7 +11,7 @@ lifecycle = "2.6.2"
 activityCompose = "1.8.0"
 composeBom = "2024.04.01"
 readium = "3.1.2"
-room = "2.7.0-rc01"
+room = "2.8.4"
 okhttp = "4.12.0"
 gson = "2.10.1"
 material = "1.12.0"
@@ -31,6 +31,7 @@ uiautomator = "2.3.0"
 kotlinxSerialization = "1.7.3"
 coroutines = "1.8.1"
 ktor = "3.0.3"
+sqlite = "2.6.2"
 
 [libraries]
 androidx-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
@@ -85,6 +86,8 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-darwin = { group = "io.ktor", name = "ktor-client-darwin", version.ref = "ktor" }
+androidx-sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version.ref = "sqlite" }
+androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

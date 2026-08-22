@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.db.initBooxReaderDatabase
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -34,6 +35,7 @@ class UserSyncRepositoryAiNoteSyncTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        initBooxReaderDatabase(context)
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
 
         tokenManager = Mockito.mock(my.hinoki.booxreader.data.prefs.TokenManager::class.java)
@@ -53,7 +55,7 @@ class UserSyncRepositoryAiNoteSyncTest {
 
     @Test
     fun `pullNotes batch inserts new notes and updates only newer remote notes`() = runBlocking {
-        val db = AppDatabase.get(context)
+        val db = AppDatabase.get()
         val dao = db.aiNoteDao()
         dao.deleteAll()
 

@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.db.initBooxReaderDatabase
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
@@ -36,6 +37,7 @@ class UserSyncRepositoryPerformanceTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        initBooxReaderDatabase(context)
 
         mockWebServer = MockWebServer()
 
@@ -71,7 +73,7 @@ class UserSyncRepositoryPerformanceTest {
 
     @Test
     fun testPushAllLocalProgressPerformance() = runBlocking {
-        val realDb = AppDatabase.get(context)
+        val realDb = AppDatabase.get()
         realDb.bookDao().deleteAll() // clean up
 
         for (i in 1..20) {

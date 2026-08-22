@@ -14,7 +14,7 @@ import org.readium.r2.shared.util.mediatype.MediaType
 
 class BookRepository(private val context: Context, private val syncRepo: UserSyncRepository? = null) {
 
-    private val bookDao = AppDatabase.get(context).bookDao()
+    private val bookDao = AppDatabase.get().bookDao()
 
     suspend fun getBook(bookId: String): BookEntity? {
         return bookDao.getById(bookId)

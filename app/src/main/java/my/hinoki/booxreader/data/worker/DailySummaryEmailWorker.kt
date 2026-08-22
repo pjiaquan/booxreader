@@ -44,7 +44,7 @@ class DailySummaryEmailWorker(
 
         val userEmail =
                 runCatching {
-                            AppDatabase.get(applicationContext)
+                            AppDatabase.get()
                                     .userDao()
                                     .getUser()
                                     .first()

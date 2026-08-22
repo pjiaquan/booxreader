@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.db.initBooxReaderDatabase
 
 import android.content.Context
 import android.net.Uri
@@ -34,6 +35,7 @@ class UserSyncRepositoryBookSyncTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        initBooxReaderDatabase(context)
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
 
         tokenManager = Mockito.mock(my.hinoki.booxreader.data.prefs.TokenManager::class.java)
@@ -275,7 +277,7 @@ class UserSyncRepositoryBookSyncTest {
     fun `pullProgress writes remote locator into local book`() = runBlocking {
         val bookId = "book_progress_1"
         val remoteLocator = """{"locations":{"progression":0.64}}"""
-        AppDatabase.get(context)
+        AppDatabase.get()
                 .bookDao()
                 .insert(
                         BookEntity(
@@ -316,7 +318,7 @@ class UserSyncRepositoryBookSyncTest {
         setCachedUserId(repo, "user_1")
 
         val pulled = repo.pullProgress(bookId)
-        val local = AppDatabase.get(context).bookDao().getByIds(listOf(bookId)).firstOrNull()
+        val local = AppDatabase.get().bookDao().getByIds(listOf(bookId)).firstOrNull()
 
         assertEquals(remoteLocator, pulled)
         assertEquals(remoteLocator, local?.lastLocatorJson)
@@ -331,7 +333,7 @@ class UserSyncRepositoryBookSyncTest {
         val remoteLocatorMissing = """{"locations":{"progression":0.5}}"""
         val remoteLocatorStale = """{"locations":{"progression":0.2}}"""
 
-        val dao = AppDatabase.get(context).bookDao()
+        val dao = AppDatabase.get().bookDao()
         dao.insert(
                 BookEntity(
                         bookId = newerLocalBookId,

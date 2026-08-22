@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.db.initBooxReaderDatabase
 
 import android.content.Context
 import androidx.room.Room
@@ -29,6 +30,7 @@ class PullBooksBenchmarkTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        initBooxReaderDatabase(context)
         server = MockWebServer()
         server.start()
 
@@ -74,7 +76,7 @@ class PullBooksBenchmarkTest {
         field.set(repo, "user_1")
 
         // Pre-insert books in local db
-        val db = AppDatabase.get(context)
+        val db = AppDatabase.get()
         for (i in 1..numBooks) {
             db.bookDao().insert(BookEntity(
                 bookId = "book_$i",

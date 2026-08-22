@@ -736,7 +736,7 @@ class ReaderActivity : BaseActivity() {
             val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)))
             val recipientEmail =
                     runCatching {
-                                AppDatabase.get(applicationContext)
+                                AppDatabase.get()
                                         .userDao()
                                         .getUser()
                                         .first()

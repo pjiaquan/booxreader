@@ -81,7 +81,7 @@ class AiProfileEditActivity : BaseActivity() {
     private fun loadProfile(id: Long) {
         lifecycleScope.launch {
             // We need a direct way to get profile by ID in repo, or access DAO directly for now via DB
-            val db = my.hinoki.booxreader.data.db.AppDatabase.get(applicationContext)
+            val db = my.hinoki.booxreader.data.db.AppDatabase.get()
             val profile = db.aiProfileDao().getById(id)
             
             profile?.let { p ->
@@ -145,7 +145,7 @@ class AiProfileEditActivity : BaseActivity() {
             if (currentProfileId != -1L) {
                 // Update existing
                 // Need to fetch original entity to preserve ID and remoteID
-                val db = my.hinoki.booxreader.data.db.AppDatabase.get(applicationContext)
+                val db = my.hinoki.booxreader.data.db.AppDatabase.get()
                 val original = db.aiProfileDao().getById(currentProfileId) ?: return@launch
                 
                 val updated = original.copy(

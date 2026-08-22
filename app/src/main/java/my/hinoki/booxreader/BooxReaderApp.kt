@@ -48,6 +48,9 @@ class BooxReaderApp : Application() {
         // Install crash handler first (before any other initialization)
         CrashReportHandler.install(this)
 
+        // Initialize the shared Room database context (androidMain)
+        my.hinoki.booxreader.data.db.initBooxReaderDatabase(this)
+
         tokenManager = TokenManager(this)
 
         okHttpClient =

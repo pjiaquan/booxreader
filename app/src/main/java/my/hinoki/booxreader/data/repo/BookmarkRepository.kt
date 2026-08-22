@@ -21,7 +21,7 @@ class BookmarkRepository(
     private val syncRepo: UserSyncRepository? = null
 ) {
 
-    private val db = AppDatabase.get(context)
+    private val db = AppDatabase.get()
     private val dao = db.bookmarkDao()
 
     private fun getBaseUrl(context: Context): String {

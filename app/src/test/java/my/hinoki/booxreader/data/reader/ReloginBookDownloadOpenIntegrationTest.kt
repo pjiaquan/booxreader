@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.reader
+import my.hinoki.booxreader.data.db.initBooxReaderDatabase
 
 import android.app.Application
 import android.content.Context
@@ -54,12 +55,13 @@ class ReloginBookDownloadOpenIntegrationTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        initBooxReaderDatabase(context)
         app = context as Application
         Dispatchers.setMain(testDispatcher)
 
         context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE).edit().clear().commit()
-        runBlocking { withContext(Dispatchers.IO) { AppDatabase.get(context).clearAllTables() } }
+        runBlocking { withContext(Dispatchers.IO) { AppDatabase.get().clearAllTables() } }
         File(context.filesDir, "synced_books").deleteRecursively()
 
         tokenManager = Mockito.mock(my.hinoki.booxreader.data.prefs.TokenManager::class.java)
@@ -75,7 +77,7 @@ class ReloginBookDownloadOpenIntegrationTest {
             server.shutdown()
         }
         if (this::context.isInitialized) {
-            runBlocking { withContext(Dispatchers.IO) { AppDatabase.get(context).clearAllTables() } }
+            runBlocking { withContext(Dispatchers.IO) { AppDatabase.get().clearAllTables() } }
         }
         Dispatchers.resetMain()
     }
@@ -120,7 +122,7 @@ class ReloginBookDownloadOpenIntegrationTest {
         setCachedUserId(syncRepo, "user_1")
 
         // Simulate post-login state on another device: metadata exists locally, file does not.
-        AppDatabase.get(context)
+        AppDatabase.get()
                 .bookDao()
                 .insert(
                         BookEntity(
@@ -146,7 +148,7 @@ class ReloginBookDownloadOpenIntegrationTest {
         assertTrue(File(downloadedUri.path!!).exists())
         assertTrue(File(downloadedUri.path!!).length() > 0L)
 
-        val persistedBook = AppDatabase.get(context).bookDao().getByIds(listOf(bookId)).firstOrNull()
+        val persistedBook = AppDatabase.get().bookDao().getByIds(listOf(bookId)).firstOrNull()
         assertNotNull(persistedBook)
         assertTrue(persistedBook!!.fileUri.startsWith("file://"))
 

@@ -1,4 +1,5 @@
 package my.hinoki.booxreader.data.repo
+import my.hinoki.booxreader.data.db.initBooxReaderDatabase
 import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
 import android.content.Context
@@ -30,6 +31,7 @@ class AiProfileRepositoryTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        initBooxReaderDatabase(context)
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
 
         syncRepo = Mockito.mock(UserSyncRepository::class.java)
@@ -43,7 +45,7 @@ class AiProfileRepositoryTest {
 
     @Test
     fun ensureDefaultProfile_createsDefaultWhenEmpty() = runBlocking {
-        val db = AppDatabase.get(context)
+        val db = AppDatabase.get()
         db.aiProfileDao().deleteAll()
 
         val created = repository.ensureDefaultProfile()
@@ -61,7 +63,7 @@ class AiProfileRepositoryTest {
 
     @Test
     fun ensureDefaultProfile_doesNotCreateWhenProfilesExist() = runBlocking {
-        val db = AppDatabase.get(context)
+        val db = AppDatabase.get()
         val dao = db.aiProfileDao()
         dao.deleteAll()
 
@@ -86,7 +88,7 @@ class AiProfileRepositoryTest {
 
     @Test
     fun applyProfile_updatesSettingsAndPushesToSyncRepo() = runBlocking {
-        val db = AppDatabase.get(context)
+        val db = AppDatabase.get()
         val dao = db.aiProfileDao()
         dao.deleteAll()
 

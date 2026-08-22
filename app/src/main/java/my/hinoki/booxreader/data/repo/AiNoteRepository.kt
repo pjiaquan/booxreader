@@ -47,8 +47,8 @@ class AiNoteRepository(
     )
 
     private val TAG = "AiNoteRepository"
-    private val dao = AppDatabase.get(context).aiNoteDao()
-    private val bookDao = AppDatabase.get(context).bookDao()
+    private val dao = AppDatabase.get().aiNoteDao()
+    private val bookDao = AppDatabase.get().bookDao()
 
     var lastStreamingError: my.hinoki.booxreader.data.remote.StreamingErrorInfo? = null
 
@@ -376,7 +376,7 @@ class AiNoteRepository(
             withContext(Dispatchers.IO) {
                 val activeProfileId = prefs().getLong("active_ai_profile_id", -1L)
                 if (activeProfileId <= 0L) return@withContext null
-                val profile = AppDatabase.get(context).aiProfileDao().getById(activeProfileId)
+                val profile = AppDatabase.get().aiProfileDao().getById(activeProfileId)
                 return@withContext parseExtraParamsJson(profile?.extraParamsJson)
             }
 
@@ -1225,8 +1225,9 @@ class AiNoteRepository(
                 val idsToDelete = mutableListOf<Long>()
 
                 for (note in notes) {
-                    if (!note.remoteId.isNullOrBlank()) {
-                        val deletedRemote = syncRepo?.deleteAiNote(note.remoteId) ?: true
+                    val noteRemoteId = note.remoteId
+                    if (!noteRemoteId.isNullOrBlank()) {
+                        val deletedRemote = syncRepo?.deleteAiNote(noteRemoteId) ?: true
                         if (!deletedRemote) {
                             failedCount++
                             continue

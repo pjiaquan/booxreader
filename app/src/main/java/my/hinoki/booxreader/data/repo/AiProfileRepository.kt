@@ -13,7 +13,7 @@ import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.settings.ReaderSettings
 
 class AiProfileRepository(private val context: Context, private val syncRepo: UserSyncRepository) {
-    private val db = AppDatabase.get(context)
+    private val db = AppDatabase.get()
     private val dao = db.aiProfileDao()
     private val prefs =
             context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
@@ -136,8 +136,9 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
 
     suspend fun deleteProfile(profile: AiProfileEntity): Boolean =
             withContext(Dispatchers.IO) {
-                if (!profile.remoteId.isNullOrBlank()) {
-                    val deletedRemote = syncRepo.deleteAiProfile(profile.remoteId)
+                val profileRemoteId = profile.remoteId
+                if (!profileRemoteId.isNullOrBlank()) {
+                    val deletedRemote = syncRepo.deleteAiProfile(profileRemoteId)
                     if (!deletedRemote) {
                         return@withContext false
                     }

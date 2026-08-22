@@ -29,7 +29,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Handles user authentication via PocketBase REST API. */
 class AuthRepository(private val context: Context, private val tokenManager: TokenManager) {
-        private val userDao = AppDatabase.get(context).userDao()
+        private val userDao = AppDatabase.get().userDao()
         private val gson = Gson()
         private val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
 

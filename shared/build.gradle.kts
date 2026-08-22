@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.android.library)
+    alias(libs.plugins.google.devtools.ksp)
 }
 
 kotlin {
@@ -29,16 +30,26 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
             implementation(libs.ktor.client.core)
+            // Room API 以 api 暴露，供 :app 的 repos 直接使用（RoomDatabase、withTransaction 等）
+            api(libs.androidx.room.runtime)
+            api(libs.androidx.room.ktx)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.sqlite.framework)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.androidx.sqlite.bundled)
         }
     }
+}
+
+dependencies {
+    // Room KMP: KSP processes commonMain metadata + Android target
+    add("kspCommonMainMetadata", libs.androidx.room.compiler)
+    add("kspAndroid", libs.androidx.room.compiler)
 }
 
 android {

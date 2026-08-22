@@ -933,14 +933,16 @@ class AiNoteDetailActivity : BaseActivity() {
                 getString(R.string.ai_note_model_info_format, settings.aiModelName)
         binding.tvAiDisclaimer.text = getString(R.string.ai_note_model_disclaimer)
 
-        if (!note.locatorJson.isNullOrBlank() && !note.bookId.isNullOrBlank()) {
+        val noteBookId = note.bookId
+        val noteLocatorJson = note.locatorJson
+        if (!noteLocatorJson.isNullOrBlank() && !noteBookId.isNullOrBlank()) {
             binding.btnGoToPage.visibility = View.VISIBLE
             binding.btnGoToPage.setOnClickListener {
                 my.hinoki.booxreader.ui.reader.ReaderActivity.open(
                         this@AiNoteDetailActivity,
-                        note.bookId,
+                        noteBookId,
                         note.bookTitle,
-                        note.locatorJson
+                        noteLocatorJson
                 )
             }
         } else {

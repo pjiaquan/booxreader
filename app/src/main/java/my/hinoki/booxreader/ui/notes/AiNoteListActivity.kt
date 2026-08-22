@@ -643,7 +643,7 @@ class AiNoteListActivity : BaseActivity() {
                     ))
             val recipientEmail =
                     runCatching {
-                                AppDatabase.get(applicationContext)
+                                AppDatabase.get()
                                         .userDao()
                                         .getUser()
                                         .first()

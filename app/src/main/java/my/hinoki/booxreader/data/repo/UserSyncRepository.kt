@@ -82,7 +82,7 @@ class UserSyncRepository(
                 context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
         private val syncPrefs: SharedPreferences =
                 context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
-        private val db = AppDatabase.get(context)
+        private val db = AppDatabase.get()
         private val io = Dispatchers.IO
         private val tokenManager = tokenManager ?: TokenManager(appContext)
         private val gson = Gson()
