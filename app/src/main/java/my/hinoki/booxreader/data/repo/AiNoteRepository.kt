@@ -1064,7 +1064,7 @@ class AiNoteRepository(
                             }
                         } else {
                             val errorBody = response.body?.string()
-                            Log.e(TAG, "AI Request Failed: Code=${response.code}, Body=$errorBody")
+                            Log.e(TAG, "AI Request Failed: Code=${response.code}")
                             null
                         }
                     }
@@ -1859,7 +1859,7 @@ class AiNoteRepository(
                                     lastStreamingError = my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(response.code, errorBody)
                                     Log.e(
                                             TAG,
-                                            "Streaming Request Failed: Code=${response.code}, Body=$errorBody"
+                                            "Streaming Request Failed: Code=${response.code}"
                                     )
                                     return@withContext null
                                 }
