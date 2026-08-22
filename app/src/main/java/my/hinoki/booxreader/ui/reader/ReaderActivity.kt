@@ -36,7 +36,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.google.gson.Gson
 import kotlin.OptIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview

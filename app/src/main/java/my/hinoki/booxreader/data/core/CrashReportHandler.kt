@@ -4,9 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import my.hinoki.booxreader.BuildConfig
 
 /**
@@ -22,7 +24,7 @@ class CrashReportHandler private constructor(private val context: Context) :
     private val prefs: SharedPreferences =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    private val gson = Gson()
+    private val json = Json { ignoreUnknownKeys = true }
 
     override fun uncaughtException(thread: Thread, throwable: Throwable) {
         try {
@@ -86,14 +88,13 @@ class CrashReportHandler private constructor(private val context: Context) :
         // Keep max 10 crash reports to avoid storage bloat
         val trimmed = existing.takeLast(MAX_REPORTS)
 
-        prefs.edit().putString(KEY_PENDING_REPORTS, gson.toJson(trimmed)).apply()
+        prefs.edit().putString(KEY_PENDING_REPORTS, json.encodeToString(trimmed)).apply()
     }
 
     fun getPendingReports(): List<CrashReport> {
-        val json = prefs.getString(KEY_PENDING_REPORTS, null) ?: return emptyList()
+        val stored = prefs.getString(KEY_PENDING_REPORTS, null) ?: return emptyList()
         return try {
-            val type = object : TypeToken<List<CrashReport>>() {}.type
-            gson.fromJson(json, type) ?: emptyList()
+            json.decodeFromString<List<CrashReport>>(stored) ?: emptyList()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse pending reports", e)
             emptyList()
@@ -107,7 +108,7 @@ class CrashReportHandler private constructor(private val context: Context) :
     fun markReportAsUploaded(createdAt: Long) {
         val existing = getPendingReports().toMutableList()
         existing.removeAll { it.createdAt == createdAt }
-        prefs.edit().putString(KEY_PENDING_REPORTS, gson.toJson(existing)).apply()
+        prefs.edit().putString(KEY_PENDING_REPORTS, json.encodeToString(existing)).apply()
     }
 
     companion object {
@@ -134,14 +135,15 @@ class CrashReportHandler private constructor(private val context: Context) :
 }
 
 /** Data class representing a crash report. */
+@Serializable
 data class CrashReport(
-        @SerializedName("app_version") val appVersion: String,
-        @SerializedName("version_code") val versionCode: Int,
-        @SerializedName("os_version") val osVersion: String,
-        @SerializedName("device_model") val deviceModel: String,
-        @SerializedName("device_manufacturer") val deviceManufacturer: String,
-        @SerializedName("stacktrace") val stacktrace: String,
-        @SerializedName("message") val message: String?,
-        @SerializedName("thread_name") val threadName: String,
-        @SerializedName("created_at") val createdAt: Long
+        @SerialName("app_version") val appVersion: String,
+        @SerialName("version_code") val versionCode: Int,
+        @SerialName("os_version") val osVersion: String,
+        @SerialName("device_model") val deviceModel: String,
+        @SerialName("device_manufacturer") val deviceManufacturer: String,
+        @SerialName("stacktrace") val stacktrace: String,
+        @SerialName("message") val message: String? = null,
+        @SerialName("thread_name") val threadName: String,
+        @SerialName("created_at") val createdAt: Long
 )

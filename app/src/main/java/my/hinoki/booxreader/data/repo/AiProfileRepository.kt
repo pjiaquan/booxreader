@@ -4,10 +4,17 @@ import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
-import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -17,7 +24,6 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
     private val dao = db.aiProfileDao()
     private val prefs =
             context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
-    private val gson = Gson()
     private val defaultGenerator = AiProfileDefaultGenerator()
 
     val allProfiles: LiveData<List<AiProfileEntity>> =
@@ -34,11 +40,10 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
             withContext(Dispatchers.IO) {
                 try {
                     // Check if JSON is a valid profile structure
-                    // We use a temporary data class or Map to validate basic fields
-                    val profileMap = gson.fromJson(jsonString, Map::class.java)
+                    val json = Json.parseToJsonElement(jsonString).jsonObject
 
                     val name =
-                            profileMap["name"] as? String
+                            json.optString("name")
                                     ?: context.getString(
                                             my.hinoki
                                                     .booxreader
@@ -46,18 +51,19 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                                                     .string
                                                     .ai_profile_default_imported_name
                                     )
-                    val modelName = profileMap["modelName"] as? String ?: "deepseek-chat"
-                    val apiKey = profileMap["apiKey"] as? String ?: ""
-                    val serverBaseUrl = profileMap["serverBaseUrl"] as? String ?: ""
-                    val systemPrompt = profileMap["systemPrompt"] as? String ?: ""
-                    val userPromptTemplate = profileMap["userPromptTemplate"] as? String ?: "%s"
-                    val useStreaming = profileMap["useStreaming"] as? Boolean ?: false
-                    val enableGoogleSearch = profileMap["enableGoogleSearch"] as? Boolean ?: true
+                    val modelName = json.optString("modelName") ?: "deepseek-chat"
+                    val apiKey = json.optString("apiKey") ?: ""
+                    val serverBaseUrl = json.optString("serverBaseUrl") ?: ""
+                    val systemPrompt = json.optString("systemPrompt") ?: ""
+                    val userPromptTemplate = json.optString("userPromptTemplate") ?: "%s"
+                    val useStreaming = json["useStreaming"]?.jsonPrimitive?.booleanOrNull ?: false
+                    val enableGoogleSearch =
+                            json["enableGoogleSearch"]?.jsonPrimitive?.booleanOrNull ?: true
                     val extraParamsJson =
-                            profileMap["extraParamsJson"]?.let { value ->
+                            json["extraParamsJson"]?.let { value ->
                                 when (value) {
-                                    is String -> value
-                                    else -> gson.toJson(value)
+                                    is JsonPrimitive -> value.contentOrNull ?: value.toString()
+                                    else -> value.toString()
                                 }
                             }
 
@@ -69,18 +75,22 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                                     serverBaseUrl = serverBaseUrl,
                                     systemPrompt = systemPrompt,
                                     userPromptTemplate = userPromptTemplate,
-                                    assistantRole = profileMap["assistantRole"] as? String
-                                                    ?: "assistant",
+                                    assistantRole = json.optString("assistantRole") ?: "assistant",
                                     useStreaming = useStreaming,
                                     enableGoogleSearch = enableGoogleSearch,
                                     // Additional fields with defaults
-                                    temperature = (profileMap["temperature"] as? Double) ?: 0.7,
-                                    maxTokens = (profileMap["maxTokens"] as? Double)?.toInt()
+                                    temperature =
+                                            json["temperature"]?.jsonPrimitive?.doubleOrNull
+                                                    ?: 0.7,
+                                    maxTokens =
+                                            json["maxTokens"]?.jsonPrimitive?.doubleOrNull?.toInt()
                                                     ?: 4096,
-                                    topP = (profileMap["topP"] as? Double) ?: 1.0,
-                                    frequencyPenalty = (profileMap["frequencyPenalty"] as? Double)
+                                    topP = json["topP"]?.jsonPrimitive?.doubleOrNull ?: 1.0,
+                                    frequencyPenalty =
+                                            json["frequencyPenalty"]?.jsonPrimitive?.doubleOrNull
                                                     ?: 0.0,
-                                    presencePenalty = (profileMap["presencePenalty"] as? Double)
+                                    presencePenalty =
+                                            json["presencePenalty"]?.jsonPrimitive?.doubleOrNull
                                                     ?: 0.0,
                                     extraParamsJson = extraParamsJson
                             )
@@ -250,3 +260,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
         applyProfile(onlyProfile.id)
     }
 }
+
+/** 安全讀取 JsonObject 欄位：非字串或缺失回傳 null（對應 Gson 的 `as? String`）。 */
+private fun JsonObject.optString(name: String): String? =
+        (this[name] as? JsonPrimitive)?.contentOrNull

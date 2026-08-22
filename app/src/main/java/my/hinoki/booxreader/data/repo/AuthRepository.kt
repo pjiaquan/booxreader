@@ -4,8 +4,10 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLEncoder
@@ -30,7 +32,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 /** Handles user authentication via PocketBase REST API. */
 class AuthRepository(private val context: Context, private val tokenManager: TokenManager) {
         private val userDao = AppDatabase.get().userDao()
-        private val gson = Gson()
+        private val json = Json { ignoreUnknownKeys = true }
         private val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
 
         private val httpClient =
@@ -44,12 +46,8 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                 withContext(Dispatchers.IO) {
                         runCatching {
                                 val requestBody =
-                                        gson.toJson(
-                                                        mapOf(
-                                                                "identity" to email,
-                                                                "password" to password
-                                                        )
-                                                )
+                                        jsonBody("identity" to email,
+                                                                "password" to password)
                                                 .toRequestBody("application/json".toMediaType())
 
                                 val request =
@@ -69,10 +67,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 }
 
                                 val authData =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseAuthResponse::class.java
-                                        )
+                                        json.decodeFromString<PocketBaseAuthResponse>(responseBody)
                                 val record =
                                         authData.record
                                                 ?: throw Exception("No user record in response")
@@ -99,14 +94,10 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                 withContext(Dispatchers.IO) {
                         runCatching {
                                 val requestBody =
-                                        gson.toJson(
-                                                        mapOf(
-                                                                "email" to email,
+                                        jsonBody("email" to email,
                                                                 "password" to password,
                                                                 "passwordConfirm" to password,
-                                                                "name" to (name ?: "")
-                                                        )
-                                                )
+                                                                "name" to (name ?: ""))
                                                 .toRequestBody("application/json".toMediaType())
 
                                 val request =
@@ -170,7 +161,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                 withContext(Dispatchers.IO) {
                         runCatching {
                                 val requestBody =
-                                        gson.toJson(mapOf("email" to email))
+                                        jsonBody("email" to email)
                                                 .toRequestBody("application/json".toMediaType())
 
                                 val request =
@@ -200,7 +191,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                 withContext(Dispatchers.IO) {
                         runCatching {
                                 val requestBody =
-                                        gson.toJson(mapOf("email" to email))
+                                        jsonBody("email" to email)
                                                 .toRequestBody("application/json".toMediaType())
 
                                 val request =
@@ -256,7 +247,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
 
                                 if (avatarUri == null) {
                                         val requestBody =
-                                                gson.toJson(mapOf("name" to trimmedName))
+                                                jsonBody("name" to trimmedName)
                                                         .toRequestBody(
                                                                 "application/json".toMediaType()
                                                         )
@@ -324,13 +315,9 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                                 ?: throw Exception("Not authenticated")
 
                                 val requestBody =
-                                        gson.toJson(
-                                                        mapOf(
-                                                                "oldPassword" to currentPassword,
+                                        jsonBody("oldPassword" to currentPassword,
                                                                 "password" to newPassword,
-                                                                "passwordConfirm" to newPassword
-                                                        )
-                                                )
+                                                                "passwordConfirm" to newPassword)
                                                 .toRequestBody("application/json".toMediaType())
                                 val request =
                                         Request.Builder()
@@ -396,10 +383,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         }
 
                                         val authData =
-                                                gson.fromJson(
-                                                        responseBody,
-                                                        PocketBaseAuthResponse::class.java
-                                                )
+                                                json.decodeFromString<PocketBaseAuthResponse>(responseBody)
                                         val record = authData.record ?: return@runCatching null
                                         tokenManager.saveAccessToken(authData.token)
 
@@ -427,7 +411,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 throw Exception("Profile update failed: ${response.code}")
                         }
                         val record =
-                                gson.fromJson(responseBody, PocketBaseUserRecord::class.java)
+                                json.decodeFromString<PocketBaseUserRecord>(responseBody)
                                         ?: throw Exception("Invalid profile update response")
                         val fallbackEmail = userDao.getUser().first()?.email.orEmpty()
                         val user =
@@ -517,15 +501,23 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
 }
 
 // Response data classes for PocketBase API
+@kotlinx.serialization.Serializable
 private data class PocketBaseAuthResponse(
-        @SerializedName("token") val token: String,
-        @SerializedName("record") val record: PocketBaseUserRecord?
+        @kotlinx.serialization.SerialName("token") val token: String,
+        @kotlinx.serialization.SerialName("record") val record: PocketBaseUserRecord?
 )
 
+@kotlinx.serialization.Serializable
 private data class PocketBaseUserRecord(
-        @SerializedName("id") val id: String,
-        @SerializedName("email") val email: String?,
-        @SerializedName("name") val name: String?,
-        @SerializedName("avatar") val avatar: String?,
-        @SerializedName("verified") val verified: Boolean = false
+        @kotlinx.serialization.SerialName("id") val id: String,
+        @kotlinx.serialization.SerialName("email") val email: String?,
+        @kotlinx.serialization.SerialName("name") val name: String?,
+        @kotlinx.serialization.SerialName("avatar") val avatar: String?,
+        @kotlinx.serialization.SerialName("verified") val verified: Boolean = false
 )
+
+
+/** Build a JSON body from string pairs (replaces Gson mapOf toJson). */
+private fun jsonBody(vararg pairs: Pair<String, String>): String =
+        buildJsonObject { pairs.forEach { (k, v) -> put(k, v) } }.toString()
+

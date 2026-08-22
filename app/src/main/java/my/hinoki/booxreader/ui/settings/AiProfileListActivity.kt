@@ -17,8 +17,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
-import com.google.gson.Gson
-import com.google.gson.JsonParser
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import my.hinoki.booxreader.ui.common.BaseActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -47,7 +50,6 @@ class AiProfileListActivity : BaseActivity() {
     private lateinit var binding: ActivityAiProfileListBinding
     private lateinit var repository: AiProfileRepository
     private val adapter = ProfileAdapter()
-    private val gson = Gson()
     private var listTextColor: Int = Color.BLACK
     private var listSecondaryTextColor: Int = Color.DKGRAY
     private var listBackgroundColor: Int = Color.WHITE
@@ -513,25 +515,25 @@ class AiProfileListActivity : BaseActivity() {
 
     private fun buildExportJson(profile: AiProfileEntity): String {
         val extra = profile.extraParamsJson?.takeIf { it.isNotBlank() }
-        val extraElement = extra?.let { runCatching { JsonParser.parseString(it) }.getOrNull() }
-        val payload = linkedMapOf(
-            "name" to profile.name,
-            "modelName" to profile.modelName,
-            "apiKey" to profile.apiKey,
-            "serverBaseUrl" to profile.serverBaseUrl,
-            "systemPrompt" to profile.systemPrompt,
-            "userPromptTemplate" to profile.userPromptTemplate,
-            "useStreaming" to profile.useStreaming,
-            "temperature" to profile.temperature,
-            "maxTokens" to profile.maxTokens,
-            "topP" to profile.topP,
-            "frequencyPenalty" to profile.frequencyPenalty,
-            "presencePenalty" to profile.presencePenalty,
-            "assistantRole" to profile.assistantRole,
-            "enableGoogleSearch" to profile.enableGoogleSearch,
-            "extraParamsJson" to (extraElement ?: extra)
-        )
-        return gson.toJson(payload)
+        val extraElement = extra?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }
+        val payload = buildJsonObject {
+            put("name", profile.name)
+            put("modelName", profile.modelName)
+            put("apiKey", profile.apiKey)
+            put("serverBaseUrl", profile.serverBaseUrl)
+            put("systemPrompt", profile.systemPrompt)
+            put("userPromptTemplate", profile.userPromptTemplate)
+            put("useStreaming", profile.useStreaming)
+            put("temperature", profile.temperature)
+            put("maxTokens", profile.maxTokens)
+            put("topP", profile.topP)
+            put("frequencyPenalty", profile.frequencyPenalty)
+            put("presencePenalty", profile.presencePenalty)
+            put("assistantRole", profile.assistantRole)
+            put("enableGoogleSearch", profile.enableGoogleSearch)
+            put("extraParamsJson", extraElement ?: JsonPrimitive(extra) ?: JsonNull)
+        }
+        return payload.toString()
     }
 
     private fun buildExportFileName(name: String): String {
