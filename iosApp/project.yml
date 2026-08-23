@@ -6,6 +6,9 @@ options:
   deploymentTarget:
     iOS: "15.0"
   createIntermediateGroups: true
+  # 固定 Xcode 15 專案格式（macos-14 runner 為 Xcode 15.x）；
+  # 不設定的話最新 XcodeGen 會產生 Xcode 26 的 format 77，舊版 Xcode 無法開啟。
+  xcodeVersion: "15.0"
 settings:
   base:
     SWIFT_VERSION: "5.9"
