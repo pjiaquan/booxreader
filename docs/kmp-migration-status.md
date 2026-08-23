@@ -107,3 +107,23 @@
 - `clearPersistedBookUriPermissions`（登出時清除 Android 持久化 URI 授權）已刪除 → 登出後舊 URI grant 可能殘留
 - AiProfileRepository 的「Imported Profile」名稱由 string resource 改為常數字串
 - AiNoteRepository 本地匯出統一走 `PlatformFiles.writeDownloadsFile`（Android API 29+ 走 MediaStore Downloads；舊版權限檢查邏輯由 androidMain 封裝）
+
+## 7. Phase 4 完成狀態（iOS App 殼）
+
+### ✅ 已完成（Kotlin 部分已在 Linux 驗證；iOS 編譯/測試由 macOS CI 驗證）
+| 項目 | 內容 |
+|---|---|
+| **iosMain 平台依賴補齊** | `IosLogger`（NSLog）、`IosReporter`、`IosTokenProvider`（NSUserDefaults，預設後端 `https://pocket.risc-v.tw` 與 Android 一致）、`IosRepositories.kt`（createIosUserSyncRepository / createIosAuthRepository / createIosAiProfileRepository / createIosAiNoteRepository） |
+| **NSUserDefaultsStorage.clearAll 修正** | 原實作傳空字串 domain 無效；改為清除 app bundle domain |
+| **iosTest** | `PlatformFilesIosTest`（寫/讀/改名/刪除/快取/readFilePrefix/contentName/contentType round-trip）+ `NSUserDefaultsStorageTest`（型別 round-trip + clearAll）；由 `:shared:iosSimulatorArm64Test` 在 macOS 執行 |
+| **iosApp/ SwiftUI 殼** | XcodeGen `project.yml` + `iOSApp.swift` / `ContentView`（書庫/設定/個人三 Tab）/ `LibraryView`（shared Room DB 列書）/ `SettingsView`（後端 URL、手動同步、連線檢查）/ `ProfileView` / `SharedModule.swift`（suspend→async 橋接 + 依賴組裝）+ Info.plist + Assets |
+| **macOS CI** | `.github/workflows/ios-build.yml`：compileKotlinIos*（三 target）→ iosSimulatorArm64Test → xcodegen + xcodebuild（模擬器） |
+
+### ⚠️ 尚未驗證（需 macOS）
+- iosMain Kotlin 編譯、iosTest 執行、Swift 互操作（函式簽名/型別名稱）——全部由 GitHub Actions macOS runner 驗證；若 CI 報錯需在 macOS 修正
+- `AppDatabase.get()` 內的 `@androidx.annotation.VisibleForTesting` 在 iOS 編譯是否解析（androidx.annotation 為 KMP，預期可行）
+
+### 已知取捨（iOS 殼）
+- Token 儲存用 NSUserDefaults（正式版建議 Keychain）
+- 閱讀引擎（Readium Swift Toolkit）、登入/註冊 UI、書籍匯入、AI 筆記 UI 尚未實作（後續迭代）
+- `iosApp.xcodeproj` 為 XcodeGen 產生、不入庫（`.gitignore`）

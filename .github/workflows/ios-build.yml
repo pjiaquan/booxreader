@@ -1,0 +1,89 @@
+name: iOS Build
+
+# 在 macOS runner 上驗證 KMP iOS 端（Linux 無法編譯 iosMain）：
+# 1. :shared 三個 iOS target 編譯（驗證 iosMain 程式碼，含 Room KMP / PlatformFiles / IosTokenProvider 等）
+# 2. :shared iosSimulatorArm64Test（在 iOS 模擬器上跑 iosTest：PlatformFiles / NSUserDefaults round-trip）
+# 3. xcodegen 產生 Xcode 工程 + xcodebuild 建置 SwiftUI 殼（驗證 Shared framework 與 Swift 互操作）
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'shared/**'
+      - 'iosApp/**'
+      - '.github/workflows/ios-build.yml'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+  pull_request:
+    paths:
+      - 'shared/**'
+      - 'iosApp/**'
+      - '.github/workflows/ios-build.yml'
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK (compileSdk 35)
+        run: |
+          if [ -n "$ANDROID_HOME" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+            if [ ! -x "$SDKMANAGER" ]; then
+              SDKMANAGER="$(command -v sdkmanager || true)"
+            fi
+            if [ -n "$SDKMANAGER" ]; then
+              yes | "$SDKMANAGER" --licenses > /dev/null || true
+              "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" > /dev/null || true
+            fi
+          fi
+
+      - name: Compile Kotlin iOS targets
+        run: |
+          ./gradlew :shared:compileKotlinIosArm64 \
+                    :shared:compileKotlinIosSimulatorArm64 \
+                    :shared:compileKotlinIosX64 --no-daemon
+
+      - name: Run iOS simulator tests (iosTest)
+        run: |
+          ./gradlew :shared:iosSimulatorArm64Test --no-daemon
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec iosApp/project.yml
+
+      - name: Build iOS app for simulator
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: |
+            shared/build/reports/**
+            iosApp/iosApp.xcodeproj
+          if-no-files-found: ignore

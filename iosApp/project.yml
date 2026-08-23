@@ -1,0 +1,40 @@
+# XcodeGen 規格：產生 iosApp.xcodeproj
+# 使用方式（macOS）：brew install xcodegen && xcodegen generate --spec iosApp/project.yml
+name: iosApp
+options:
+  bundleIdPrefix: my.hinoki.booxreader
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    sources:
+      - iosApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: my.hinoki.booxreader.ios
+        PRODUCT_NAME: BooxReader
+        INFOPLIST_FILE: iosApp/Info.plist
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-framework"
+          - "Shared"
+        # embedAndSignAppleFrameworkForXcode 需要在 build phase 寫入 xcode-frameworks 目錄
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    preBuildScripts:
+      - name: Compile Kotlin Framework
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)/Shared.framework/Shared"

@@ -43,6 +43,9 @@ kotlin {
             implementation(libs.ktor.client.darwin)
             implementation(libs.androidx.sqlite.bundled)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }
 

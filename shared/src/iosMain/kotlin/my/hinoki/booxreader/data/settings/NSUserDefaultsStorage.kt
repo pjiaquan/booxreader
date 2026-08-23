@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.data.settings
 
+import platform.Foundation.NSBundle
 import platform.Foundation.NSUserDefaults
 
 /** iOS 的 KeyValueStorage 實作：NSUserDefaults（型別 1:1 對應）。 */
@@ -44,6 +45,7 @@ class NSUserDefaultsStorage(
     override fun contains(key: String): Boolean = defaults.objectForKey(key) != null
 
     override fun clearAll() {
-        defaults.removePersistentDomainForName(defaults.dictionaryRepresentation().let { "" })
+        val domain = NSBundle.mainBundle.bundleIdentifier ?: return
+        defaults.removePersistentDomainForName(domain)
     }
 }

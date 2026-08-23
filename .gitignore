@@ -91,6 +91,14 @@ gemini_profile.json
 # Test scripts
 upload_test.sh
 
+# iOS (Phase 4): generated Xcode project & build artifacts
+iosApp/iosApp.xcodeproj/
+iosApp/build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+shared/build/xcode-frameworks/
+
 # Node.js
 node_modules/
 npm-debug.log*
