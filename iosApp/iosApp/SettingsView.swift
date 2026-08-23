@@ -11,7 +11,9 @@ struct SettingsView: View {
         NavigationView {
             Form {
                 Section(header: Text("伺服器")) {
-                    LabeledContent("後端 URL") {
+                    HStack {
+                        Text("後端 URL")
+                        Spacer()
                         Text(backendUrl)
                             .foregroundColor(.secondary)
                     }
@@ -46,8 +48,11 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text("關於")) {
-                    LabeledContent("版本") {
+                    HStack {
+                        Text("版本")
+                        Spacer()
                         Text("iOS 殼 v0.1（Phase 4）")
+                            .foregroundColor(.secondary)
                     }
                     Text("閱讀引擎（Readium Swift Toolkit）尚未整合；目前僅驗證 shared 層與資料庫連線。")
                         .font(.caption)

@@ -9,7 +9,9 @@ struct ProfileView: View {
         NavigationView {
             Form {
                 Section(header: Text("帳號")) {
-                    LabeledContent("登入狀態") {
+                    HStack {
+                        Text("登入狀態")
+                        Spacer()
                         Text(hasToken ? "已登入" : "未登入")
                             .foregroundColor(hasToken ? .green : .secondary)
                     }
