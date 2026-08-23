@@ -28,3 +28,8 @@
 **Vulnerability:** The application was logging raw HTTP response bodies and error bodies directly to Logcat via `Log.e` on authentication endpoints (e.g. `Login failed: $responseBody`). This is a critical security vulnerability as it can leak sensitive information like PII, stack traces, and session tokens to device logs accessible by other apps or debugging tools.
 **Learning:** Never log raw HTTP response bodies or error payloads from authentication or sensitive endpoints.
 **Prevention:** Always log generic error messages alongside the HTTP status code (e.g., `Login failed with code: ${response.code}`) to aid in debugging without exposing sensitive data.
+
+## 2024-05-24 - Do Not Expose HTTP Raw Response Body in Logs
+**Vulnerability:** The application was logging raw HTTP response bodies (`body=$body` or `Body=$errorBody`) when remote API requests or AI explanation requests failed (e.g., in `executeRequest` and `fetchAiExplanation`).
+**Learning:** These error responses from backend APIs or LLM providers often mirror request parameters, internal identifiers, or even API keys and authentication tokens, which can leak into local device logs or crash reporting tools.
+**Prevention:** Always log generic error messages alongside the HTTP status code (e.g., `Log.e(TAG, "AI Request Failed: Code=${response.code}")`). Avoid appending `response.body?.string()` to log statements or exception messages.
