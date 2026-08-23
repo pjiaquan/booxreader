@@ -53,3 +53,25 @@
 1. **app 層 HTTP 改 Ktor**：repos 改用 Ktor client → 解除 OkHttp 依賴後，SSE 與 repos 可逐步搬入 shared
 2. **`UserSyncRepository` Gson→kotlinx**：需將 `PocketBaseListResponse.items: List<Map<String,Any>>` 改為 typed models 或 `JsonObject`（~85 處 cast）
 3. **iOS 端**：macOS 上驗證 iosMain 編譯、建置 Xcode 工程、接入 Readium Swift Toolkit
+
+
+## 5. Phase 2 完成狀態（2026-08-22 追加）
+
+### ✅ 已完成
+| 項目 | 狀態 |
+|---|---|
+| **App HTTP 層 100% Ktor** | `app/src/main/java` 內 okhttp3 引用數為 **0**；BooxReaderApp 的 OkHttpClient 已移除 |
+| **Repos → Ktor** | GitHubUpdateRepository、AuthRepository、UserSyncRepository、AiNoteRepository（含 SSE 串流）全部改用 shared `createApiClient()` |
+| **SSE → Ktor** | PocketBaseRealtimeClient / PocketBaseSseClient 改用 `serverSentEventsSession` |
+| **Auth 抽象** | shared `BearerAuth` plugin（onRequest）取代 OkHttp AuthInterceptor；`TokenProvider` 介面 |
+| **Gson 完全移除** | UserSyncRepository 動態 Map → `List<JsonObject>` + kotlinx accessors；`google-gson` 依賴刪除 |
+| **Repo 純邏輯搬入 shared** | GitHubUpdateModels、AiProfileDefaultGenerator（Phase 1）、**GitHubUpdateChecker**（Phase 2，版本檢查邏輯） |
+
+### ⛔ 平台邊界（無法搬入 commonMain 的原因）
+| Repo | 阻礙 |
+|---|---|
+| BookRepository / BookmarkRepository | Readium（Maven 僅 Android artifact，無 iOS klib） |
+| UserSyncRepository / AiNoteRepository / AuthRepository / AiProfileRepository | Context 檔案 I/O（contentResolver、MediaStore、getExternalFilesDir）+ 彼此依賴 + ErrorReporter |
+| GitHubUpdateRepository（下載/安裝部分） | FileProvider / Intent / getExternalFilesDir |
+
+要搬移上述 repos 需先建立 Phase 3 的**平台檔案存取 expect/actual**（content URI 讀取、暫存檔、MediaStore 儲存）與 ErrorReporter/logger 抽象。

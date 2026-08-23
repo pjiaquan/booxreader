@@ -16,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 class GitHubUpdateRepositoryTest {
 
   private lateinit var mockWebServer: MockWebServer
-  private lateinit var repository: GitHubUpdateRepository
+  private lateinit var checker: my.hinoki.booxreader.data.repo.GitHubUpdateChecker
   private lateinit var context: Context
 
   @Before
@@ -25,14 +25,12 @@ class GitHubUpdateRepositoryTest {
     mockWebServer.start()
 
     context = ApplicationProvider.getApplicationContext()
-    repository = GitHubUpdateRepository(context)
 
-    // Inject mock server URL into repository if needed,
-    // but for unit test of version logic we don't strictly need network.
-    // However, to test fetchLatestRelease we need to reflectively set the URL.
-    val field = GitHubUpdateRepository::class.java.getDeclaredField("apiUrl")
-    field.isAccessible = true
-    field.set(repository, mockWebServer.url("/").toString())
+    // 直接測試 shared 的 GitHubUpdateChecker（baseUrl 指向 mock server）
+    checker =
+        my.hinoki.booxreader.data.repo.GitHubUpdateChecker(
+            baseUrl = mockWebServer.url("/").toString()
+        )
   }
 
   @After
@@ -45,13 +43,13 @@ class GitHubUpdateRepositoryTest {
     // Testing logic without being tied to BuildConfig.VERSION_NAME
     val current = "1.1.170"
 
-    assertTrue(repository.isNewerVersion("v1.1.171", current))
-    assertTrue(repository.isNewerVersion("1.2.0", current))
-    assertTrue(repository.isNewerVersion("2.0.0", current))
+    assertTrue(checker.isNewerVersion("v1.1.171", current))
+    assertTrue(checker.isNewerVersion("1.2.0", current))
+    assertTrue(checker.isNewerVersion("2.0.0", current))
 
-    assertFalse(repository.isNewerVersion("v1.1.170", current))
-    assertFalse(repository.isNewerVersion("1.1.169", current))
-    assertFalse(repository.isNewerVersion("1.0.9", current))
+    assertFalse(checker.isNewerVersion("v1.1.170", current))
+    assertFalse(checker.isNewerVersion("1.1.169", current))
+    assertFalse(checker.isNewerVersion("1.0.9", current))
   }
 
   @Test
@@ -74,7 +72,7 @@ class GitHubUpdateRepositoryTest {
 
     mockWebServer.enqueue(MockResponse().setBody(json))
 
-    val release = repository.fetchLatestRelease()
+    val release = checker.fetchLatestRelease()
 
     assertNotNull(release)
     assertEquals("v1.2.0", release?.tagName)

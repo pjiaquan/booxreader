@@ -8,62 +8,25 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
-import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsBytes
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import my.hinoki.booxreader.BuildConfig
 import my.hinoki.booxreader.data.remote.createApiClient
 
 class GitHubUpdateRepository(private val context: Context) {
     private val client: HttpClient = createApiClient()
-    private val json = Json { ignoreUnknownKeys = true }
+    private val checker = GitHubUpdateChecker()
 
-    private val repoOwner = "pjiaquan"
-    private val repoName = "booxreader"
-    private val apiUrl = "https://api.github.com/repos/$repoOwner/$repoName/releases/latest"
-
-    suspend fun fetchLatestRelease(): GitHubRelease? =
-            withContext(Dispatchers.IO) {
-                try {
-                    val response =
-                            client.get(apiUrl) {
-                                header("Accept", "application/vnd.github.v3+json")
-                            }
-                    if (!response.status.isSuccess()) return@withContext null
-                    val body = response.bodyAsText()
-                    json.decodeFromString<GitHubRelease>(body)
-                } catch (e: Exception) {
-                    Log.e("GitHubUpdateRepo", "Error fetching latest release", e)
-                    null
-                }
-            }
+    /** 委派給 shared 的 GitHubUpdateChecker（純 HTTP 邏輯）。 */
+    suspend fun fetchLatestRelease(): GitHubRelease? = checker.fetchLatestRelease()
 
     fun isNewerVersion(
             remoteTagName: String,
             currentVersion: String = BuildConfig.VERSION_NAME
-    ): Boolean {
-        val remoteVersion = remoteTagName.removePrefix("v").trim()
-
-        // Simple version comparison logic
-        return try {
-            val currentParts = currentVersion.split(".").map { it.toInt() }
-            val remoteParts = remoteVersion.split(".").map { it.toInt() }
-
-            for (i in 0 until minOf(currentParts.size, remoteParts.size)) {
-                if (remoteParts[i] > currentParts[i]) return true
-                if (remoteParts[i] < currentParts[i]) return false
-            }
-            remoteParts.size > currentParts.size
-        } catch (e: Exception) {
-            // Fallback to string comparison if numeric fails
-            remoteVersion != currentVersion
-        }
-    }
+    ): Boolean = checker.isNewerVersion(remoteTagName, currentVersion)
 
     suspend fun downloadApk(downloadUrl: String, fileName: String): File? =
             withContext(Dispatchers.IO) {
