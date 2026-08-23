@@ -47,7 +47,15 @@ class NSUserDefaultsStorage(
     override fun contains(key: String): Boolean = defaults.objectForKey(key) != null
 
     override fun clearAll() {
-        val domain = NSBundle.mainBundle.bundleIdentifier ?: return
-        defaults.removePersistentDomainForName(domain)
+        val domain = NSBundle.mainBundle.bundleIdentifier
+        if (domain != null) {
+            defaults.removePersistentDomainForName(domain)
+        } else {
+            // 測試二進位或無 bundle 的環境：逐一移除標準 domain 的 key
+            val keys = defaults.dictionaryRepresentation().keys
+            for (key in keys) {
+                defaults.removeObjectForKey(key.toString())
+            }
+        }
     }
 }
