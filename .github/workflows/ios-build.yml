@@ -67,7 +67,9 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate --spec iosApp/project.yml
+        run: |
+          cd iosApp
+          xcodegen generate
 
       - name: Build iOS app for simulator
         run: |
