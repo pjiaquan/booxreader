@@ -75,3 +75,35 @@
 | GitHubUpdateRepository（下載/安裝部分） | FileProvider / Intent / getExternalFilesDir |
 
 要搬移上述 repos 需先建立 Phase 3 的**平台檔案存取 expect/actual**（content URI 讀取、暫存檔、MediaStore 儲存）與 ErrorReporter/logger 抽象。
+
+## 6. Phase 3 完成狀態（2026-08-22 追加）
+
+### ✅ 已完成
+| 項目 | 狀態 |
+|---|---|
+| **PlatformFiles expect/actual** | 14 個方法：readUriBytes / writeCacheFile / appFilesDir / isUriReadable / contentName / exists / mkdirs / writeFile / readFile / delete / rename / fileLength / readFilePrefix / contentType / writeDownloadsFile（含 DownloadsWriteResult） |
+| **Reporter / Logger 抽象** | `Reporter`、`Logger` 介面（commonMain）；`AndroidReporter`、`AndroidLogger`（:app）；UserSyncRepository 的 Log/ErrorReporter 全部換掉 |
+| **KeyValueStorage 擴充** | `clearAll()`；`TokenProvider` 增加 saveAccessToken / clearTokens |
+| **UserSyncRepository 搬入 shared** | 移除 contentResolver / Uri / File / URLEncoder / Locale；`ensureBookFileAvailable` 回傳 `file://` 字串；`CrashReport` data class 移至 commonMain；`createUserSyncRepository(context,…)` factory（33 呼叫點） |
+| **AuthRepository 搬入 shared** | avatar 上傳改用 PlatformFiles；`createAuthRepository(context, tokenManager)` factory；logout 注入 syncRepo |
+| **AiProfileRepository 搬入 shared** | LiveData→Flow（`allProfiles`）；prefs→KeyValueStorage；`createAiProfileRepository` factory |
+| **AiNoteRepository 搬入 shared** | org.json 107 處→kotlinx.serialization（buildJsonObject/buildJsonArray/JsonNull/optString 輔助）；MediaStore 本地匯出→`PlatformFiles.writeDownloadsFile`；prefs→KeyValueStorage；BuildConfig.POCKETBASE_URL→建構參數；`createAiNoteRepository` factory |
+| **ReaderViewModel.openBook** | 移除 contentResolver 參數 |
+
+### 目前仍在 :app 的 repos
+| Repo | 阻礙 |
+|---|---|
+| BookRepository / BookmarkRepository | Readium Kotlin Toolkit（Maven 僅 Android artifact，無 iOS klib） |
+| GitHubUpdateRepository | FileProvider / Intent / getExternalFilesDir（下載/安裝部分） |
+
+### 驗證（Phase 3）
+- `:shared:compileDebugKotlinAndroid` ✅
+- `:app:compileDebugKotlin` ✅
+- `:app:testDebugUnitTest` ✅（120 tests）
+- `:app:assembleDebug` / `:app:assembleRelease`（R8）✅
+- iOS targets：iosMain 已補齊 PlatformFiles 全部方法，仍待 macOS 驗證編譯
+
+### 已知取捨
+- `clearPersistedBookUriPermissions`（登出時清除 Android 持久化 URI 授權）已刪除 → 登出後舊 URI grant 可能殘留
+- AiProfileRepository 的「Imported Profile」名稱由 string resource 改為常數字串
+- AiNoteRepository 本地匯出統一走 `PlatformFiles.writeDownloadsFile`（Android API 29+ 走 MediaStore Downloads；舊版權限檢查邏輯由 androidMain 封裝）
