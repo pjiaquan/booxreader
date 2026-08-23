@@ -7,7 +7,7 @@ import android.content.Context
  */
 class AndroidReporter(private val context: Context) : Reporter {
 
-    override fun report(source: String, message: String?, throwable: Throwable? = null) {
+    override fun report(source: String, message: String?, throwable: Throwable?) {
         ErrorReporter.report(context, source, message, throwable)
     }
 }
