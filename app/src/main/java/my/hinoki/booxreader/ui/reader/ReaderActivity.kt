@@ -67,7 +67,7 @@ import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.notes.AiNoteDetailActivity
 import my.hinoki.booxreader.ui.notes.AiNoteListActivity
 import my.hinoki.booxreader.ui.reader.nativev2.NativeNavigatorFragment
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import my.hinoki.booxreader.data.remote.isValidHttpUrl
 import org.readium.r2.shared.ExperimentalReadiumApi
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
@@ -1124,11 +1124,11 @@ class ReaderActivity : BaseActivity() {
                 val normalizedBaseUrl = if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw) else currentSettings.serverBaseUrl
                 val normalizedCustomUrl = if (useCustomExport && customExportUrlRaw.isNotEmpty()) normalizeUrl(customExportUrlRaw) else ""
 
-                if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.toHttpUrlOrNull() == null) {
+                if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.isValidHttpUrl().not()) {
                     Toast.makeText(this, "Server URL is invalid", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                if (useCustomExport && customExportUrlRaw.isNotEmpty() && normalizedCustomUrl.toHttpUrlOrNull() == null) {
+                if (useCustomExport && customExportUrlRaw.isNotEmpty() && normalizedCustomUrl.isValidHttpUrl().not()) {
                     Toast.makeText(this, "Custom export URL is invalid", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }

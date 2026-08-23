@@ -4,7 +4,6 @@ import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 import android.app.Application
 import android.content.Context
 import android.widget.Toast
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -13,22 +12,15 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.core.CrashReportHandler
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
-import my.hinoki.booxreader.data.remote.AuthInterceptor
 import my.hinoki.booxreader.data.remote.PocketBaseRealtimeClient
-import my.hinoki.booxreader.data.remote.TokenAuthenticator
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
-import okhttp3.OkHttpClient
-import okhttp3.sse.EventSource
 
 class BooxReaderApp : Application() {
 
     lateinit var tokenManager: TokenManager
-        private set
-
-    lateinit var okHttpClient: OkHttpClient
         private set
 
     private var realtimeClient: PocketBaseRealtimeClient? = null
@@ -36,7 +28,6 @@ class BooxReaderApp : Application() {
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var periodicSyncHandler: android.os.Handler? = null
     private var periodicSyncRunnable: Runnable = Runnable {}
-    private var realtimeEventSource: EventSource? = null
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(my.hinoki.booxreader.ui.common.LocaleHelper.onAttach(base))
@@ -52,15 +43,6 @@ class BooxReaderApp : Application() {
         my.hinoki.booxreader.data.db.initBooxReaderDatabase(this)
 
         tokenManager = TokenManager(this)
-
-        okHttpClient =
-                OkHttpClient.Builder()
-                        .connectTimeout(30, TimeUnit.SECONDS)
-                        .readTimeout(60, TimeUnit.SECONDS)
-                        .writeTimeout(60, TimeUnit.SECONDS)
-                        .addInterceptor(AuthInterceptor(tokenManager))
-                        .authenticator(TokenAuthenticator(tokenManager))
-                        .build()
 
         DailySummaryEmailScheduler.schedule(
                 this,
@@ -198,7 +180,6 @@ class BooxReaderApp : Application() {
         val baseUrl = tokenManager.getBackendUrl()
 
         realtimeBookSyncClient = my.hinoki.booxreader.data.remote.PocketBaseSseClient(
-            client = okHttpClient,
             tokenManager = tokenManager,
             baseUrl = baseUrl,
             collectionName = "books",

@@ -22,7 +22,7 @@ import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import my.hinoki.booxreader.data.remote.isValidHttpUrl
 import io.ktor.client.request.post
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.preparePost
@@ -1332,19 +1332,18 @@ class AiNoteRepository(
                                 exportUrl.startsWith("https://", ignoreCase = true) -> exportUrl
                         else -> "https://$exportUrl"
                     }
-            val httpUrl = normalizedExportUrl.toHttpUrlOrNull()
-            if (httpUrl == null) {
+            if (!normalizedExportUrl.isValidHttpUrl()) {
                 statusMessages += "Invalid export URL: $exportUrl"
             } else {
                 try {
                     val response =
-                            ktorClient.post(httpUrl.toString()) {
+                            ktorClient.post(normalizedExportUrl) {
                                     contentType(ContentType.Application.Json)
                                     setBody(payloadString)
                             }
                     if (response.status.isSuccess()) {
                         remoteSuccess = true
-                        statusMessages += "Uploaded ${notes.size} notes to $httpUrl"
+                        statusMessages += "Uploaded ${notes.size} notes to $normalizedExportUrl"
                     } else {
                         statusMessages += "Server export failed (${response.status.value})"
                     }
@@ -1476,11 +1475,11 @@ class AiNoteRepository(
                             put("ping", "ai-notes-export-test")
                             put("timestamp", System.currentTimeMillis())
                         }
-                val httpUrl = normalizedUrl.toHttpUrlOrNull() ?: return@withContext "Invalid URL"
+                if (!normalizedUrl.isValidHttpUrl()) return@withContext "Invalid URL"
 
                 return@withContext try {
                     val response =
-                            ktorClient.post(httpUrl.toString()) {
+                            ktorClient.post(normalizedUrl) {
                                     contentType(ContentType.Application.Json)
                                     setBody(payload.toString())
                             }

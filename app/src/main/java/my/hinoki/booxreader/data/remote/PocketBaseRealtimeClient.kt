@@ -1,125 +1,141 @@
 package my.hinoki.booxreader.data.remote
 
 import android.util.Log
-import java.util.concurrent.TimeUnit
+import io.ktor.client.plugins.sse.serverSentEventsSession
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import my.hinoki.booxreader.data.prefs.TokenManager
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
-import okhttp3.sse.EventSource
-import okhttp3.sse.EventSourceListener
-import okhttp3.sse.EventSources
-import org.json.JSONObject
 
+/**
+ * PocketBase 即時同步（SSE）。Ktor 版本：OkHttp EventSource → serverSentEventsSession。
+ * 連線失敗時 5 秒後自動重連（與原本 onFailure 行為一致）。
+ */
 class PocketBaseRealtimeClient(
     private val pocketBaseUrl: String,
     private val tokenManager: TokenManager,
-    private val client: OkHttpClient,
     private val coroutineScope: CoroutineScope
 ) {
-    private var eventSource: EventSource? = null
+    private var connectionJob: Job? = null
     private var clientId: String? = null
     private var isStopped = false
     var onBookChanged: (() -> Unit)? = null
+    private val client = createApiClient()
 
     fun start() {
         stop()
         isStopped = false
 
-        val url = "$pocketBaseUrl/api/realtime"
-        val request = Request.Builder()
-            .url(url)
-            .header("Accept", "text/event-stream")
-            .build()
-
-        val sseClient = client.newBuilder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build()
-
-        eventSource = EventSources.createFactory(sseClient)
-            .newEventSource(request, object : EventSourceListener() {
-                override fun onOpen(eventSource: EventSource, response: Response) {
-                    Log.d("PocketBaseRealtime", "SSE Connection opened")
-                }
-
-                override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                    Log.d("PocketBaseRealtime", "SSE Event: type=$type, data=$data")
-                    if (type == "PB_CONNECT") {
+        connectionJob =
+                coroutineScope.launch {
                         try {
-                            val json = JSONObject(data)
-                            clientId = json.getString("clientId")
-                            Log.d("PocketBaseRealtime", "Got clientId: $clientId. Subscribing...")
-                            submitSubscriptions()
+                                val session =
+                                        client.serverSentEventsSession("$pocketBaseUrl/api/realtime") {
+                                                header("Accept", "text/event-stream")
+                                        }
+                                Log.d("PocketBaseRealtime", "SSE Connection opened")
+                                session.incoming.collect { event ->
+                                        val type = event.event
+                                        val data = event.data ?: ""
+                                        Log.d(
+                                                "PocketBaseRealtime",
+                                                "SSE Event: type=$type, data=$data"
+                                        )
+                                        if (type == "PB_CONNECT") {
+                                                try {
+                                                        val json =
+                                                                Json.parseToJsonElement(data)
+                                                                        .jsonObject
+                                                        clientId =
+                                                                json["clientId"]
+                                                                        ?.jsonPrimitive
+                                                                        ?.content
+                                                        Log.d(
+                                                                "PocketBaseRealtime",
+                                                                "Got clientId: $clientId. Subscribing..."
+                                                        )
+                                                        submitSubscriptions()
+                                                } catch (e: Exception) {
+                                                        Log.e(
+                                                                "PocketBaseRealtime",
+                                                                "Failed to parse PB_CONNECT",
+                                                                e
+                                                        )
+                                                }
+                                        } else if (data.contains("\"collectionName\":\"books\"")) {
+                                                Log.d("PocketBaseRealtime", "Book collection changed!")
+                                                onBookChanged?.invoke()
+                                        }
+                                }
                         } catch (e: Exception) {
-                            Log.e("PocketBaseRealtime", "Failed to parse PB_CONNECT", e)
+                                Log.e("PocketBaseRealtime", "SSE Connection failed", e)
+                                // Implement basic reconnect logic
+                                if (!isStopped) {
+                                        coroutineScope.launch {
+                                                delay(5000)
+                                                if (!isStopped) {
+                                                        start()
+                                                }
+                                        }
+                                }
                         }
-                    } else if (data.contains("\"collectionName\":\"books\"")) {
-                        Log.d("PocketBaseRealtime", "Book collection changed!")
-                        onBookChanged?.invoke()
-                    }
                 }
-
-                override fun onClosed(eventSource: EventSource) {
-                    Log.d("PocketBaseRealtime", "SSE Connection closed")
-                }
-
-                override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                    Log.e("PocketBaseRealtime", "SSE Connection failed", t)
-                    // Implement basic reconnect logic
-                    if (!isStopped) {
-                        coroutineScope.launch {
-                            delay(5000)
-                            if (!isStopped) {
-                                start()
-                            }
-                        }
-                    }
-                }
-            })
     }
 
     private fun submitSubscriptions() {
         val cid = clientId ?: return
         val token = tokenManager.getAccessToken() ?: return
 
-        coroutineScope.launch(Dispatchers.IO) {
-            try {
-                val payload = JSONObject().apply {
-                    put("clientId", cid)
-                    put("subscriptions", org.json.JSONArray().put("books"))
+        coroutineScope.launch {
+                try {
+                        val payload =
+                                buildJsonObject {
+                                        put("clientId", cid)
+                                        put("subscriptions", buildJsonArray { add("books") })
+                                }
+
+                        val response =
+                                client.post("$pocketBaseUrl/api/realtime") {
+                                        header("Authorization", "Bearer $token")
+                                        contentType(ContentType.Application.Json)
+                                        setBody(payload.toString())
+                                }
+                        if (!response.status.isSuccess()) {
+                                Log.e(
+                                        "PocketBaseRealtime",
+                                        "Failed to subscribe: ${response.status.value}"
+                                )
+                        } else {
+                                Log.d(
+                                        "PocketBaseRealtime",
+                                        "Successfully subscribed to realtime events"
+                                )
+                        }
+                } catch (e: Exception) {
+                        Log.e("PocketBaseRealtime", "Exception during subscription", e)
                 }
-
-                val requestBody = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
-
-                val request = Request.Builder()
-                    .url("$pocketBaseUrl/api/realtime")
-                    .post(requestBody)
-                    .header("Authorization", "Bearer $token")
-                    .build()
-
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        Log.e("PocketBaseRealtime", "Failed to subscribe: ${response.code}")
-                    } else {
-                        Log.d("PocketBaseRealtime", "Successfully subscribed to realtime events")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("PocketBaseRealtime", "Exception during subscription", e)
-            }
         }
     }
 
     fun stop() {
         isStopped = true
-        eventSource?.cancel()
-        eventSource = null
+        connectionJob?.cancel()
+        connectionJob = null
         clientId = null
     }
 }

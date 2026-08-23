@@ -1,9 +1,8 @@
 package my.hinoki.booxreader.data.remote
 
-import my.hinoki.booxreader.data.prefs.TokenManager
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import io.ktor.client.request.get
+import kotlinx.coroutines.runBlocking
+import my.hinoki.booxreader.data.auth.TokenProvider
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -11,33 +10,29 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
 
+/**
+ * 驗證 shared `createApiClient(tokenProvider)` 的 Bearer auth 行為
+ * （取代舊 OkHttp AuthInterceptor 的測試）。
+ */
 class AuthInterceptorTest {
 
     private lateinit var mockWebServer: MockWebServer
-    private lateinit var tokenManager: TokenManager
-    private lateinit var client: OkHttpClient
+    private var backendUrl: String = ""
+    private lateinit var tokenProvider: TokenProvider
 
     @Before
     fun setup() {
         mockWebServer = MockWebServer()
         mockWebServer.start()
 
-        tokenManager = mock(TokenManager::class.java)
-
-        // Mock token manager behavior
-        `when`(tokenManager.getAccessToken()).thenReturn("test_token")
-
+        tokenProvider =
+                object : TokenProvider {
+                        override fun getAccessToken(): String? = "test_token"
+                        override fun getBackendUrl(): String = backendUrl
+                }
         // We use localhost as the mock backend url to simulate a backend request
-        val baseUrl = mockWebServer.url("/").toString()
-        `when`(tokenManager.getBackendUrl()).thenReturn(baseUrl.dropLast(1))
-
-        val interceptor = AuthInterceptor(tokenManager)
-        client = OkHttpClient.Builder()
-            .addInterceptor(interceptor)
-            .build()
+        backendUrl = mockWebServer.url("/").toString().dropLast(1)
     }
 
     @After
@@ -46,48 +41,41 @@ class AuthInterceptorTest {
     }
 
     @Test
-    fun `adds authorization header for backend requests`() {
+    fun `adds authorization header for backend requests`() = runBlocking {
         mockWebServer.enqueue(MockResponse().setResponseCode(200))
 
-        val request = Request.Builder()
-            .url(mockWebServer.url("/api/data"))
-            .build()
-
-        client.newCall(request).execute()
+        val client = createApiClient(tokenProvider)
+        client.get(mockWebServer.url("/api/data").toString())
 
         val recordedRequest = mockWebServer.takeRequest()
         assertEquals("Bearer test_token", recordedRequest.getHeader("Authorization"))
     }
 
     @Test
-    fun `does not add authorization header for third-party requests`() {
-        // Enqueue a response for the mock web server acting as a 3rd party
+    fun `does not add authorization header for third-party requests`() = runBlocking {
         mockWebServer.enqueue(MockResponse().setResponseCode(200))
 
-        // Let's pretend the mock server is a third party API, but the TokenManager
-        // reports a DIFFERENT backend URL
-        `when`(tokenManager.getBackendUrl()).thenReturn("https://my-actual-backend.com")
+        // Pretend the mock server is a third-party API while the backend URL differs
+        backendUrl = "https://my-actual-backend.com"
+        val client = createApiClient(tokenProvider)
 
-        val request = Request.Builder()
-            .url(mockWebServer.url("/v1/models/gemini")) // Host will be localhost
-            .build()
-
-        client.newCall(request).execute()
+        client.get(mockWebServer.url("/v1/models/gemini").toString()) // Host will be localhost
 
         val recordedRequest = mockWebServer.takeRequest()
-        assertNull("Authorization header should not be present", recordedRequest.getHeader("Authorization"))
+        assertNull(
+                "Authorization header should not be present",
+                recordedRequest.getHeader("Authorization")
+        )
     }
 
     @Test
-    fun `does not add authorization header if request has SKIP_AUTH tag`() {
+    fun `does not add authorization header if request has SKIP_AUTH attribute`() = runBlocking {
         mockWebServer.enqueue(MockResponse().setResponseCode(200))
 
-        val request = Request.Builder()
-            .url(mockWebServer.url("/api/auth"))
-            .tag(String::class.java, "SKIP_AUTH")
-            .build()
-
-        client.newCall(request).execute()
+        val client = createApiClient(tokenProvider)
+        client.get(mockWebServer.url("/api/auth").toString()) {
+                attributes.put(skipAuthAttribute, true)
+        }
 
         val recordedRequest = mockWebServer.takeRequest()
         assertNull(recordedRequest.getHeader("Authorization"))

@@ -50,7 +50,7 @@ import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import my.hinoki.booxreader.ui.auth.UserProfileActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.settings.AiProfileListActivity
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import my.hinoki.booxreader.data.remote.isValidHttpUrl
 
 class ReaderSettingsActivity : BaseActivity() {
 
@@ -397,11 +397,11 @@ class ReaderSettingsActivity : BaseActivity() {
             TokenManager(applicationContext).saveCustomBackendUrl(normalizedBaseUrl)
         }
 
-        if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.toHttpUrlOrNull() == null) {
+        if (newUrlRaw.isNotEmpty() && normalizedBaseUrl.isValidHttpUrl().not()) {
             Toast.makeText(this, "Server URL is invalid", Toast.LENGTH_SHORT).show()
             return
         }
-        if (useCustomExport && customExportUrlRaw.isNotEmpty() && normalizedCustomUrl.toHttpUrlOrNull() == null) {
+        if (useCustomExport && customExportUrlRaw.isNotEmpty() && normalizedCustomUrl.isValidHttpUrl().not()) {
             Toast.makeText(this, "Custom export URL is invalid", Toast.LENGTH_SHORT).show()
             return
         }
