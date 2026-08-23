@@ -4,6 +4,19 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.header
+import io.ktor.client.request.patch
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -11,7 +24,6 @@ import kotlinx.serialization.json.put
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLEncoder
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -21,13 +33,7 @@ import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.UserEntity
 import my.hinoki.booxreader.data.prefs.TokenManager
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import my.hinoki.booxreader.data.remote.createApiClient
 
 /** Handles user authentication via PocketBase REST API. */
 class AuthRepository(private val context: Context, private val tokenManager: TokenManager) {
@@ -35,35 +41,31 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         private val json = Json { ignoreUnknownKeys = true }
         private val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
 
-        private val httpClient =
-                OkHttpClient.Builder()
-                        .connectTimeout(30, TimeUnit.SECONDS)
-                        .readTimeout(30, TimeUnit.SECONDS)
-                        .writeTimeout(30, TimeUnit.SECONDS)
-                        .build()
+        private val httpClient: HttpClient = createApiClient()
 
         suspend fun login(email: String, password: String): Result<UserEntity> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                val requestBody =
-                                        jsonBody("identity" to email,
-                                                                "password" to password)
-                                                .toRequestBody("application/json".toMediaType())
-
-                                val request =
-                                        Request.Builder()
-                                                .url(
-                                                        "$pocketBaseUrl/api/collections/users/auth-with-password"
+                                val response =
+                                        httpClient.post(
+                                                "$pocketBaseUrl/api/collections/users/auth-with-password"
+                                        ) {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(
+                                                        jsonBody(
+                                                                "identity" to email,
+                                                                "password" to password
+                                                        )
                                                 )
-                                                .post(requestBody)
-                                                .build()
+                                        }
+                                val responseBody = response.bodyAsText()
 
-                                val response = httpClient.newCall(request).execute()
-                                val responseBody = response.body?.string() ?: ""
-
-                                if (!response.isSuccessful) {
-                                        Log.e("AuthRepository", "Login failed with code: ${response.code}")
-                                        throw Exception("Login failed: ${response.code}")
+                                if (!response.status.isSuccess()) {
+                                        Log.e(
+                                                "AuthRepository",
+                                                "Login failed with code: ${response.status.value}"
+                                        )
+                                        throw Exception("Login failed: ${response.status.value}")
                                 }
 
                                 val authData =
@@ -93,28 +95,30 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun register(email: String, password: String, name: String?): Result<UserEntity> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                val requestBody =
-                                        jsonBody("email" to email,
+                                val response =
+                                        httpClient.post(
+                                                "$pocketBaseUrl/api/collections/users/records"
+                                        ) {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(
+                                                        jsonBody(
+                                                                "email" to email,
                                                                 "password" to password,
                                                                 "passwordConfirm" to password,
-                                                                "name" to (name ?: ""))
-                                                .toRequestBody("application/json".toMediaType())
+                                                                "name" to (name ?: "")
+                                                        )
+                                                )
+                                        }
+                                val responseBody = response.bodyAsText()
 
-                                val request =
-                                        Request.Builder()
-                                                .url("$pocketBaseUrl/api/collections/users/records")
-                                                .post(requestBody)
-                                                .build()
-
-                                val response = httpClient.newCall(request).execute()
-                                val responseBody = response.body?.string() ?: ""
-
-                                if (!response.isSuccessful) {
+                                if (!response.status.isSuccess()) {
                                         Log.e(
                                                 "AuthRepository",
-                                                "Registration failed with code: ${response.code}"
+                                                "Registration failed with code: ${response.status.value}"
                                         )
-                                        throw Exception("Registration failed: ${response.code}")
+                                        throw Exception(
+                                                "Registration failed: ${response.status.value}"
+                                        )
                                 }
 
                                 // Now login to get the auth token
@@ -160,28 +164,21 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun resendVerificationEmail(email: String): Result<Unit> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                val requestBody =
-                                        jsonBody("email" to email)
-                                                .toRequestBody("application/json".toMediaType())
+                                val response =
+                                        httpClient.post(
+                                                "$pocketBaseUrl/api/collections/users/request-verification"
+                                        ) {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(jsonBody("email" to email))
+                                        }
 
-                                val request =
-                                        Request.Builder()
-                                                .url(
-                                                        "$pocketBaseUrl/api/collections/users/request-verification"
-                                                )
-                                                .post(requestBody)
-                                                .build()
-
-                                val response = httpClient.newCall(request).execute()
-
-                                if (!response.isSuccessful) {
-                                        val errorBody = response.body?.string() ?: ""
+                                if (!response.status.isSuccess()) {
                                         Log.e(
                                                 "AuthRepository",
-                                                "Resend verification failed with code: ${response.code}"
+                                                "Resend verification failed with code: ${response.status.value}"
                                         )
                                         throw Exception(
-                                                "Failed to resend verification: ${response.code}"
+                                                "Failed to resend verification: ${response.status.value}"
                                         )
                                 }
                         }
@@ -190,28 +187,21 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun requestPasswordReset(email: String): Result<Unit> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                val requestBody =
-                                        jsonBody("email" to email)
-                                                .toRequestBody("application/json".toMediaType())
+                                val response =
+                                        httpClient.post(
+                                                "$pocketBaseUrl/api/collections/users/request-password-reset"
+                                        ) {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(jsonBody("email" to email))
+                                        }
 
-                                val request =
-                                        Request.Builder()
-                                                .url(
-                                                        "$pocketBaseUrl/api/collections/users/request-password-reset"
-                                                )
-                                                .post(requestBody)
-                                                .build()
-
-                                val response = httpClient.newCall(request).execute()
-
-                                if (!response.isSuccessful) {
-                                        val errorBody = response.body?.string() ?: ""
+                                if (!response.status.isSuccess()) {
                                         Log.e(
                                                 "AuthRepository",
-                                                "Request password reset failed with code: ${response.code}"
+                                                "Request password reset failed with code: ${response.status.value}"
                                         )
                                         throw Exception(
-                                                "Failed to send reset email: ${response.code}"
+                                                "Failed to send reset email: ${response.status.value}"
                                         )
                                 }
                         }
@@ -246,21 +236,10 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         "$pocketBaseUrl/api/collections/users/records/${currentUser.userId}"
 
                                 if (avatarUri == null) {
-                                        val requestBody =
-                                                jsonBody("name" to trimmedName)
-                                                        .toRequestBody(
-                                                                "application/json".toMediaType()
-                                                        )
-                                        val request =
-                                                Request.Builder()
-                                                        .url(url)
-                                                        .addHeader(
-                                                                "Authorization",
-                                                                "Bearer $token"
-                                                        )
-                                                        .patch(requestBody)
-                                                        .build()
-                                        return@runCatching executeAndCacheUpdatedUser(request)
+                                        return@runCatching patchUserAndCache(url, token) {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(jsonBody("name" to trimmedName))
+                                        }
                                 }
 
                                 val tempFile = copyUriToTempFile(avatarUri)
@@ -268,28 +247,27 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         val contentType =
                                                 context.contentResolver.getType(avatarUri)
                                                         ?: "application/octet-stream"
-                                        val requestBody =
-                                                MultipartBody.Builder()
-                                                        .setType(MultipartBody.FORM)
-                                                        .addFormDataPart("name", trimmedName)
-                                                        .addFormDataPart(
+                                        val form =
+                                                formData {
+                                                        append("name", trimmedName)
+                                                        append(
                                                                 "avatar",
-                                                                tempFile.name,
-                                                                tempFile.asRequestBody(
-                                                                        contentType.toMediaTypeOrNull()
-                                                                )
+                                                                tempFile.readBytes(),
+                                                                Headers.build {
+                                                                        append(
+                                                                                HttpHeaders.ContentType,
+                                                                                contentType
+                                                                        )
+                                                                        append(
+                                                                                HttpHeaders.ContentDisposition,
+                                                                                "filename=\"${tempFile.name}\""
+                                                                        )
+                                                                }
                                                         )
-                                                        .build()
-                                        val request =
-                                                Request.Builder()
-                                                        .url(url)
-                                                        .addHeader(
-                                                                "Authorization",
-                                                                "Bearer $token"
-                                                        )
-                                                        .patch(requestBody)
-                                                        .build()
-                                        executeAndCacheUpdatedUser(request)
+                                                }
+                                        patchUserAndCache(url, token) {
+                                                setBody(MultiPartFormDataContent(form))
+                                        }
                                 } finally {
                                         runCatching { tempFile.delete() }
                                 }
@@ -314,31 +292,29 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                                 ?.takeIf { it.isNotBlank() }
                                                 ?: throw Exception("Not authenticated")
 
-                                val requestBody =
-                                        jsonBody("oldPassword" to currentPassword,
+                                val response =
+                                        httpClient.patch(
+                                                "$pocketBaseUrl/api/collections/users/records/${currentUser.userId}"
+                                        ) {
+                                                header("Authorization", "Bearer $token")
+                                                contentType(ContentType.Application.Json)
+                                                setBody(
+                                                        jsonBody(
+                                                                "oldPassword" to currentPassword,
                                                                 "password" to newPassword,
-                                                                "passwordConfirm" to newPassword)
-                                                .toRequestBody("application/json".toMediaType())
-                                val request =
-                                        Request.Builder()
-                                                .url(
-                                                        "$pocketBaseUrl/api/collections/users/records/${currentUser.userId}"
-                                                )
-                                                .addHeader("Authorization", "Bearer $token")
-                                                .patch(requestBody)
-                                                .build()
-
-                                httpClient.newCall(request).execute().use { response ->
-                                        val responseBody = response.body?.string().orEmpty()
-                                        if (!response.isSuccessful) {
-                                                Log.e(
-                                                        "AuthRepository",
-                                                        "changePassword failed with code: ${response.code}"
-                                                )
-                                                throw Exception(
-                                                        "Failed to change password: ${response.code}"
+                                                                "passwordConfirm" to newPassword
+                                                        )
                                                 )
                                         }
+
+                                if (!response.status.isSuccess()) {
+                                        Log.e(
+                                                "AuthRepository",
+                                                "changePassword failed with code: ${response.status.value}"
+                                        )
+                                        throw Exception(
+                                                "Failed to change password: ${response.status.value}"
+                                        )
                                 }
 
                                 // Password change rotates auth credentials in PocketBase.
@@ -358,26 +334,23 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
 
                         // Fallback: refresh auth and restore local user cache.
                         runCatching {
-                                        val requestBody =
-                                                "{}".toRequestBody(
-                                                        "application/json".toMediaType()
-                                                )
-                                        val request =
-                                                Request.Builder()
-                                                        .url(
-                                                                "$pocketBaseUrl/api/collections/users/auth-refresh"
+                                        val response =
+                                                httpClient.post(
+                                                        "$pocketBaseUrl/api/collections/users/auth-refresh"
+                                                ) {
+                                                        header(
+                                                                "Authorization",
+                                                                "Bearer $token"
                                                         )
-                                                        .addHeader("Authorization", "Bearer $token")
-                                                        .post(requestBody)
-                                                        .build()
+                                                        contentType(ContentType.Application.Json)
+                                                        setBody("{}")
+                                                }
+                                        val responseBody = response.bodyAsText()
 
-                                        val response = httpClient.newCall(request).execute()
-                                        val responseBody = response.body?.string() ?: ""
-
-                                        if (!response.isSuccessful) {
+                                        if (!response.status.isSuccess()) {
                                                 Log.w(
                                                         "AuthRepository",
-                                                        "getCurrentUser auth-refresh failed with code: ${response.code}"
+                                                        "getCurrentUser auth-refresh failed with code: ${response.status.value}"
                                                 )
                                                 return@runCatching null
                                         }
@@ -403,27 +376,38 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 }
                 }
 
-        private suspend fun executeAndCacheUpdatedUser(request: Request): UserEntity {
-                httpClient.newCall(request).execute().use { response ->
-                        val responseBody = response.body?.string().orEmpty()
-                        if (!response.isSuccessful) {
-                                Log.e("AuthRepository", "Profile update failed with code: ${response.code}")
-                                throw Exception("Profile update failed: ${response.code}")
+        /** PATCH 個人資料並更新本地 user cache（Ktor 版，取代 OkHttp Request 版本）。 */
+        private suspend fun patchUserAndCache(
+                url: String,
+                token: String,
+                configure: io.ktor.client.request.HttpRequestBuilder.() -> Unit
+        ): UserEntity {
+                val response =
+                        httpClient.patch(url) {
+                                header("Authorization", "Bearer $token")
+                                configure()
                         }
-                        val record =
-                                json.decodeFromString<PocketBaseUserRecord>(responseBody)
-                                        ?: throw Exception("Invalid profile update response")
-                        val fallbackEmail = userDao.getUser().first()?.email.orEmpty()
-                        val user =
-                                UserEntity(
-                                        userId = record.id,
-                                        email = record.email?.takeIf { it.isNotBlank() } ?: fallbackEmail,
-                                        displayName = record.name,
-                                        avatarUrl = resolveAvatarUrl(record)
-                                )
-                        userDao.insertUser(user)
-                        return user
+                val responseBody = response.bodyAsText()
+                if (!response.status.isSuccess()) {
+                        Log.e(
+                                "AuthRepository",
+                                "Profile update failed with code: ${response.status.value}"
+                        )
+                        throw Exception("Profile update failed: ${response.status.value}")
                 }
+                val record =
+                        json.decodeFromString<PocketBaseUserRecord>(responseBody)
+                                ?: throw Exception("Invalid profile update response")
+                val fallbackEmail = userDao.getUser().first()?.email.orEmpty()
+                val user =
+                        UserEntity(
+                                userId = record.id,
+                                email = record.email?.takeIf { it.isNotBlank() } ?: fallbackEmail,
+                                displayName = record.name,
+                                avatarUrl = resolveAvatarUrl(record)
+                        )
+                userDao.insertUser(user)
+                return user
         }
 
         private fun resolveAvatarUrl(record: PocketBaseUserRecord): String? {
