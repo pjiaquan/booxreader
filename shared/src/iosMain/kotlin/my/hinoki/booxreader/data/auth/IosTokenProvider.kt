@@ -13,6 +13,9 @@ class IosTokenProvider(
     private val defaultBackendUrl: String = DEFAULT_BACKEND_URL
 ) : TokenProvider {
 
+    /** 無參數建構子：Kotlin/Native 不匯出預設參數，Swift 需要顯式 init()。 */
+    constructor() : this(NSUserDefaults.standardUserDefaults, DEFAULT_BACKEND_URL)
+
     override fun getAccessToken(): String? = defaults.stringForKey(KEY_ACCESS_TOKEN)
 
     override fun getBackendUrl(): String =

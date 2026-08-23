@@ -21,7 +21,8 @@ enum SharedAsync {
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
-                    continuation.resume(returning: count ?? 0)
+                    // Kotlin Int 在 Swift 以 KotlinInt 呈現
+                    continuation.resume(returning: (count ?? 0).int32Value)
                 }
             }
         }
