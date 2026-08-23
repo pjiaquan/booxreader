@@ -6,21 +6,21 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsBytes
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import java.io.File
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import my.hinoki.booxreader.BuildConfig
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import my.hinoki.booxreader.data.remote.createApiClient
 
 class GitHubUpdateRepository(private val context: Context) {
-    private val client =
-            OkHttpClient.Builder()
-                    .connectTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(15, TimeUnit.SECONDS)
-                    .build()
+    private val client: HttpClient = createApiClient()
     private val json = Json { ignoreUnknownKeys = true }
 
     private val repoOwner = "pjiaquan"
@@ -30,17 +30,13 @@ class GitHubUpdateRepository(private val context: Context) {
     suspend fun fetchLatestRelease(): GitHubRelease? =
             withContext(Dispatchers.IO) {
                 try {
-                    val request =
-                            Request.Builder()
-                                    .url(apiUrl)
-                                    .header("Accept", "application/vnd.github.v3+json")
-                                    .build()
-
-                    client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) return@withContext null
-                        val body = response.body?.string() ?: return@withContext null
-                        json.decodeFromString<GitHubRelease>(body)
-                    }
+                    val response =
+                            client.get(apiUrl) {
+                                header("Accept", "application/vnd.github.v3+json")
+                            }
+                    if (!response.status.isSuccess()) return@withContext null
+                    val body = response.bodyAsText()
+                    json.decodeFromString<GitHubRelease>(body)
                 } catch (e: Exception) {
                     Log.e("GitHubUpdateRepo", "Error fetching latest release", e)
                     null
@@ -72,19 +68,17 @@ class GitHubUpdateRepository(private val context: Context) {
     suspend fun downloadApk(downloadUrl: String, fileName: String): File? =
             withContext(Dispatchers.IO) {
                 try {
-                    val request = Request.Builder().url(downloadUrl).build()
-                    client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) return@withContext null
-                        val body = response.body ?: return@withContext null
+                    val response = client.get(downloadUrl)
+                    if (!response.status.isSuccess()) return@withContext null
+                    val bytes = response.bodyAsBytes()
 
-                        val downloadsDir =
-                                context.getExternalFilesDir("updates") ?: return@withContext null
-                        if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                    val downloadsDir =
+                            context.getExternalFilesDir("updates") ?: return@withContext null
+                    if (!downloadsDir.exists()) downloadsDir.mkdirs()
 
-                        val apkFile = File(downloadsDir, fileName)
-                        apkFile.writeBytes(body.bytes())
-                        apkFile
-                    }
+                    val apkFile = File(downloadsDir, fileName)
+                    apkFile.writeBytes(bytes)
+                    apkFile
                 } catch (e: Exception) {
                     Log.e("GitHubUpdateRepo", "Error downloading APK", e)
                     null
