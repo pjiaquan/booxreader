@@ -1,7 +1,5 @@
 package my.hinoki.booxreader.data.db
 
-import android.app.Activity
-import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
@@ -13,26 +11,13 @@ import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 // legacy API 支援 cursor 操作，因此 MIGRATION_12_13 保留完整的資料回填邏輯。
 // ---------------------------------------------------------------------------
 
-private var appContextOverride: Context? = null
-
-/** 測試或特殊環境下預先注入 Application Context（正式環境會自動從 ActivityThread 取得）。 */
+/** 測試或特殊環境下預先注入 Application Context（正式環境由 BooxReaderApp 初始化）。 */
 fun initBooxReaderDatabase(context: Context) {
-    appContextOverride = context.applicationContext
+    my.hinoki.booxreader.data.platform.initPlatformContext(context)
 }
 
-/** 透過反射取得 Application Context（ActivityThread.currentApplication 為隱藏 API）。 */
-private fun currentApplicationContext(): Context? = runCatching {
-    val clazz = Class.forName("android.app.ActivityThread")
-    val method = clazz.getMethod("currentApplication")
-    (method.invoke(null) as? Application)?.applicationContext
-}.getOrNull()
-
 actual fun buildAppDatabase(): AppDatabase {
-    val context = appContextOverride
-        ?: currentApplicationContext()
-        ?: throw IllegalStateException(
-            "BooxReader database context not initialized; call initBooxReaderDatabase(context)"
-        )
+    val context = my.hinoki.booxreader.data.platform.requireAppContext()
     return Room.databaseBuilder(context, AppDatabase::class.java, "boox_reader.db")
         .addMigrations(*databaseMigrations())
         .build()
