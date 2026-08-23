@@ -4,6 +4,7 @@ package my.hinoki.booxreader.data.platform
 
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.allocArrayOf
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,7 +37,9 @@ private fun byteArrayToNSData(bytes: ByteArray): NSData? =
         if (bytes.isEmpty()) {
                 NSData()
         } else {
-                NSData.create(bytes = allocArrayOf(bytes), length = bytes.size.toULong())
+                memScoped {
+                        NSData.create(bytes = allocArrayOf(bytes), length = bytes.size.toULong())
+                }
         }
 
 private fun filePathOf(uri: String): String = uri.removePrefix("file://")
