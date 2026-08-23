@@ -1,9 +1,5 @@
 package my.hinoki.booxreader.data.repo
 
-import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
-import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -16,30 +12,34 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLParameter
 import io.ktor.http.isSuccess
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import java.io.File
-import java.io.FileOutputStream
-import java.net.URLEncoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import my.hinoki.booxreader.BuildConfig
-import my.hinoki.booxreader.data.core.ErrorReporter
+import my.hinoki.booxreader.data.auth.TokenProvider
+import my.hinoki.booxreader.data.core.Logger
+import my.hinoki.booxreader.data.core.Reporter
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.UserEntity
-import my.hinoki.booxreader.data.prefs.TokenManager
+import my.hinoki.booxreader.data.platform.platformFiles
 import my.hinoki.booxreader.data.remote.createApiClient
 
 /** Handles user authentication via PocketBase REST API. */
-class AuthRepository(private val context: Context, private val tokenManager: TokenManager) {
+class AuthRepository(
+        private val tokenProvider: TokenProvider,
+        private val syncRepo: UserSyncRepository,
+        private val reporter: Reporter,
+        private val logger: Logger
+) {
         private val userDao = AppDatabase.get().userDao()
         private val json = Json { ignoreUnknownKeys = true }
-        private val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trimEnd('/')
+        private val pocketBaseUrl = tokenProvider.getBackendUrl().trimEnd('/')
 
         private val httpClient: HttpClient = createApiClient()
 
@@ -61,7 +61,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 val responseBody = response.bodyAsText()
 
                                 if (!response.status.isSuccess()) {
-                                        Log.e(
+                                        logger.e(
                                                 "AuthRepository",
                                                 "Login failed with code: ${response.status.value}"
                                         )
@@ -75,7 +75,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                                 ?: throw Exception("No user record in response")
 
                                 // Save tokens
-                                tokenManager.saveAccessToken(authData.token)
+                                tokenProvider.saveAccessToken(authData.token)
                                 // PocketBase doesn't use refresh tokens in the same way - the token
                                 // is long-lived
 
@@ -112,7 +112,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 val responseBody = response.bodyAsText()
 
                                 if (!response.status.isSuccess()) {
-                                        Log.e(
+                                        logger.e(
                                                 "AuthRepository",
                                                 "Registration failed with code: ${response.status.value}"
                                         )
@@ -142,21 +142,19 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun logout(): Result<Unit> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                val syncRepo = createUserSyncRepository(context, tokenManager = tokenManager)
                                 // Best-effort final upload before local wipe.
                                 // This avoids "book not found" after fast logout/login cycles.
                                 withTimeoutOrNull(15_000) {
                                         runCatching { syncRepo.pushLocalBooks() }
                                                 .onFailure {
-                                                        ErrorReporter.report(
-                                                                context,
+                                                        reporter.report(
                                                                 "AuthRepository.logout",
                                                                 "Failed to push local books before logout",
                                                                 it
                                                         )
                                                 }
                                 }
-                                tokenManager.clearTokens()
+                                tokenProvider.clearTokens()
                                 syncRepo.clearLocalUserData()
                         }
                 }
@@ -173,7 +171,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         }
 
                                 if (!response.status.isSuccess()) {
-                                        Log.e(
+                                        logger.e(
                                                 "AuthRepository",
                                                 "Resend verification failed with code: ${response.status.value}"
                                         )
@@ -196,7 +194,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         }
 
                                 if (!response.status.isSuccess()) {
-                                        Log.e(
+                                        logger.e(
                                                 "AuthRepository",
                                                 "Request password reset failed with code: ${response.status.value}"
                                         )
@@ -210,7 +208,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun googleLogin(idToken: String): Result<UserEntity> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                Log.d(
+                                logger.d(
                                         "AuthRepository",
                                         "googleLogin - STUB: Not implemented for PocketBase yet"
                                 )
@@ -218,12 +216,12 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                         }
                 }
 
-        suspend fun updateProfile(displayName: String, avatarUri: Uri?): Result<UserEntity> =
+        suspend fun updateProfile(displayName: String, avatarUri: String?): Result<UserEntity> =
                 withContext(Dispatchers.IO) {
                         runCatching {
                                 val currentUser = getCurrentUser() ?: throw Exception("User not found")
                                 val token =
-                                        tokenManager
+                                        tokenProvider
                                                 .getAccessToken()
                                                 ?.takeIf { it.isNotBlank() }
                                                 ?: throw Exception("Not authenticated")
@@ -235,41 +233,50 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 val url =
                                         "$pocketBaseUrl/api/collections/users/records/${currentUser.userId}"
 
-                                if (avatarUri == null) {
+                                val avatarUriStr = avatarUri?.takeIf { it.isNotBlank() }
+                                if (avatarUriStr == null) {
                                         return@runCatching patchUserAndCache(url, token) {
                                                 contentType(ContentType.Application.Json)
                                                 setBody(jsonBody("name" to trimmedName))
                                         }
                                 }
 
-                                val tempFile = copyUriToTempFile(avatarUri)
-                                try {
-                                        val contentType =
-                                                context.contentResolver.getType(avatarUri)
-                                                        ?: "application/octet-stream"
-                                        val form =
-                                                formData {
-                                                        append("name", trimmedName)
-                                                        append(
-                                                                "avatar",
-                                                                tempFile.readBytes(),
-                                                                Headers.build {
-                                                                        append(
-                                                                                HttpHeaders.ContentType,
-                                                                                contentType
-                                                                        )
-                                                                        append(
-                                                                                HttpHeaders.ContentDisposition,
-                                                                                "filename=\"${tempFile.name}\""
-                                                                        )
-                                                                }
-                                                        )
-                                                }
-                                        patchUserAndCache(url, token) {
-                                                setBody(MultiPartFormDataContent(form))
+                                val bytes =
+                                        platformFiles().readUriBytes(avatarUriStr)
+                                                ?: throw Exception("Failed to read selected avatar")
+                                if (bytes.isEmpty()) {
+                                        throw Exception("Selected avatar is empty")
+                                }
+                                val mimeType =
+                                        platformFiles().contentType(avatarUriStr)
+                                                ?: "application/octet-stream"
+                                val fallbackName = "avatar_${System.currentTimeMillis()}.jpg"
+                                val cleanName =
+                                        (platformFiles().contentName(avatarUriStr)
+                                                        ?.substringAfterLast('/')
+                                                        ?.ifBlank { fallbackName }
+                                                        ?: fallbackName)
+                                                        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                                val form =
+                                        formData {
+                                                append("name", trimmedName)
+                                                append(
+                                                        "avatar",
+                                                        bytes,
+                                                        Headers.build {
+                                                                append(
+                                                                        HttpHeaders.ContentType,
+                                                                        mimeType
+                                                                )
+                                                                append(
+                                                                        HttpHeaders.ContentDisposition,
+                                                                        "filename=\"$cleanName\""
+                                                                )
+                                                        }
+                                                )
                                         }
-                                } finally {
-                                        runCatching { tempFile.delete() }
+                                patchUserAndCache(url, token) {
+                                        setBody(MultiPartFormDataContent(form))
                                 }
                         }
                 }
@@ -287,7 +294,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                 }
                                 val currentUser = getCurrentUser() ?: throw Exception("User not found")
                                 val token =
-                                        tokenManager
+                                        tokenProvider
                                                 .getAccessToken()
                                                 ?.takeIf { it.isNotBlank() }
                                                 ?: throw Exception("Not authenticated")
@@ -308,7 +315,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         }
 
                                 if (!response.status.isSuccess()) {
-                                        Log.e(
+                                        logger.e(
                                                 "AuthRepository",
                                                 "changePassword failed with code: ${response.status.value}"
                                         )
@@ -328,7 +335,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                 withContext(Dispatchers.IO) {
                         // Keep auth gate tied to token presence, but read user from local cache.
                         // Token is a JWT string and not equal to users.userId.
-                        val token = tokenManager.getAccessToken() ?: return@withContext null
+                        val token = tokenProvider.getAccessToken() ?: return@withContext null
                         if (token.isBlank()) return@withContext null
                         userDao.getUser().first()?.let { return@withContext it }
 
@@ -348,7 +355,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         val responseBody = response.bodyAsText()
 
                                         if (!response.status.isSuccess()) {
-                                                Log.w(
+                                                logger.w(
                                                         "AuthRepository",
                                                         "getCurrentUser auth-refresh failed with code: ${response.status.value}"
                                                 )
@@ -358,7 +365,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         val authData =
                                                 json.decodeFromString<PocketBaseAuthResponse>(responseBody)
                                         val record = authData.record ?: return@runCatching null
-                                        tokenManager.saveAccessToken(authData.token)
+                                        tokenProvider.saveAccessToken(authData.token)
 
                                         val user =
                                                 UserEntity(
@@ -371,7 +378,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                                         user
                                 }
                                 .getOrElse {
-                                        Log.e("AuthRepository", "getCurrentUser failed", it)
+                                        logger.e("AuthRepository", "getCurrentUser failed", it)
                                         null
                                 }
                 }
@@ -389,7 +396,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
                         }
                 val responseBody = response.bodyAsText()
                 if (!response.status.isSuccess()) {
-                        Log.e(
+                        logger.e(
                                 "AuthRepository",
                                 "Profile update failed with code: ${response.status.value}"
                         )
@@ -432,56 +439,8 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
 
         private fun encodePath(value: String): String =
                 value.split('/').joinToString("/") {
-                        URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20")
+                        it.encodeURLParameter()
                 }
-
-        private fun copyUriToTempFile(uri: Uri): File {
-                val cacheDir = File(context.cacheDir, "avatar_uploads").apply { mkdirs() }
-                val fallbackName = "avatar_${System.currentTimeMillis()}.jpg"
-                val displayName =
-                        queryDisplayName(uri)
-                                ?.substringAfterLast('/')
-                                ?.ifBlank { fallbackName }
-                                ?: fallbackName
-                val safeName = displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-                val target = File(cacheDir, safeName)
-
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(target).use { output ->
-                                input.copyTo(output)
-                        }
-                }
-                        ?: throw Exception("Failed to read selected avatar")
-
-                if (!target.exists() || target.length() <= 0L) {
-                        throw Exception("Selected avatar is empty")
-                }
-                return target
-        }
-
-        private fun queryDisplayName(uri: Uri): String? {
-                return runCatching {
-                                context.contentResolver
-                                        .query(
-                                                uri,
-                                                arrayOf(OpenableColumns.DISPLAY_NAME),
-                                                null,
-                                                null,
-                                                null
-                                        )
-                                        ?.use { cursor ->
-                                                if (!cursor.moveToFirst()) {
-                                                        return@use null
-                                                }
-                                                val index =
-                                                        cursor.getColumnIndex(
-                                                                OpenableColumns.DISPLAY_NAME
-                                                        )
-                                                if (index >= 0) cursor.getString(index) else null
-                                        }
-                        }
-                        .getOrNull()
-        }
 }
 
 // Response data classes for PocketBase API
@@ -504,4 +463,3 @@ private data class PocketBaseUserRecord(
 /** Build a JSON body from string pairs (replaces Gson mapOf toJson). */
 private fun jsonBody(vararg pairs: Pair<String, String>): String =
         buildJsonObject { pairs.forEach { (k, v) -> put(k, v) } }.toString()
-

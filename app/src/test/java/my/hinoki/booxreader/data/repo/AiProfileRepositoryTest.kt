@@ -35,7 +35,7 @@ class AiProfileRepositoryTest {
         context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
 
         syncRepo = Mockito.mock(UserSyncRepository::class.java)
-        repository = AiProfileRepository(context, syncRepo)
+        repository = createAiProfileRepository(context, syncRepo)
     }
 
     @After

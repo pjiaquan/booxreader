@@ -43,6 +43,7 @@ import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.createAiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
@@ -816,7 +817,7 @@ class ReaderSettingsActivity : BaseActivity() {
 
         btnTestExport.setOnClickListener {
             val app = application as BooxReaderApp
-            val repo = AiNoteRepository(app, syncRepo)
+            val repo = createAiNoteRepository(app, syncRepo)
             val baseUrl = etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
             val targetUrl = if (cbCustomExport.isChecked && etCustomExportUrl.text.toString().trim().isNotEmpty()) {
                 etCustomExportUrl.text.toString().trim()

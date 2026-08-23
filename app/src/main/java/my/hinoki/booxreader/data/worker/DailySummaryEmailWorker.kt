@@ -10,6 +10,7 @@ import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.reader.DailyReadingStats
 import my.hinoki.booxreader.data.repo.AiNoteDailySummaryBuilder
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.createAiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -35,7 +36,7 @@ class DailySummaryEmailWorker(
 
         runCatching { syncRepo.pullNotes() }
 
-        val repo = AiNoteRepository(applicationContext, syncRepo)
+        val repo = createAiNoteRepository(applicationContext, syncRepo)
         val allNotes = runCatching { repo.getAll() }.getOrDefault(emptyList())
         val readingMillis = DailyReadingStats.getTodayReadingMillis(applicationContext)
         val summary = AiNoteDailySummaryBuilder.build(applicationContext, allNotes, todayReadingMillis = readingMillis)

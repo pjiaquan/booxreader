@@ -11,9 +11,10 @@ import kotlinx.coroutines.launch
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.repo.AuthRepository
+import my.hinoki.booxreader.data.repo.createAuthRepository
 
 class AuthViewModel(app: Application) : AndroidViewModel(app) {
-    private val authRepo = AuthRepository(app, (app as BooxReaderApp).tokenManager)
+    private val authRepo = createAuthRepository(app, (app as BooxReaderApp).tokenManager)
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()

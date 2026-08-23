@@ -1,28 +1,17 @@
 package my.hinoki.booxreader.data.repo
-import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
-import android.Manifest
-import android.content.ContentValues
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
-import android.util.Log
-import androidx.core.content.ContextCompat
-import java.io.File
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import my.hinoki.booxreader.BuildConfig
+import my.hinoki.booxreader.data.core.Logger
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
+import my.hinoki.booxreader.data.platform.platformFiles
 import my.hinoki.booxreader.data.remote.HttpConfig
+import my.hinoki.booxreader.data.remote.isValidHttpUrl
+import my.hinoki.booxreader.data.settings.KeyValueStorage
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
-import my.hinoki.booxreader.data.remote.isValidHttpUrl
 import io.ktor.client.request.post
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.preparePost
@@ -36,14 +25,33 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import my.hinoki.booxreader.data.remote.createApiClient
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonArrayBuilder
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 
 class AiNoteRepository(
-        private val context: Context,
-        private val syncRepo: UserSyncRepository? = null
+        private val prefs: KeyValueStorage,
+        private val syncRepo: UserSyncRepository? = null,
+        private val logger: Logger,
+        private val pocketBaseUrl: String? = null
 ) {
-        private val ktorClient = createApiClient()
     data class SemanticRelatedNote(
             val noteId: String,
             val score: Double,
@@ -59,26 +67,24 @@ class AiNoteRepository(
     private val dao = AppDatabase.get().aiNoteDao()
     private val bookDao = AppDatabase.get().bookDao()
 
+    private val ktorClient = createApiClient()
+
     var lastStreamingError: my.hinoki.booxreader.data.remote.StreamingErrorInfo? = null
 
-    private fun prefs() = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
-
     fun isStreamingEnabled(): Boolean {
-        return prefs().getBoolean("use_streaming", false)
+        return prefs.getBoolean("use_streaming", false)
     }
 
     private fun getBaseUrl(): String {
-        val prefs = context.getSharedPreferences("reader_prefs", Context.MODE_PRIVATE)
         var url =
-                prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
-                        ?: HttpConfig.DEFAULT_BASE_URL
+                prefs.getString("server_base_url") ?: HttpConfig.DEFAULT_BASE_URL
         return if (url.endsWith("/")) url.dropLast(1) else url
     }
 
     private fun getSemanticSearchBaseUrl(): String {
-        val pocketBaseUrl = BuildConfig.POCKETBASE_URL.trim()
-        if (pocketBaseUrl.isNotEmpty()) {
-            return pocketBaseUrl.trimEnd('/')
+        val pb = pocketBaseUrl?.trim().orEmpty()
+        if (pb.isNotEmpty()) {
+            return pb.trimEnd('/')
         }
         return getBaseUrl()
     }
@@ -110,7 +116,7 @@ class AiNoteRepository(
 
     private fun transformToGooglePayload(
             model: String,
-            messages: JSONArray,
+            messages: JsonArray,
             systemPrompt: String?,
             temperature: Double,
             maxTokens: Int,
@@ -118,19 +124,12 @@ class AiNoteRepository(
             frequencyPenalty: Double,
             presencePenalty: Double,
             includeGoogleSearch: Boolean = false
-    ): JSONObject {
-        val contents = JSONArray()
+    ): JsonObject {
         var finalSystemPrompt = systemPrompt ?: ""
 
-        val systemInstructionObj =
-                if (finalSystemPrompt.isNotEmpty()) {
-                    JSONObject().apply {
-                        put("parts", JSONArray().put(JSONObject().put("text", finalSystemPrompt)))
-                    }
-                } else null
-
-        for (i in 0 until messages.length()) {
-            val msg = messages.optJSONObject(i) ?: continue
+        val contents = mutableListOf<JsonObject>()
+        for (i in 0 until messages.size) {
+            val msg = messages.optJsonObject(i) ?: continue
             val role = msg.optString("role")
             val content = msg.optString("content")
 
@@ -148,36 +147,29 @@ class AiNoteRepository(
             }
 
             val googleRole = if (role == "user") "user" else "model"
-            val parts = JSONArray().put(JSONObject().put("text", content))
-
-            contents.put(
-                    JSONObject().apply {
+            contents.add(
+                    jsonObj {
                         put("role", googleRole)
-                        put("parts", parts)
+                        put("parts", jsonArr { add(jsonObj { put("text", content) }) })
                     }
             )
         }
 
-        // Use local variable for systemInstruction to avoid re-assignment error if val used
-        // incorrectly above
-        // Re-evaluate system instruction if it was extracted from messages
-        val finalSystemInstruction =
-                if (finalSystemPrompt.isNotEmpty()) {
-                    JSONObject().apply {
-                        put("parts", JSONArray().put(JSONObject().put("text", finalSystemPrompt)))
-                    }
-                } else systemInstructionObj
-
-        return JSONObject().apply {
+        return jsonObj {
             // Google Native often embeds model in URL, but payload body structure is:
             // { contents: [], systemInstruction: {}, generationConfig: {} }
-            put("contents", contents)
-            if (finalSystemInstruction != null) {
-                put("systemInstruction", finalSystemInstruction)
+            put("contents", jsonArr { addAll(contents) })
+            if (finalSystemPrompt.isNotEmpty()) {
+                put(
+                        "systemInstruction",
+                        jsonObj {
+                            put("parts", jsonArr { add(jsonObj { put("text", finalSystemPrompt) }) })
+                        }
+                )
             }
             put(
                     "generationConfig",
-                    JSONObject().apply {
+                    jsonObj {
                         put("temperature", temperature)
                         put("maxOutputTokens", maxTokens)
                         put("topP", topP)
@@ -189,25 +181,25 @@ class AiNoteRepository(
                 // Use googleSearch tool (retrieval variant currently rejected by API)
                 put(
                         "tools",
-                        JSONArray().apply {
-                            put(JSONObject().apply { put("googleSearch", JSONObject()) })
+                        jsonArr {
+                            add(jsonObj { put("googleSearch", jsonObj {}) })
                         }
                 )
             }
         }
     }
 
-    private fun parseGoogleResponse(json: JSONObject): String? {
+    private fun parseGoogleResponse(json: JsonObject): String? {
         // candidates[0].content.parts[0].text
-        val candidates = json.optJSONArray("candidates")
-        val firstCandidate = candidates?.optJSONObject(0)
-        val content = firstCandidate?.optJSONObject("content")
-        val parts = content?.optJSONArray("parts")
-        return parts?.optJSONObject(0)?.optString("text", "")
+        val candidates = json.optJsonArray("candidates")
+        val firstCandidate = candidates?.optJsonObject(0)
+        val content = firstCandidate?.optJsonObject("content")
+        val parts = content?.optJsonArray("parts")
+        return parts?.optJsonObject(0)?.optString("text", "")
     }
 
     private fun normalizeMagicRole(tag: MagicTag?): String? {
-        return tag?.role?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotBlank() }
+        return tag?.role?.trim()?.lowercase()?.takeIf { it.isNotBlank() }
     }
 
     private fun magicText(tag: MagicTag?): String {
@@ -235,20 +227,19 @@ class AiNoteRepository(
                 } else {
                     text
                 }
-        return String.format(settings.safeUserPromptTemplate, userText)
+        return settings.safeUserPromptTemplate.replaceFirst("%s", userText)
     }
 
-    private fun maybeAddAssistantMagic(messages: JSONArray, tag: MagicTag?) {
+    private fun maybeAddAssistantMagic(messages: JsonArray, tag: MagicTag?): JsonArray {
         val role = normalizeMagicRole(tag)
         val magicText = magicText(tag)
         if (role == "assistant" && magicText.isNotEmpty()) {
-            messages.put(
-                    JSONObject().apply {
-                        put("role", "assistant")
-                        put("content", magicText)
-                    }
-            )
+            return jsonArr {
+                addAll(messages)
+                add(jsonObj { put("role", "assistant"); put("content", magicText) })
+            }
         }
+        return messages
     }
 
     suspend fun add(
@@ -262,10 +253,10 @@ class AiNoteRepository(
                 bookTitle ?: bookId?.let { id -> bookDao.getById(id)?.title }
 
         val messages =
-                JSONArray().apply {
-                    put(JSONObject().put("role", "user").put("content", originalText))
+                jsonArr {
+                    add(jsonObj { put("role", "user"); put("content", originalText) })
                     if (aiResponse.isNotBlank()) {
-                        put(JSONObject().put("role", "assistant").put("content", aiResponse))
+                        add(jsonObj { put("role", "assistant"); put("content", aiResponse) })
                     }
                 }
 
@@ -367,23 +358,23 @@ class AiNoteRepository(
         }
     }
 
-    private fun buildMessages(note: AiNoteEntity): JSONArray {
+    private fun buildMessages(note: AiNoteEntity): JsonArray {
         val json = buildMessagesJson(note)
-        return runCatching { JSONArray(json) }.getOrDefault(JSONArray())
+        return parseJsonArray(json) ?: jsonArr {}
     }
 
     private fun getSettings(): ReaderSettings {
-        return ReaderSettings.fromStorage(SharedPreferencesStorage(prefs()))
+        return ReaderSettings.fromStorage(prefs)
     }
 
-    private fun parseExtraParamsJson(raw: String?): JSONObject? {
+    private fun parseExtraParamsJson(raw: String?): JsonObject? {
         if (raw.isNullOrBlank()) return null
-        return runCatching { JSONObject(raw) }.getOrNull()
+        return parseJsonObject(raw)
     }
 
-    private suspend fun loadExtraParams(): JSONObject? =
+    private suspend fun loadExtraParams(): JsonObject? =
             withContext(Dispatchers.IO) {
-                val activeProfileId = prefs().getLong("active_ai_profile_id", -1L)
+                val activeProfileId = prefs.getLong("active_ai_profile_id", -1L)
                 if (activeProfileId <= 0L) return@withContext null
                 val profile = AppDatabase.get().aiProfileDao().getById(activeProfileId)
                 return@withContext parseExtraParamsJson(profile?.extraParamsJson)
@@ -402,27 +393,22 @@ class AiNoteRepository(
         return parseMagicTagSuggestions(raw, limit)
     }
 
-    private fun mergeJson(target: JSONObject, extra: JSONObject) {
-        val keys = extra.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            val extraValue = extra.get(key)
-            val targetValue = target.opt(key)
-            if (extraValue is JSONObject && targetValue is JSONObject) {
-                mergeJson(targetValue, extraValue)
+    private fun mergeJson(target: JsonObject, extra: JsonObject): JsonObject {
+        val result = target.toMutableMap()
+        for ((key, extraValue) in extra) {
+            val targetValue = result[key]
+            if (extraValue is JsonObject && targetValue is JsonObject) {
+                result[key] = mergeJson(targetValue, extraValue)
             } else {
-                target.put(key, extraValue)
+                result[key] = extraValue
             }
         }
+        return JsonObject(result)
     }
 
-    private fun applyExtraParams(target: JSONObject, extra: JSONObject?) {
-        if (extra == null) return
-        mergeJson(target, extra)
-    }
-
-    private fun logPayload(tag: String, payload: JSONObject) {
-        try {} catch (_: Exception) {}
+    private fun applyExtraParams(target: JsonObject, extra: JsonObject?): JsonObject {
+        if (extra == null) return target
+        return mergeJson(target, extra)
     }
 
     private fun firstNonBlank(vararg values: String?): String? {
@@ -440,9 +426,9 @@ class AiNoteRepository(
         return null
     }
 
-    private fun optLongOrNull(json: JSONObject?, key: String): Long? {
-        if (json == null || !json.has(key)) return null
-        return runCatching { json.getLong(key) }.getOrNull()
+    private fun optLongOrNull(json: JsonObject?, key: String): Long? {
+        if (json == null || !json.containsKey(key)) return null
+        return (json[key] as? JsonPrimitive)?.longOrNull
     }
 
     private fun extractOriginalTextForPrompt(note: AiNoteEntity): String {
@@ -519,22 +505,22 @@ class AiNoteRepository(
         return parseMagicTagsFromLines(trimmed, limit)
     }
 
-    private fun extractFirstJsonArray(raw: String): JSONArray? {
+    private fun extractFirstJsonArray(raw: String): JsonArray? {
         val start = raw.indexOf('[')
         val end = raw.lastIndexOf(']')
         if (start >= 0 && end > start) {
             val candidate = raw.substring(start, end + 1)
-            return runCatching { JSONArray(candidate) }.getOrNull()
+            return parseJsonArray(candidate)
         }
         return null
     }
 
-    private fun parseMagicTagsFromJson(array: JSONArray, limit: Int): List<MagicTag> {
+    private fun parseMagicTagsFromJson(array: JsonArray, limit: Int): List<MagicTag> {
         val suggestions = mutableListOf<MagicTag>()
         val usedIds = mutableSetOf<String>()
-        for (i in 0 until array.length()) {
+        for (i in 0 until array.size) {
             if (suggestions.size >= limit) break
-            val obj = array.optJSONObject(i) ?: continue
+            val obj = array.optJsonObject(i) ?: continue
             val label =
                     firstNonBlank(
                             obj.optString("label", ""),
@@ -603,7 +589,7 @@ class AiNoteRepository(
 
     private fun generateUniqueTagId(baseLabel: String, used: MutableSet<String>): String {
         val base =
-                baseLabel.lowercase(Locale.ROOT)
+                baseLabel.lowercase()
                         .replace(Regex("[^a-z0-9]+"), "-")
                         .trim('-')
                         .takeIf { it.isNotBlank() }
@@ -618,22 +604,22 @@ class AiNoteRepository(
         return candidate
     }
 
-    private fun parseSemanticResultsArray(body: String): JSONArray? {
+    private fun parseSemanticResultsArray(body: String): JsonArray? {
         val trimmed = body.trim()
         if (trimmed.isEmpty()) return null
         if (trimmed.startsWith("[")) {
-            return runCatching { JSONArray(trimmed) }.getOrNull()
+            return parseJsonArray(trimmed)
         }
-        val root = runCatching { JSONObject(trimmed) }.getOrNull() ?: return null
+        val root = parseJsonObject(trimmed) ?: return null
         val keys = listOf("results", "matches", "data", "items", "points", "hits")
         for (key in keys) {
-            val candidate = root.optJSONArray(key)
+            val candidate = root.optJsonArray(key)
             if (candidate != null) return candidate
         }
         return null
     }
 
-    private fun parseReason(item: JSONObject, payload: JSONObject?): String? {
+    private fun parseReason(item: JsonObject, payload: JsonObject?): String? {
         val direct =
                 firstNonBlank(
                         item.optString("reason", ""),
@@ -644,20 +630,20 @@ class AiNoteRepository(
                 )
         if (!direct.isNullOrBlank()) return direct
 
-        val reasonArray = payload?.optJSONArray("reasons") ?: item.optJSONArray("reasons")
+        val reasonArray = payload?.optJsonArray("reasons") ?: item.optJsonArray("reasons")
         if (reasonArray != null) {
             val parts = mutableListOf<String>()
-            for (i in 0 until reasonArray.length()) {
+            for (i in 0 until reasonArray.size) {
                 val part = reasonArray.optString(i).trim()
                 if (part.isNotEmpty()) parts.add(part)
             }
             if (parts.isNotEmpty()) return parts.take(3).joinToString(" / ")
         }
 
-        val tagArray = payload?.optJSONArray("tags") ?: item.optJSONArray("tags")
+        val tagArray = payload?.optJsonArray("tags") ?: item.optJsonArray("tags")
         if (tagArray != null) {
             val parts = mutableListOf<String>()
-            for (i in 0 until tagArray.length()) {
+            for (i in 0 until tagArray.size) {
                 val part = tagArray.optString(i).trim()
                 if (part.isNotEmpty()) parts.add(part)
             }
@@ -692,7 +678,7 @@ class AiNoteRepository(
 
                 val url = baseUrl + HttpConfig.PATH_AI_NOTES_SEMANTIC_SEARCH
                 val requestPayload =
-                        JSONObject().apply {
+                        jsonObj {
                             put("query", query)
                             put("limit", boundedLimit)
                             put("noteId", note.remoteId ?: note.id.toString())
@@ -712,14 +698,14 @@ class AiNoteRepository(
                             if (!response.status.isSuccess()) return@runCatching emptyList()
                             val responseBody = response.bodyAsText()
                                 val results = parseSemanticResultsArray(responseBody)
-                                if (results == null || results.length() == 0) return@runCatching emptyList()
+                                if (results == null || results.size == 0) return@runCatching emptyList()
 
                                 val currentRemoteId = note.remoteId?.trim().orEmpty()
                                 val currentLocalId = note.id
                                 val parsed = mutableListOf<SemanticRelatedNote>()
-                                for (i in 0 until results.length()) {
-                                    val item = results.optJSONObject(i) ?: continue
-                                    val payload = item.optJSONObject("payload")
+                                for (i in 0 until results.size) {
+                                    val item = results.optJsonObject(i) ?: continue
+                                    val payload = item.optJsonObject("payload")
                                     val remoteId =
                                             firstNonBlank(
                                                     item.optString("remoteId", ""),
@@ -790,7 +776,7 @@ class AiNoteRepository(
                                 parsed.sortedByDescending { it.score }.take(boundedLimit)
                             }
                         .onFailure { error ->
-                            Log.e(TAG, "searchRelatedNotesFromQdrant failed", error)
+                            logger.e(TAG, "searchRelatedNotesFromQdrant failed", error)
                         }
                         .getOrDefault(emptyList())
             }
@@ -810,7 +796,7 @@ class AiNoteRepository(
 
                 val url = baseUrl + HttpConfig.PATH_AI_NOTES_SEMANTIC_SEARCH
                 val requestPayload =
-                        JSONObject().apply {
+                        jsonObj {
                             put("query", query)
                             put("limit", boundedLimit)
                             if (!bookId.isNullOrBlank()) {
@@ -826,12 +812,12 @@ class AiNoteRepository(
                             if (!response.status.isSuccess()) return@runCatching emptyList()
                             val responseBody = response.bodyAsText()
                                 val results = parseSemanticResultsArray(responseBody)
-                                if (results == null || results.length() == 0) return@runCatching emptyList()
+                                if (results == null || results.size == 0) return@runCatching emptyList()
 
                                 val parsed = mutableListOf<SemanticRelatedNote>()
-                                for (i in 0 until results.length()) {
-                                    val item = results.optJSONObject(i) ?: continue
-                                    val payload = item.optJSONObject("payload")
+                                for (i in 0 until results.size) {
+                                    val item = results.optJsonObject(i) ?: continue
+                                    val payload = item.optJsonObject("payload")
                                     val remoteId =
                                             firstNonBlank(
                                                     item.optString("remoteId", ""),
@@ -892,7 +878,7 @@ class AiNoteRepository(
                                 parsed.sortedByDescending { it.score }.take(boundedLimit)
                             }
                         .onFailure { error ->
-                            Log.e(TAG, "searchNotesBySemanticQuery failed", error)
+                            logger.e(TAG, "searchNotesBySemanticQuery failed", error)
                         }
                         .getOrDefault(emptyList())
             }
@@ -913,7 +899,7 @@ class AiNoteRepository(
                             if (!response.status.isSuccess()) return@runCatching null
                             val body = response.bodyAsText()
                             if (body.isBlank()) return@runCatching null
-                            JSONObject(body).optInt("credits", -1).takeIf { it >= 0 }
+                            parseJsonObject(body)?.optInt("credits", -1)?.takeIf { it >= 0 }
                         }
                         .getOrNull()
             }
@@ -936,13 +922,13 @@ class AiNoteRepository(
 
                     if (isGoogle) {
                         val messages =
-                                JSONArray().apply {
+                                jsonArr {
                                     // In Google adapter logic, we'll extract system prompt from
                                     // here or pass it explicitly.
                                     // Here we construct OpenAI style first, then transform.
                                     // OR we just use transform directly.
-                                    put(
-                                            JSONObject().apply {
+                                    add(
+                                            jsonObj {
                                                 put("role", "user")
                                                 put(
                                                         "content",
@@ -951,12 +937,12 @@ class AiNoteRepository(
                                             }
                                     )
                                 }
-                        maybeAddAssistantMagic(messages, magicTag)
+                        val messagesWithMagic = maybeAddAssistantMagic(messages, magicTag)
 
                         val googlePayload =
                                 transformToGooglePayload(
                                         settings.aiModelName,
-                                        messages,
+                                        messagesWithMagic,
                                         systemPrompt,
                                         settings.temperature,
                                         settings.maxTokens,
@@ -965,22 +951,20 @@ class AiNoteRepository(
                                         settings.presencePenalty,
                                         includeGoogleSearch = settings.enableGoogleSearch
                                 )
-                        applyExtraParams(googlePayload, extraParams)
-                        logPayload("fetchAiExplanation_google", googlePayload)
-                        requestBody = googlePayload.toString()
+                        val merged = applyExtraParams(googlePayload, extraParams)
+                        requestBody = merged.toString()
                     } else {
                         // Standard OpenAI logic
                         val messages =
-                                JSONArray().apply {
-                                    put(
-                                            JSONObject().apply {
+                                jsonArr {
+                                    add(
+                                            jsonObj {
                                                 put("role", "system")
                                                 put("content", systemPrompt)
                                             }
                                     )
-                                    maybeAddAssistantMagic(this, magicTag)
-                                    put(
-                                            JSONObject().apply {
+                                    add(
+                                            jsonObj {
                                                 put("role", "user")
                                                 put(
                                                         "content",
@@ -989,10 +973,11 @@ class AiNoteRepository(
                                             }
                                     )
                                 }
+                        val messagesWithMagic = maybeAddAssistantMagic(messages, magicTag)
                         val payload =
-                                JSONObject().apply {
+                                jsonObj {
                                     put("model", settings.aiModelName)
-                                    put("messages", messages)
+                                    put("messages", messagesWithMagic)
                                     put("stream", false)
                                     put("temperature", settings.temperature)
                                     put("max_tokens", settings.maxTokens)
@@ -1006,12 +991,11 @@ class AiNoteRepository(
                                         }
                                     }
                                 }
-                        applyExtraParams(payload, extraParams)
-                        payload.put("stream", false)
-                        requestBody = payload.toString()
+                        val merged = applyExtraParams(payload, extraParams)
+                        requestBody = merged.withField("stream", JsonPrimitive(false)).toString()
                     }
 
-                    Log.d(TAG, "Fetching AI Explanation from: $url")
+                    logger.d(TAG, "Fetching AI Explanation from: $url")
 
                     val response =
                             ktorClient.post(url) {
@@ -1026,14 +1010,16 @@ class AiNoteRepository(
                     if (response.status.isSuccess()) {
                             val respBody = response.bodyAsText()
                             if (respBody != null) {
-                                val respJson = JSONObject(respBody)
+                                val respJson = parseJsonObject(respBody)
                                 val content =
-                                        if (isGoogle) {
+                                        if (respJson == null) {
+                                            ""
+                                        } else if (isGoogle) {
                                             parseGoogleResponse(respJson)
                                         } else {
-                                            val choices = respJson.optJSONArray("choices")
-                                            choices?.optJSONObject(0)
-                                                    ?.optJSONObject("message")
+                                            val choices = respJson.optJsonArray("choices")
+                                            choices?.optJsonObject(0)
+                                                    ?.optJsonObject("message")
                                                     ?.optString("content", "")
                                         }
                                                 ?: ""
@@ -1048,15 +1034,14 @@ class AiNoteRepository(
                             }
                     } else {
                             val errorBody = response.bodyAsText()
-                            Log.e(
+                            logger.e(
                                     TAG,
                                     "AI Request Failed: Code=${response.status.value}, Body=$errorBody"
                             )
                             null
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Exception in fetchAiExplanation", e)
-                    e.printStackTrace()
+                    logger.e(TAG, "Exception in fetchAiExplanation", e)
                     null
                 }
             }
@@ -1065,7 +1050,7 @@ class AiNoteRepository(
         // Legacy Implementation
         return withContext(Dispatchers.IO) {
             try {
-                val jsonBody = JSONObject().apply { put("text", text) }.toString()
+                val jsonBody = jsonObj { put("text", text) }.toString()
 
                 val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI
                 val response =
@@ -1076,11 +1061,12 @@ class AiNoteRepository(
                 if (response.status.isSuccess()) {
                                 val respBody = response.bodyAsText()
                                 if (respBody != null) {
-                                    val respJson = JSONObject(respBody)
-                                    val serverText = respJson.optString("text", "")
+                                    val respJson = parseJsonObject(respBody)
+                                    val serverText =
+                                            respJson?.optString("text", "").orEmpty()
                                     val responseText =
                                             if (serverText.isNotBlank()) serverText else text
-                                    val content = respJson.optString("content", "")
+                                    val content = respJson?.optString("content", "").orEmpty()
                                     Pair(responseText, content)
                                 } else {
                                     null
@@ -1089,7 +1075,7 @@ class AiNoteRepository(
                                 null
                             }
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.e(TAG, "fetchAiExplanation legacy failed", e)
                 null
             }
         }
@@ -1108,26 +1094,26 @@ class AiNoteRepository(
             val systemPrompt = resolveSystemPrompt(settings, magicTag)
 
             val messages =
-                    JSONArray().apply {
-                        put(
-                                JSONObject().apply {
+                    jsonArr {
+                        add(
+                                jsonObj {
                                     put("role", "system")
                                     put("content", systemPrompt)
                                 }
                         )
-                        maybeAddAssistantMagic(this, magicTag)
-                        put(
-                                JSONObject().apply {
+                        add(
+                                jsonObj {
                                     put("role", "user")
                                     put("content", resolveUserInput(settings, text, magicTag))
                                 }
                         )
                     }
+            val messagesWithMagic = maybeAddAssistantMagic(messages, magicTag)
 
             val payload =
-                    JSONObject().apply {
+                    jsonObj {
                         put("model", settings.aiModelName)
-                        put("messages", messages)
+                        put("messages", messagesWithMagic)
                         put("stream", true)
                         put("temperature", settings.temperature)
                         put("max_tokens", settings.maxTokens)
@@ -1141,8 +1127,8 @@ class AiNoteRepository(
                             }
                         }
                     }
-            applyExtraParams(payload, extraParams)
-            payload.put("stream", true)
+            val merged = applyExtraParams(payload, extraParams)
+            val payloadFinal = merged.withField("stream", JsonPrimitive(true))
 
             val isGoogle = isGoogleNative(url)
             val finalUrl = if (isGoogle) googleStreamUrl(url) else url
@@ -1151,9 +1137,9 @@ class AiNoteRepository(
                     if (isGoogle) {
                         // OpenAI 'messages' -> Google 'contents'
                         val messages =
-                                JSONArray().apply {
-                                    put(
-                                            JSONObject().apply {
+                                jsonArr {
+                                    add(
+                                            jsonObj {
                                                 put("role", "user")
                                                 put(
                                                         "content",
@@ -1162,11 +1148,11 @@ class AiNoteRepository(
                                             }
                                     )
                                 }
-                        maybeAddAssistantMagic(messages, magicTag)
+                        val messagesWithMagic = maybeAddAssistantMagic(messages, magicTag)
                         val googlePayload =
                                 transformToGooglePayload(
                                         settings.aiModelName,
-                                        messages,
+                                        messagesWithMagic,
                                         systemPrompt,
                                         settings.temperature,
                                         settings.maxTokens,
@@ -1176,16 +1162,14 @@ class AiNoteRepository(
                                         includeGoogleSearch = settings.enableGoogleSearch
                                 )
                         applyExtraParams(googlePayload, extraParams)
-                        logPayload("fetchAiExplanationStreaming_google", googlePayload)
-                        googlePayload
                     } else {
-                        payload
+                        payloadFinal
                     }
 
             return streamJsonPayloadSse(finalUrl, requestPayload, text, onPartial, settings.apiKey)
         } else {
             // Legacy Mode
-            val payload = JSONObject().apply { put("text", text) }
+            val payload = jsonObj { put("text", text) }
             val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_STREAM
             return streamJsonPayloadSse(url, payload, text, onPartial, null)
         }
@@ -1274,7 +1258,7 @@ class AiNoteRepository(
                 }
 
         val notesArray =
-                JSONArray().apply {
+                jsonArr {
                     notes.forEach { note ->
                         val msgs = buildMessages(note)
                         val originalText =
@@ -1290,27 +1274,28 @@ class AiNoteRepository(
                                                 )
                                                 .orEmpty()
 
-                        put(
-                                JSONObject().apply {
+                        add(
+                                jsonObj {
                                     put("id", note.id)
-                                    put("bookId", note.bookId ?: JSONObject.NULL)
+                                    put("bookId", note.bookId?.let { JsonPrimitive(it) } ?: JsonNull)
                                     put(
                                             "bookTitle",
-                                            note.bookTitle
-                                                    ?: bookTitlesById[note.bookId]
-                                                            ?: JSONObject.NULL
+                                            (note.bookTitle
+                                                    ?: bookTitlesById[note.bookId])
+                                                    ?.let { JsonPrimitive(it) }
+                                                    ?: JsonNull
                                     )
                                     put("originalText", originalText)
                                     put("aiResponse", aiResponse)
                                     put("messages", msgs)
-                                    put("locatorJson", note.locatorJson ?: JSONObject.NULL)
+                                    put("locatorJson", note.locatorJson?.let { JsonPrimitive(it) } ?: JsonNull)
                                     put("createdAt", note.createdAt)
                                 }
                         )
                     }
                 }
 
-        val payload = JSONObject().apply { put("notes", notesArray) }
+        val payload = jsonObj { put("notes", notesArray) }
         val payloadString = payload.toString()
 
         val exportUrl =
@@ -1348,7 +1333,6 @@ class AiNoteRepository(
                         statusMessages += "Server export failed (${response.status.value})"
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     statusMessages += "Server export error: ${e.message ?: "Unknown error"}"
                 }
             }
@@ -1357,90 +1341,13 @@ class AiNoteRepository(
         var localSuccess = true
         var localPath: String? = null
         if (settings.exportToLocalDownloads) {
-            val hasLegacyPermission =
-                    ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    ) == PackageManager.PERMISSION_GRANTED
-            val canUsePublicDir =
-                    Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && hasLegacyPermission
-
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && !hasLegacyPermission) {
-                statusMessages += "Local export skipped: storage permission not granted"
-                localSuccess = false
+            val result = platformFiles().writeDownloadsFile("ai-notes.json", prettyJsonString(payload))
+            if (result.localPath != null) {
+                localPath = result.localPath
+                statusMessages += result.message
             } else {
-                localSuccess =
-                        try {
-                            val locationHint: String
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                val resolver = context.contentResolver
-                                val fileName = "ai-notes.json"
-                                val contentValues =
-                                        ContentValues().apply {
-                                            put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                                            put(
-                                                    MediaStore.Downloads.MIME_TYPE,
-                                                    "application/json"
-                                            )
-                                            put(
-                                                    MediaStore.Downloads.RELATIVE_PATH,
-                                                    Environment.DIRECTORY_DOWNLOADS
-                                            )
-                                            put(MediaStore.Downloads.IS_PENDING, 1)
-                                        }
-                                val uri =
-                                        resolver.insert(
-                                                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                                                contentValues
-                                        )
-                                                ?: throw IllegalStateException(
-                                                        "Unable to create download entry"
-                                                )
-                                resolver.openOutputStream(uri)?.bufferedWriter().use { writer ->
-                                    writer?.write(payload.toString(2))
-                                            ?: throw IllegalStateException(
-                                                    "Unable to open output stream"
-                                            )
-                                }
-                                contentValues.clear()
-                                contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
-                                resolver.update(uri, contentValues, null, null)
-                                locationHint = "Downloads"
-                                localPath = "Downloads/$fileName"
-                                statusMessages += "Saved to Downloads/$fileName (public)"
-                            } else {
-                                val targetDir =
-                                        when {
-                                            canUsePublicDir ->
-                                                    Environment.getExternalStoragePublicDirectory(
-                                                            Environment.DIRECTORY_DOWNLOADS
-                                                    )
-                                            else ->
-                                                    context.getExternalFilesDir(
-                                                            Environment.DIRECTORY_DOWNLOADS
-                                                    )
-                                        }
-                                                ?: throw IllegalStateException(
-                                                        "No Downloads directory available"
-                                                )
-
-                                if (!targetDir.exists() && !targetDir.mkdirs()) {
-                                    throw IllegalStateException("Unable to create Downloads directory")
-                                }
-                                val outFile = File(targetDir, "ai-notes.json")
-                                outFile.writeText(payload.toString(2))
-                                locationHint =
-                                        if (canUsePublicDir) "Downloads"
-                                        else "app Downloads (no permission required)"
-                                localPath = outFile.absolutePath
-                                statusMessages +=
-                                        "Saved to ${outFile.absolutePath} ($locationHint)"
-                            }
-                            true
-                        } catch (e: Exception) {
-                            statusMessages += "Local export failed: ${e.message ?: "Unknown error"}"
-                            false
-                        }
+                statusMessages += result.message
+                localSuccess = false
             }
         }
 
@@ -1471,7 +1378,7 @@ class AiNoteRepository(
                         }
 
                 val payload =
-                        JSONObject().apply {
+                        jsonObj {
                             put("ping", "ai-notes-export-test")
                             put("timestamp", System.currentTimeMillis())
                         }
@@ -1513,18 +1420,22 @@ class AiNoteRepository(
                             // Add current user message
                             val userInputWithHint =
                                     resolveUserInput(settings, followUpText, magicTag)
-                            maybeAddAssistantMagic(history, magicTag)
-                            history.put(
-                                    JSONObject().apply {
-                                        put("role", "user")
-                                        put("content", userInputWithHint)
+                            val historyWithMagic = maybeAddAssistantMagic(history, magicTag)
+                            val historyFinal =
+                                    jsonArr {
+                                        addAll(historyWithMagic)
+                                        add(
+                                                jsonObj {
+                                                    put("role", "user")
+                                                    put("content", userInputWithHint)
+                                                }
+                                        )
                                     }
-                            )
 
                             val googlePayload =
                                     transformToGooglePayload(
                                             settings.aiModelName,
-                                            history,
+                                            historyFinal,
                                             systemPrompt,
                                             settings.temperature,
                                             settings.maxTokens,
@@ -1533,38 +1444,43 @@ class AiNoteRepository(
                                             settings.presencePenalty,
                                             includeGoogleSearch = settings.enableGoogleSearch
                                     )
-                            applyExtraParams(googlePayload, extraParams)
                             requestBody =
-                                    googlePayload
+                                    applyExtraParams(googlePayload, extraParams)
                                             .toString()
                             
                         } else {
                             // Standard OpenAI
                             val history = buildMessages(note)
 
-                            val messages = JSONArray()
-                            messages.put(
-                                    JSONObject().apply {
-                                        put("role", "system")
-                                        put("content", systemPrompt)
+                            val messages =
+                                    jsonArr {
+                                        add(
+                                                jsonObj {
+                                                    put("role", "system")
+                                                    put("content", systemPrompt)
+                                                }
+                                        )
+                                        addAll(history)
                                     }
-                            )
-                            for (i in 0 until history.length()) messages.put(history.get(i))
-                            maybeAddAssistantMagic(messages, magicTag)
+                            val messagesWithMagic = maybeAddAssistantMagic(messages, magicTag)
 
                             val userInputWithHint =
                                     resolveUserInput(settings, followUpText, magicTag)
-                            messages.put(
-                                    JSONObject().apply {
-                                        put("role", "user")
-                                        put("content", userInputWithHint)
+                            val messagesFinal =
+                                    jsonArr {
+                                        addAll(messagesWithMagic)
+                                        add(
+                                                jsonObj {
+                                                    put("role", "user")
+                                                    put("content", userInputWithHint)
+                                                }
+                                        )
                                     }
-                            )
 
                             val payload =
-                                    JSONObject().apply {
+                                    jsonObj {
                                         put("model", settings.aiModelName)
-                                        put("messages", messages)
+                                        put("messages", messagesFinal)
                                         put("stream", false)
                                         put("temperature", settings.temperature)
                                         put("max_tokens", settings.maxTokens)
@@ -1578,9 +1494,10 @@ class AiNoteRepository(
                                             }
                                         }
                                     }
-                            applyExtraParams(payload, extraParams)
-                            payload.put("stream", false)
-                            requestBody = payload.toString()
+                            requestBody =
+                                    applyExtraParams(payload, extraParams)
+                                            .withField("stream", JsonPrimitive(false))
+                                            .toString()
                         }
 
                         val response =
@@ -1596,14 +1513,16 @@ class AiNoteRepository(
                         if (response.status.isSuccess()) {
                                 val respBody = response.bodyAsText()
                                 if (respBody != null) {
-                                    val respJson = JSONObject(respBody)
+                                    val respJson = parseJsonObject(respBody)
                                     val content =
-                                            if (isGoogle) {
+                                            if (respJson == null) {
+                                                ""
+                                            } else if (isGoogle) {
                                                 parseGoogleResponse(respJson)
                                             } else {
-                                                val choices = respJson.optJSONArray("choices")
-                                                choices?.optJSONObject(0)
-                                                        ?.optJSONObject("message")
+                                                val choices = respJson.optJsonArray("choices")
+                                                choices?.optJsonObject(0)
+                                                        ?.optJsonObject("message")
                                                         ?.optString("content", "")
                                             }
                                                     ?: ""
@@ -1611,14 +1530,14 @@ class AiNoteRepository(
                                 } else null
                             } else null
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        logger.e(TAG, "continueConversation failed", e)
                         null
                     }
                 } else {
                     // Legacy
                     try {
                         val payload =
-                                JSONObject().apply {
+                                jsonObj {
                                     put("history", buildMessages(note))
                                     put("text", followUpText)
                                 }
@@ -1631,10 +1550,11 @@ class AiNoteRepository(
                                 }
                         if (!response.status.isSuccess()) return@withContext null
                         response.bodyAsText().let { body ->
-                                JSONObject(body).optString("content", "").takeIf { it.isNotEmpty() }
+                                parseJsonObject(body)?.optString("content", "")
+                                        ?.takeIf { it.isNotEmpty() }
                         }
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        logger.e(TAG, "continueConversation legacy failed", e)
                         null
                     }
                 }
@@ -1655,34 +1575,36 @@ class AiNoteRepository(
             // System Prompt from Settings
             val systemPrompt = resolveSystemPrompt(settings, magicTag)
 
-            val messages = JSONArray()
-            messages.put(
-                    JSONObject().apply {
-                        put("role", "system")
-                        put("content", systemPrompt)
+            val messages =
+                    jsonArr {
+                        add(
+                                jsonObj {
+                                    put("role", "system")
+                                    put("content", systemPrompt)
+                                }
+                        )
+                        addAll(history)
                     }
-            )
-
-            // Add history items
-            for (i in 0 until history.length()) {
-                messages.put(history.get(i))
-            }
-            maybeAddAssistantMagic(messages, magicTag)
+            val messagesWithMagic = maybeAddAssistantMagic(messages, magicTag)
 
             // Add current user message with template
             val userInputWithHint = resolveUserInput(settings, followUpText, magicTag)
 
-            messages.put(
-                    JSONObject().apply {
-                        put("role", "user")
-                        put("content", userInputWithHint)
+            val messagesFinal =
+                    jsonArr {
+                        addAll(messagesWithMagic)
+                        add(
+                                jsonObj {
+                                    put("role", "user")
+                                    put("content", userInputWithHint)
+                                }
+                        )
                     }
-            )
 
             val payload =
-                    JSONObject().apply {
+                    jsonObj {
                         put("model", settings.aiModelName)
-                        put("messages", messages)
+                        put("messages", messagesFinal)
                         put("stream", true)
                         put("temperature", settings.temperature)
                         put("max_tokens", settings.maxTokens)
@@ -1696,8 +1618,8 @@ class AiNoteRepository(
                             }
                         }
                     }
-            applyExtraParams(payload, extraParams)
-            payload.put("stream", true)
+            val merged = applyExtraParams(payload, extraParams)
+            val payloadFinal = merged.withField("stream", JsonPrimitive(true))
 
             val isGoogle = isGoogleNative(url)
             val finalUrl = if (isGoogle) googleStreamUrl(url) else url
@@ -1708,17 +1630,21 @@ class AiNoteRepository(
                         val historyGoogle = buildMessages(note)
                         val userInputWithHintGoogle =
                                 resolveUserInput(settings, followUpText, magicTag)
-                        maybeAddAssistantMagic(historyGoogle, magicTag)
-                        historyGoogle.put(
-                                JSONObject().apply {
-                                    put("role", "user")
-                                    put("content", userInputWithHintGoogle)
+                        val historyWithMagic = maybeAddAssistantMagic(historyGoogle, magicTag)
+                        val historyFinal =
+                                jsonArr {
+                                    addAll(historyWithMagic)
+                                    add(
+                                            jsonObj {
+                                                put("role", "user")
+                                                put("content", userInputWithHintGoogle)
+                                            }
+                                    )
                                 }
-                        )
                         val googlePayload =
                                 transformToGooglePayload(
                                         settings.aiModelName,
-                                        historyGoogle,
+                                        historyFinal,
                                         systemPrompt,
                                         settings.temperature,
                                         settings.maxTokens,
@@ -1728,10 +1654,8 @@ class AiNoteRepository(
                                         includeGoogleSearch = settings.enableGoogleSearch
                                 )
                         applyExtraParams(googlePayload, extraParams)
-                        logPayload("continueConversationStreaming_google", googlePayload)
-                        googlePayload
                     } else {
-                        payload
+                        payloadFinal
                     }
 
             return streamJsonPayloadSse(
@@ -1744,7 +1668,7 @@ class AiNoteRepository(
                     ?.second
         } else {
             val payload =
-                    JSONObject().apply {
+                    jsonObj {
                         put("history", buildMessages(note))
                         put("text", followUpText)
                     }
@@ -1755,14 +1679,14 @@ class AiNoteRepository(
 
     private suspend fun streamJsonPayloadSse(
             url: String,
-            payload: JSONObject,
+            payload: JsonObject,
             fallbackText: String,
             onPartial: suspend (String) -> Unit,
             apiKey: String? = null
     ): Pair<String, String>? =
             withContext(Dispatchers.IO) {
                 try {
-                    Log.d(TAG, "Streaming SSE from: $url")
+                    logger.d(TAG, "Streaming SSE from: $url")
 
                     lastStreamingError = null
                     val response =
@@ -1786,7 +1710,7 @@ class AiNoteRepository(
                                             response.status.value,
                                             errorBody
                                     )
-                            Log.e(
+                            logger.e(
                                     TAG,
                                     "Streaming Request Failed: Code=${response.status.value}, Body=$errorBody"
                             )
@@ -1823,37 +1747,37 @@ class AiNoteRepository(
                     Pair(serverText ?: fallbackText, content)
                 } catch (e: Exception) {
                     lastStreamingError = my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, e.message)
-                    Log.e(TAG, "Streaming SSE failed: ${e.message}", e)
+                    logger.e(TAG, "Streaming SSE failed: ${e.message}", e)
                     null
                 }
             }
 
     private fun parseStreamingChunk(raw: String): StreamingChunk {
         return try {
-            val json = JSONObject(raw)
+            val json = parseJsonObject(raw) ?: return StreamingChunk(null, raw, false)
             val serverText = json.optString("text", "").takeIf { it.isNotBlank() }
             val doneFromFlag = json.optBoolean("done", false)
 
             // OpenAI-style SSE: choices[0].delta.content, finish_reason == "stop"
-            val choices = json.optJSONArray("choices")
-            val firstChoice = choices?.optJSONObject(0)
-            val deltaObj = firstChoice?.optJSONObject("delta")
+            val choices = json.optJsonArray("choices")
+            val firstChoice = choices?.optJsonObject(0)
+            val deltaObj = firstChoice?.optJsonObject("delta")
             val contentFromDelta = deltaObj?.optString("content", "") ?: ""
             val finish = firstChoice?.optString("finish_reason", "")
 
             // Google Native SSE: candidates[0].content.parts[0].text
-            val candidates = json.optJSONArray("candidates")
-            val firstCandidate = candidates?.optJSONObject(0)
-            val contentParts = firstCandidate?.optJSONObject("content")?.optJSONArray("parts")
-            val contentFromGoogle = contentParts?.optJSONObject(0)?.optString("text", "") ?: ""
+            val candidates = json.optJsonArray("candidates")
+            val firstCandidate = candidates?.optJsonObject(0)
+            val contentParts = firstCandidate?.optJsonObject("content")?.optJsonArray("parts")
+            val contentFromGoogle = contentParts?.optJsonObject(0)?.optString("text", "") ?: ""
             val finishGoogle = firstCandidate?.optString("finishReason", "")
 
             val delta =
                     when {
                         contentFromDelta.isNotEmpty() -> contentFromDelta
                         contentFromGoogle.isNotEmpty() -> contentFromGoogle
-                        json.has("delta") -> json.optString("delta", "")
-                        json.has("content") -> json.optString("content", "")
+                        json.containsKey("delta") -> json.optString("delta", "")
+                        json.containsKey("content") -> json.optString("content", "")
                         else -> json.optString("text", "")
                     }
 
@@ -1876,6 +1800,54 @@ class AiNoteRepository(
             val done: Boolean
     )
 }
+
+private val aiNoteJson = Json { ignoreUnknownKeys = true }
+
+private fun jsonObj(block: JsonObjectBuilder.() -> Unit): JsonObject = buildJsonObject(block)
+
+private fun jsonArr(block: JsonArrayBuilder.() -> Unit): JsonArray = buildJsonArray(block)
+
+/** 安全讀取 JsonObject 欄位：缺失或 JSON null 回傳 default（對應 org.json optString）。 */
+private fun JsonObject.optString(key: String, default: String = ""): String {
+    val v = this[key] ?: return default
+    if (v is JsonNull) return default
+    return (v as? JsonPrimitive)?.contentOrNull ?: default
+}
+
+private fun JsonObject.optJsonObject(key: String): JsonObject? = this[key] as? JsonObject
+
+private fun JsonObject.optJsonArray(key: String): JsonArray? = this[key] as? JsonArray
+
+private fun JsonArray.optJsonObject(index: Int): JsonObject? = getOrNull(index) as? JsonObject
+
+private fun JsonArray.optString(index: Int): String {
+    val v = getOrNull(index) ?: return ""
+    if (v is JsonNull) return ""
+    return (v as? JsonPrimitive)?.contentOrNull ?: ""
+}
+
+private fun JsonObject.optDouble(key: String, default: Double): Double =
+        (this[key] as? JsonPrimitive)?.doubleOrNull ?: default
+
+private fun JsonObject.optInt(key: String, default: Int): Int =
+        (this[key] as? JsonPrimitive)?.intOrNull ?: default
+
+private fun JsonObject.optBoolean(key: String, default: Boolean): Boolean =
+        (this[key] as? JsonPrimitive)?.booleanOrNull ?: default
+
+private fun parseJsonObject(raw: String): JsonObject? =
+        runCatching { aiNoteJson.parseToJsonElement(raw).jsonObject }.getOrNull()
+
+private fun parseJsonArray(raw: String): JsonArray? =
+        runCatching { aiNoteJson.parseToJsonElement(raw).jsonArray }.getOrNull()
+
+private fun prettyJsonString(element: JsonElement): String =
+        Json { prettyPrint = true; ignoreUnknownKeys = true }
+                .encodeToString(JsonElement.serializer(), element)
+
+/** 回傳帶指定欄位的新 JsonObject（不可變物件輔助）。 */
+private fun JsonObject.withField(key: String, value: JsonElement): JsonObject =
+        JsonObject(toMutableMap().apply { put(key, value) })
 
 data class ExportResult(
         val success: Boolean,

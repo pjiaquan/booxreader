@@ -1,10 +1,7 @@
 package my.hinoki.booxreader.data.repo
-import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
-import android.content.Context
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.asLiveData
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -17,16 +14,18 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
+import my.hinoki.booxreader.data.settings.KeyValueStorage
 import my.hinoki.booxreader.data.settings.ReaderSettings
 
-class AiProfileRepository(private val context: Context, private val syncRepo: UserSyncRepository) {
+class AiProfileRepository(
+        private val prefs: KeyValueStorage,
+        private val syncRepo: UserSyncRepository
+) {
     private val db = AppDatabase.get()
     private val dao = db.aiProfileDao()
-    private val prefs =
-            context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
     private val defaultGenerator = AiProfileDefaultGenerator()
 
-    val allProfiles: LiveData<List<AiProfileEntity>> =
+    val allProfiles: Flow<List<AiProfileEntity>> =
             dao.getAll()
                     .map { list ->
                         list.sortedWith(
@@ -34,7 +33,6 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                                         .thenByDescending { it.id }
                         )
                     }
-                    .asLiveData()
 
     suspend fun importProfile(jsonString: String): AiProfileEntity =
             withContext(Dispatchers.IO) {
@@ -44,13 +42,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
 
                     val name =
                             json.optString("name")
-                                    ?: context.getString(
-                                            my.hinoki
-                                                    .booxreader
-                                                    .R
-                                                    .string
-                                                    .ai_profile_default_imported_name
-                                    )
+                                    ?: "Imported Profile"
                     val modelName = json.optString("modelName") ?: "deepseek-chat"
                     val apiKey = json.optString("apiKey") ?: ""
                     val serverBaseUrl = json.optString("serverBaseUrl") ?: ""
@@ -98,7 +90,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     // Add the profile (this will also trigger an initial push)
                     return@withContext addProfile(entity)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+
                     throw IllegalArgumentException("Invalid Profile JSON: ${e.message}")
                 }
             }
@@ -154,11 +146,11 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     }
                 }
                 dao.delete(profile)
-                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
+                val currentSettings = ReaderSettings.fromStorage(prefs)
                 if (currentSettings.activeProfileId == profile.id) {
                     currentSettings
                             .copy(activeProfileId = -1L, updatedAt = System.currentTimeMillis())
-                            .saveTo(SharedPreferencesStorage(prefs))
+                            .saveTo(prefs)
                 }
                 ensureSingleProfileAppliedIfNeeded()
                 true
@@ -169,7 +161,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                 val profile = dao.getById(profileId) ?: return@withContext
 
                 // Load current settings to preserve other values (font, tap, etc)
-                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
+                val currentSettings = ReaderSettings.fromStorage(prefs)
 
                 val newSettings =
                         currentSettings.copy(
@@ -190,7 +182,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                                 activeProfileId = profile.id
                         )
 
-                newSettings.saveTo(SharedPreferencesStorage(prefs))
+                newSettings.saveTo(prefs)
 
                 // Also push new settings to Firebase
                 syncRepo.pushSettings(newSettings)
@@ -212,7 +204,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                             }
                         } catch (e: Exception) {
                             // Log error but continue with other profiles
-                            e.printStackTrace()
+
                         }
                     }
 
@@ -224,11 +216,11 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
                     try {
                         syncRepo.pullSettingsIfNewer()
                     } catch (e: Exception) {
-                        e.printStackTrace()
+
                     }
                     ensureSingleProfileAppliedIfNeeded()
                 } catch (e: Exception) {
-                    e.printStackTrace()
+
                     throw e
                 }
 
@@ -255,7 +247,7 @@ class AiProfileRepository(private val context: Context, private val syncRepo: Us
         val profiles = dao.getAllList()
         if (profiles.size != 1) return
         val onlyProfile = profiles.first()
-        val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
+        val currentSettings = ReaderSettings.fromStorage(prefs)
         if (currentSettings.activeProfileId == onlyProfile.id) return
         applyProfile(onlyProfile.id)
     }

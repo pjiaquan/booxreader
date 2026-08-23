@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
+import my.hinoki.booxreader.data.repo.createAiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
@@ -112,7 +113,7 @@ class AiProfileListActivity : BaseActivity() {
         applyActionBarPadding(binding.selectionBar)
 
         val syncRepo = createUserSyncRepository(applicationContext)
-        repository = AiProfileRepository(applicationContext, syncRepo)
+        repository = createAiProfileRepository(applicationContext, syncRepo)
 
         setLoading(true)
         applyThemeFromSettings()
@@ -378,12 +379,15 @@ class AiProfileListActivity : BaseActivity() {
     }
 
     private fun observeData() {
-        repository.allProfiles.observe(this) { profiles ->
-            val currentIds = profiles.map { it.id }.toSet()
-            selectedProfileIds.retainAll(currentIds)
-            adapter.submitList(profiles)
-            binding.tvEmptyState.visibility = if (profiles.isEmpty()) View.VISIBLE else View.GONE
-            updateSelectionUi()
+        lifecycleScope.launch {
+            repository.allProfiles.collect { profiles ->
+                val currentIds = profiles.map { it.id }.toSet()
+                selectedProfileIds.retainAll(currentIds)
+                adapter.submitList(profiles)
+                binding.tvEmptyState.visibility =
+                        if (profiles.isEmpty()) View.VISIBLE else View.GONE
+                updateSelectionUi()
+            }
         }
     }
 

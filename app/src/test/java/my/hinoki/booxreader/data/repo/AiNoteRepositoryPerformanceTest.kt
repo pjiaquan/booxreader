@@ -27,7 +27,7 @@ class AiNoteRepositoryPerformanceTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         dao = mock(AiNoteDao::class.java)
 
-        repo = AiNoteRepository(
+        repo = createAiNoteRepository(
             context = context,
             syncRepo = null
         )

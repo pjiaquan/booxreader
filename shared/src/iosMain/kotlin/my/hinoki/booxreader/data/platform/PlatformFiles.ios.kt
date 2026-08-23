@@ -128,4 +128,40 @@ actual class PlatformFiles {
                     }
             }
     }
+
+    actual fun contentType(uri: String): String? =
+            when (filePathOf(uri).substringAfterLast('.', "").lowercase()) {
+                    "json" -> "application/json"
+                    "epub" -> "application/epub+zip"
+                    "jpg", "jpeg" -> "image/jpeg"
+                    "png" -> "image/png"
+                    else -> null
+            }
+
+    actual fun writeDownloadsFile(fileName: String, content: String): DownloadsWriteResult {
+            val safeName = fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val dir =
+                    NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true)
+                            .firstOrNull() as? String
+                            ?: return DownloadsWriteResult(
+                                    localPath = null,
+                                    message = "Local export failed: no Documents directory"
+                            )
+            val path = "$dir/$safeName"
+            val data = byteArrayToNSData(content.encodeToByteArray()) ?: return DownloadsWriteResult(
+                    localPath = null,
+                    message = "Local export failed: encode error"
+            )
+            return if (data.writeToFile(path, atomically = true)) {
+                    DownloadsWriteResult(
+                            localPath = path,
+                            message = "Saved to $path (Documents)"
+                    )
+            } else {
+                    DownloadsWriteResult(
+                            localPath = null,
+                            message = "Local export failed: write error"
+                    )
+            }
+    }
 }

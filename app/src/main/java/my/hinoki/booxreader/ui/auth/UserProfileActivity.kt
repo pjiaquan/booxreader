@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.repo.AuthRepository
+import my.hinoki.booxreader.data.repo.createAuthRepository
 import my.hinoki.booxreader.ui.common.BaseActivity
 import java.net.URL
 
@@ -33,7 +34,7 @@ class UserProfileActivity : BaseActivity() {
 
     private val viewModel: AuthViewModel by viewModels()
     private val authRepository: AuthRepository by lazy {
-        AuthRepository(this, (application as BooxReaderApp).tokenManager)
+        createAuthRepository(this, (application as BooxReaderApp).tokenManager)
     }
 
     private lateinit var ivAvatar: ImageView
@@ -174,7 +175,7 @@ class UserProfileActivity : BaseActivity() {
 
         setBusy(true)
         lifecycleScope.launch {
-            val result = authRepository.updateProfile(username, selectedAvatarUri)
+            val result = authRepository.updateProfile(username, selectedAvatarUri?.toString())
             setBusy(false)
 
             result.onFailure { error ->

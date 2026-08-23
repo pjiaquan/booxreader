@@ -9,6 +9,7 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.remote.AiModelFetcher
 import my.hinoki.booxreader.data.repo.AiProfileRepository
+import my.hinoki.booxreader.data.repo.createAiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.ui.common.BaseActivity
@@ -27,7 +28,7 @@ class AiProfileEditActivity : BaseActivity() {
         setContentView(binding.root)
 
         val syncRepo = createUserSyncRepository(applicationContext)
-        repository = AiProfileRepository(applicationContext, syncRepo)
+        repository = createAiProfileRepository(applicationContext, syncRepo)
 
         currentProfileId = intent.getLongExtra("profile_id", -1)
 

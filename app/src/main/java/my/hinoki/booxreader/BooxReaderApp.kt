@@ -14,6 +14,7 @@ import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.PocketBaseRealtimeClient
 import my.hinoki.booxreader.data.repo.AiProfileRepository
+import my.hinoki.booxreader.data.repo.createAiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -72,7 +73,7 @@ class BooxReaderApp : Application() {
         applicationScope.launch {
             try {
                 val syncRepo = createUserSyncRepository(applicationContext)
-                val profileRepo = AiProfileRepository(applicationContext, syncRepo)
+                val profileRepo = createAiProfileRepository(applicationContext, syncRepo)
 
                 // Perform initial sync on app startup
                 profileRepo.sync()

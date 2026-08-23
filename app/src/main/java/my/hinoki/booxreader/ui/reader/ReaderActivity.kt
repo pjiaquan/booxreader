@@ -54,6 +54,7 @@ import my.hinoki.booxreader.data.reader.DailyReadingStats
 import my.hinoki.booxreader.data.repo.CheckResult
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.createAiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -89,7 +90,7 @@ class ReaderActivity : BaseActivity() {
                         app,
                         BookRepository(app, syncRepo),
                         BookmarkRepository(app, syncRepo),
-                        AiNoteRepository(app, syncRepo),
+                        createAiNoteRepository(app, syncRepo),
                         syncRepo,
                         my.hinoki.booxreader.data.remote.ProgressPublisher(
                                 baseUrlProvider = {
@@ -1052,7 +1053,7 @@ class ReaderActivity : BaseActivity() {
 
         btnTestExport.setOnClickListener {
             val app = application as my.hinoki.booxreader.BooxReaderApp
-            val repo = AiNoteRepository(app, syncRepo)
+            val repo = createAiNoteRepository(app, syncRepo)
             val baseUrl = etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
             val targetUrl = if (cbCustomExport.isChecked && etCustomExportUrl.text.toString().trim().isNotEmpty()) {
                 etCustomExportUrl.text.toString().trim()
