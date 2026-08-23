@@ -38,6 +38,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.header
+import io.ktor.client.request.request
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import my.hinoki.booxreader.data.remote.createApiClient
 
 // Data class for PocketBase list responses
 data class PocketBaseListResponse(
@@ -95,6 +105,9 @@ class UserSyncRepository(
                         .writeTimeout(30, TimeUnit.SECONDS)
                         .build()
 
+        /** Ktor client（Phase 2 漸進轉換；手動加 Bearer，行為與舊版一致）。 */
+        private val ktorClient = createApiClient()
+
         @Volatile private var cachedUserId: String? = null
 
         // --- Helper Methods ---
@@ -112,8 +125,7 @@ class UserSyncRepository(
                                         if (sortParam.isNullOrBlank()) "" else "&sort=$sortParam"
                                 val url =
                                         "$pocketBaseUrl/api/collections/$collection/records?filter=$filterParam&page=$page&perPage=$perPage$sortQuery"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
+                                                                val responseBody = executeBackendRequest(url)
                                 val response =
                                         gson.fromJson(
                                                 responseBody,
@@ -426,6 +438,51 @@ class UserSyncRepository(
         }
 
         /**
+         * 執行後端請求（自動加 Bearer header）並回傳 body 字串（Ktor 版）。
+         * 保留原本 executeRequest 的 401 清除 session 與錯誤回報行為。
+         */
+        private suspend fun executeBackendRequest(
+                url: String,
+                reportError: Boolean = true,
+                configure: HttpRequestBuilder.() -> Unit = {}
+        ): String {
+                val response =
+                        ktorClient.request(url) {
+                                val token = tokenManager.getAccessToken() ?: ""
+                                if (token.isNotBlank()) header("Authorization", "Bearer $token")
+                                configure()
+                        }
+                val body = response.bodyAsText()
+                if (!response.status.isSuccess()) {
+                        val message = "Request failed: ${response.status.value} $url"
+                        Log.e("UserSyncRepository", "$message body=$body")
+
+                        if (response.status.value == 401) {
+                                Log.w("UserSyncRepository", "Received 401 Unauthorized, clearing local session")
+                                tokenManager.clearTokens()
+                                kotlinx.coroutines.runBlocking {
+                                        try {
+                                                db.userDao().clearAllUsers()
+                                        } catch (e: Exception) {
+                                                Log.e("UserSyncRepository", "Failed to clear users on 401", e)
+                                        }
+                                }
+                                cachedUserId = null
+                        }
+
+                        if (reportError) {
+                                ErrorReporter.report(
+                                        appContext,
+                                        "UserSyncRepository.executeRequest",
+                                        message
+                                )
+                        }
+                        throw Exception("PocketBase request failed: ${response.status.value} $body")
+                }
+                return body
+        }
+
+        /**
          * Execute a request and return the response body as a string. Throws exception if request
          * fails.
          */
@@ -630,8 +687,7 @@ class UserSyncRepository(
                                 // First check if settings record exists
                                 val checkUrl =
                                         "$pocketBaseUrl/api/collections/settings/records?filter=(user='$userId')"
-                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
-                                val checkBody = executeRequest(checkRequest)
+                                                                val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
 
@@ -777,8 +833,7 @@ class UserSyncRepository(
 
                                 val url =
                                         "$pocketBaseUrl/api/collections/progress/records?filter=(user='$userId'%26%26bookId='$bookId')"
-                                val request = buildAuthenticatedRequest(url).get().build()
-                                val responseBody = executeRequest(request)
+                                                                val responseBody = executeBackendRequest(url)
 
                                 val response =
                                         gson.fromJson(
@@ -823,8 +878,7 @@ class UserSyncRepository(
                                 // Check if progress record exists
                                 val checkUrl =
                                         "$pocketBaseUrl/api/collections/progress/records?filter=(user='$userId'%26%26bookId='$bookId')"
-                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
-                                val checkBody = executeRequest(checkRequest)
+                                                                val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
 
@@ -923,8 +977,7 @@ class UserSyncRepository(
 
                                 val checkUrl =
                                         "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId'%26%26bookId='${book.bookId}')&perPage=1"
-                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
-                                val checkBody = executeRequest(checkRequest)
+                                                                val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
                                 val existingItem = checkResponse.items.firstOrNull()
@@ -980,9 +1033,12 @@ class UserSyncRepository(
                                                                 // Update the payload using the new valid ID
                                                                 val mutableData = bookData.toMutableMap()
                                                                 mutableData["user"] = refreshedUserId
-                                                                val retryBody = gson.toJson(mutableData).toRequestBody("application/json".toMediaType())
-                                                                val retryRequest = buildAuthenticatedRequest(createUrl).post(retryBody).build()
-                                                                executeRequest(retryRequest)
+                                                                val retryBody = gson.toJson(mutableData)
+                                                                executeBackendRequest(createUrl) {
+                                                                    method = HttpMethod.Post
+                                                                    contentType(ContentType.Application.Json)
+                                                                    setBody(retryBody)
+                                                                }
                                                         } else {
                                                                 throw e
                                                         }
@@ -1144,8 +1200,7 @@ class UserSyncRepository(
 
                                 val checkUrl =
                                         "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId'%26%26bookId='$bookId')&perPage=1"
-                                val checkRequest = buildAuthenticatedRequest(checkUrl).get().build()
-                                val checkBody = executeRequest(checkRequest)
+                                                                val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
                                         gson.fromJson(checkBody, PocketBaseListResponse::class.java)
 
@@ -1711,8 +1766,9 @@ class UserSyncRepository(
                         try {
                                 val url =
                                         "$pocketBaseUrl/api/collections/ai_notes/records/$remoteId"
-                                val request = buildAuthenticatedRequest(url).delete().build()
-                                executeRequest(request)
+                                                                executeBackendRequest(url) {
+                                    method = HttpMethod.Delete
+                                }
                                 Log.d("UserSyncRepository", "deleteAiNote - Note deleted")
                                 true
                         } catch (e: Exception) {
@@ -2072,8 +2128,9 @@ class UserSyncRepository(
                         try {
                                 val url =
                                         "$pocketBaseUrl/api/collections/ai_profiles/records/$remoteId"
-                                val request = buildAuthenticatedRequest(url).delete().build()
-                                executeRequest(request)
+                                                                executeBackendRequest(url) {
+                                    method = HttpMethod.Delete
+                                }
                                 Log.d("UserSyncRepository", "deleteAiProfile - Profile deleted")
                                 true
                         } catch (e: Exception) {
@@ -2122,11 +2179,12 @@ class UserSyncRepository(
 
                                 val requestBody =
                                         gson.toJson(payload)
-                                                .toRequestBody("application/json".toMediaType())
                                 val url = "$pocketBaseUrl/api/collections/crash_reports/records"
-                                val request =
-                                        buildAuthenticatedRequest(url).post(requestBody).build()
-                                executeRequest(request, reportError = false)
+                                executeBackendRequest(url, reportError = false) {
+                                    method = HttpMethod.Post
+                                    contentType(ContentType.Application.Json)
+                                    setBody(requestBody)
+                                }
                                 true
                         } catch (e: Exception) {
                                 Log.e("UserSyncRepository", "pushCrashReport failed", e)
@@ -2689,8 +2747,7 @@ class UserSyncRepository(
                 val filter = "(user='$userId'%26%26bookId='$bookId')"
                 val url =
                         "$pocketBaseUrl/api/collections/books/records?filter=$filter&perPage=1"
-                val request = buildAuthenticatedRequest(url).get().build()
-                val responseBody = executeRequest(request)
+                                val responseBody = executeBackendRequest(url)
                 val response = gson.fromJson(responseBody, PocketBaseListResponse::class.java)
                 return response.items.firstOrNull()
         }
@@ -2701,11 +2758,13 @@ class UserSyncRepository(
                                 "storagePath" to storagePath,
                                 "updatedAt" to System.currentTimeMillis()
                         )
-                val requestBody =
-                        gson.toJson(payload).toRequestBody("application/json".toMediaType())
+                val requestBody = gson.toJson(payload)
                 val url = "$pocketBaseUrl/api/collections/books/records/$recordId"
-                val request = buildAuthenticatedRequest(url).patch(requestBody).build()
-                executeRequest(request)
+                executeBackendRequest(url) {
+                    method = HttpMethod.Patch
+                    contentType(ContentType.Application.Json)
+                    setBody(requestBody)
+                }
         }
 
         private suspend fun tryUploadBookFile(
