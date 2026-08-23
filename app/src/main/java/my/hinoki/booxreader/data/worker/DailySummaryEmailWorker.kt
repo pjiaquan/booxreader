@@ -34,7 +34,7 @@ class DailySummaryEmailWorker(
 
         runCatching { syncRepo.pullNotes() }
 
-        val repo = AiNoteRepository(applicationContext, app.okHttpClient, syncRepo)
+        val repo = AiNoteRepository(applicationContext, syncRepo)
         val allNotes = runCatching { repo.getAll() }.getOrDefault(emptyList())
         val readingMillis = DailyReadingStats.getTodayReadingMillis(applicationContext)
         val summary = AiNoteDailySummaryBuilder.build(applicationContext, allNotes, todayReadingMillis = readingMillis)

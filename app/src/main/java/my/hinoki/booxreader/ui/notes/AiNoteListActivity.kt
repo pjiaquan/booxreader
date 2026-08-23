@@ -169,7 +169,7 @@ class AiNoteListActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
         syncRepo = UserSyncRepository(app)
-        repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
+        repo = AiNoteRepository(app, syncRepo)
         bookId = intent.getStringExtra(EXTRA_BOOK_ID)
 
         binding = ActivityAiNoteListBinding.inflate(layoutInflater)

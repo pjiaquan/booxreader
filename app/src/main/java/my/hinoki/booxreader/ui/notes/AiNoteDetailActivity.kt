@@ -105,7 +105,7 @@ class AiNoteDetailActivity : BaseActivity() {
     private val syncRepo by lazy { UserSyncRepository(applicationContext) }
     private val repository by lazy {
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
-        AiNoteRepository(app, app.okHttpClient, syncRepo)
+        AiNoteRepository(app, syncRepo)
     }
     private var currentNote: AiNoteEntity? = null
     private var sourceNoteId: Long? = null

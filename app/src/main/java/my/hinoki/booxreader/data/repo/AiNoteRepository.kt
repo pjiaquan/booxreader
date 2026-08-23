@@ -23,18 +23,27 @@ import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import io.ktor.client.request.post
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.preparePost
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.readUTF8Line
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import my.hinoki.booxreader.data.remote.createApiClient
 import org.json.JSONArray
 import org.json.JSONObject
 
 class AiNoteRepository(
         private val context: Context,
-        private val client: OkHttpClient,
         private val syncRepo: UserSyncRepository? = null
 ) {
+        private val ktorClient = createApiClient()
     data class SemanticRelatedNote(
             val noteId: String,
             val score: Double,
@@ -694,18 +703,16 @@ class AiNoteRepository(
                             }
                             put("excludeLocalId", note.id)
                         }
-                val requestBody =
-                        requestPayload
-                                .toString()
-                                .toRequestBody("application/json; charset=utf-8".toMediaType())
-                val request = Request.Builder().url(url).post(requestBody).build()
-
                 return@withContext runCatching {
-                            client.newCall(request).execute().use { response ->
-                                if (!response.isSuccessful) return@use emptyList()
-                                val responseBody = response.body?.string().orEmpty()
+                            val response =
+                                    ktorClient.post(url) {
+                                            contentType(ContentType.Application.Json)
+                                            setBody(requestPayload.toString())
+                                    }
+                            if (!response.status.isSuccess()) return@runCatching emptyList()
+                            val responseBody = response.bodyAsText()
                                 val results = parseSemanticResultsArray(responseBody)
-                                if (results == null || results.length() == 0) return@use emptyList()
+                                if (results == null || results.length() == 0) return@runCatching emptyList()
 
                                 val currentRemoteId = note.remoteId?.trim().orEmpty()
                                 val currentLocalId = note.id
@@ -782,7 +789,6 @@ class AiNoteRepository(
                                 }
                                 parsed.sortedByDescending { it.score }.take(boundedLimit)
                             }
-                        }
                         .onFailure { error ->
                             Log.e(TAG, "searchRelatedNotesFromQdrant failed", error)
                         }
@@ -811,18 +817,16 @@ class AiNoteRepository(
                                 put("bookId", bookId)
                             }
                         }
-                val requestBody =
-                        requestPayload
-                                .toString()
-                                .toRequestBody("application/json; charset=utf-8".toMediaType())
-                val request = Request.Builder().url(url).post(requestBody).build()
-
                 return@withContext runCatching {
-                            client.newCall(request).execute().use { response ->
-                                if (!response.isSuccessful) return@use emptyList()
-                                val responseBody = response.body?.string().orEmpty()
+                            val response =
+                                    ktorClient.post(url) {
+                                            contentType(ContentType.Application.Json)
+                                            setBody(requestPayload.toString())
+                                    }
+                            if (!response.status.isSuccess()) return@runCatching emptyList()
+                            val responseBody = response.bodyAsText()
                                 val results = parseSemanticResultsArray(responseBody)
-                                if (results == null || results.length() == 0) return@use emptyList()
+                                if (results == null || results.length() == 0) return@runCatching emptyList()
 
                                 val parsed = mutableListOf<SemanticRelatedNote>()
                                 for (i in 0 until results.length()) {
@@ -887,7 +891,6 @@ class AiNoteRepository(
                                 }
                                 parsed.sortedByDescending { it.score }.take(boundedLimit)
                             }
-                        }
                         .onFailure { error ->
                             Log.e(TAG, "searchNotesBySemanticQuery failed", error)
                         }
@@ -904,15 +907,13 @@ class AiNoteRepository(
                 if (baseUrl.isBlank()) return@withContext null
 
                 val url = "$baseUrl/ai-chat/ai/credits"
-                val request = Request.Builder().url(url).get().build()
 
                 return@withContext runCatching {
-                            client.newCall(request).execute().use { response ->
-                                if (!response.isSuccessful) return@runCatching null
-                                val body = response.body?.string().orEmpty()
-                                if (body.isBlank()) return@runCatching null
-                                JSONObject(body).optInt("credits", -1).takeIf { it >= 0 }
-                            }
+                            val response = ktorClient.get(url)
+                            if (!response.status.isSuccess()) return@runCatching null
+                            val body = response.bodyAsText()
+                            if (body.isBlank()) return@runCatching null
+                            JSONObject(body).optInt("credits", -1).takeIf { it >= 0 }
                         }
                         .getOrNull()
             }
@@ -931,11 +932,7 @@ class AiNoteRepository(
                     val extraParams = loadExtraParams()
                     val systemPrompt = resolveSystemPrompt(settings, magicTag)
 
-                    val requestBody: okhttp3.RequestBody
-                    val requestBuilder = Request.Builder().url(url)
-                    // Google Native often puts API Key in Query Param for simplicity if using that
-                    // style,
-                    // but Header 'x-goog-api-key' is standard. Adapter supports Header.
+                    val requestBody: String
 
                     if (isGoogle) {
                         val messages =
@@ -970,15 +967,7 @@ class AiNoteRepository(
                                 )
                         applyExtraParams(googlePayload, extraParams)
                         logPayload("fetchAiExplanation_google", googlePayload)
-                        requestBody =
-                                googlePayload
-                                        .toString()
-                                        .toRequestBody(
-                                                "application/json; charset=utf-8".toMediaType()
-                                        )
-
-                        // Header for Google
-                        requestBuilder.header("x-goog-api-key", settings.apiKey)
+                        requestBody = googlePayload.toString()
                     } else {
                         // Standard OpenAI logic
                         val messages =
@@ -1019,28 +1008,23 @@ class AiNoteRepository(
                                 }
                         applyExtraParams(payload, extraParams)
                         payload.put("stream", false)
-                        requestBody =
-                                payload.toString()
-                                        .toRequestBody(
-                                                "application/json; charset=utf-8".toMediaType()
-                                        )
-                        requestBuilder.header("Authorization", "Bearer ${settings.apiKey}")
+                        requestBody = payload.toString()
                     }
-
-                    val request =
-                            requestBuilder
-                                    .post(requestBody)
-                                    .tag(
-                                            String::class.java,
-                                            "SKIP_AUTH"
-                                    ) // Skip internal auth interceptor/authenticator
-                                    .build()
 
                     Log.d(TAG, "Fetching AI Explanation from: $url")
 
-                    client.newCall(request).execute().use { response ->
-                        if (response.isSuccessful) {
-                            val respBody = response.body?.string()
+                    val response =
+                            ktorClient.post(url) {
+                                    contentType(ContentType.Application.Json)
+                                    if (isGoogle) {
+                                            header("x-goog-api-key", settings.apiKey)
+                                    } else {
+                                            header("Authorization", "Bearer ${settings.apiKey}")
+                                    }
+                                    setBody(requestBody)
+                            }
+                    if (response.status.isSuccess()) {
+                            val respBody = response.bodyAsText()
                             if (respBody != null) {
                                 val respJson = JSONObject(respBody)
                                 val content =
@@ -1062,11 +1046,13 @@ class AiNoteRepository(
                             } else {
                                 null
                             }
-                        } else {
-                            val errorBody = response.body?.string()
-                            Log.e(TAG, "AI Request Failed: Code=${response.code}, Body=$errorBody")
+                    } else {
+                            val errorBody = response.bodyAsText()
+                            Log.e(
+                                    TAG,
+                                    "AI Request Failed: Code=${response.status.value}, Body=$errorBody"
+                            )
                             null
-                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Exception in fetchAiExplanation", e)
@@ -1081,22 +1067,14 @@ class AiNoteRepository(
             try {
                 val jsonBody = JSONObject().apply { put("text", text) }.toString()
 
-                val requestBody =
-                        jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType())
-
                 val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI
-                val request = Request.Builder().url(url).post(requestBody).build()
-                // ... existing client call ...
-                client.newBuilder()
-                        .connectTimeout(30, TimeUnit.SECONDS)
-                        .readTimeout(60, TimeUnit.SECONDS)
-                        .writeTimeout(60, TimeUnit.SECONDS)
-                        .build()
-                        .newCall(request)
-                        .execute()
-                        .use { response ->
-                            if (response.isSuccessful) {
-                                val respBody = response.body?.string()
+                val response =
+                        ktorClient.post(url) {
+                                contentType(ContentType.Application.Json)
+                                setBody(jsonBody)
+                        }
+                if (response.status.isSuccess()) {
+                                val respBody = response.bodyAsText()
                                 if (respBody != null) {
                                     val respJson = JSONObject(respBody)
                                     val serverText = respJson.optString("text", "")
@@ -1110,7 +1088,6 @@ class AiNoteRepository(
                             } else {
                                 null
                             }
-                        }
             } catch (e: Exception) {
                 e.printStackTrace()
                 null
@@ -1359,26 +1336,18 @@ class AiNoteRepository(
             if (httpUrl == null) {
                 statusMessages += "Invalid export URL: $exportUrl"
             } else {
-                val requestBody =
-                        payloadString.toRequestBody("application/json; charset=utf-8".toMediaType())
-                val request = Request.Builder().url(httpUrl).post(requestBody).build()
-
                 try {
-                    client.newBuilder()
-                            .connectTimeout(15, TimeUnit.SECONDS)
-                            .readTimeout(30, TimeUnit.SECONDS)
-                            .writeTimeout(30, TimeUnit.SECONDS)
-                            .build()
-                            .newCall(request)
-                            .execute()
-                            .use { response ->
-                                if (response.isSuccessful) {
-                                    remoteSuccess = true
-                                    statusMessages += "Uploaded ${notes.size} notes to $httpUrl"
-                                } else {
-                                    statusMessages += "Server export failed (${response.code})"
-                                }
+                    val response =
+                            ktorClient.post(httpUrl.toString()) {
+                                    contentType(ContentType.Application.Json)
+                                    setBody(payloadString)
                             }
+                    if (response.status.isSuccess()) {
+                        remoteSuccess = true
+                        statusMessages += "Uploaded ${notes.size} notes to $httpUrl"
+                    } else {
+                        statusMessages += "Server export failed (${response.status.value})"
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     statusMessages += "Server export error: ${e.message ?: "Unknown error"}"
@@ -1508,24 +1477,17 @@ class AiNoteRepository(
                             put("timestamp", System.currentTimeMillis())
                         }
                 val httpUrl = normalizedUrl.toHttpUrlOrNull() ?: return@withContext "Invalid URL"
-                val request =
-                        Request.Builder()
-                                .url(httpUrl)
-                                .post(
-                                        payload.toString()
-                                                .toRequestBody(
-                                                        "application/json; charset=utf-8".toMediaType()
-                                                )
-                                )
-                                .build()
 
                 return@withContext try {
-                    client.newCall(request).execute().use { response ->
-                        if (response.isSuccessful) {
-                            "Success (${response.code})"
-                        } else {
-                            "Failed (${response.code})"
-                        }
+                    val response =
+                            ktorClient.post(httpUrl.toString()) {
+                                    contentType(ContentType.Application.Json)
+                                    setBody(payload.toString())
+                            }
+                    if (response.status.isSuccess()) {
+                        "Success (${response.status.value})"
+                    } else {
+                        "Failed (${response.status.value})"
                     }
                 } catch (e: Exception) {
                     "Error: ${e.message ?: "Unknown error"}"
@@ -1545,8 +1507,7 @@ class AiNoteRepository(
                         val extraParams = loadExtraParams()
                         val systemPrompt = resolveSystemPrompt(settings, magicTag)
 
-                        val requestBody: okhttp3.RequestBody
-                        val requestBuilder = Request.Builder().url(url)
+                        val requestBody: String
 
                         if (isGoogle) {
                             val history = buildMessages(note)
@@ -1577,10 +1538,7 @@ class AiNoteRepository(
                             requestBody =
                                     googlePayload
                                             .toString()
-                                            .toRequestBody(
-                                                    "application/json; charset=utf-8".toMediaType()
-                                            )
-                            requestBuilder.header("x-goog-api-key", settings.apiKey)
+                            
                         } else {
                             // Standard OpenAI
                             val history = buildMessages(note)
@@ -1623,23 +1581,21 @@ class AiNoteRepository(
                                     }
                             applyExtraParams(payload, extraParams)
                             payload.put("stream", false)
-                            requestBody =
-                                    payload.toString()
-                                            .toRequestBody(
-                                                    "application/json; charset=utf-8".toMediaType()
-                                            )
-                            requestBuilder.header("Authorization", "Bearer ${settings.apiKey}")
+                            requestBody = payload.toString()
                         }
 
-                        val request =
-                                requestBuilder
-                                        .post(requestBody)
-                                        .tag(String::class.java, "SKIP_AUTH")
-                                        .build()
-
-                        client.newCall(request).execute().use { response ->
-                            if (response.isSuccessful) {
-                                val respBody = response.body?.string()
+                        val response =
+                                ktorClient.post(url) {
+                                        contentType(ContentType.Application.Json)
+                                        if (isGoogle) {
+                                                header("x-goog-api-key", settings.apiKey)
+                                        } else {
+                                                header("Authorization", "Bearer ${settings.apiKey}")
+                                        }
+                                        setBody(requestBody)
+                                }
+                        if (response.status.isSuccess()) {
+                                val respBody = response.bodyAsText()
                                 if (respBody != null) {
                                     val respJson = JSONObject(respBody)
                                     val content =
@@ -1655,7 +1611,6 @@ class AiNoteRepository(
                                     if (content.isNotEmpty()) content else null
                                 } else null
                             } else null
-                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                         null
@@ -1669,30 +1624,16 @@ class AiNoteRepository(
                                     put("text", followUpText)
                                 }
 
-                        val requestBody =
-                                payload.toString()
-                                        .toRequestBody(
-                                                "application/json; charset=utf-8".toMediaType()
-                                        )
-
                         val url = getBaseUrl() + HttpConfig.PATH_TEXT_AI_CONTINUE
-                        val request = Request.Builder().url(url).post(requestBody).build()
-
-                        client.newBuilder()
-                                .connectTimeout(30, TimeUnit.SECONDS)
-                                .readTimeout(60, TimeUnit.SECONDS)
-                                .writeTimeout(60, TimeUnit.SECONDS)
-                                .build()
-                                .newCall(request)
-                                .execute()
-                                .use { response ->
-                                    if (!response.isSuccessful) return@withContext null
-                                    response.body?.string()?.let { body ->
-                                        JSONObject(body).optString("content", "").takeIf {
-                                            it.isNotEmpty()
-                                        }
-                                    }
+                        val response =
+                                ktorClient.post(url) {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(payload.toString())
                                 }
+                        if (!response.status.isSuccess()) return@withContext null
+                        response.bodyAsText().let { body ->
+                                JSONObject(body).optString("content", "").takeIf { it.isNotEmpty() }
+                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                         null
@@ -1824,76 +1765,63 @@ class AiNoteRepository(
                 try {
                     Log.d(TAG, "Streaming SSE from: $url")
 
-                    val requestBody =
-                            payload.toString()
-                                    .toRequestBody("application/json; charset=utf-8".toMediaType())
+                    lastStreamingError = null
+                    val response =
+                            ktorClient.preparePost(url) {
+                                    header("Accept", "text/event-stream")
+                                    if (!apiKey.isNullOrBlank()) {
+                                            if (isGoogleNative(url)) {
+                                                    header("x-goog-api-key", apiKey)
+                                            } else {
+                                                    header("Authorization", "Bearer $apiKey")
+                                            }
+                                    }
+                                    contentType(ContentType.Application.Json)
+                                    setBody(payload.toString())
+                                    timeout { requestTimeoutMillis = 0; socketTimeoutMillis = 0 }
+                            }.execute()
+                    if (!response.status.isSuccess()) {
+                            val errorBody = response.bodyAsText()
+                            lastStreamingError =
+                                    my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(
+                                            response.status.value,
+                                            errorBody
+                                    )
+                            Log.e(
+                                    TAG,
+                                    "Streaming Request Failed: Code=${response.status.value}, Body=$errorBody"
+                            )
+                            return@withContext null
+                    }
+                    val channel = response.bodyAsChannel()
+                    val contentBuilder = StringBuilder()
+                    var serverText: String? = null
 
-                    val requestBuilder =
-                            Request.Builder()
-                                    .url(url)
-                                    .post(requestBody)
-                                    .header("Accept", "text/event-stream")
+                    while (true) {
+                            val line = channel.readUTF8Line() ?: break
+                            val trimmed = line.trim()
+                            if (trimmed.isEmpty()) continue
+                            if (trimmed.startsWith(":"))
+                                    continue // SSE comment (e.g., OpenRouter status)
+                            if (!trimmed.startsWith("data:")) continue
 
-                    if (!apiKey.isNullOrBlank()) {
-                        if (isGoogleNative(url)) {
-                            requestBuilder.header("x-goog-api-key", apiKey)
-                        } else {
-                            requestBuilder.header("Authorization", "Bearer $apiKey")
-                        }
-                        requestBuilder.tag(String::class.java, "SKIP_AUTH")
+                            val payloadLine = trimmed.removePrefix("data:").trim()
+                            if (payloadLine == "[DONE]") break
+
+                            val chunk = parseStreamingChunk(payloadLine)
+                            if (chunk.serverText != null) serverText = chunk.serverText
+                            if (chunk.delta.isNotEmpty()) {
+                                    contentBuilder.append(chunk.delta)
+                                    // push partial immediately
+                                    withContext(Dispatchers.Main) {
+                                            onPartial(contentBuilder.toString())
+                                    }
+                            }
                     }
 
-                    val request = requestBuilder.build()
-
-                    lastStreamingError = null
-                    client.newBuilder()
-                            .connectTimeout(15, TimeUnit.SECONDS)
-                            .readTimeout(0, TimeUnit.MILLISECONDS) // keep stream open
-                            .writeTimeout(15, TimeUnit.SECONDS)
-                            .build()
-                            .newCall(request)
-                            .execute()
-                            .use { response ->
-                                if (!response.isSuccessful) {
-                                    val errorBody = response.body?.string()
-                                    lastStreamingError = my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(response.code, errorBody)
-                                    Log.e(
-                                            TAG,
-                                            "Streaming Request Failed: Code=${response.code}, Body=$errorBody"
-                                    )
-                                    return@withContext null
-                                }
-                                val source = response.body?.source() ?: return@withContext null
-                                val contentBuilder = StringBuilder()
-                                var serverText: String? = null
-
-                                while (true) {
-                                    if (source.exhausted()) break
-                                    val line = source.readUtf8Line() ?: break
-                                    val trimmed = line.trim()
-                                    if (trimmed.isEmpty()) continue
-                                    if (trimmed.startsWith(":"))
-                                            continue // SSE comment (e.g., OpenRouter status)
-                                    if (!trimmed.startsWith("data:")) continue
-
-                                    val payloadLine = trimmed.removePrefix("data:").trim()
-                                    if (payloadLine == "[DONE]") break
-
-                                    val chunk = parseStreamingChunk(payloadLine)
-                                    if (chunk.serverText != null) serverText = chunk.serverText
-                                    if (chunk.delta.isNotEmpty()) {
-                                        contentBuilder.append(chunk.delta)
-                                        // push partial immediately
-                                        withContext(Dispatchers.Main) {
-                                            onPartial(contentBuilder.toString())
-                                        }
-                                    }
-                                }
-
-                                val content = contentBuilder.toString()
-                                if (content.isBlank()) return@withContext null
-                                Pair(serverText ?: fallbackText, content)
-                            }
+                    val content = contentBuilder.toString()
+                    if (content.isBlank()) return@withContext null
+                    Pair(serverText ?: fallbackText, content)
                 } catch (e: Exception) {
                     lastStreamingError = my.hinoki.booxreader.data.remote.StreamingErrorHandler.parseError(0, e.message)
                     Log.e(TAG, "Streaming SSE failed: ${e.message}", e)

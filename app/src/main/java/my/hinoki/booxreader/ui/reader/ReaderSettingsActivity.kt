@@ -815,7 +815,7 @@ class ReaderSettingsActivity : BaseActivity() {
 
         btnTestExport.setOnClickListener {
             val app = application as BooxReaderApp
-            val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
+            val repo = AiNoteRepository(app, syncRepo)
             val baseUrl = etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
             val targetUrl = if (cbCustomExport.isChecked && etCustomExportUrl.text.toString().trim().isNotEmpty()) {
                 etCustomExportUrl.text.toString().trim()

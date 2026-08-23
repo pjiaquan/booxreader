@@ -88,7 +88,7 @@ class ReaderActivity : BaseActivity() {
                         app,
                         BookRepository(app, syncRepo),
                         BookmarkRepository(app, syncRepo),
-                        AiNoteRepository(app, app.okHttpClient, syncRepo),
+                        AiNoteRepository(app, syncRepo),
                         syncRepo,
                         my.hinoki.booxreader.data.remote.ProgressPublisher(
                                 baseUrlProvider = {
@@ -1051,7 +1051,7 @@ class ReaderActivity : BaseActivity() {
 
         btnTestExport.setOnClickListener {
             val app = application as my.hinoki.booxreader.BooxReaderApp
-            val repo = AiNoteRepository(app, app.okHttpClient, syncRepo)
+            val repo = AiNoteRepository(app, syncRepo)
             val baseUrl = etServerUrl.text.toString().trim().ifEmpty { readerSettings.serverBaseUrl }
             val targetUrl = if (cbCustomExport.isChecked && etCustomExportUrl.text.toString().trim().isNotEmpty()) {
                 etCustomExportUrl.text.toString().trim()

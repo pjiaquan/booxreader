@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
 import my.hinoki.booxreader.data.db.AiNoteDao
 import my.hinoki.booxreader.data.db.AiNoteEntity
-import okhttp3.OkHttpClient
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,7 +29,6 @@ class AiNoteRepositoryPerformanceTest {
 
         repo = AiNoteRepository(
             context = context,
-            client = OkHttpClient(),
             syncRepo = null
         )
         // Inject mock dao using reflection to avoid AppDatabase actual calls
