@@ -442,7 +442,7 @@ class UserSyncRepository(
                 val body = response.bodyAsText()
                 if (!response.status.isSuccess()) {
                         val message = "Request failed: ${response.status.value} $url"
-                        logger.e("UserSyncRepository", "$message body=$body")
+                        logger.e("UserSyncRepository", message)
 
                         if (response.status.value == 401) {
                                 logger.w("UserSyncRepository", "Received 401 Unauthorized, clearing local session")
@@ -462,7 +462,7 @@ class UserSyncRepository(
                                         message
                                 )
                         }
-                        throw Exception("PocketBase request failed: ${response.status.value} $body")
+                        throw Exception("PocketBase request failed: ${response.status.value}")
                 }
                 return body
         }

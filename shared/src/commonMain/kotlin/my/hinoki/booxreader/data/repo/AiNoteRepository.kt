@@ -1714,7 +1714,7 @@ class AiNoteRepository(
                                     )
                             logger.e(
                                     TAG,
-                                    "Streaming Request Failed: Code=${response.status.value}, Body=$errorBody"
+                                    "Streaming Request Failed: Code=${response.status.value}"
                             )
                             return@withContext null
                     }
