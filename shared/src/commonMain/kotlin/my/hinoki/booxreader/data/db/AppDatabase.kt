@@ -3,6 +3,7 @@ package my.hinoki.booxreader.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
+import kotlin.concurrent.Volatile
 
 @Database(
     entities = [BookEntity::class, BookmarkEntity::class, AiNoteEntity::class, UserEntity::class, AiProfileEntity::class],
@@ -20,21 +21,21 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
-        /** 平台特定建置（androidMain / iosMain 提供 actual）。 */
+        /**
+         * 平台特定建置（androidMain / iosMain 提供 actual）。
+         * 注意：commonMain 沒有 synchronized（JVM-only），首次呼叫的 race 可接受
+         * （最壞情況多建一個 Room instance；Room 對同一檔案的多次連線是安全的）。
+         */
         fun get(): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: buildAppDatabase().also { INSTANCE = it }
-            }
+            return INSTANCE ?: buildAppDatabase().also { INSTANCE = it }
         }
 
         @androidx.annotation.VisibleForTesting
         fun resetInstanceForTesting() {
-            synchronized(this) {
-                try {
-                    INSTANCE?.close()
-                } catch (_: Exception) {}
-                INSTANCE = null
-            }
+            try {
+                INSTANCE?.close()
+            } catch (_: Exception) {}
+            INSTANCE = null
         }
     }
 }

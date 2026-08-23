@@ -28,11 +28,13 @@ class NSUserDefaultsStorage(
         defaults.setInteger(value.toLong(), forKey = key)
     }
 
+    // Long 以字串儲存：Kotlin/Native 的 NSUserDefaults 未匯出 longLongForKey/setLongLong
+    // （ObjC selector 綁定名稱不同），用 stringForKey 儲存最穩妥。
     override fun getLong(key: String, default: Long): Long =
-        if (defaults.objectForKey(key) != null) defaults.longLongForKey(key).toLong() else default
+        defaults.stringForKey(key)?.toLongOrNull() ?: default
 
     override fun putLong(key: String, value: Long) {
-        defaults.setLongLong(value.toLong(), forKey = key)
+        defaults.setObject(value.toString(), forKey = key)
     }
 
     override fun getFloat(key: String, default: Float): Float =

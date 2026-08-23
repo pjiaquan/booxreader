@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
-import kotlinx.coroutines.Dispatchers
+import my.hinoki.booxreader.data.platform.currentEpochMillis
+import my.hinoki.booxreader.data.platform.ioDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -35,7 +36,7 @@ class AiProfileRepository(
                     }
 
     suspend fun importProfile(jsonString: String): AiProfileEntity =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     // Check if JSON is a valid profile structure
                     val json = Json.parseToJsonElement(jsonString).jsonObject
@@ -96,7 +97,7 @@ class AiProfileRepository(
             }
 
     suspend fun addProfile(profile: AiProfileEntity): AiProfileEntity =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 // Always mark new profiles as needing sync
                 val unsyncedProfile = profile.copy(isSynced = false)
                 val newId = dao.insert(unsyncedProfile)
@@ -117,10 +118,10 @@ class AiProfileRepository(
             }
 
     suspend fun updateProfile(profile: AiProfileEntity): AiProfileEntity =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 // Mark as dirty before pushing so offline edits are retried later
                 val updatedProfile =
-                        profile.copy(updatedAt = System.currentTimeMillis(), isSynced = false)
+                        profile.copy(updatedAt = currentEpochMillis(), isSynced = false)
                 dao.update(updatedProfile)
 
                 val remoteId = syncRepo.pushProfile(updatedProfile)
@@ -137,7 +138,7 @@ class AiProfileRepository(
             }
 
     suspend fun deleteProfile(profile: AiProfileEntity): Boolean =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val profileRemoteId = profile.remoteId
                 if (!profileRemoteId.isNullOrBlank()) {
                     val deletedRemote = syncRepo.deleteAiProfile(profileRemoteId)
@@ -149,7 +150,7 @@ class AiProfileRepository(
                 val currentSettings = ReaderSettings.fromStorage(prefs)
                 if (currentSettings.activeProfileId == profile.id) {
                     currentSettings
-                            .copy(activeProfileId = -1L, updatedAt = System.currentTimeMillis())
+                            .copy(activeProfileId = -1L, updatedAt = currentEpochMillis())
                             .saveTo(prefs)
                 }
                 ensureSingleProfileAppliedIfNeeded()
@@ -157,7 +158,7 @@ class AiProfileRepository(
             }
 
     suspend fun applyProfile(profileId: Long) =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val profile = dao.getById(profileId) ?: return@withContext
 
                 // Load current settings to preserve other values (font, tap, etc)
@@ -178,7 +179,7 @@ class AiProfileRepository(
                                 topP = profile.topP,
                                 frequencyPenalty = profile.frequencyPenalty,
                                 presencePenalty = profile.presencePenalty,
-                                updatedAt = System.currentTimeMillis(),
+                                updatedAt = currentEpochMillis(),
                                 activeProfileId = profile.id
                         )
 
@@ -189,7 +190,7 @@ class AiProfileRepository(
             }
 
     suspend fun sync(): Int =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 var totalSynced = 0
 
                 try {
@@ -228,7 +229,7 @@ class AiProfileRepository(
             }
 
     suspend fun ensureDefaultProfile(): Boolean =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val profiles = dao.getAllList()
 
                 if (profiles.isEmpty()) {

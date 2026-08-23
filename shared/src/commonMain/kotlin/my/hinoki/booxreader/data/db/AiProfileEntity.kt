@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.data.db
 
+import my.hinoki.booxreader.data.platform.currentEpochMillis
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -29,7 +30,7 @@ data class AiProfileEntity(
     
     // Sync Metadata
     val remoteId: String? = null, // Remote doc ID
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis(),
+    val createdAt: Long = currentEpochMillis(),
+    val updatedAt: Long = currentEpochMillis(),
     val isSynced: Boolean = false
 )

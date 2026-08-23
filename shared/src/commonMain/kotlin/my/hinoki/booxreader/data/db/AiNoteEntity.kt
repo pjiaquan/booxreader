@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.data.db
 
+import my.hinoki.booxreader.data.platform.currentEpochMillis
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,6 +14,6 @@ data class AiNoteEntity(
     val originalText: String? = null,
     val aiResponse: String? = null,
     val locatorJson: String? = null, // For highlighting
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val createdAt: Long = currentEpochMillis(),
+    val updatedAt: Long = currentEpochMillis()
 )

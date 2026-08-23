@@ -6,6 +6,8 @@ import my.hinoki.booxreader.data.core.Logger
 import my.hinoki.booxreader.data.core.utils.AiNoteSerialization
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AppDatabase
+import my.hinoki.booxreader.data.platform.currentEpochMillis
+import my.hinoki.booxreader.data.platform.ioDispatcher
 import my.hinoki.booxreader.data.platform.platformFiles
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.remote.isValidHttpUrl
@@ -268,7 +270,7 @@ class AiNoteRepository(
                         originalText = originalText,
                         aiResponse = aiResponse,
                         locatorJson = locatorJson,
-                        updatedAt = System.currentTimeMillis()
+                        updatedAt = currentEpochMillis()
                 )
         val newId = dao.insert(note)
         val saved = note.copy(id = newId)
@@ -290,7 +292,7 @@ class AiNoteRepository(
                                         ?: AiNoteSerialization.aiResponseFromMessages(
                                                 note.messages
                                         ),
-                        updatedAt = System.currentTimeMillis()
+                        updatedAt = currentEpochMillis()
                 )
         val hasSource = !base.originalText.isNullOrBlank() || !base.aiResponse.isNullOrBlank()
         val messages =
@@ -373,7 +375,7 @@ class AiNoteRepository(
     }
 
     private suspend fun loadExtraParams(): JsonObject? =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val activeProfileId = prefs.getLong("active_ai_profile_id", -1L)
                 if (activeProfileId <= 0L) return@withContext null
                 val profile = AppDatabase.get().aiProfileDao().getById(activeProfileId)
@@ -668,7 +670,7 @@ class AiNoteRepository(
             note: AiNoteEntity,
             limit: Int = 5
     ): List<SemanticRelatedNote> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val boundedLimit = limit.coerceIn(1, 5)
                 val query = buildSemanticQuery(note)
                 if (query.isBlank()) return@withContext emptyList()
@@ -786,7 +788,7 @@ class AiNoteRepository(
             limit: Int = 20,
             bookId: String? = null
     ): List<SemanticRelatedNote> =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val query = queryText.trim()
                 if (query.isBlank()) return@withContext emptyList()
                 val boundedLimit = limit.coerceIn(1, 50)
@@ -884,7 +886,7 @@ class AiNoteRepository(
             }
 
     suspend fun fetchRemainingCredits(): Int? =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val settings = getSettings()
                 if (settings.apiKey.isNotBlank() || settings.aiModelName.isNotBlank()) {
                     return@withContext null
@@ -911,7 +913,7 @@ class AiNoteRepository(
     ): Pair<String, String>? {
         val settings = settingsOverride ?: getSettings()
         if (settings.apiKey.isNotBlank()) {
-            return withContext(Dispatchers.IO) {
+            return withContext(ioDispatcher) {
                 try {
                     val url = getBaseUrl()
                     val isGoogle = isGoogleNative(url)
@@ -1048,7 +1050,7 @@ class AiNoteRepository(
         }
 
         // Legacy Implementation
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             try {
                 val jsonBody = jsonObj { put("text", text) }.toString()
 
@@ -1175,7 +1177,7 @@ class AiNoteRepository(
         }
     }
     suspend fun deleteSelectedNotes(noteIds: Collection<Long>): DeleteResult =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 if (noteIds.isEmpty()) {
                     return@withContext DeleteResult(0, 0)
                 }
@@ -1207,7 +1209,7 @@ class AiNoteRepository(
             }
 
     suspend fun exportSelectedNotes(noteIds: Collection<Long>): ExportResult =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     val notes = getByIds(noteIds)
                     exportNotesInternal(notes, "No selected AI notes to export")
@@ -1222,7 +1224,7 @@ class AiNoteRepository(
             }
 
     suspend fun exportAllNotes(bookId: String): ExportResult =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     val notes = getByBook(bookId)
                     exportNotesInternal(notes, "No AI notes to export for this book")
@@ -1365,7 +1367,7 @@ class AiNoteRepository(
     }
 
     suspend fun testExportEndpoint(targetUrl: String): String =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val safeUrl = targetUrl.trim()
                 if (safeUrl.isEmpty()) {
                     return@withContext "URL is empty"
@@ -1380,7 +1382,7 @@ class AiNoteRepository(
                 val payload =
                         jsonObj {
                             put("ping", "ai-notes-export-test")
-                            put("timestamp", System.currentTimeMillis())
+                            put("timestamp", currentEpochMillis())
                         }
                 if (!normalizedUrl.isValidHttpUrl()) return@withContext "Invalid URL"
 
@@ -1404,7 +1406,7 @@ class AiNoteRepository(
             followUpText: String,
             magicTag: MagicTag? = null
     ): String? =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 val settings = getSettings()
                 if (settings.apiKey.isNotBlank()) {
                     try {
@@ -1684,7 +1686,7 @@ class AiNoteRepository(
             onPartial: suspend (String) -> Unit,
             apiKey: String? = null
     ): Pair<String, String>? =
-            withContext(Dispatchers.IO) {
+            withContext(ioDispatcher) {
                 try {
                     logger.d(TAG, "Streaming SSE from: $url")
 

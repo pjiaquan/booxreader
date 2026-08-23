@@ -1,7 +1,5 @@
 package my.hinoki.booxreader.data.repo
 
-import androidx.room.withTransaction
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -13,6 +11,7 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
+import my.hinoki.booxreader.data.db.withTransactionCompat
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.auth.TokenProvider
 import my.hinoki.booxreader.data.core.Logger
@@ -49,6 +48,9 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 import my.hinoki.booxreader.data.remote.createApiClient
+import kotlin.concurrent.Volatile
+import my.hinoki.booxreader.data.platform.currentEpochMillis
+import my.hinoki.booxreader.data.platform.ioDispatcher
 import my.hinoki.booxreader.data.platform.platformFiles
 
 // Data class for PocketBase list responses
@@ -99,7 +101,7 @@ class UserSyncRepository(
         private val logger = logger
         private val tokenManager = tokenProvider
         private val db = AppDatabase.get()
-        private val io = Dispatchers.IO
+        private val io = ioDispatcher
         private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         private val pocketBaseUrl = (baseUrl ?: tokenManager.getBackendUrl()).trimEnd('/')
 
@@ -543,7 +545,7 @@ class UserSyncRepository(
                         language = json["language"]?.jsonPrimitive?.contentOrNull ?: "system",
                         activeProfileId = longValue(json["activeProfileId"]).takeIf { it != 0L } ?: -1L,
                         updatedAt = longValue(json["updatedAt"]).takeIf { it > 0L }
-                                        ?: System.currentTimeMillis(),
+                                        ?: currentEpochMillis(),
                         magicTags =
                                 parseMagicTags(
                                         raw = json["magicTags"] ?: json["magic_tags"],
@@ -688,7 +690,7 @@ class UserSyncRepository(
                                                         settings.dailySummaryEmailTo.trim(),
                                                 "language" to settings.language,
                                                 "activeProfileId" to settings.activeProfileId,
-                                                "updatedAt" to System.currentTimeMillis()
+                                                "updatedAt" to currentEpochMillis()
                                         )
                                 val settingsDataWithMagicTags =
                                         baseSettingsData + ("magicTags" to magicTagsForUpload)
@@ -774,7 +776,7 @@ class UserSyncRepository(
         fun cacheProgress(
                 bookId: String,
                 locatorJson: String,
-                updatedAt: Long = System.currentTimeMillis()
+                updatedAt: Long = currentEpochMillis()
         ) {
                 prefs.putString(progressKey(bookId), locatorJson)
                 prefs.putLong(progressTimestampKey(bookId), updatedAt)
@@ -840,7 +842,7 @@ class UserSyncRepository(
                                                 "bookId" to bookId,
                                                 "bookTitle" to (bookTitle ?: ""),
                                                 "locatorJson" to locatorJson,
-                                                "updatedAt" to System.currentTimeMillis()
+                                                "updatedAt" to currentEpochMillis()
                                         )
 
                                 val requestBody =
@@ -889,7 +891,7 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val userId = getUserId() ?: return@withContext false
-                                val now = System.currentTimeMillis()
+                                val now = currentEpochMillis()
                                 val localUpdatedAt = maxOf(book.lastOpenedAt, book.deletedAt ?: 0L)
                                 val payloadUpdatedAt =
                                         if (localUpdatedAt > 0L) localUpdatedAt else now
@@ -1126,7 +1128,7 @@ class UserSyncRepository(
                 withContext(io) {
                         try {
                                 val userId = getUserId() ?: return@withContext false
-                                val now = System.currentTimeMillis()
+                                val now = currentEpochMillis()
                                 val deleteData =
                                         mapOf(
                                                 "user" to userId,
@@ -1445,9 +1447,9 @@ class UserSyncRepository(
                                         val createdAt =
                                                 (item["createdAt"]?.jsonPrimitive?.contentOrNull)?.let {
                                                         // Parse PocketBase timestamp if needed
-                                                        System.currentTimeMillis()
+                                                        currentEpochMillis()
                                                 }
-                                                        ?: System.currentTimeMillis()
+                                                        ?: currentEpochMillis()
 
                                         val existing = cachedBookmarks[remoteId]
 
@@ -1495,7 +1497,7 @@ class UserSyncRepository(
                                                 "bookId" to entity.bookId,
                                                 "locatorJson" to entity.locatorJson,
                                                 "createdAt" to entity.createdAt,
-                                                "updatedAt" to System.currentTimeMillis()
+                                                "updatedAt" to currentEpochMillis()
                                         )
 
                                 val requestBody =
@@ -1591,7 +1593,7 @@ class UserSyncRepository(
                                                         },
                                                 "locatorJson" to (note.locatorJson ?: ""),
                                                 "createdAt" to note.createdAt,
-                                                "updatedAt" to System.currentTimeMillis()
+                                                "updatedAt" to currentEpochMillis()
                                         )
 
                                 val requestBody =
@@ -1666,11 +1668,11 @@ class UserSyncRepository(
                                                         createdAt =
                                                                 (item["createdAt"]?.jsonPrimitive?.doubleOrNull)
                                                                         ?.toLong()
-                                                                        ?: System.currentTimeMillis(),
+                                                                        ?: currentEpochMillis(),
                                                         updatedAt =
                                                                 (item["updatedAt"]?.jsonPrimitive?.doubleOrNull)
                                                                         ?.toLong()
-                                                                        ?: System.currentTimeMillis()
+                                                                        ?: currentEpochMillis()
                                                 )
 
                                         val existing = cachedNotes[remoteId]
@@ -1758,7 +1760,7 @@ class UserSyncRepository(
 
         private fun toRemoteProfile(item: kotlinx.serialization.json.JsonObject): AiProfileEntity? {
                 val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: return null
-                val now = System.currentTimeMillis()
+                val now = currentEpochMillis()
                 return AiProfileEntity(
                         remoteId = remoteId,
                         name = item["name"]?.jsonPrimitive?.contentOrNull ?: "",
@@ -1800,7 +1802,7 @@ class UserSyncRepository(
                                 frequencyPenalty = profile.frequencyPenalty,
                                 presencePenalty = profile.presencePenalty,
                                 activeProfileId = profile.id,
-                                updatedAt = System.currentTimeMillis()
+                                updatedAt = currentEpochMillis()
                         )
                         .saveTo(prefs)
         }
@@ -1875,7 +1877,7 @@ class UserSyncRepository(
                                                 "enableGoogleSearch" to profile.enableGoogleSearch,
                                                 "extraParamsJson" to
                                                         (profile.extraParamsJson ?: ""),
-                                                "updatedAt" to System.currentTimeMillis()
+                                                "updatedAt" to currentEpochMillis()
                                         )
 
                                 val requestBody =
@@ -2170,7 +2172,7 @@ class UserSyncRepository(
                                         mergedCount++
                                 }
                                 if (updates.isNotEmpty()) {
-                                        db.withTransaction {
+                                        db.withTransactionCompat {
                                                 updates.chunked(900).forEach { chunk ->
                                                         db.bookDao().updateProgressBatch(chunk)
                                                 }
@@ -2665,7 +2667,7 @@ class UserSyncRepository(
                 val payload =
                         mapOf(
                                 "storagePath" to storagePath,
-                                "updatedAt" to System.currentTimeMillis()
+                                "updatedAt" to currentEpochMillis()
                         )
                 val requestBody = mapToJsonString(payload)
                 val url = "$pocketBaseUrl/api/collections/books/records/$recordId"
@@ -2714,7 +2716,7 @@ class UserSyncRepository(
                         for (field in BOOK_FILE_FIELD_CANDIDATES) {
                                 val form =
                                         formData {
-                                                append("updatedAt", System.currentTimeMillis().toString())
+                                                append("updatedAt", currentEpochMillis().toString())
                                                 if (!userId.isNullOrBlank()) {
                                                         append("user", userId)
                                                 }

@@ -1,5 +1,6 @@
 package my.hinoki.booxreader.data.db
 
+import my.hinoki.booxreader.data.platform.currentEpochMillis
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -11,5 +12,5 @@ data class BookmarkEntity(
     val locatorJson: String,
     val createdAt: Long,
     val isSynced: Boolean = false,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = currentEpochMillis()
 )

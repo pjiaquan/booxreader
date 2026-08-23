@@ -1,9 +1,10 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package my.hinoki.booxreader.data.platform
 
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.readByteAt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
@@ -25,7 +26,7 @@ private fun nsDataToByteArray(data: NSData): ByteArray? {
         val length = data.length.toInt()
         return ByteArray(length).apply {
                 for (i in 0 until length) {
-                        this[i] = ptr.readByteAt(i)
+                        this[i] = ptr[i]
                 }
         }
 }
@@ -47,9 +48,10 @@ actual class PlatformFiles {
 
     actual suspend fun readUriBytes(uri: String): ByteArray? =
             withContext(Dispatchers.Default) {
-                    val data: NSData? =
+                    val data =
                             NSFileManager.defaultManager.contentsAtPath(filePathOf(uri))
-                    data?.let { nsDataToByteArray(it) }
+                                    ?: return@withContext null
+                    nsDataToByteArray(data)
             }
 
     actual fun writeCacheFile(fileName: String, bytes: ByteArray): String? {
@@ -115,7 +117,7 @@ actual class PlatformFiles {
     }
 
     actual fun readFilePrefix(path: String, maxBytes: Int): ByteArray? {
-            val data: NSData? = NSFileManager.defaultManager.contentsAtPath(path)
+            val data = NSFileManager.defaultManager.contentsAtPath(path)
                     ?: return null
             val length = minOf(data.length.toInt(), maxBytes.coerceAtLeast(0))
             if (length <= 0) {
@@ -124,7 +126,7 @@ actual class PlatformFiles {
             val ptr = data.bytes ?: return null
             return ByteArray(length).apply {
                     for (i in 0 until length) {
-                            this[i] = ptr.readByteAt(i)
+                            this[i] = ptr[i]
                     }
             }
     }

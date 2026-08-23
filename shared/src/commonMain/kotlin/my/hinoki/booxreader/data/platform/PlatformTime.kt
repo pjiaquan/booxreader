@@ -5,3 +5,10 @@ package my.hinoki.booxreader.data.platform
  * Android: System.currentTimeMillis()；iOS: NSDate。
  */
 expect fun currentEpochMillis(): Long
+
+/**
+ * 跨平台 IO dispatcher。
+ * Android: Dispatchers.IO；iOS: Dispatchers.Default
+ * （kotlinx-coroutines 在 Kotlin/Native 未公開 Dispatchers.IO）。
+ */
+expect val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher

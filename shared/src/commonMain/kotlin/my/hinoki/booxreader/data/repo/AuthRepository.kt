@@ -18,7 +18,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -27,6 +26,8 @@ import my.hinoki.booxreader.data.core.Logger
 import my.hinoki.booxreader.data.core.Reporter
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.UserEntity
+import my.hinoki.booxreader.data.platform.currentEpochMillis
+import my.hinoki.booxreader.data.platform.ioDispatcher
 import my.hinoki.booxreader.data.platform.platformFiles
 import my.hinoki.booxreader.data.remote.createApiClient
 
@@ -44,7 +45,7 @@ class AuthRepository(
         private val httpClient: HttpClient = createApiClient()
 
         suspend fun login(email: String, password: String): Result<UserEntity> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 val response =
                                         httpClient.post(
@@ -93,7 +94,7 @@ class AuthRepository(
                 }
 
         suspend fun register(email: String, password: String, name: String?): Result<UserEntity> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 val response =
                                         httpClient.post(
@@ -127,7 +128,7 @@ class AuthRepository(
                 }
 
         suspend fun loginWithGoogle(idToken: String): Result<UserEntity> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 // PocketBase OAuth2 flow is different - this would need to be
                                 // implemented
@@ -140,7 +141,7 @@ class AuthRepository(
                 }
 
         suspend fun logout(): Result<Unit> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 // Best-effort final upload before local wipe.
                                 // This avoids "book not found" after fast logout/login cycles.
@@ -160,7 +161,7 @@ class AuthRepository(
                 }
 
         suspend fun resendVerificationEmail(email: String): Result<Unit> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 val response =
                                         httpClient.post(
@@ -183,7 +184,7 @@ class AuthRepository(
                 }
 
         suspend fun requestPasswordReset(email: String): Result<Unit> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 val response =
                                         httpClient.post(
@@ -206,7 +207,7 @@ class AuthRepository(
                 }
 
         suspend fun googleLogin(idToken: String): Result<UserEntity> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 logger.d(
                                         "AuthRepository",
@@ -217,7 +218,7 @@ class AuthRepository(
                 }
 
         suspend fun updateProfile(displayName: String, avatarUri: String?): Result<UserEntity> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 val currentUser = getCurrentUser() ?: throw Exception("User not found")
                                 val token =
@@ -250,7 +251,7 @@ class AuthRepository(
                                 val mimeType =
                                         platformFiles().contentType(avatarUriStr)
                                                 ?: "application/octet-stream"
-                                val fallbackName = "avatar_${System.currentTimeMillis()}.jpg"
+                                val fallbackName = "avatar_${currentEpochMillis()}.jpg"
                                 val cleanName =
                                         (platformFiles().contentName(avatarUriStr)
                                                         ?.substringAfterLast('/')
@@ -285,7 +286,7 @@ class AuthRepository(
                 currentPassword: String,
                 newPassword: String
         ): Result<Unit> =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         runCatching {
                                 if (newPassword.length < 8) {
                                         throw IllegalArgumentException(
@@ -332,7 +333,7 @@ class AuthRepository(
                 }
 
         suspend fun getCurrentUser(): UserEntity? =
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                         // Keep auth gate tied to token presence, but read user from local cache.
                         // Token is a JWT string and not equal to users.userId.
                         val token = tokenProvider.getAccessToken() ?: return@withContext null
