@@ -8,8 +8,6 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.room.withTransaction
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URLEncoder
@@ -51,11 +49,19 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.longOrNull
 import my.hinoki.booxreader.data.remote.createApiClient
 
 // Data class for PocketBase list responses
+@kotlinx.serialization.Serializable
 data class PocketBaseListResponse(
-        val items: List<Map<String, Any>>,
+        val items: List<kotlinx.serialization.json.JsonObject>,
         val page: Int = 1,
         val perPage: Int = 30,
         val totalItems: Int = 0,
@@ -99,7 +105,6 @@ class UserSyncRepository(
         private val db = AppDatabase.get()
         private val io = Dispatchers.IO
         private val tokenManager = tokenManager ?: TokenManager(appContext)
-        private val gson = Gson()
         private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
         private val pocketBaseUrl = (baseUrl ?: (tokenManager ?: TokenManager(appContext)).getBackendUrl()).trimEnd('/')
 
@@ -122,9 +127,9 @@ class UserSyncRepository(
                 filterParam: String,
                 sortParam: String? = null,
                 perPage: Int = 100
-        ): List<Map<String, Any>> =
+        ): List<kotlinx.serialization.json.JsonObject> =
                 withContext(io) {
-                        val items = mutableListOf<Map<String, Any>>()
+                        val items = mutableListOf<kotlinx.serialization.json.JsonObject>()
                         var page = 1
                         while (true) {
                                 val sortQuery =
@@ -133,10 +138,7 @@ class UserSyncRepository(
                                         "$pocketBaseUrl/api/collections/$collection/records?filter=$filterParam&page=$page&perPage=$perPage$sortQuery"
                                                                 val responseBody = executeBackendRequest(url)
                                 val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
-                                        )
+                                        json.decodeFromString<PocketBaseListResponse>(responseBody)
                                 if (response.items.isEmpty()) {
                                         break
                                 }
@@ -199,7 +201,7 @@ class UserSyncRepository(
                                         val htmlBody =
                                                 "<pre style=\"white-space:pre-wrap;font-family:monospace;\">${escapeHtmlForEmail(body)}</pre>"
                                         val payload =
-                                                gson.toJson(
+                                                mapToJsonString(
                                                         mapOf(
                                                                 "to" to listOf(email),
                                                                 "subject" to subject,
@@ -242,7 +244,7 @@ class UserSyncRepository(
                         for (routePath in MAIL_CUSTOM_ROUTE_CANDIDATES) {
                                 runCatching {
                                                 val payload =
-                                                        gson.toJson(
+                                                        mapToJsonString(
                                                                 mapOf(
                                                                         "toEmail" to email,
                                                                         "subject" to subject,
@@ -289,7 +291,7 @@ class UserSyncRepository(
                         // Strategy 2: queue record for PocketBase hook/automation mail dispatch.
                         for (collection in MAIL_QUEUE_COLLECTION_CANDIDATES) {
                                 val queuePayload =
-                                        gson.toJson(
+                                        mapToJsonString(
                                                 mapOf(
                                                         "user" to userId,
                                                         "toEmail" to email,
@@ -474,6 +476,8 @@ class UserSyncRepository(
                 return when (value) {
                         is Number -> value.toLong()
                         is String -> value.toLongOrNull() ?: 0L
+                        is kotlinx.serialization.json.JsonPrimitive ->
+                                value.content.toLongOrNull() ?: 0L
                         else -> 0L
                 }
         }
@@ -482,10 +486,10 @@ class UserSyncRepository(
                 if (raw == null) return fallback
 
                 return runCatching {
-                                val type = object : TypeToken<List<MagicTag>>() {}.type
                                 when (raw) {
-                                        is String -> gson.fromJson<List<MagicTag>>(raw, type)
-                                        else -> gson.fromJson<List<MagicTag>>(gson.toJson(raw), type)
+                                        is kotlinx.serialization.json.JsonPrimitive ->
+                                                json.decodeFromString<List<MagicTag>>(raw.content)
+                                        else -> json.decodeFromString<List<MagicTag>>(raw.toString())
                                 } ?: fallback
                         }
                         .getOrElse {
@@ -494,7 +498,7 @@ class UserSyncRepository(
                         }
         }
 
-        private fun latestSettingsRecord(items: List<Map<String, Any>>): Map<String, Any>? {
+        private fun latestSettingsRecord(items: List<kotlinx.serialization.json.JsonObject>): kotlinx.serialization.json.JsonObject? {
                 return items.maxByOrNull { longValue(it["updatedAt"]) }
         }
 
@@ -507,43 +511,43 @@ class UserSyncRepository(
 
         /** Parse settings from PocketBase JSON response. */
         private fun parseSettingsFromJson(
-                json: Map<String, Any>,
+                json: kotlinx.serialization.json.JsonObject,
                 fallbackMagicTags: List<MagicTag>
         ): ReaderSettings {
                 return ReaderSettings(
-                        pageTapEnabled = json["pageTapEnabled"] as? Boolean ?: true,
-                        pageSwipeEnabled = json["pageSwipeEnabled"] as? Boolean ?: true,
-                        contrastMode = (json["contrastMode"] as? Double)?.toInt() ?: 0,
+                        pageTapEnabled = json["pageTapEnabled"]?.jsonPrimitive?.booleanOrNull ?: true,
+                        pageSwipeEnabled = json["pageSwipeEnabled"]?.jsonPrimitive?.booleanOrNull ?: true,
+                        contrastMode = (json["contrastMode"]?.jsonPrimitive?.doubleOrNull)?.toInt() ?: 0,
                         convertToTraditionalChinese =
-                                json["convertToTraditionalChinese"] as? Boolean ?: true,
-                        serverBaseUrl = json["serverBaseUrl"] as? String ?: "",
-                        exportToCustomUrl = json["exportToCustomUrl"] as? Boolean ?: false,
-                        exportCustomUrl = json["exportCustomUrl"] as? String ?: "",
-                        exportToLocalDownloads = json["exportToLocalDownloads"] as? Boolean
+                                json["convertToTraditionalChinese"]?.jsonPrimitive?.booleanOrNull ?: true,
+                        serverBaseUrl = json["serverBaseUrl"]?.jsonPrimitive?.contentOrNull ?: "",
+                        exportToCustomUrl = json["exportToCustomUrl"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        exportCustomUrl = json["exportCustomUrl"]?.jsonPrimitive?.contentOrNull ?: "",
+                        exportToLocalDownloads = json["exportToLocalDownloads"]?.jsonPrimitive?.booleanOrNull
                                         ?: false,
-                        apiKey = json["apiKey"] as? String ?: "",
-                        aiModelName = json["aiModelName"] as? String ?: "deepseek-chat",
-                        aiSystemPrompt = json["aiSystemPrompt"] as? String ?: "",
-                        aiUserPromptTemplate = json["aiUserPromptTemplate"] as? String ?: "%s",
-                        temperature = json["temperature"] as? Double ?: 0.7,
-                        maxTokens = (json["maxTokens"] as? Double)?.toInt() ?: 4096,
-                        topP = json["topP"] as? Double ?: 1.0,
-                        frequencyPenalty = json["frequencyPenalty"] as? Double ?: 0.0,
-                        presencePenalty = json["presencePenalty"] as? Double ?: 0.0,
-                        assistantRole = json["assistantRole"] as? String ?: "assistant",
-                        enableGoogleSearch = json["enableGoogleSearch"] as? Boolean ?: true,
-                        useStreaming = json["useStreaming"] as? Boolean ?: false,
-                        pageAnimationEnabled = json["pageAnimationEnabled"] as? Boolean ?: false,
-                        showPageIndicator = json["showPageIndicator"] as? Boolean ?: true,
+                        apiKey = json["apiKey"]?.jsonPrimitive?.contentOrNull ?: "",
+                        aiModelName = json["aiModelName"]?.jsonPrimitive?.contentOrNull ?: "deepseek-chat",
+                        aiSystemPrompt = json["aiSystemPrompt"]?.jsonPrimitive?.contentOrNull ?: "",
+                        aiUserPromptTemplate = json["aiUserPromptTemplate"]?.jsonPrimitive?.contentOrNull ?: "%s",
+                        temperature = json["temperature"]?.jsonPrimitive?.doubleOrNull ?: 0.7,
+                        maxTokens = (json["maxTokens"]?.jsonPrimitive?.doubleOrNull)?.toInt() ?: 4096,
+                        topP = json["topP"]?.jsonPrimitive?.doubleOrNull ?: 1.0,
+                        frequencyPenalty = json["frequencyPenalty"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        presencePenalty = json["presencePenalty"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        assistantRole = json["assistantRole"]?.jsonPrimitive?.contentOrNull ?: "assistant",
+                        enableGoogleSearch = json["enableGoogleSearch"]?.jsonPrimitive?.booleanOrNull ?: true,
+                        useStreaming = json["useStreaming"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        pageAnimationEnabled = json["pageAnimationEnabled"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        showPageIndicator = json["showPageIndicator"]?.jsonPrimitive?.booleanOrNull ?: true,
                         autoCheckUpdates = prefs.getBoolean("auto_check_updates", true),
                         dailySummaryEmailEnabled =
-                                json["dailySummaryEmailEnabled"] as? Boolean ?: false,
-                        dailySummaryEmailHour = (json["dailySummaryEmailHour"] as? Double)?.toInt()
+                                json["dailySummaryEmailEnabled"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        dailySummaryEmailHour = (json["dailySummaryEmailHour"]?.jsonPrimitive?.doubleOrNull)?.toInt()
                                         ?: 21,
                         dailySummaryEmailMinute =
-                                (json["dailySummaryEmailMinute"] as? Double)?.toInt() ?: 0,
-                        dailySummaryEmailTo = json["dailySummaryEmailTo"] as? String ?: "",
-                        language = json["language"] as? String ?: "system",
+                                (json["dailySummaryEmailMinute"]?.jsonPrimitive?.doubleOrNull)?.toInt() ?: 0,
+                        dailySummaryEmailTo = json["dailySummaryEmailTo"]?.jsonPrimitive?.contentOrNull ?: "",
+                        language = json["language"]?.jsonPrimitive?.contentOrNull ?: "system",
                         activeProfileId = longValue(json["activeProfileId"]).takeIf { it != 0L } ?: -1L,
                         updatedAt = longValue(json["updatedAt"]).takeIf { it > 0L }
                                         ?: System.currentTimeMillis(),
@@ -638,10 +642,19 @@ class UserSyncRepository(
                                         "$pocketBaseUrl/api/collections/settings/records?filter=(user='$userId')"
                                                                 val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
-                                        gson.fromJson(checkBody, PocketBaseListResponse::class.java)
+                                        json.decodeFromString<PocketBaseListResponse>(checkBody)
 
                                 val existingSettingsRecord = latestSettingsRecord(checkResponse.items)
-                                val magicTagsForUpload = settings.magicTags
+                                val magicTagsForUpload =
+                                        settings.magicTags.map { tag ->
+                                                kotlinx.serialization.json.buildJsonObject {
+                                                        put("id", tag.id)
+                                                        put("label", tag.label)
+                                                        put("content", tag.content)
+                                                        put("description", tag.description)
+                                                        put("role", tag.role)
+                                                }
+                                        }
 
                                 val baseSettingsData =
                                         mapOf(
@@ -688,12 +701,14 @@ class UserSyncRepository(
                                         baseSettingsData + ("magicTags" to magicTagsForUpload)
 
                                 fun toBody(data: Map<String, Any>): String =
-                                        gson.toJson(data)
+                                        buildJsonObject {
+                                                data.forEach { (k, v) -> put(k, v.toJsonElement()) }
+                                        }.toString()
 
                                 if (checkResponse.items.isNotEmpty()) {
                                         // Update existing record
                                         val recordId =
-                                                existingSettingsRecord?.get("id") as? String
+                                                existingSettingsRecord?.get("id")?.jsonPrimitive?.contentOrNull
                                                         ?: return@withContext
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/settings/records/$recordId"
@@ -785,10 +800,7 @@ class UserSyncRepository(
                                                                 val responseBody = executeBackendRequest(url)
 
                                 val response =
-                                        gson.fromJson(
-                                                responseBody,
-                                                PocketBaseListResponse::class.java
-                                        )
+                                        json.decodeFromString<PocketBaseListResponse>(responseBody)
                                 if (response.items.isEmpty()) {
                                         Log.d(
                                                 "UserSyncRepository",
@@ -798,7 +810,7 @@ class UserSyncRepository(
                                 }
 
                                 val item = response.items[0]
-                                val locatorJson = item["locatorJson"] as? String
+                                val locatorJson = item["locatorJson"]?.jsonPrimitive?.contentOrNull
                                 val remoteUpdatedAt = parseEpochMillis(item["updatedAt"])
                                 if (!locatorJson.isNullOrBlank()) {
                                         cacheProgress(bookId, locatorJson, remoteUpdatedAt)
@@ -829,7 +841,7 @@ class UserSyncRepository(
                                         "$pocketBaseUrl/api/collections/progress/records?filter=(user='$userId'%26%26bookId='$bookId')"
                                                                 val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
-                                        gson.fromJson(checkBody, PocketBaseListResponse::class.java)
+                                        json.decodeFromString<PocketBaseListResponse>(checkBody)
 
                                 val progressData =
                                         mapOf(
@@ -841,13 +853,13 @@ class UserSyncRepository(
                                         )
 
                                 val requestBody =
-                                        gson.toJson(progressData)
+                                        mapToJsonString(progressData)
                                                 
 
                                 if (checkResponse.items.isNotEmpty()) {
                                         // Update existing record
                                         val recordId =
-                                                checkResponse.items[0]["id"] as? String
+                                                checkResponse.items[0]["id"]?.jsonPrimitive?.contentOrNull
                                                         ?: return@withContext
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/progress/records/$recordId"
@@ -921,25 +933,25 @@ class UserSyncRepository(
                                 }
 
                                 val requestBody =
-                                        gson.toJson(bookData)
+                                        mapToJsonString(bookData)
                                                 
 
                                 val checkUrl =
                                         "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId'%26%26bookId='${book.bookId}')&perPage=1"
                                                                 val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
-                                        gson.fromJson(checkBody, PocketBaseListResponse::class.java)
+                                        json.decodeFromString<PocketBaseListResponse>(checkBody)
                                 val existingItem = checkResponse.items.firstOrNull()
                                 val remoteHasFilePath =
                                         !resolveStoragePathFromRecord(existingItem).isNullOrBlank()
                                 var remoteDeleted = false
-                                var recordId = existingItem?.get("id") as? String
+                                var recordId = existingItem?.get("id")?.jsonPrimitive?.contentOrNull
 
                                 if (existingItem != null) {
                                         // Bug 3 fix: use parseEpochMillis() instead of Double cast
                                         // which silently fails when PocketBase returns updatedAt as a String.
                                         val remoteUpdatedAt = parseEpochMillis(existingItem["updatedAt"])
-                                        remoteDeleted = existingItem["deleted"] as? Boolean ?: false
+                                        remoteDeleted = existingItem["deleted"]?.jsonPrimitive?.booleanOrNull ?: false
                                         val needsFileBackfill =
                                                 uploadFile &&
                                                         contentResolver != null &&
@@ -983,7 +995,7 @@ class UserSyncRepository(
                                                                 // Update the payload using the new valid ID
                                                                 val mutableData = bookData.toMutableMap()
                                                                 mutableData["user"] = refreshedUserId
-                                                                val retryBody = gson.toJson(mutableData)
+                                                                val retryBody = mapToJsonString(mutableData)
                                                                 executeBackendRequest(createUrl) {
                                                                     method = HttpMethod.Post
                                                                     contentType(ContentType.Application.Json)
@@ -997,9 +1009,8 @@ class UserSyncRepository(
                                                 }
                                         }
                                         val created =
-                                                gson.fromJson(createBody, Map::class.java) as
-                                                        Map<String, Any>
-                                        recordId = created["id"] as? String
+                                                json.parseToJsonElement(createBody).jsonObject
+                                        recordId = created["id"]?.jsonPrimitive?.contentOrNull
                                 }
 
                                 if (uploadFile &&
@@ -1053,8 +1064,8 @@ class UserSyncRepository(
                                         )
                                 }
 
-                                val recordId = remoteRecord["id"] as? String
-                                val remoteDeleted = remoteRecord["deleted"] as? Boolean ?: false
+                                val recordId = remoteRecord["id"]?.jsonPrimitive?.contentOrNull
+                                val remoteDeleted = remoteRecord["deleted"]?.jsonPrimitive?.booleanOrNull ?: false
                                 val storagePath = resolveStoragePathFromRecord(remoteRecord)
 
                                 if (recordId.isNullOrBlank() ||
@@ -1145,18 +1156,18 @@ class UserSyncRepository(
                                                 "updatedAt" to now
                                         )
                                 val requestBody =
-                                        gson.toJson(deleteData)
+                                        mapToJsonString(deleteData)
                                                 
 
                                 val checkUrl =
                                         "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId'%26%26bookId='$bookId')&perPage=1"
                                                                 val checkBody = executeBackendRequest(checkUrl)
                                 val checkResponse =
-                                        gson.fromJson(checkBody, PocketBaseListResponse::class.java)
+                                        json.decodeFromString<PocketBaseListResponse>(checkBody)
 
                                 if (checkResponse.items.isNotEmpty()) {
                                         val recordId =
-                                                checkResponse.items[0]["id"] as? String
+                                                checkResponse.items[0]["id"]?.jsonPrimitive?.contentOrNull
                                                         ?: return@withContext false
                                         val updateUrl =
                                                 "$pocketBaseUrl/api/collections/books/records/$recordId"
@@ -1253,22 +1264,22 @@ class UserSyncRepository(
                                 val deletedBookIds = mutableListOf<String>()
 
                                 // Pre-fetch existing books to avoid N+1 queries
-                                val allBookIds = items.mapNotNull { it["bookId"] as? String }.distinct()
+                                val allBookIds = items.mapNotNull { it["bookId"]?.jsonPrimitive?.contentOrNull }.distinct()
                                 val cachedBooks = mutableMapOf<String, BookEntity>()
                                 allBookIds.chunked(900).forEach { chunk ->
                                         cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
                                 }
 
                                 for (item in items) {
-                                        val bookId = item["bookId"] as? String ?: continue
-                                        val deleted = item["deleted"] as? Boolean ?: false
+                                        val bookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
+                                        val deleted = item["deleted"]?.jsonPrimitive?.booleanOrNull ?: false
 
                                         if (deleted) {
                                                 deletedBookIds.add(bookId)
                                                 continue
                                         }
 
-                                        val title = item["title"] as? String
+                                        val title = item["title"]?.jsonPrimitive?.contentOrNull
                                         val resolvedStoragePath = resolveStoragePathFromRecord(item)
 
 
@@ -1440,18 +1451,18 @@ class UserSyncRepository(
                                 // Pre-fetch existing bookmarks via chunked IN queries and cache them in an in-memory map.
                                 // This turns O(N) database operations into O(1) memory lookups, avoiding the N+1 problem.
 
-                                val allRemoteIds = items.mapNotNull { it["id"] as? String }.distinct()
+                                val allRemoteIds = items.mapNotNull { it["id"]?.jsonPrimitive?.contentOrNull }.distinct()
                                 val cachedBookmarks = mutableMapOf<String, BookmarkEntity>()
                                 allRemoteIds.chunked(900).forEach { chunk ->
                                         cachedBookmarks.putAll(db.bookmarkDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
                                 for (item in items) {
-                                        val remoteId = item["id"] as? String ?: continue
-                                        val bookmarkBookId = item["bookId"] as? String ?: continue
-                                        val locatorJson = item["locatorJson"] as? String ?: continue
+                                        val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
+                                        val bookmarkBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
+                                        val locatorJson = item["locatorJson"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val createdAt =
-                                                (item["createdAt"] as? String)?.let {
+                                                (item["createdAt"]?.jsonPrimitive?.contentOrNull)?.let {
                                                         // Parse PocketBase timestamp if needed
                                                         System.currentTimeMillis()
                                                 }
@@ -1507,7 +1518,7 @@ class UserSyncRepository(
                                         )
 
                                 val requestBody =
-                                        gson.toJson(bookmarkData)
+                                        mapToJsonString(bookmarkData)
                                                 
 
                                 val result =
@@ -1521,14 +1532,10 @@ class UserSyncRepository(
                                                     setBody(requestBody)
                                                 }
                                                 val response =
-                                                        gson.fromJson(
-                                                                responseBody,
-                                                                Map::class.java
-                                                        ) as
-                                                                Map<String, Any>
+                                                        json.parseToJsonElement(responseBody).jsonObject
 
                                                 entity.copy(
-                                                        remoteId = response["id"] as? String
+                                                        remoteId = response["id"]?.jsonPrimitive?.contentOrNull
                                                                         ?: entity.remoteId,
                                                         isSynced = true
                                                 )
@@ -1542,14 +1549,10 @@ class UserSyncRepository(
                                                     setBody(requestBody)
                                                 }
                                                 val response =
-                                                        gson.fromJson(
-                                                                responseBody,
-                                                                Map::class.java
-                                                        ) as
-                                                                Map<String, Any>
+                                                        json.parseToJsonElement(responseBody).jsonObject
 
                                                 entity.copy(
-                                                        remoteId = response["id"] as? String,
+                                                        remoteId = response["id"]?.jsonPrimitive?.contentOrNull,
                                                         isSynced = true
                                                 )
                                         }
@@ -1611,7 +1614,7 @@ class UserSyncRepository(
                                         )
 
                                 val requestBody =
-                                        gson.toJson(noteData)
+                                        mapToJsonString(noteData)
                                                 
 
                                 val syncedRemoteId =
@@ -1633,9 +1636,8 @@ class UserSyncRepository(
                                             setBody(requestBody)
                                         }
                                         val created =
-                                                gson.fromJson(createBody, Map::class.java) as
-                                                        Map<String, Any>
-                                        created["id"] as? String
+                                                json.parseToJsonElement(createBody).jsonObject
+                                        created["id"]?.jsonPrimitive?.contentOrNull
                                 } ?: return@withContext null
 
                                 Log.d("UserSyncRepository", "pushAiNote - Note synced")
@@ -1660,32 +1662,32 @@ class UserSyncRepository(
                                         )
                                 var syncedCount = 0
 
-                                val allRemoteIds = items.mapNotNull { it["id"] as? String }.distinct()
+                                val allRemoteIds = items.mapNotNull { it["id"]?.jsonPrimitive?.contentOrNull }.distinct()
                                 val cachedNotes = mutableMapOf<String, AiNoteEntity>()
                                 allRemoteIds.chunked(900).forEach { chunk ->
                                         cachedNotes.putAll(db.aiNoteDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
                                 for (item in items) {
-                                        val remoteId = item["id"] as? String ?: continue
+                                        val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val note =
                                                 AiNoteEntity(
                                                         remoteId = remoteId,
-                                                        bookId = item["bookId"] as? String,
-                                                        bookTitle = item["bookTitle"] as? String,
-                                                        messages = item["messages"] as? String
+                                                        bookId = item["bookId"]?.jsonPrimitive?.contentOrNull,
+                                                        bookTitle = item["bookTitle"]?.jsonPrimitive?.contentOrNull,
+                                                        messages = item["messages"]?.jsonPrimitive?.contentOrNull
                                                                         ?: "",
                                                         originalText =
-                                                                item["originalText"] as? String,
-                                                        aiResponse = item["aiResponse"] as? String,
+                                                                item["originalText"]?.jsonPrimitive?.contentOrNull,
+                                                        aiResponse = item["aiResponse"]?.jsonPrimitive?.contentOrNull,
                                                         locatorJson =
-                                                                item["locatorJson"] as? String,
+                                                                item["locatorJson"]?.jsonPrimitive?.contentOrNull,
                                                         createdAt =
-                                                                (item["createdAt"] as? Double)
+                                                                (item["createdAt"]?.jsonPrimitive?.doubleOrNull)
                                                                         ?.toLong()
                                                                         ?: System.currentTimeMillis(),
                                                         updatedAt =
-                                                                (item["updatedAt"] as? Double)
+                                                                (item["updatedAt"]?.jsonPrimitive?.doubleOrNull)
                                                                         ?.toLong()
                                                                         ?: System.currentTimeMillis()
                                                 )
@@ -1773,28 +1775,28 @@ class UserSyncRepository(
                 return candidate.id > current.id
         }
 
-        private fun toRemoteProfile(item: Map<String, Any>): AiProfileEntity? {
-                val remoteId = item["id"] as? String ?: return null
+        private fun toRemoteProfile(item: kotlinx.serialization.json.JsonObject): AiProfileEntity? {
+                val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: return null
                 val now = System.currentTimeMillis()
                 return AiProfileEntity(
                         remoteId = remoteId,
-                        name = item["name"] as? String ?: "",
-                        modelName = item["modelName"] as? String ?: "",
-                        apiKey = item["apiKey"] as? String ?: "",
-                        serverBaseUrl = item["serverBaseUrl"] as? String ?: "",
-                        systemPrompt = item["systemPrompt"] as? String ?: "",
-                        userPromptTemplate = item["userPromptTemplate"] as? String ?: "",
-                        useStreaming = item["useStreaming"] as? Boolean ?: false,
-                        temperature = item["temperature"] as? Double ?: 0.7,
-                        maxTokens = (item["maxTokens"] as? Double)?.toInt() ?: 4096,
-                        topP = item["topP"] as? Double ?: 1.0,
-                        frequencyPenalty = item["frequencyPenalty"] as? Double ?: 0.0,
-                        presencePenalty = item["presencePenalty"] as? Double ?: 0.0,
-                        assistantRole = item["assistantRole"] as? String ?: "assistant",
-                        enableGoogleSearch = item["enableGoogleSearch"] as? Boolean ?: true,
-                        extraParamsJson = item["extraParamsJson"] as? String,
-                        createdAt = (item["createdAt"] as? Double)?.toLong() ?: now,
-                        updatedAt = (item["updatedAt"] as? Double)?.toLong() ?: now,
+                        name = item["name"]?.jsonPrimitive?.contentOrNull ?: "",
+                        modelName = item["modelName"]?.jsonPrimitive?.contentOrNull ?: "",
+                        apiKey = item["apiKey"]?.jsonPrimitive?.contentOrNull ?: "",
+                        serverBaseUrl = item["serverBaseUrl"]?.jsonPrimitive?.contentOrNull ?: "",
+                        systemPrompt = item["systemPrompt"]?.jsonPrimitive?.contentOrNull ?: "",
+                        userPromptTemplate = item["userPromptTemplate"]?.jsonPrimitive?.contentOrNull ?: "",
+                        useStreaming = item["useStreaming"]?.jsonPrimitive?.booleanOrNull ?: false,
+                        temperature = item["temperature"]?.jsonPrimitive?.doubleOrNull ?: 0.7,
+                        maxTokens = (item["maxTokens"]?.jsonPrimitive?.doubleOrNull)?.toInt() ?: 4096,
+                        topP = item["topP"]?.jsonPrimitive?.doubleOrNull ?: 1.0,
+                        frequencyPenalty = item["frequencyPenalty"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        presencePenalty = item["presencePenalty"]?.jsonPrimitive?.doubleOrNull ?: 0.0,
+                        assistantRole = item["assistantRole"]?.jsonPrimitive?.contentOrNull ?: "assistant",
+                        enableGoogleSearch = item["enableGoogleSearch"]?.jsonPrimitive?.booleanOrNull ?: true,
+                        extraParamsJson = item["extraParamsJson"]?.jsonPrimitive?.contentOrNull,
+                        createdAt = (item["createdAt"]?.jsonPrimitive?.doubleOrNull)?.toLong() ?: now,
+                        updatedAt = (item["updatedAt"]?.jsonPrimitive?.doubleOrNull)?.toLong() ?: now,
                         isSynced = true
                 )
         }
@@ -1896,7 +1898,7 @@ class UserSyncRepository(
                                         )
 
                                 val requestBody =
-                                        gson.toJson(profileData)
+                                        mapToJsonString(profileData)
                                                 
 
                                 val syncedRemoteId =
@@ -1957,9 +1959,8 @@ class UserSyncRepository(
                                                     setBody(requestBody)
                                                 }
                                                 val created =
-                                                        gson.fromJson(createBody, Map::class.java) as
-                                                                Map<String, Any>
-                                                created["id"] as? String
+                                                        json.parseToJsonElement(createBody).jsonObject
+                                                created["id"]?.jsonPrimitive?.contentOrNull
                                         }
                                 } ?: return@withContext null
 
@@ -2128,7 +2129,7 @@ class UserSyncRepository(
                                 payload["user"] = refreshedUserId
 
                                 val requestBody =
-                                        gson.toJson(payload)
+                                        mapToJsonString(payload)
                                 val url = "$pocketBaseUrl/api/collections/crash_reports/records"
                                 executeBackendRequest(url, reportError = false) {
                                     method = HttpMethod.Post
@@ -2155,7 +2156,7 @@ class UserSyncRepository(
                                         )
                                 var mergedCount = 0
 
-                                val allBookIds = items.mapNotNull { it["bookId"] as? String }.distinct()
+                                val allBookIds = items.mapNotNull { it["bookId"]?.jsonPrimitive?.contentOrNull }.distinct()
                                 val cachedBooks = mutableMapOf<String, BookEntity>()
                                 allBookIds.chunked(900).forEach { chunk ->
                                         cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
@@ -2163,8 +2164,8 @@ class UserSyncRepository(
 
                                 val updates = mutableListOf<BookProgressUpdate>()
                                 for (item in items) {
-                                        val bookId = item["bookId"] as? String ?: continue
-                                        val locatorJson = item["locatorJson"] as? String ?: continue
+                                        val bookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
+                                        val locatorJson = item["locatorJson"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val remoteUpdatedAt = parseEpochMillis(item["updatedAt"])
                                         cacheProgress(bookId, locatorJson, remoteUpdatedAt)
 
@@ -2307,10 +2308,7 @@ class UserSyncRepository(
                                                                 "&fields=id,storagePath,epub,file,bookFile,updatedAt"
                                                                                                 val checkBody = executeBackendRequest(checkUrl, reportError = false)
                                                 val checkResponse = runCatching {
-                                                        gson.fromJson(
-                                                                checkBody,
-                                                                PocketBaseListResponse::class.java
-                                                        )
+                                                        json.decodeFromString<PocketBaseListResponse>(checkBody)
                                                 }.getOrNull()
                                                 val existingItem = checkResponse?.items?.firstOrNull()
                                                 val remoteHasFile =
@@ -2411,14 +2409,14 @@ class UserSyncRepository(
                                                 )
                                                 return@withContext null
                                         }
-                                        if (remoteRecord["deleted"] as? Boolean == true) {
+                                        if (remoteRecord["deleted"]?.jsonPrimitive?.booleanOrNull == true) {
                                                 Log.w(
                                                         "UserSyncRepository",
                                                         "ensureBookFileAvailable - Remote record is deleted for $bookId"
                                                 )
                                                 return@withContext null
                                         }
-                                        recordId = remoteRecord["id"] as? String
+                                        recordId = remoteRecord["id"]?.jsonPrimitive?.contentOrNull
                                         effectiveStoragePath =
                                                 resolveStoragePathFromRecord(remoteRecord)
                                 }
@@ -2537,7 +2535,7 @@ class UserSyncRepository(
                                         }
 
                                 if (withRemoteFile != null) {
-                                        val remoteBookId = withRemoteFile["bookId"] as? String
+                                        val remoteBookId = withRemoteFile["bookId"]?.jsonPrimitive?.contentOrNull
                                         val remoteStorage = resolveStoragePathFromRecord(withRemoteFile)
                                         if (!remoteBookId.isNullOrBlank() &&
                                                         !remoteStorage.isNullOrBlank()
@@ -2687,12 +2685,12 @@ class UserSyncRepository(
         private suspend fun fetchBookRecord(
                 userId: String,
                 bookId: String
-        ): Map<String, Any>? {
+        ): kotlinx.serialization.json.JsonObject? {
                 val filter = "(user='$userId'%26%26bookId='$bookId')"
                 val url =
                         "$pocketBaseUrl/api/collections/books/records?filter=$filter&perPage=1"
                                 val responseBody = executeBackendRequest(url)
-                val response = gson.fromJson(responseBody, PocketBaseListResponse::class.java)
+                val response = json.decodeFromString<PocketBaseListResponse>(responseBody)
                 return response.items.firstOrNull()
         }
 
@@ -2702,7 +2700,7 @@ class UserSyncRepository(
                                 "storagePath" to storagePath,
                                 "updatedAt" to System.currentTimeMillis()
                         )
-                val requestBody = gson.toJson(payload)
+                val requestBody = mapToJsonString(payload)
                 val url = "$pocketBaseUrl/api/collections/books/records/$recordId"
                 executeBackendRequest(url) {
                     method = HttpMethod.Patch
@@ -2799,8 +2797,7 @@ class UserSyncRepository(
                                 } else {
                                                 val payload =
                                                         runCatching {
-                                                                gson.fromJson(body, Map::class.java)
-                                                                        as? Map<String, Any>
+                                                                json.parseToJsonElement(body).jsonObject
                                                         }
                                                                 .getOrNull()
                                                 val uploadedFileName =
@@ -2853,7 +2850,7 @@ class UserSyncRepository(
         }
 
         private fun extractUploadedFileName(
-                record: Map<String, Any>?,
+                record: kotlinx.serialization.json.JsonObject?,
                 fieldName: String,
                 fallback: String? = null
         ): String? {
@@ -2863,35 +2860,45 @@ class UserSyncRepository(
 
                 val value = record[fieldName]
                 when (value) {
-                        is String -> {
-                                if (value.isNotBlank()) {
-                                        return value.substringAfterLast('/')
+                        is kotlinx.serialization.json.JsonPrimitive -> {
+                                val text = value.contentOrNull
+                                if (!text.isNullOrBlank()) {
+                                        return text.substringAfterLast('/')
                                 }
                         }
-                        is List<*> -> {
+                        is kotlinx.serialization.json.JsonArray -> {
                                 val firstFile =
-                                        value.firstOrNull { it is String && it.isNotBlank() } as?
-                                                String
+                                        value
+                                                .firstOrNull {
+                                                        (it as? kotlinx.serialization.json.JsonPrimitive)
+                                                                ?.contentOrNull
+                                                                ?.isNotBlank() == true
+                                                }
+                                                ?.let {
+                                                        (it as kotlinx.serialization.json.JsonPrimitive)
+                                                                .contentOrNull
+                                                }
                                 if (!firstFile.isNullOrBlank()) {
                                         return firstFile.substringAfterLast('/')
                                 }
                         }
+                        else -> { /* 其他型別（物件等）不處理 */ }
                 }
 
                 return fallback
         }
 
-        private fun resolveStoragePathFromRecord(record: Map<String, Any>?): String? {
+        private fun resolveStoragePathFromRecord(record: kotlinx.serialization.json.JsonObject?): String? {
                 if (record == null) {
                         return null
                 }
 
-                val direct = normalizeStoragePath(record["storagePath"] as? String)
+                val direct = normalizeStoragePath(record["storagePath"]?.jsonPrimitive?.contentOrNull)
                 if (!direct.isNullOrBlank()) {
                         return direct
                 }
 
-                val recordId = record["id"] as? String ?: return null
+                val recordId = record["id"]?.jsonPrimitive?.contentOrNull ?: return null
                 for (field in BOOK_FILE_FIELD_CANDIDATES) {
                         val fileName = extractUploadedFileName(record, field)
                         if (!fileName.isNullOrBlank()) {
@@ -2958,9 +2965,11 @@ class UserSyncRepository(
                                         setBody(requestBody)
                                 }
                         val payload =
-                                runCatching { gson.fromJson(responseBody, Map::class.java) as? Map<*, *> }
+                                runCatching {
+                                                json.parseToJsonElement(responseBody).jsonObject
+                                        }
                                         .getOrNull()
-                        payload?.get("token") as? String
+                        payload?.get("token")?.jsonPrimitive?.contentOrNull
                 } catch (_: Exception) {
                         null
                 }
@@ -3051,6 +3060,8 @@ class UserSyncRepository(
                 return when (value) {
                         is Number -> value.toLong()
                         is String -> value.toLongOrNull() ?: 0L
+                        is kotlinx.serialization.json.JsonPrimitive ->
+                                value.content.toLongOrNull() ?: 0L
                         else -> 0L
                 }
         }
@@ -3130,9 +3141,9 @@ class UserSyncRepository(
                                                 )
                                 )
                 }
-                val compactJson = gson.toJson(compact)
+                val compactJson = mapToJsonString(compact)
                 if (compactJson.length <= maxChars) return compactJson
-                return gson.toJson(
+                return mapToJsonString(
                         listOf(
                                 mapOf(
                                         "role" to "assistant",
@@ -3161,14 +3172,14 @@ class UserSyncRepository(
         private fun extractMessageContentByRole(messagesJson: String, role: String): String? {
                 if (messagesJson.isBlank()) return null
                 val messages =
-                        runCatching { gson.fromJson(messagesJson, List::class.java) as? List<*> }
+                        runCatching { json.parseToJsonElement(messagesJson) as? kotlinx.serialization.json.JsonArray }
                                 .getOrNull()
                                 ?: return null
                 for (idx in messages.indices.reversed()) {
-                        val obj = messages[idx] as? Map<*, *> ?: continue
-                        val msgRole = (obj["role"] as? String)?.trim()?.lowercase(Locale.ROOT)
+                        val obj = messages[idx] as? kotlinx.serialization.json.JsonObject ?: continue
+                        val msgRole = (obj["role"]?.jsonPrimitive?.contentOrNull)?.trim()?.lowercase(Locale.ROOT)
                         if (msgRole != role) continue
-                        val content = (obj["content"] as? String)?.trim()
+                        val content = (obj["content"]?.jsonPrimitive?.contentOrNull)?.trim()
                         if (!content.isNullOrBlank()) {
                                 return content
                         }
@@ -3202,3 +3213,30 @@ class UserSyncRepository(
 
         private fun accessToken(): String? = tokenManager.getAccessToken()
 }
+
+
+/** 通用 Any -> JsonElement 轉換（取代 Gson 的動態序列化）。 */
+private fun Any?.toJsonElement(): kotlinx.serialization.json.JsonElement =
+        when (this) {
+                null -> kotlinx.serialization.json.JsonNull
+                is String -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Boolean -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Int -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Long -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Double -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Float -> kotlinx.serialization.json.JsonPrimitive(this)
+                is kotlinx.serialization.json.JsonElement -> this
+                is Map<*, *> ->
+                        kotlinx.serialization.json.buildJsonObject {
+                                forEach { (k, v) -> put(k.toString(), v.toJsonElement()) }
+                        }
+                is List<*> ->
+                        kotlinx.serialization.json.buildJsonArray {
+                                forEach { add(it.toJsonElement()) }
+                        }
+                else -> kotlinx.serialization.json.JsonPrimitive(toString())
+        }
+
+/** 通用 Map/List -> JSON 字串（取代 Gson toJson）。 */
+private fun mapToJsonString(data: Any?): String = data.toJsonElement().toString()
+

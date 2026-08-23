@@ -1,6 +1,7 @@
 package my.hinoki.booxreader
 
-import com.google.gson.Gson
+import kotlinx.serialization.json.put
+
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -220,11 +221,19 @@ class SyncLogicTest {
     //    - Books with remoteHasFile = false → upload request sent
     // ─────────────────────────────────────────────────────────────────────────
 
-    private val gson = Gson()
-
     /** Build a fake PocketBase list response payload. */
     private fun fakeListResponse(items: List<Map<String, Any?>>): String =
-        gson.toJson(mapOf("page" to 1, "perPage" to 30, "totalItems" to items.size, "items" to items))
+        kotlinx.serialization.json.buildJsonObject {
+            put("page", 1)
+            put("perPage", 30)
+            put("totalItems", items.size)
+            put(
+                "items",
+                kotlinx.serialization.json.buildJsonArray {
+                    items.forEach { add(it.toTestJsonElement()) }
+                }
+            )
+        }.toString()
 
     @Test fun `ensureAllLocalBooksUploaded skips book that already has storagePath on server`() {
         // Remote record has a storagePath — file already on server
@@ -297,3 +306,25 @@ class SyncLogicTest {
         return null
     }
 }
+
+
+/** 測試用：Map/基本型別 -> JsonElement。 */
+private fun Any?.toTestJsonElement(): kotlinx.serialization.json.JsonElement =
+        when (this) {
+                null -> kotlinx.serialization.json.JsonNull
+                is String -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Boolean -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Int -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Long -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Double -> kotlinx.serialization.json.JsonPrimitive(this)
+                is Map<*, *> ->
+                        kotlinx.serialization.json.buildJsonObject {
+                                forEach { (k, v) -> put(k.toString(), v.toTestJsonElement()) }
+                        }
+                is List<*> ->
+                        kotlinx.serialization.json.buildJsonArray {
+                                forEach { add(it.toTestJsonElement()) }
+                        }
+                else -> kotlinx.serialization.json.JsonPrimitive(toString())
+        }
+

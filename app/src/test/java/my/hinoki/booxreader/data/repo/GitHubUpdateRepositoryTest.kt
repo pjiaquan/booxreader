@@ -2,7 +2,6 @@ package my.hinoki.booxreader.data.repo
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.google.gson.Gson
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -19,7 +18,6 @@ class GitHubUpdateRepositoryTest {
   private lateinit var mockWebServer: MockWebServer
   private lateinit var repository: GitHubUpdateRepository
   private lateinit var context: Context
-  private val gson = Gson()
 
   @Before
   fun setup() {

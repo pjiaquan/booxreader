@@ -399,7 +399,7 @@ class UserSyncRepositoryBookSyncTest {
         field.set(repo, userId)
     }
 
-    private fun gsonQuoted(raw: String): String {
+    private fun gsonQuoted(raw: String): String {  // JSON 字串跳脫（保留名稱以減少變更）
         return "\"" + raw.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
     }
 }

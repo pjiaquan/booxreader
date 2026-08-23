@@ -231,7 +231,6 @@ dependencies {
     implementation(libs.squareup.okhttp)
 
     implementation(libs.squareup.okhttp.sse)
-    implementation(libs.google.gson)
 
     // --- UI / Material ---
     implementation(libs.google.material)
