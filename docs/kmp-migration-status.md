@@ -120,8 +120,24 @@
 | **macOS CI** | `.github/workflows/ios-build.yml`：compileKotlinIos*（三 target）→ iosSimulatorArm64Test → xcodegen + xcodebuild（模擬器） |
 
 ### ⚠️ 尚未驗證（需 macOS）
-- iosMain Kotlin 編譯、iosTest 執行、Swift 互操作（函式簽名/型別名稱）——全部由 GitHub Actions macOS runner 驗證；若 CI 報錯需在 macOS 修正
-- `AppDatabase.get()` 內的 `@androidx.annotation.VisibleForTesting` 在 iOS 編譯是否解析（androidx.annotation 為 KMP，預期可行）
+- ~~iosMain Kotlin 編譯、iosTest 執行、Swift 互操作~~ → **✅ 已由 GitHub Actions macOS runner 驗證通過**（見下）
+
+### ✅ macOS CI 驗證結果（`.github/workflows/ios-build.yml`，2026-08-23 全綠）
+| 步驟 | 結果 |
+|---|---|
+| `compileKotlinIosArm64 / SimulatorArm64 / X64` | ✅（含 Room KMP、PlatformFiles、IosTokenProvider 等全部 iosMain 程式碼） |
+| `iosSimulatorArm64Test`（5 個 iosTest） | ✅（PlatformFiles round-trip + NSUserDefaultsStorage 型別 round-trip 在模擬器實際執行） |
+| xcodegen + `xcodebuild`（SwiftUI 殼） | ✅（Shared framework 編譯、連結、Swift 互操作全部通過） |
+
+### iOS 編譯修正歷程（供日後參考）
+- **Room 2.8.4 iOS klib 以 Kotlin 2.2.0 編譯** → 專案 Kotlin 2.1.10→**2.2.20**（KSP 2.2.20-2.0.4）；順帶移除 :app 未使用的 KSP plugin（修 R8 重複類別）
+- **room-ktx 2.8.4 common metadata 拉入 Android-only coroutines-android** → 只依賴 room-runtime
+- **`System.currentTimeMillis`/`Dispatchers.IO`/`synchronized`/`@Volatile` 是 JVM-only** → `currentEpochMillis()`（既有 expect/actual）、`ioDispatcher`（Android=IO、iOS=Default）、`kotlin.concurrent.Volatile`、AppDatabase singleton 去鎖
+- **Room iOS klib 未匯出 `withTransaction`/`clearAllTables`** → `withTransactionCompat`/`clearAllTablesCompat` expect/actual（iOS 版為各 DAO 逐一操作）
+- **`NSData.bytes` 為 `COpaquePointer?`** → 用 `memcpy`+`usePinned` / `memScoped`+`allocArrayOf` canonical pattern
+- **NSUserDefaults 無 `longLongForKey`/`setLongLong` 匯出** → Long 以字串儲存
+- **Swift 互操作**：KMP top-level 函式以 `IosRepositoriesKt` 前綴呼叫；Kotlin 預設參數不匯出（`IosTokenProvider` 加無參數建構子）；`KotlinInt`→`int32Value`
+- **XcodeGen**：`projectFormat: xcode15_0`（macos-14 runner 的 Xcode 15 無法讀取預設 format 77）
 
 ### 已知取捨（iOS 殼）
 - Token 儲存用 NSUserDefaults（正式版建議 Keychain）
