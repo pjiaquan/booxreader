@@ -11,3 +11,9 @@ import androidx.room.RoomDatabase
  * （每筆 DAO 寫入仍各自原子，但非全部 or 全無——待 Room KMP 完整 API 後可升級）。
  */
 expect suspend fun <R> RoomDatabase.withTransactionCompat(block: suspend () -> R): R
+
+/**
+ * KMP 版 `RoomDatabase.clearAllTables`。
+ * Android artifact 有 clearAllTables()；iOS klib 沒有，改由各 DAO 逐一清空。
+ */
+expect suspend fun RoomDatabase.clearAllTablesCompat()

@@ -2,9 +2,9 @@
 
 package my.hinoki.booxreader.data.platform
 
-import kotlinx.cinterop.ByteVar
-import kotlinx.cinterop.allocArray
-import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.allocArrayOf
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
@@ -17,16 +17,17 @@ import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.create
 import platform.Foundation.writeToFile
+import platform.posix.memcpy
 
 // 注意：此檔需在 macOS 上驗證編譯（Linux 無法編譯 iosMain）。
 actual fun platformFiles(): PlatformFiles = PlatformFiles()
 
 private fun nsDataToByteArray(data: NSData): ByteArray? {
-        val ptr = data.bytes ?: return null
+        val src = data.bytes ?: return null
         val length = data.length.toInt()
         return ByteArray(length).apply {
-                for (i in 0 until length) {
-                        this[i] = ptr[i]
+                usePinned {
+                        memcpy(it.addressOf(0), src, data.length)
                 }
         }
 }
@@ -35,11 +36,7 @@ private fun byteArrayToNSData(bytes: ByteArray): NSData? =
         if (bytes.isEmpty()) {
                 NSData()
         } else {
-                memScoped {
-                        val ptr = allocArray<ByteVar>(bytes.size)
-                        bytes.forEachIndexed { i, b -> ptr[i] = b }
-                        NSData.create(bytes = ptr, length = bytes.size.toULong())
-                }
+                NSData.create(bytes = allocArrayOf(bytes), length = bytes.size.toULong())
         }
 
 private fun filePathOf(uri: String): String = uri.removePrefix("file://")
@@ -123,12 +120,7 @@ actual class PlatformFiles {
             if (length <= 0) {
                     return ByteArray(0)
             }
-            val ptr = data.bytes ?: return null
-            return ByteArray(length).apply {
-                    for (i in 0 until length) {
-                            this[i] = ptr[i]
-                    }
-            }
+            return nsDataToByteArray(data)?.take(length)?.toByteArray()
     }
 
     actual fun contentType(uri: String): String? =

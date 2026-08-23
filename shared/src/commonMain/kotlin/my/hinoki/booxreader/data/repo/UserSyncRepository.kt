@@ -11,6 +11,7 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
+import my.hinoki.booxreader.data.db.clearAllTablesCompat
 import my.hinoki.booxreader.data.db.withTransactionCompat
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.auth.TokenProvider
@@ -2599,8 +2600,8 @@ class UserSyncRepository(
                         }
                 }
 
-        fun clearLocalUserData() {
-                db.clearAllTables()
+        suspend fun clearLocalUserData() {
+                db.clearAllTablesCompat()
                 prefs.clearAll()
                 syncPrefs.clearAll()
                 clearSyncedBookCache()

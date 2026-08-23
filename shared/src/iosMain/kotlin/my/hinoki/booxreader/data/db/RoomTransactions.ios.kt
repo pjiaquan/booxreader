@@ -8,3 +8,12 @@ import androidx.room.RoomDatabase
  * 待 Room KMP 提供完整交易 API（如 useWriterConnection/Transactor）後升級。
  */
 actual suspend fun <R> RoomDatabase.withTransactionCompat(block: suspend () -> R): R = block()
+
+/** iOS：Room klib 未匯出 clearAllTables()，改用各 DAO 的 DELETE ALL。 */
+actual suspend fun RoomDatabase.clearAllTablesCompat() {
+    bookDao().deleteAll()
+    bookmarkDao().deleteAll()
+    aiNoteDao().deleteAll()
+    aiProfileDao().deleteAll()
+    userDao().clearAllUsers()
+}
