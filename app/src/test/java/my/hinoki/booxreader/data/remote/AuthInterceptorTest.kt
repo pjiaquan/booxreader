@@ -30,6 +30,8 @@ class AuthInterceptorTest {
                 object : TokenProvider {
                         override fun getAccessToken(): String? = "test_token"
                         override fun getBackendUrl(): String = backendUrl
+                        override fun saveAccessToken(token: String) = Unit
+                        override fun clearTokens() = Unit
                 }
         // We use localhost as the mock backend url to simulate a backend request
         backendUrl = mockWebServer.url("/").toString().dropLast(1)

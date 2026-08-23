@@ -3,7 +3,9 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.google.devtools.ksp)
+    // 注意：Room 已移至 :shared（KSP 只在 shared 執行）；:app 不需 KSP plugin。
+    // 保留會把 Phase 1 之前遺留在 app/build/generated/ksp 的過期 *_Impl.kt 當成來源編譯，
+    // 導致 R8 出現重複類別（UserDao_Impl$3 defined multiple times）。
 }
 
 import java.io.File
