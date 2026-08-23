@@ -43,19 +43,20 @@ enum SharedAsync {
 }
 
 /// Swift 側組裝 KMP 依賴（對應 Android 的 create*Repository factory）。
+/// 注意：KMP top-level 函式以「檔案名Kt」前綴導出（IosRepositories.kt → IosRepositoriesKt）。
 enum SharedModule {
     static let syncRepo: UserSyncRepository = {
-        createIosUserSyncRepository(
+        IosRepositoriesKt.createIosUserSyncRepository(
             tokenProvider: IosTokenProvider(),
             baseUrl: nil
         )
     }()
 
     static let authRepo: AuthRepository = {
-        createIosAuthRepository(tokenProvider: IosTokenProvider())
+        IosRepositoriesKt.createIosAuthRepository(tokenProvider: IosTokenProvider())
     }()
 
     static let aiNoteRepo: AiNoteRepository = {
-        createIosAiNoteRepository(syncRepo: nil)
+        IosRepositoriesKt.createIosAiNoteRepository(syncRepo: nil)
     }()
 }
