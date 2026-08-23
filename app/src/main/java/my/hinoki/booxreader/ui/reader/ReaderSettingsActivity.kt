@@ -44,6 +44,7 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
@@ -73,7 +74,7 @@ class ReaderSettingsActivity : BaseActivity() {
         }
     }
 
-    private val syncRepo by lazy { UserSyncRepository(applicationContext) }
+    private val syncRepo by lazy { createUserSyncRepository(applicationContext) }
 
     private var selectedContrastMode: ContrastMode = ContrastMode.NORMAL
     private var selectedDailySummaryHour: Int = 0

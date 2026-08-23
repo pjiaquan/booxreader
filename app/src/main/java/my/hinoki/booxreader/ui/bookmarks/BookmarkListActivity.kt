@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import my.hinoki.booxreader.data.db.BookmarkEntity
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.databinding.ActivityBookmarkListBinding
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.reader.LocatorJsonHelper
@@ -51,7 +52,7 @@ class BookmarkListActivity : BaseActivity() {
         setContentView(binding.root)
 
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
-        syncRepo = UserSyncRepository(app)
+        syncRepo = createUserSyncRepository(app)
         repo = BookmarkRepository(app, syncRepo)
 
         bookId = intent.getStringExtra(EXTRA_BOOK_ID) ?: run {

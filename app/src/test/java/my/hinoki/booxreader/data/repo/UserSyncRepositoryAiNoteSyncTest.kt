@@ -123,7 +123,7 @@ class UserSyncRepositoryAiNoteSyncTest {
             }
         }
 
-        val repo = UserSyncRepository(
+        val repo = createUserSyncRepository(
             context = context,
             baseUrl = server.url("/").toString(),
             tokenManager = tokenManager

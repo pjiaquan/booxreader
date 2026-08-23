@@ -111,7 +111,7 @@ class UserSyncRepositoryCrashReportTest {
                 captureSlot = captureSlot
             )
 
-            val repo = UserSyncRepository(
+            val repo = createUserSyncRepository(
                 context = context,
                 baseUrl = server.url("/").toString(),
                 tokenManager = tokenManager
@@ -155,7 +155,7 @@ class UserSyncRepositoryCrashReportTest {
             captureSlot = captureSlot
         )
 
-        val repo = UserSyncRepository(
+        val repo = createUserSyncRepository(
             context = context,
             baseUrl = server.url("/").toString(),
             tokenManager = tokenManager
@@ -183,7 +183,7 @@ class UserSyncRepositoryCrashReportTest {
             captureSlot = captureSlot
         )
 
-        val repo = UserSyncRepository(
+        val repo = createUserSyncRepository(
             context = context,
             baseUrl = server.url("/").toString(),
             tokenManager = tokenManager
@@ -206,7 +206,7 @@ class UserSyncRepositoryCrashReportTest {
             captureSlot = captureSlot
         )
 
-        val repo = UserSyncRepository(
+        val repo = createUserSyncRepository(
             context = context,
             baseUrl = server.url("/").toString(),
             tokenManager = tokenManager

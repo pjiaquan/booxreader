@@ -98,7 +98,7 @@ class UserSyncRepositoryBookSyncTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -114,7 +114,7 @@ class UserSyncRepositoryBookSyncTest {
                         lastOpenedAt = localUpdatedAt
                 )
 
-        val ok = repo.pushBook(book, uploadFile = true, contentResolver = context.contentResolver)
+        val ok = repo.pushBook(book, uploadFile = true)
 
         assertTrue("Expected pushBook to succeed", ok)
         assertTrue("Expected multipart upload even when remote updatedAt is newer", multipartUploadSeen)
@@ -171,7 +171,7 @@ class UserSyncRepositoryBookSyncTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -187,7 +187,7 @@ class UserSyncRepositoryBookSyncTest {
                         lastOpenedAt = 1_000L
                 )
 
-        val ok = repo.pushBook(book, uploadFile = true, contentResolver = context.contentResolver)
+        val ok = repo.pushBook(book, uploadFile = true)
 
         assertTrue("Expected pushBook to succeed", ok)
         assertTrue("Expected metadata PATCH to restore deleted=false", metadataPatchSeen)
@@ -249,7 +249,7 @@ class UserSyncRepositoryBookSyncTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -265,7 +265,7 @@ class UserSyncRepositoryBookSyncTest {
                         lastOpenedAt = 1_000L
                 )
 
-        val ok = repo.ensureRemoteBookFilePresent(book, context.contentResolver)
+        val ok = repo.ensureRemoteBookFilePresent(book)
 
         assertTrue("Expected remote probe to run", probeSeen)
         assertTrue("Expected ensureRemoteBookFilePresent to succeed", ok)
@@ -310,7 +310,7 @@ class UserSyncRepositoryBookSyncTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -375,7 +375,7 @@ class UserSyncRepositoryBookSyncTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager

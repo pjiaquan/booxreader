@@ -37,6 +37,7 @@ import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.GitHubRelease
 import my.hinoki.booxreader.data.repo.GitHubUpdateRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.databinding.ActivityMainBinding
 import my.hinoki.booxreader.ui.auth.LoginActivity
@@ -48,7 +49,7 @@ import my.hinoki.booxreader.ui.reader.ReaderSettingsActivity
 class MainActivity : BaseActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val syncRepo by lazy { UserSyncRepository(applicationContext) }
+    private val syncRepo by lazy { createUserSyncRepository(applicationContext) }
     private val bookRepository by lazy { BookRepository(applicationContext, syncRepo) }
     private val updateRepository: GitHubUpdateRepository by lazy {
         GitHubUpdateRepository(applicationContext)
@@ -596,7 +597,7 @@ class MainActivity : BaseActivity() {
                     ReaderActivity.open(this@MainActivity, uri)
                 } else {
                     // Try to download from cloud
-                    val syncRepo = UserSyncRepository(applicationContext)
+                    val syncRepo = createUserSyncRepository(applicationContext)
                     val storagePath =
                             if (entity.fileUri.startsWith("pocketbase://")) {
                                 entity.fileUri
@@ -612,7 +613,7 @@ class MainActivity : BaseActivity() {
                                     originalUri = entity.fileUri
                             )
                     if (localUri != null) {
-                        ReaderActivity.open(this@MainActivity, localUri)
+                        ReaderActivity.open(this@MainActivity, android.net.Uri.parse(localUri))
                     } else {
                         android.widget.Toast.makeText(
                                         this@MainActivity,

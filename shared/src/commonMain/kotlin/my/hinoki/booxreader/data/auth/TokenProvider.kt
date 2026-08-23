@@ -9,4 +9,6 @@ package my.hinoki.booxreader.data.auth
 interface TokenProvider {
     fun getAccessToken(): String?
     fun getBackendUrl(): String
+    fun saveAccessToken(token: String)
+    fun clearTokens()
 }

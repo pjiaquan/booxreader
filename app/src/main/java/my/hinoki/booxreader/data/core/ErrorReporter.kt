@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 
 /**
  * Centralized non-fatal error reporter.
@@ -19,7 +20,7 @@ object ErrorReporter {
 
     // Made internal and var for testing
     internal var uploadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    internal var syncRepositoryFactory: (Context) -> UserSyncRepository = { UserSyncRepository(it) }
+    internal var syncRepositoryFactory: (Context) -> UserSyncRepository = { createUserSyncRepository(it) }
 
     fun report(context: Context, source: String, message: String?, throwable: Throwable? = null) {
         val appContext = context.applicationContext

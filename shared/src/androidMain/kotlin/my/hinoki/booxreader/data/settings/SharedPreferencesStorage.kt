@@ -37,4 +37,8 @@ class SharedPreferencesStorage(private val prefs: SharedPreferences) : KeyValueS
     }
 
     override fun contains(key: String): Boolean = prefs.contains(key)
+
+    override fun clearAll() {
+        prefs.edit().clear().apply()
+    }
 }

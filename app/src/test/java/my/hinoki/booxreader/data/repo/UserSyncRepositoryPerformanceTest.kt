@@ -57,7 +57,7 @@ class UserSyncRepositoryPerformanceTest {
         val prefs = context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
         prefs.edit().putString("pocketbase_user_id", "user_123").apply()
 
-        repo = UserSyncRepository(
+        repo = createUserSyncRepository(
             context = context,
             baseUrl = mockWebServer.url("/").toString(),
             tokenManager = mockTokenManager

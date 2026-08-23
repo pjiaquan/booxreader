@@ -24,4 +24,6 @@ interface KeyValueStorage {
     fun putFloat(key: String, value: Float)
 
     fun contains(key: String): Boolean
+
+    fun clearAll()
 }

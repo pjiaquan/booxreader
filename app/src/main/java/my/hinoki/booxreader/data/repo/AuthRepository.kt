@@ -142,7 +142,7 @@ class AuthRepository(private val context: Context, private val tokenManager: Tok
         suspend fun logout(): Result<Unit> =
                 withContext(Dispatchers.IO) {
                         runCatching {
-                                val syncRepo = UserSyncRepository(context, tokenManager = tokenManager)
+                                val syncRepo = createUserSyncRepository(context, tokenManager = tokenManager)
                                 // Best-effort final upload before local wipe.
                                 // This avoids "book not found" after fast logout/login cycles.
                                 withTimeoutOrNull(15_000) {

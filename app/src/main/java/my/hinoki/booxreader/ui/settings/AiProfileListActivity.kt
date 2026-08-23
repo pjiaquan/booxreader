@@ -34,6 +34,7 @@ import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.databinding.ActivityAiProfileListBinding
@@ -110,7 +111,7 @@ class AiProfileListActivity : BaseActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         applyActionBarPadding(binding.selectionBar)
 
-        val syncRepo = UserSyncRepository(applicationContext)
+        val syncRepo = createUserSyncRepository(applicationContext)
         repository = AiProfileRepository(applicationContext, syncRepo)
 
         setLoading(true)

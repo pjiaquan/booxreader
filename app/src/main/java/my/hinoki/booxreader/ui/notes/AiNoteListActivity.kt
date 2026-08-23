@@ -34,6 +34,7 @@ import my.hinoki.booxreader.data.repo.CheckResult
 import my.hinoki.booxreader.data.repo.DeleteResult
 import my.hinoki.booxreader.data.repo.ExportResult
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.ui.common.BaseActivity
@@ -168,7 +169,7 @@ class AiNoteListActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
-        syncRepo = UserSyncRepository(app)
+        syncRepo = createUserSyncRepository(app)
         repo = AiNoteRepository(app, syncRepo)
         bookId = intent.getStringExtra(EXTRA_BOOK_ID)
 

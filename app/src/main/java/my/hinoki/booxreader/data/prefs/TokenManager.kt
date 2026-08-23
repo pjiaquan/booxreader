@@ -61,7 +61,7 @@ open class TokenManager(private val context: Context) :
         )
     }
 
-    open fun saveAccessToken(token: String) {
+    override fun saveAccessToken(token: String) {
         sharedPreferences.edit()
             .putString("access_token", token)
             .putBoolean("guest_mode", false)
@@ -87,7 +87,7 @@ open class TokenManager(private val context: Context) :
             .apply()
     }
 
-    open fun clearTokens() {
+    override fun clearTokens() {
         sharedPreferences.edit()
             .remove("access_token")
             .remove("refresh_token")

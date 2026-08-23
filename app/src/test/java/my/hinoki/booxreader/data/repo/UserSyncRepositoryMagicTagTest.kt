@@ -76,7 +76,7 @@ class UserSyncRepositoryMagicTagTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -158,7 +158,7 @@ class UserSyncRepositoryMagicTagTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -232,7 +232,7 @@ class UserSyncRepositoryMagicTagTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -296,7 +296,7 @@ class UserSyncRepositoryMagicTagTest {
                 }
 
         val repo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager

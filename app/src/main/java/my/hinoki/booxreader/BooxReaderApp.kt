@@ -15,6 +15,7 @@ import my.hinoki.booxreader.data.prefs.TokenManager
 import my.hinoki.booxreader.data.remote.PocketBaseRealtimeClient
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 
@@ -70,7 +71,7 @@ class BooxReaderApp : Application() {
     private fun initializeAiProfileSync() {
         applicationScope.launch {
             try {
-                val syncRepo = UserSyncRepository(applicationContext)
+                val syncRepo = createUserSyncRepository(applicationContext)
                 val profileRepo = AiProfileRepository(applicationContext, syncRepo)
 
                 // Perform initial sync on app startup
@@ -107,7 +108,7 @@ class BooxReaderApp : Application() {
     private fun initializeBackgroundBookUpload() {
         applicationScope.launch {
             try {
-                val syncRepo = UserSyncRepository(applicationContext)
+                val syncRepo = createUserSyncRepository(applicationContext)
                 val uploaded = syncRepo.ensureAllLocalBooksUploaded()
                 if (uploaded > 0) {
                     android.util.Log.i(
@@ -176,7 +177,7 @@ class BooxReaderApp : Application() {
 
         android.util.Log.d("BooxReaderApp", "startRealtimeBookSync - Starting realtime sync for books")
 
-        val syncRepo = my.hinoki.booxreader.data.repo.UserSyncRepository(applicationContext)
+        val syncRepo = my.hinoki.booxreader.data.repo.createUserSyncRepository(applicationContext)
         val baseUrl = tokenManager.getBackendUrl()
 
         realtimeBookSyncClient = my.hinoki.booxreader.data.remote.PocketBaseSseClient(

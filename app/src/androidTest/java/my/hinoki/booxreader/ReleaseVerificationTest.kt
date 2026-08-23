@@ -3,6 +3,7 @@ package my.hinoki.booxreader
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.reader.LocatorJsonHelper
 import org.junit.Assert.*
@@ -52,7 +53,7 @@ class ReleaseVerificationTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         
         try {
-            val repo = UserSyncRepository(context)
+            val repo = createUserSyncRepository(context)
             assertNotNull("UserSyncRepository should be instantiated", repo)
             
             // We can't easily test sync without a real token/network, but instantiation 

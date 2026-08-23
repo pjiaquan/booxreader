@@ -61,6 +61,7 @@ import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.remote.StreamingErrorDialog
 import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -102,7 +103,7 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private lateinit var binding: ActivityAiNoteDetailBinding
-    private val syncRepo by lazy { UserSyncRepository(applicationContext) }
+    private val syncRepo by lazy { createUserSyncRepository(applicationContext) }
     private val repository by lazy {
         val app = applicationContext as my.hinoki.booxreader.BooxReaderApp
         AiNoteRepository(app, syncRepo)

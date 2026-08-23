@@ -22,6 +22,7 @@ import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.testutils.TestEpubGenerator
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -114,7 +115,7 @@ class ReloginBookDownloadOpenIntegrationTest {
                 }
 
         val syncRepo =
-                UserSyncRepository(
+                createUserSyncRepository(
                         context = context,
                         baseUrl = server.url("/").toString(),
                         tokenManager = tokenManager
@@ -144,9 +145,10 @@ class ReloginBookDownloadOpenIntegrationTest {
 
         assertNotNull("Expected book file to be downloaded", downloadedUri)
         assertEquals("Bearer test-token", downloadAuthHeader)
-        assertEquals("file", downloadedUri!!.scheme)
-        assertTrue(File(downloadedUri.path!!).exists())
-        assertTrue(File(downloadedUri.path!!).length() > 0L)
+        assertTrue("Expected file:// scheme", downloadedUri!!.startsWith("file://"))
+        val downloadedPath = downloadedUri.removePrefix("file://")
+        assertTrue(File(downloadedPath).exists())
+        assertTrue(File(downloadedPath).length() > 0L)
 
         val persistedBook = AppDatabase.get().bookDao().getByIds(listOf(bookId)).firstOrNull()
         assertNotNull(persistedBook)

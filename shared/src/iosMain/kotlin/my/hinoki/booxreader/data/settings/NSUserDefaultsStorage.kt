@@ -42,4 +42,8 @@ class NSUserDefaultsStorage(
     }
 
     override fun contains(key: String): Boolean = defaults.objectForKey(key) != null
+
+    override fun clearAll() {
+        defaults.removePersistentDomainForName(defaults.dictionaryRepresentation().let { "" })
+    }
 }

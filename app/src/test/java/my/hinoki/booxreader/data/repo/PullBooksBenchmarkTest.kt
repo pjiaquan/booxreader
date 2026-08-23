@@ -65,7 +65,7 @@ class PullBooksBenchmarkTest {
             }
         }
 
-        val repo = UserSyncRepository(
+        val repo = createUserSyncRepository(
             context = context,
             baseUrl = server.url("/").toString(),
             tokenManager = tokenManager

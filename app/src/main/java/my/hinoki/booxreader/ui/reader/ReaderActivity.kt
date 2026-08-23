@@ -57,6 +57,7 @@ import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
+import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -78,7 +79,7 @@ import org.readium.r2.shared.util.mediatype.MediaType
 @OptIn(ExperimentalReadiumApi::class)
 class ReaderActivity : BaseActivity() {
     private lateinit var binding: ActivityReaderBinding
-    private val syncRepo by lazy { UserSyncRepository(applicationContext) }
+    private val syncRepo by lazy { createUserSyncRepository(applicationContext) }
     private val viewModel: ReaderViewModel by viewModels {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -324,7 +325,7 @@ class ReaderActivity : BaseActivity() {
         setupObservers()
 
         if (savedInstanceState == null) {
-            viewModel.openBook(bookUri, contentResolver)
+            viewModel.openBook(bookUri)
         } else {
             // Re-attach if fragment exists
             supportFragmentManager.executePendingTransactions()
@@ -332,12 +333,12 @@ class ReaderActivity : BaseActivity() {
             nativeNavigatorFragment = fragment as? NativeNavigatorFragment
 
             if (nativeNavigatorFragment == null) {
-                viewModel.openBook(bookUri, contentResolver)
+                viewModel.openBook(bookUri)
             } else {
                 // Ensure the current theme is applied to the re-attached fragment
                 applyContrastMode(currentContrastMode)
                 if (viewModel.publication.value == null) {
-                    viewModel.openBook(bookUri, contentResolver)
+                    viewModel.openBook(bookUri)
                 }
             }
         }

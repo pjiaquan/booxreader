@@ -1,17 +1,6 @@
 package my.hinoki.booxreader.data.repo
-import my.hinoki.booxreader.data.settings.SharedPreferencesStorage
 
-import android.content.Context
-import android.content.Intent
-import android.content.SharedPreferences
-import android.net.Uri
-import android.provider.OpenableColumns
-import android.util.Log
 import androidx.room.withTransaction
-import java.io.File
-import java.io.FileOutputStream
-import java.net.URLEncoder
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -20,13 +9,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.db.BookProgressUpdate
 import my.hinoki.booxreader.data.core.CrashReport
-import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.AiNoteEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.db.BookEntity
 import my.hinoki.booxreader.data.db.BookmarkEntity
-import my.hinoki.booxreader.data.prefs.TokenManager
+import my.hinoki.booxreader.data.auth.TokenProvider
+import my.hinoki.booxreader.data.core.Logger
+import my.hinoki.booxreader.data.core.Reporter
+import my.hinoki.booxreader.data.settings.KeyValueStorage
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import io.ktor.client.request.HttpRequestBuilder
@@ -47,6 +38,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.encodeURLParameter
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -57,6 +49,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 import my.hinoki.booxreader.data.remote.createApiClient
+import my.hinoki.booxreader.data.platform.platformFiles
 
 // Data class for PocketBase list responses
 @kotlinx.serialization.Serializable
@@ -76,9 +69,12 @@ data class CheckResult(val ok: Boolean, val message: String?)
  * progress, books, bookmarks, notes, and profiles.
  */
 class UserSyncRepository(
-        context: Context,
+        tokenProvider: TokenProvider,
         baseUrl: String? = null,
-        tokenManager: TokenManager? = null
+        prefs: KeyValueStorage,
+        syncPrefs: KeyValueStorage,
+        reporter: Reporter,
+        logger: Logger
 ) {
         private enum class RemoteFileState {
                 PRESENT,
@@ -97,16 +93,15 @@ class UserSyncRepository(
                 const val AI_NOTE_COMPACT_MESSAGE_CHARS = 1200
         }
 
-        private val appContext = context.applicationContext
-        private val prefs: SharedPreferences =
-                context.getSharedPreferences(ReaderSettings.PREFS_NAME, Context.MODE_PRIVATE)
-        private val syncPrefs: SharedPreferences =
-                context.getSharedPreferences("sync_prefs", Context.MODE_PRIVATE)
+        private val prefs = prefs
+        private val syncPrefs = syncPrefs
+        private val reporter = reporter
+        private val logger = logger
+        private val tokenManager = tokenProvider
         private val db = AppDatabase.get()
         private val io = Dispatchers.IO
-        private val tokenManager = tokenManager ?: TokenManager(appContext)
         private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-        private val pocketBaseUrl = (baseUrl ?: (tokenManager ?: TokenManager(appContext)).getBackendUrl()).trimEnd('/')
+        private val pocketBaseUrl = (baseUrl ?: tokenManager.getBackendUrl()).trimEnd('/')
 
         /** Ktor client（Phase 2 漸進轉換；手動加 Bearer，行為與舊版一致）。 */
         private val ktorClient = createApiClient()
@@ -390,7 +385,7 @@ class UserSyncRepository(
                                         setBody("{}")
                                 }
                         if (!response.status.isSuccess()) {
-                                Log.w(
+                                logger.w(
                                         "UserSyncRepository",
                                         "refreshAuthSessionIfPossible failed: ${response.status.value}"
                                 )
@@ -421,7 +416,7 @@ class UserSyncRepository(
                                 }
                                 refreshedUserId.ifBlank { null }
                 } catch (e: Exception) {
-                        Log.w("UserSyncRepository", "refreshAuthSessionIfPossible error", e)
+                        logger.w("UserSyncRepository", "refreshAuthSessionIfPossible error", e)
                         null
                 }
         }
@@ -444,25 +439,23 @@ class UserSyncRepository(
                 val body = response.bodyAsText()
                 if (!response.status.isSuccess()) {
                         val message = "Request failed: ${response.status.value} $url"
-                        Log.e("UserSyncRepository", "$message body=$body")
+                        logger.e("UserSyncRepository", "$message body=$body")
 
                         if (response.status.value == 401) {
-                                Log.w("UserSyncRepository", "Received 401 Unauthorized, clearing local session")
+                                logger.w("UserSyncRepository", "Received 401 Unauthorized, clearing local session")
                                 tokenManager.clearTokens()
                                 kotlinx.coroutines.runBlocking {
                                         try {
                                                 db.userDao().clearAllUsers()
                                         } catch (e: Exception) {
-                                                Log.e("UserSyncRepository", "Failed to clear users on 401", e)
+                                                logger.e("UserSyncRepository", "Failed to clear users on 401", e)
                                         }
                                 }
                                 cachedUserId = null
                         }
 
                         if (reportError) {
-                                ErrorReporter.report(
-                                        appContext,
-                                        "UserSyncRepository.executeRequest",
+                                reporter.report("UserSyncRepository.executeRequest",
                                         message
                                 )
                         }
@@ -493,7 +486,7 @@ class UserSyncRepository(
                                 } ?: fallback
                         }
                         .getOrElse {
-                                Log.w("UserSyncRepository", "parseMagicTags failed, using fallback", it)
+                                logger.w("UserSyncRepository", "parseMagicTags failed, using fallback", it)
                                 fallback
                         }
         }
@@ -571,7 +564,7 @@ class UserSyncRepository(
                                 val userId =
                                         getUserId()
                                                 ?: run {
-                                                        Log.w(
+                                                        logger.w(
                                                                 "UserSyncRepository",
                                                                 "pullSettingsIfNewer - No user logged in"
                                                         )
@@ -586,7 +579,7 @@ class UserSyncRepository(
                                                 perPage = 100
                                         )
                                 if (items.isEmpty()) {
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "pullSettingsIfNewer - No remote settings found"
                                         )
@@ -595,7 +588,7 @@ class UserSyncRepository(
 
                                 val remoteSettings = latestSettingsRecord(items) ?: return@withContext null
                                 val remoteUpdatedAt = longValue(remoteSettings["updatedAt"])
-                                val localSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
+                                val localSettings = ReaderSettings.fromStorage(prefs)
 
                                 if (remoteUpdatedAt > localSettings.updatedAt) {
                                         // Remote is newer, update local
@@ -604,33 +597,33 @@ class UserSyncRepository(
                                                         remoteSettings,
                                                         fallbackMagicTags = emptyList()
                                                 )
-                                        updated.saveTo(SharedPreferencesStorage(prefs))
-                                        Log.d(
+                                        updated.saveTo(prefs)
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "pullSettingsIfNewer - Settings pulled and saved"
                                         )
                                         updated
                                 } else {
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "pullSettingsIfNewer - Local settings are up to date"
                                         )
                                         null
                                 }
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullSettingsIfNewer failed", e)
+                                logger.e("UserSyncRepository", "pullSettingsIfNewer failed", e)
                                 null
                         }
                 }
 
         /** Push current settings to PocketBase. Creates a new record or updates existing one. */
-        suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))) =
+        suspend fun pushSettings(settings: ReaderSettings = ReaderSettings.fromStorage(prefs)) =
                 withContext(io) {
                         try {
                                 val userId =
                                         getUserId()
                                                 ?: run {
-                                                        Log.w(
+                                                        logger.w(
                                                                 "UserSyncRepository",
                                                                 "pushSettings - No user logged in"
                                                         )
@@ -718,12 +711,12 @@ class UserSyncRepository(
                                                     contentType(ContentType.Application.Json)
                                                     setBody(toBody(settingsDataWithMagicTags))
                                                 }
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "pushSettings - Settings updated with magicTags"
                                                 )
                                         } catch (e: Exception) {
-                                                Log.w(
+                                                logger.w(
                                                         "UserSyncRepository",
                                                         "pushSettings - update with magicTags failed, retrying without magicTags",
                                                         e
@@ -733,7 +726,7 @@ class UserSyncRepository(
                                                     contentType(ContentType.Application.Json)
                                                     setBody(toBody(baseSettingsData))
                                                 }
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "pushSettings - Settings updated without magicTags fallback"
                                                 )
@@ -748,12 +741,12 @@ class UserSyncRepository(
                                                     contentType(ContentType.Application.Json)
                                                     setBody(toBody(settingsDataWithMagicTags))
                                                 }
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "pushSettings - Settings created with magicTags"
                                                 )
                                         } catch (e: Exception) {
-                                                Log.w(
+                                                logger.w(
                                                         "UserSyncRepository",
                                                         "pushSettings - create with magicTags failed, retrying without magicTags",
                                                         e
@@ -763,19 +756,19 @@ class UserSyncRepository(
                                                     contentType(ContentType.Application.Json)
                                                     setBody(toBody(baseSettingsData))
                                                 }
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "pushSettings - Settings created without magicTags fallback"
                                                 )
                                         }
                                 }
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushSettings failed", e)
+                                logger.e("UserSyncRepository", "pushSettings failed", e)
                         }
                 }
 
         fun getCachedProgress(bookId: String): String? {
-                return prefs.getString(progressKey(bookId), null)
+                return prefs.getString(progressKey(bookId))
         }
 
         fun cacheProgress(
@@ -783,10 +776,8 @@ class UserSyncRepository(
                 locatorJson: String,
                 updatedAt: Long = System.currentTimeMillis()
         ) {
-                prefs.edit()
-                        .putString(progressKey(bookId), locatorJson)
-                        .putLong(progressTimestampKey(bookId), updatedAt)
-                        .apply()
+                prefs.putString(progressKey(bookId), locatorJson)
+                prefs.putLong(progressTimestampKey(bookId), updatedAt)
         }
         // --- Progress Sync ---
 
@@ -802,7 +793,7 @@ class UserSyncRepository(
                                 val response =
                                         json.decodeFromString<PocketBaseListResponse>(responseBody)
                                 if (response.items.isEmpty()) {
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "pullProgress - No remote progress found for $bookId"
                                         )
@@ -820,13 +811,13 @@ class UserSyncRepository(
                                                 remoteUpdatedAt = remoteUpdatedAt
                                         )
                                 }
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "pullProgress - Progress pulled for $bookId"
                                 )
                                 locatorJson
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullProgress failed for $bookId", e)
+                                logger.e("UserSyncRepository", "pullProgress failed for $bookId", e)
                                 null
                         }
                 }
@@ -868,7 +859,7 @@ class UserSyncRepository(
                                             contentType(ContentType.Application.Json)
                                             setBody(requestBody)
                                         }
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "pushProgress - Progress updated for $bookId"
                                         )
@@ -881,20 +872,19 @@ class UserSyncRepository(
                                             contentType(ContentType.Application.Json)
                                             setBody(requestBody)
                                         }
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "pushProgress - Progress created for $bookId"
                                         )
                                 }
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushProgress failed for $bookId", e)
+                                logger.e("UserSyncRepository", "pushProgress failed for $bookId", e)
                         }
                 }
 
         suspend fun pushBook(
                 book: BookEntity,
-                uploadFile: Boolean = false,
-                contentResolver: android.content.ContentResolver? = null
+                uploadFile: Boolean = false
         ): Boolean =
                 withContext(io) {
                         try {
@@ -954,14 +944,14 @@ class UserSyncRepository(
                                         remoteDeleted = existingItem["deleted"]?.jsonPrimitive?.booleanOrNull ?: false
                                         val needsFileBackfill =
                                                 uploadFile &&
-                                                        contentResolver != null &&
+                                                        
                                                         (!remoteHasFilePath || remoteDeleted)
                                         if (!book.deleted &&
                                                         !remoteDeleted &&
                                                         remoteUpdatedAt > payloadUpdatedAt &&
                                                         !needsFileBackfill
                                         ) {
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "pushBook - Skip stale local update for ${book.bookId}"
                                                 )
@@ -988,7 +978,7 @@ class UserSyncRepository(
                                                         }
                                                 } catch (e: Exception) {
                                                 if (e.message?.contains("400") == true && e.message?.contains("sql: no rows in result set") == true) {
-                                                        Log.w("UserSyncRepository", "pushBook - stale user ID detected, refreshing auth session and retrying")
+                                                        logger.w("UserSyncRepository", "pushBook - stale user ID detected, refreshing auth session and retrying")
                                                         val pocketBaseRoot = pocketBaseUrl.removeSuffix("/api")
                                                         val refreshedUserId = refreshAuthSessionIfPossible(pocketBaseRoot)
                                                         if (!refreshedUserId.isNullOrBlank() && refreshedUserId != userId) {
@@ -1014,14 +1004,13 @@ class UserSyncRepository(
                                 }
 
                                 if (uploadFile &&
-                                                contentResolver != null &&
+                                                
                                                 (!remoteHasFilePath || remoteDeleted)
                                 ) {
                                         val uploadStoragePath =
                                                 tryUploadBookFile(
                                                         recordId = recordId,
                                                         book = book,
-                                                        contentResolver = contentResolver
                                                 )
                                         if (!uploadStoragePath.isNullOrBlank() &&
                                                         uploadStoragePath != storagePath &&
@@ -1035,10 +1024,10 @@ class UserSyncRepository(
                                         }
                                 }
 
-                                Log.d("UserSyncRepository", "pushBook - Synced book ${book.bookId}")
+                                logger.d("UserSyncRepository", "pushBook - Synced book ${book.bookId}")
                                 true
                         } catch (e: Exception) {
-                                Log.e(
+                                logger.e(
                                         "UserSyncRepository",
                                         "pushBook failed for ${book.bookId}",
                                         e
@@ -1047,10 +1036,7 @@ class UserSyncRepository(
                         }
                 }
 
-        suspend fun ensureRemoteBookFilePresent(
-                book: BookEntity,
-                contentResolver: android.content.ContentResolver
-        ): Boolean =
+        suspend fun ensureRemoteBookFilePresent(book: BookEntity): Boolean =
                 withContext(io) {
                         try {
                                 if (book.deleted) return@withContext true
@@ -1060,7 +1046,6 @@ class UserSyncRepository(
                                         return@withContext pushBook(
                                                 book,
                                                 uploadFile = true,
-                                                contentResolver = contentResolver
                                         )
                                 }
 
@@ -1075,7 +1060,6 @@ class UserSyncRepository(
                                         return@withContext pushBook(
                                                 book,
                                                 uploadFile = true,
-                                                contentResolver = contentResolver
                                         )
                                 }
 
@@ -1084,14 +1068,13 @@ class UserSyncRepository(
                                         return@withContext pushBook(
                                                 book,
                                                 uploadFile = true,
-                                                contentResolver = contentResolver
                                         )
                                 }
 
                                 when (probeRemoteFileState(remoteUrl)) {
                                         RemoteFileState.PRESENT -> true
                                         RemoteFileState.UNKNOWN -> {
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "ensureRemoteBookFilePresent - Skip reupload for unknown remote state ${book.bookId}"
                                                 )
@@ -1102,10 +1085,9 @@ class UserSyncRepository(
                                                         tryUploadBookFile(
                                                                 recordId = recordId,
                                                                 book = book,
-                                                                contentResolver = contentResolver
                                                         )
                                                 if (uploadedStoragePath.isNullOrBlank()) {
-                                                        Log.w(
+                                                        logger.w(
                                                                 "UserSyncRepository",
                                                                 "ensureRemoteBookFilePresent - Reupload failed for ${book.bookId}"
                                                         )
@@ -1119,7 +1101,7 @@ class UserSyncRepository(
                                                                 storagePath = uploadedStoragePath
                                                         )
                                                 }
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "ensureRemoteBookFilePresent - Reuploaded missing file for ${book.bookId}"
                                                 )
@@ -1127,14 +1109,12 @@ class UserSyncRepository(
                                         }
                                 }
                         } catch (e: Exception) {
-                                Log.e(
+                                logger.e(
                                         "UserSyncRepository",
                                         "ensureRemoteBookFilePresent failed for ${book.bookId}",
                                         e
                                 )
-                                ErrorReporter.report(
-                                        appContext,
-                                        "UserSyncRepository.ensureRemoteBookFilePresent",
+                                reporter.report("UserSyncRepository.ensureRemoteBookFilePresent",
                                         "Failed to ensure remote file for ${book.bookId}",
                                         e
                                 )
@@ -1186,13 +1166,13 @@ class UserSyncRepository(
                                         }
                                 }
 
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "softDeleteBook - Synced deletion for $bookId"
                                 )
                                 true
                         } catch (e: Exception) {
-                                Log.e(
+                                logger.e(
                                         "UserSyncRepository",
                                         "softDeleteBook failed for $bookId",
                                         e
@@ -1211,8 +1191,7 @@ class UserSyncRepository(
                                                 async {
                                                         pushBook(
                                                                 book,
-                                                                uploadFile = true,
-                                                                contentResolver = appContext.contentResolver
+                                                                uploadFile = true
                                                         )
                                                 }
                                         }.awaitAll()
@@ -1235,13 +1214,13 @@ class UserSyncRepository(
                                         syncedCount += successfullyDeletedBookIds.size
                                 }
 
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "pushLocalBooks - Synced $syncedCount local books/deletes"
                                 )
                                 syncedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushLocalBooks failed", e)
+                                logger.e("UserSyncRepository", "pushLocalBooks failed", e)
                                 0
                         }
                 }
@@ -1361,10 +1340,10 @@ class UserSyncRepository(
                                         }
                                 }
 
-                                Log.d("UserSyncRepository", "pullBooks - Synced $syncedCount books")
+                                logger.d("UserSyncRepository", "pullBooks - Synced $syncedCount books")
                                 syncedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullBooks failed", e)
+                                logger.e("UserSyncRepository", "pullBooks failed", e)
                                 0
                         }
                 }
@@ -1378,18 +1357,20 @@ class UserSyncRepository(
                                         if (!book.fileUri.startsWith("pocketbase://")) {
                                                 continue
                                         }
-                                        val cachedFile = localBookCacheFile(book.bookId)
+                                        val cachedPath = localBookCacheFile(book.bookId)
                                         // Bug 5 fix: check for valid ZIP (EPUB) magic bytes rather
                                         // than just length > 0. A partial download leaves a non-zero
                                         // file that would be accepted silently otherwise.
-                                        if (cachedFile.exists() && isValidEpubFile(cachedFile)) {
+                                        if (platformFiles().exists(cachedPath) &&
+                                                isValidEpubFile(cachedPath)
+                                        ) {
                                                 continue
                                         }
                                         // Delete any corrupt/partial file so ensureBookFileAvailable
                                         // will re-download it cleanly.
-                                        if (cachedFile.exists()) {
-                                                cachedFile.delete()
-                                                Log.w(
+                                        if (platformFiles().exists(cachedPath)) {
+                                                platformFiles().delete(cachedPath)
+                                                logger.w(
                                                         "UserSyncRepository",
                                                         "downloadPendingRemoteBooks - Deleted corrupt cache for ${book.bookId}"
                                                 )
@@ -1406,19 +1387,19 @@ class UserSyncRepository(
                                                 )
                                         if (localUri != null) {
                                                 downloadedCount++
-                                                Log.d(
+                                                logger.d(
                                                         "UserSyncRepository",
                                                         "downloadPendingRemoteBooks - Downloaded ${book.bookId}"
                                                 )
                                         }
                                 }
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "downloadPendingRemoteBooks - Downloaded $downloadedCount books"
                                 )
                                 downloadedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "downloadPendingRemoteBooks failed", e)
+                                logger.e("UserSyncRepository", "downloadPendingRemoteBooks failed", e)
                                 0
                         }
                 }
@@ -1492,13 +1473,13 @@ class UserSyncRepository(
                                         }
                                 }
 
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "pullBookmarks - Synced $syncedCount bookmarks"
                                 )
                                 syncedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullBookmarks failed", e)
+                                logger.e("UserSyncRepository", "pullBookmarks failed", e)
                                 0
                         }
                 }
@@ -1557,10 +1538,10 @@ class UserSyncRepository(
                                                 )
                                         }
 
-                                Log.d("UserSyncRepository", "pushBookmark - Bookmark synced")
+                                logger.d("UserSyncRepository", "pushBookmark - Bookmark synced")
                                 result
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushBookmark failed", e)
+                                logger.e("UserSyncRepository", "pushBookmark failed", e)
                                 null
                         }
                 }
@@ -1588,7 +1569,7 @@ class UserSyncRepository(
                                 if (aiResponseResolved.length > aiResponseForSync.length ||
                                                 note.messages.length > messagesForSync.length
                                 ) {
-                                        Log.w(
+                                        logger.w(
                                                 "UserSyncRepository",
                                                 "pushAiNote - Truncated ai note payload for PocketBase text limits (id=${note.id}, remoteId=${note.remoteId})"
                                         )
@@ -1640,10 +1621,10 @@ class UserSyncRepository(
                                         created["id"]?.jsonPrimitive?.contentOrNull
                                 } ?: return@withContext null
 
-                                Log.d("UserSyncRepository", "pushAiNote - Note synced")
+                                logger.d("UserSyncRepository", "pushAiNote - Note synced")
                                 syncedRemoteId
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushAiNote failed", e)
+                                logger.e("UserSyncRepository", "pushAiNote failed", e)
                                 null
                         }
                 }
@@ -1705,10 +1686,10 @@ class UserSyncRepository(
                                 }
                                 cleanupDuplicateNotes()
 
-                                Log.d("UserSyncRepository", "pullNotes - Synced $syncedCount notes")
+                                logger.d("UserSyncRepository", "pullNotes - Synced $syncedCount notes")
                                 syncedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullNotes failed", e)
+                                logger.e("UserSyncRepository", "pullNotes failed", e)
                                 0
                         }
                 }
@@ -1721,10 +1702,10 @@ class UserSyncRepository(
                                                                 executeBackendRequest(url) {
                                     method = HttpMethod.Delete
                                 }
-                                Log.d("UserSyncRepository", "deleteAiNote - Note deleted")
+                                logger.d("UserSyncRepository", "deleteAiNote - Note deleted")
                                 true
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "deleteAiNote failed", e)
+                                logger.e("UserSyncRepository", "deleteAiNote failed", e)
                                 false
                         }
                 }
@@ -1752,13 +1733,13 @@ class UserSyncRepository(
                 duplicateIds.chunked(900).forEach { chunk ->
                         db.aiNoteDao().deleteByIds(chunk)
                 }
-                Log.d(
+                logger.d(
                         "UserSyncRepository",
                         "cleanupDuplicateNotes - Removed ${duplicateIds.size} duplicate notes"
                 )
         }
 
-        private fun profileNameKey(name: String): String = name.trim().lowercase(Locale.ROOT)
+        private fun profileNameKey(name: String): String = name.trim().lowercase()
 
         private fun hasUsableApiKey(apiKey: String): Boolean {
                 val key = apiKey.trim()
@@ -1802,7 +1783,7 @@ class UserSyncRepository(
         }
 
         private fun applyProfileToLocalSettings(profile: AiProfileEntity) {
-                val currentSettings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
+                val currentSettings = ReaderSettings.fromStorage(prefs)
                 currentSettings
                         .copy(
                                 aiModelName = profile.modelName,
@@ -1821,7 +1802,7 @@ class UserSyncRepository(
                                 activeProfileId = profile.id,
                                 updatedAt = System.currentTimeMillis()
                         )
-                        .saveTo(SharedPreferencesStorage(prefs))
+                        .saveTo(prefs)
         }
 
         private suspend fun cleanupDuplicateProfilesAndRepairActive(): Int {
@@ -1834,7 +1815,7 @@ class UserSyncRepository(
                                 .groupBy { profileNameKey(it.name) }
                                 .filterValues { it.size > 1 }
                 var changedCount = 0
-                var activeProfileId = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs)).activeProfileId
+                var activeProfileId = ReaderSettings.fromStorage(prefs).activeProfileId
                 val deletedIds = mutableSetOf<Long>()
 
                 for ((_, group) in grouped) {
@@ -1936,7 +1917,7 @@ class UserSyncRepository(
                                                         !hasUsableApiKey(profile.apiKey) &&
                                                                 hasUsableApiKey(sameNameRemote.apiKey)
                                                 if (keepRemoteApiKey) {
-                                                        Log.d(
+                                                        logger.d(
                                                                 "UserSyncRepository",
                                                                 "pushAiProfile - Skip overwrite for ${profile.name} because remote has usable API key"
                                                         )
@@ -1964,10 +1945,10 @@ class UserSyncRepository(
                                         }
                                 } ?: return@withContext null
 
-                                Log.d("UserSyncRepository", "pushAiProfile - Profile synced")
+                                logger.d("UserSyncRepository", "pushAiProfile - Profile synced")
                                 syncedRemoteId
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushAiProfile failed", e)
+                                logger.e("UserSyncRepository", "pushAiProfile failed", e)
                                 null
                         }
                 }
@@ -2063,13 +2044,13 @@ class UserSyncRepository(
 
                                 syncedCount += cleanupDuplicateProfilesAndRepairActive()
 
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "pullAiProfiles - Synced $syncedCount profiles"
                                 )
                                 syncedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullAiProfiles failed", e)
+                                logger.e("UserSyncRepository", "pullAiProfiles failed", e)
                                 0
                         }
                 }
@@ -2082,10 +2063,10 @@ class UserSyncRepository(
                                                                 executeBackendRequest(url) {
                                     method = HttpMethod.Delete
                                 }
-                                Log.d("UserSyncRepository", "deleteAiProfile - Profile deleted")
+                                logger.d("UserSyncRepository", "deleteAiProfile - Profile deleted")
                                 true
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "deleteAiProfile failed", e)
+                                logger.e("UserSyncRepository", "deleteAiProfile failed", e)
                                 false
                         }
                 }
@@ -2107,7 +2088,7 @@ class UserSyncRepository(
                                 if (refreshedUserId.isNullOrBlank()) {
                                         // Auth refresh failed — token is likely expired or invalid.
                                         // Skip uploading rather than risk a relation resolution error.
-                                        Log.w(
+                                        logger.w(
                                                 "UserSyncRepository",
                                                 "pushCrashReport - skipped: could not confirm userId via auth-refresh"
                                         )
@@ -2138,7 +2119,7 @@ class UserSyncRepository(
                                 }
                                 true
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushCrashReport failed", e)
+                                logger.e("UserSyncRepository", "pushCrashReport failed", e)
                                 false
                         }
                 }
@@ -2195,13 +2176,13 @@ class UserSyncRepository(
                                                 }
                                         }
                                 }
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "pullAllProgress - merged=$mergedCount records=${items.size}"
                                 )
                                 mergedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pullAllProgress failed", e)
+                                logger.e("UserSyncRepository", "pullAllProgress failed", e)
                                 0
                         }
                 }
@@ -2232,7 +2213,7 @@ class UserSyncRepository(
                                                                 )
                                                                 true
                                                         } catch (e: Exception) {
-                                                                Log.w(
+                                                                logger.w(
                                                                         "UserSyncRepository",
                                                                         "pushAllLocalProgress - failed for ${book.bookId}",
                                                                         e
@@ -2243,13 +2224,13 @@ class UserSyncRepository(
                                         }.awaitAll()
                                         results.count { it }
                                 }
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "pushAllLocalProgress - Pushed $pushedCount progress records"
                                 )
                                 pushedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "pushAllLocalProgress failed", e)
+                                logger.e("UserSyncRepository", "pushAllLocalProgress failed", e)
                                 0
                         }
                 }
@@ -2269,7 +2250,7 @@ class UserSyncRepository(
                         try {
                                 val userId = getUserId()
                                 if (userId.isNullOrBlank()) {
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "ensureAllLocalBooksUploaded - no user, skipping"
                                         )
@@ -2286,14 +2267,14 @@ class UserSyncRepository(
                                         }
 
                                 if (localBooks.isEmpty()) {
-                                        Log.d(
+                                        logger.d(
                                                 "UserSyncRepository",
                                                 "ensureAllLocalBooksUploaded - no local books to check"
                                         )
                                         return@withContext 0
                                 }
 
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "ensureAllLocalBooksUploaded - checking ${localBooks.size} local books"
                                 )
@@ -2317,7 +2298,7 @@ class UserSyncRepository(
 
                                                 if (remoteHasFile) {
                                                         // Server already has the file, nothing to do
-                                                        Log.d(
+                                                        logger.d(
                                                                 "UserSyncRepository",
                                                                 "ensureAllLocalBooksUploaded - ${book.bookId} already on server"
                                                         )
@@ -2325,25 +2306,24 @@ class UserSyncRepository(
                                                 }
 
                                                 // Remote has no file — upload it now
-                                                Log.i(
+                                                logger.i(
                                                         "UserSyncRepository",
                                                         "ensureAllLocalBooksUploaded - uploading missing file for ${book.bookId}"
                                                 )
                                                 val synced =
                                                         pushBook(
                                                                 book,
-                                                                uploadFile = true,
-                                                                contentResolver = appContext.contentResolver
+                                                                uploadFile = true
                                                         )
                                                 if (synced) {
                                                         uploadedCount++
-                                                        Log.i(
+                                                        logger.i(
                                                                 "UserSyncRepository",
                                                                 "ensureAllLocalBooksUploaded - uploaded ${book.bookId} ('${book.title}')"
                                                         )
                                                 }
                                         } catch (e: Exception) {
-                                                Log.w(
+                                                logger.w(
                                                         "UserSyncRepository",
                                                         "ensureAllLocalBooksUploaded - failed for ${book.bookId}",
                                                         e
@@ -2351,13 +2331,13 @@ class UserSyncRepository(
                                         }
                                 }
 
-                                Log.d(
+                                logger.d(
                                         "UserSyncRepository",
                                         "ensureAllLocalBooksUploaded - uploaded $uploadedCount / ${localBooks.size} books"
                                 )
                                 uploadedCount
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "ensureAllLocalBooksUploaded failed", e)
+                                logger.e("UserSyncRepository", "ensureAllLocalBooksUploaded failed", e)
                                 0
                         }
                 }
@@ -2366,20 +2346,21 @@ class UserSyncRepository(
                 storagePath: String? = null,
                 originalUri: String? = null,
                 downloadIfNeeded: Boolean = true
-        ): android.net.Uri? =
+        ): String? =
                 withContext(io) {
                         try {
                                 val original =
                                         originalUri
                                                 ?.takeIf { it.isNotBlank() }
-                                                ?.let { Uri.parse(it) }
-                                if (original != null && isUriReadable(original)) {
-                                        return@withContext original
-                                }
+                        if (original != null && isUriReadable(original)) {
+                                return@withContext original
+                        }
 
-                                val cachedFile = localBookCacheFile(bookId)
-                                if (cachedFile.exists() && cachedFile.length() > 0L) {
-                                        return@withContext Uri.fromFile(cachedFile)
+                                val cachedPath = localBookCacheFile(bookId)
+                                if (platformFiles().exists(cachedPath) &&
+                                        platformFiles().fileLength(cachedPath) > 0L
+                                ) {
+                                        return@withContext "file://$cachedPath"
                                 }
 
                                 if (!downloadIfNeeded) {
@@ -2403,14 +2384,14 @@ class UserSyncRepository(
                                         val userId = getUserId() ?: return@withContext null
                                         val remoteRecord = fetchBookRecord(userId, bookId)
                                         if (remoteRecord == null) {
-                                                Log.w(
+                                                logger.w(
                                                         "UserSyncRepository",
                                                         "ensureBookFileAvailable - No remote record for $bookId"
                                                 )
                                                 return@withContext null
                                         }
                                         if (remoteRecord["deleted"]?.jsonPrimitive?.booleanOrNull == true) {
-                                                Log.w(
+                                                logger.w(
                                                         "UserSyncRepository",
                                                         "ensureBookFileAvailable - Remote record is deleted for $bookId"
                                                 )
@@ -2422,7 +2403,7 @@ class UserSyncRepository(
                                 }
 
                                 if (effectiveStoragePath.isNullOrBlank()) {
-                                        Log.w(
+                                        logger.w(
                                                 "UserSyncRepository",
                                                 "ensureBookFileAvailable - Missing storagePath for $bookId"
                                         )
@@ -2439,22 +2420,22 @@ class UserSyncRepository(
                                 val downloaded =
                                         downloadRemoteFile(
                                                 url = downloadUrl,
-                                                target = cachedFile
+                                                targetPath = cachedPath
                                         )
                                 if (!downloaded) {
                                         return@withContext null
                                 }
 
-                                val localUri = Uri.fromFile(cachedFile)
+                                val localUri = "file://$cachedPath"
                                 db.bookDao().getById(bookId)?.let { local ->
                                         if (local.fileUri.startsWith("pocketbase://")) {
                                                 db.bookDao()
-                                                        .insert(local.copy(fileUri = localUri.toString()))
+                                                        .insert(local.copy(fileUri = localUri))
                                         }
                                 }
                                 localUri
                         } catch (e: Exception) {
-                                Log.e(
+                                logger.e(
                                         "UserSyncRepository",
                                         "ensureBookFileAvailable failed for $bookId",
                                         e
@@ -2483,18 +2464,24 @@ class UserSyncRepository(
                                         "$pocketBaseUrl/api/collections/books/records?filter=(user='$userId')&perPage=1"
                                 executeBackendRequest(checkUrl)
 
-                                val cacheDir = localBooksCacheDir()
-                                if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+                                val cacheDirPath = localBooksCacheDir()
+                                if (!platformFiles().exists(cacheDirPath) &&
+                                        !platformFiles().mkdirs(cacheDirPath)
+                                ) {
                                         return@withContext CheckResult(
                                                 ok = false,
                                                 message =
-                                                        "Failed to create local cache dir: ${cacheDir.absolutePath}"
+                                                        "Failed to create local cache dir: $cacheDirPath"
                                         )
                                 }
-                                val probe = File(cacheDir, ".probe")
-                                probe.writeText("ok")
-                                val probeOk = probe.exists() && probe.readText() == "ok"
-                                probe.delete()
+                                val probePath = "$cacheDirPath/.probe"
+                                platformFiles().writeFile(probePath, "ok".encodeToByteArray())
+                                val probeOk =
+                                        platformFiles().exists(probePath) &&
+                                                platformFiles()
+                                                        .readFile(probePath)
+                                                        ?.decodeToString() == "ok"
+                                platformFiles().delete(probePath)
                                 if (!probeOk) {
                                         return@withContext CheckResult(
                                                 ok = false,
@@ -2508,7 +2495,7 @@ class UserSyncRepository(
                                                 "Storage ready (remote books collection + local cache)"
                                 )
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "ensureStorageBucketReady failed", e)
+                                logger.e("UserSyncRepository", "ensureStorageBucketReady failed", e)
                                 CheckResult(ok = false, message = e.message ?: "Storage check failed")
                         }
                 }
@@ -2564,7 +2551,7 @@ class UserSyncRepository(
                                 val localCandidate =
                                         db.bookDao().getAllBooks().firstOrNull { entity ->
                                                 try {
-                                                        isUriReadable(Uri.parse(entity.fileUri))
+                                                        isUriReadable(entity.fileUri)
                                                 } catch (_: Exception) {
                                                         false
                                                 }
@@ -2575,7 +2562,6 @@ class UserSyncRepository(
                                                 pushBook(
                                                         book = localCandidate,
                                                         uploadFile = true,
-                                                        contentResolver = appContext.contentResolver
                                                 )
                                         if (!pushed) {
                                                 return@withContext CheckResult(
@@ -2606,69 +2592,50 @@ class UserSyncRepository(
                                                 "Storage checks passed (connectivity + cache). No eligible upload/download sample found."
                                 )
                         } catch (e: Exception) {
-                                Log.e("UserSyncRepository", "runStorageSelfTest failed", e)
+                                logger.e("UserSyncRepository", "runStorageSelfTest failed", e)
                                 CheckResult(ok = false, message = e.message ?: "Self-test failed")
                         }
                 }
 
         fun clearLocalUserData() {
                 db.clearAllTables()
-                prefs.edit().clear().apply()
-                syncPrefs.edit().clear().apply()
+                prefs.clearAll()
+                syncPrefs.clearAll()
                 clearSyncedBookCache()
-                clearPersistedBookUriPermissions()
                 cachedUserId = null
         }
 
         // --- Private Helpers ---
 
-        private fun localBooksCacheDir(): File = File(appContext.filesDir, "synced_books")
+        private fun localBooksCacheDir(): String {
+                val base = platformFiles().appFilesDir() ?: return "synced_books"
+                return "$base/synced_books"
+        }
 
         private fun clearSyncedBookCache() {
-                val cacheDir = localBooksCacheDir()
-                if (!cacheDir.exists()) return
-                runCatching { cacheDir.deleteRecursively() }
-                        .onFailure { Log.w("UserSyncRepository", "Failed to clear synced_books", it) }
+                val cacheDirPath = localBooksCacheDir()
+                if (!platformFiles().exists(cacheDirPath)) return
+                runCatching { platformFiles().delete(cacheDirPath) }
+                        .onFailure {
+                                logger.w(
+                                        "UserSyncRepository",
+                                        "Failed to clear synced_books",
+                                        it
+                                )
+                        }
         }
 
-        private fun clearPersistedBookUriPermissions() {
-                val resolver = appContext.contentResolver
-                resolver.persistedUriPermissions.forEach { permission ->
-                        val modeFlags =
-                                (if (permission.isReadPermission)
-                                                Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                        else 0) or
-                                        (if (permission.isWritePermission)
-                                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                                else 0)
-                        if (modeFlags == 0) return@forEach
-                        runCatching {
-                                        resolver.releasePersistableUriPermission(
-                                                permission.uri,
-                                                modeFlags
-                                        )
-                                }
-                                .onFailure {
-                                        Log.w(
-                                                "UserSyncRepository",
-                                                "Failed to revoke persisted URI permission: ${permission.uri}",
-                                                it
-                                        )
-                                }
-                }
-        }
-
-        private fun localBookCacheFile(bookId: String): File {
+        private fun localBookCacheFile(bookId: String): String {
                 val safeBookId = bookId.replace(Regex("[^A-Za-z0-9._-]"), "_")
-                return File(localBooksCacheDir(), "$safeBookId.epub")
+                return "${localBooksCacheDir()}/$safeBookId.epub"
         }
 
-        private fun isUriReadable(uri: Uri): Boolean {
-                if (uri.scheme.equals("pocketbase", ignoreCase = true)) {
+        private fun isUriReadable(uriStr: String): Boolean {
+                if (uriStr.startsWith("pocketbase://", ignoreCase = true)) {
                         return false
                 }
                 return try {
-                        appContext.contentResolver.openInputStream(uri)?.use { true } ?: false
+                        platformFiles().isUriReadable(uriStr)
                 } catch (_: Exception) {
                         false
                 }
@@ -2711,46 +2678,33 @@ class UserSyncRepository(
 
         private suspend fun tryUploadBookFile(
                 recordId: String?,
-                book: BookEntity,
-                contentResolver: android.content.ContentResolver
+                book: BookEntity
         ): String? {
                 if (recordId.isNullOrBlank() || book.deleted) {
                         return null
                 }
                 val userId = getUserId()
 
-                val sourceUri =
-                        runCatching { Uri.parse(book.fileUri) }
-                                .getOrNull()
-                                ?.takeIf { isUriReadable(it) }
-                                ?: return null
-
-                val uploadDir = File(appContext.cacheDir, "book_uploads")
-                if (!uploadDir.exists()) {
-                        uploadDir.mkdirs()
-                }
-                val tmpFile = File(uploadDir, "${book.bookId}.epub.tmp")
+                val sourceUri = book.fileUri.takeIf { isUriReadable(it) } ?: return null
 
                 try {
-                        contentResolver.openInputStream(sourceUri)?.use { input ->
-                                FileOutputStream(tmpFile).use { output ->
-                                        input.copyTo(output)
-                                }
-                        } ?: return null
-
-                        if (!tmpFile.exists() || tmpFile.length() <= 0L) {
+                        val bytes =
+                                platformFiles().readUriBytes(sourceUri)
+                                        ?: return null
+                        if (bytes.isEmpty()) {
                                 return null
                         }
 
                         val displayName =
-                                (queryDisplayName(sourceUri) ?: "${book.bookId}.epub")
+                                (platformFiles().contentName(sourceUri)
+                                        ?: "${book.bookId}.epub")
                                         .substringAfterLast('/')
                         val sanitizedBaseName =
                                 displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
                         val nonEmptyBaseName =
                                 sanitizedBaseName.ifBlank { "${book.bookId}.epub" }
                         val cleanName =
-                                if (nonEmptyBaseName.lowercase(Locale.US).endsWith(".epub")) {
+                                if (nonEmptyBaseName.lowercase().endsWith(".epub")) {
                                         nonEmptyBaseName
                                 } else {
                                         "$nonEmptyBaseName.epub"
@@ -2766,7 +2720,7 @@ class UserSyncRepository(
                                                 }
                                                 append(
                                                         field,
-                                                        tmpFile.readBytes(),
+                                                        bytes,
                                                         Headers.build {
                                                                 append(
                                                                         HttpHeaders.ContentType,
@@ -2790,7 +2744,7 @@ class UserSyncRepository(
                                         }
                                 val body = response.bodyAsText()
                                 if (!response.status.isSuccess()) {
-                                        Log.w(
+                                        logger.w(
                                                 "UserSyncRepository",
                                                 "tryUploadBookFile - field=$field failed code=${response.status.value}"
                                         )
@@ -2812,41 +2766,13 @@ class UserSyncRepository(
                                         }
                         }
                 } catch (e: Exception) {
-                        Log.e("UserSyncRepository", "tryUploadBookFile failed", e)
-                        ErrorReporter.report(
-                                appContext,
-                                "UserSyncRepository.tryUploadBookFile",
+                        logger.e("UserSyncRepository", "tryUploadBookFile failed", e)
+                        reporter.report("UserSyncRepository.tryUploadBookFile",
                                 "Failed to upload book file for ${book.bookId}",
                                 e
                         )
-                } finally {
-                        runCatching { tmpFile.delete() }
                 }
                 return null
-        }
-
-        private fun queryDisplayName(uri: Uri): String? {
-                return runCatching {
-                                appContext.contentResolver
-                                        .query(
-                                                uri,
-                                                arrayOf(OpenableColumns.DISPLAY_NAME),
-                                                null,
-                                                null,
-                                                null
-                                        )
-                                        ?.use { cursor ->
-                                                if (!cursor.moveToFirst()) {
-                                                        return@use null
-                                                }
-                                                val index =
-                                                        cursor.getColumnIndex(
-                                                                OpenableColumns.DISPLAY_NAME
-                                                        )
-                                                if (index >= 0) cursor.getString(index) else null
-                                        }
-                        }
-                        .getOrNull()
         }
 
         private fun extractUploadedFileName(
@@ -2942,11 +2868,11 @@ class UserSyncRepository(
 
         private fun urlEncodePath(value: String): String =
                 value.split('/').joinToString("/") {
-                        URLEncoder.encode(it, Charsets.UTF_8.name()).replace("+", "%20")
+                        it.encodeURLParameter()
                 }
 
         private fun urlEncodeQueryValue(value: String): String =
-                URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
+                value.encodeURLParameter()
 
         private fun withFileToken(url: String, token: String): String {
                 if (Regex("[?&]token=").containsMatchIn(url)) return url
@@ -3011,9 +2937,9 @@ class UserSyncRepository(
                 }
         }
 
-        private suspend fun downloadRemoteFile(url: String, target: File): Boolean {
+        private suspend fun downloadRemoteFile(url: String, targetPath: String): Boolean {
                 return try {
-                        target.parentFile?.mkdirs()
+                        platformFiles().mkdirs(targetPath.substringBeforeLast('/'))
                         var resolvedUrl = url
                         if (resolvedUrl.startsWith(pocketBaseUrl)) {
                                 val fileToken = getProtectedFileToken()
@@ -3023,7 +2949,7 @@ class UserSyncRepository(
                         }
                         val response = ktorClient.get(resolvedUrl) { authIfBackend(resolvedUrl) }
                         if (!response.status.isSuccess()) {
-                                Log.w(
+                                logger.w(
                                         "UserSyncRepository",
                                         "downloadRemoteFile failed code=${response.status.value} url=$resolvedUrl"
                                 )
@@ -3031,24 +2957,23 @@ class UserSyncRepository(
                         }
 
                         val bytes = response.bodyAsBytes()
-                        val tmpFile = File(target.parentFile, "${target.name}.part")
-                        FileOutputStream(tmpFile).use { output ->
-                                output.write(bytes)
+                        val tmpPath = "$targetPath.part"
+                        if (!platformFiles().writeFile(tmpPath, bytes)) {
+                                return false
                         }
 
-                        if (target.exists()) {
-                                target.delete()
+                        if (platformFiles().exists(targetPath)) {
+                                platformFiles().delete(targetPath)
                         }
-                        if (!tmpFile.renameTo(target)) {
-                                tmpFile.copyTo(target, overwrite = true)
-                                tmpFile.delete()
+                        if (!platformFiles().rename(tmpPath, targetPath)) {
+                                platformFiles().writeFile(targetPath, bytes)
+                                platformFiles().delete(tmpPath)
                         }
-                        target.exists() && target.length() > 0L
+                        platformFiles().exists(targetPath) &&
+                                platformFiles().fileLength(targetPath) > 0L
                 } catch (e: Exception) {
-                        Log.e("UserSyncRepository", "downloadRemoteFile failed for $url", e)
-                        ErrorReporter.report(
-                                appContext,
-                                "UserSyncRepository.downloadRemoteFile",
+                        logger.e("UserSyncRepository", "downloadRemoteFile failed for $url", e)
+                        reporter.report("UserSyncRepository.downloadRemoteFile",
                                 "Failed to download remote file: $url",
                                 e
                         )
@@ -3070,18 +2995,17 @@ class UserSyncRepository(
          * Bug 5 fix: Validate that a file is a non-corrupt EPUB (ZIP) by checking the
          * ZIP magic bytes PK\x03\x04 at the start of the file.
          */
-        private fun isValidEpubFile(file: File): Boolean {
-                if (!file.exists() || file.length() < 4) return false
+        private fun isValidEpubFile(path: String): Boolean {
+                if (!platformFiles().exists(path) || platformFiles().fileLength(path) < 4L) {
+                        return false
+                }
                 return try {
-                        file.inputStream().use { stream ->
-                                val magic = ByteArray(4)
-                                val read = stream.read(magic)
-                                read == 4 &&
-                                        magic[0] == 0x50.toByte() && // 'P'
-                                        magic[1] == 0x4B.toByte() && // 'K'
-                                        magic[2] == 0x03.toByte() &&
-                                        magic[3] == 0x04.toByte()
-                        }
+                        val magic = platformFiles().readFilePrefix(path, 4) ?: return false
+                        magic.size == 4 &&
+                                magic[0] == 0x50.toByte() && // 'P'
+                                magic[1] == 0x4B.toByte() && // 'K'
+                                magic[2] == 0x03.toByte() &&
+                                magic[3] == 0x04.toByte()
                 } catch (_: Exception) {
                         false
                 }
@@ -3177,7 +3101,7 @@ class UserSyncRepository(
                                 ?: return null
                 for (idx in messages.indices.reversed()) {
                         val obj = messages[idx] as? kotlinx.serialization.json.JsonObject ?: continue
-                        val msgRole = (obj["role"]?.jsonPrimitive?.contentOrNull)?.trim()?.lowercase(Locale.ROOT)
+                        val msgRole = (obj["role"]?.jsonPrimitive?.contentOrNull)?.trim()?.lowercase()
                         if (msgRole != role) continue
                         val content = (obj["content"]?.jsonPrimitive?.contentOrNull)?.trim()
                         if (!content.isNullOrBlank()) {

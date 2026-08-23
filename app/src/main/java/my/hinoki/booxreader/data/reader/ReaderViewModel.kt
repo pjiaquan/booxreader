@@ -99,7 +99,7 @@ class ReaderViewModel(
         _publication.value = null
     }
 
-    fun openBook(uri: Uri, contentResolver: android.content.ContentResolver? = null): Job {
+    fun openBook(uri: Uri): Job {
         if (_publication.value != null) {
             // Already loaded
             return viewModelScope.launch {}
@@ -145,16 +145,13 @@ class ReaderViewModel(
 
                 // Ensure new book files are synced
                 viewModelScope.launch(ioDispatcher) {
-                    val resolver = contentResolver ?: getApplication<Application>().contentResolver
                     val result = runCatching {
                         syncRepo.pushBook(
                                 book,
                                 uploadFile = true,
-                                contentResolver = resolver
                         )
                         syncRepo.ensureRemoteBookFilePresent(
                                 book = book,
-                                contentResolver = resolver
                         )
                     }
                     result.onFailure { e ->
