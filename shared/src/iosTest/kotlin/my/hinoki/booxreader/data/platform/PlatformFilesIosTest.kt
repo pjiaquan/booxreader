@@ -3,6 +3,7 @@ package my.hinoki.booxreader.data.platform
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -51,7 +52,8 @@ class PlatformFilesIosTest {
     fun contentNameFromFileUri() {
         val dir = files.appFilesDir() ?: return
         assertEquals("abc.txt", files.contentName("file://$dir/abc.txt"))
-        assertEquals("", files.contentName("file://$dir/"))
+        // 尾斜線（目錄本身）沒有檔名元件 → null
+        assertNull(files.contentName("file://$dir/"))
     }
 
     @Test

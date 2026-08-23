@@ -31,9 +31,11 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.ktor.client.core)
-            // Room API 以 api 暴露，供 :app 的 repos 直接使用（RoomDatabase、withTransaction 等）
+            // Room API 以 api 暴露，供 :app 的 repos 直接使用（RoomDatabase、withTransaction 等）。
+            // 注意：room-ktx 2.8.4 的 common metadata 會拉入 Android-only 的
+            // kotlinx-coroutines-android，導致 iOS target 解析失敗；Room 2.6+ 已把 KTX
+            // （withTransaction 等）併入 room-runtime，故只依賴 room-runtime。
             api(libs.androidx.room.runtime)
-            api(libs.androidx.room.ktx)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
