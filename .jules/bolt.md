@@ -20,3 +20,6 @@
 ## 2024-05-14 - Optimize redundant DB queries with in-memory tracking
 **Learning:** When replacing redundant database queries (`getAllList()`) with an existing in-memory list, ensure any intervening database state changes (like deletions) are reflected in the cached list.
 **Action:** Use a tracking collection (e.g., `deletedIds = mutableSetOf<Long>()`) to record deletions and filter the reused memory list against it (e.g., `allProfiles.filter { it.id !in deletedIds }`) before processing.
+## 2024-05-24 - Batch Room Inserts During Sync loops
+**Learning:** During sync operations (like `pullBooks`), running single `db.dao().insert()` operations in a loop creates an O(N) database I/O bottleneck as each insert spins up its own implicit SQLite transaction overhead.
+**Action:** Always prefer accumulating entities in a list, wrapping them in a chunked operation (e.g. `chunked(900)` to respect parameter limits), and using a batched `@Insert(onConflict = OnConflictStrategy.REPLACE)` DAO method (e.g. `insertBatch`) wrapped in a single explicit transaction.
