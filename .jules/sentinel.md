@@ -33,3 +33,7 @@
 **Vulnerability:** The application was logging raw HTTP response bodies (`body=$body` or `Body=$errorBody`) when remote API requests or AI explanation requests failed (e.g., in `executeRequest` and `fetchAiExplanation`).
 **Learning:** These error responses from backend APIs or LLM providers often mirror request parameters, internal identifiers, or even API keys and authentication tokens, which can leak into local device logs or crash reporting tools.
 **Prevention:** Always log generic error messages alongside the HTTP status code (e.g., `Log.e(TAG, "AI Request Failed: Code=${response.code}")`). Avoid appending `response.body?.string()` to log statements or exception messages.
+## 2026-08-24 - Intent Scheme Hijacking via Intent.ACTION_VIEW
+**Vulnerability:** External links from EPUB content were passed directly to `Intent.ACTION_VIEW` without scheme validation. This allowed malicious EPUBs to invoke arbitrary intent schemes (e.g., `javascript:`, `file:`, `android-app:`).
+**Learning:** Direct use of untrusted URIs in implicit intents is a common vector for Intent Scheme Hijacking.
+**Prevention:** Always parse untrusted URLs and validate that their scheme is within a safe allowlist (like `http` and `https`) before passing them to an intent handler.
