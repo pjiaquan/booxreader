@@ -33,3 +33,8 @@
 **Vulnerability:** The application was logging raw HTTP response bodies (`body=$body` or `Body=$errorBody`) when remote API requests or AI explanation requests failed (e.g., in `executeRequest` and `fetchAiExplanation`).
 **Learning:** These error responses from backend APIs or LLM providers often mirror request parameters, internal identifiers, or even API keys and authentication tokens, which can leak into local device logs or crash reporting tools.
 **Prevention:** Always log generic error messages alongside the HTTP status code (e.g., `Log.e(TAG, "AI Request Failed: Code=${response.code}")`). Avoid appending `response.body?.string()` to log statements or exception messages.
+
+## 2026-08-19 - Intent Scheme Hijacking via External Links
+**Vulnerability:** `NativeNavigatorFragment` and `AiNoteDetailActivity` were directly passing external, untrusted URLs to `Intent.ACTION_VIEW` without validating the URI scheme.
+**Learning:** This exposes the app to Intent Scheme Hijacking, allowing malicious content (e.g., in EPUBs or notes) to launch arbitrary apps or access local files using custom schemes like `intent://` or `file://`.
+**Prevention:** Always validate URI schemes (allowlisting `http` and `https`) before passing untrusted external URLs to implicit intents like `Intent.ACTION_VIEW`.

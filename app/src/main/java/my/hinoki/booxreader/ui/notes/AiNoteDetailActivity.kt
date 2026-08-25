@@ -126,25 +126,36 @@ class AiNoteDetailActivity : BaseActivity() {
                                     if (link.startsWith("booxreader://ai-note")) {
                                         openRelatedNoteByLink(link)
                                     } else {
-                                        runCatching {
-                                                    startActivity(
-                                                            Intent(
-                                                                    Intent.ACTION_VIEW,
-                                                                    Uri.parse(link)
-                                                            )
-                                                    )
-                                                }
-                                                .onFailure {
-                                                    Toast.makeText(
-                                                                    this@AiNoteDetailActivity,
-                                                                    getString(
-                                                                            R.string
-                                                                                    .action_web_search_failed
-                                                                    ),
-                                                                    Toast.LENGTH_SHORT
-                                                            )
-                                                            .show()
-                                                }
+                                        val parsedUri = Uri.parse(link)
+                                        val scheme = parsedUri.scheme?.lowercase()
+                                        if (scheme == "http" || scheme == "https") {
+                                            runCatching {
+                                                        startActivity(
+                                                                Intent(
+                                                                        Intent.ACTION_VIEW,
+                                                                        parsedUri
+                                                                )
+                                                        )
+                                                    }
+                                                    .onFailure {
+                                                        Toast.makeText(
+                                                                        this@AiNoteDetailActivity,
+                                                                        getString(
+                                                                                R.string
+                                                                                        .action_web_search_failed
+                                                                        ),
+                                                                        Toast.LENGTH_SHORT
+                                                                )
+                                                                .show()
+                                                    }
+                                        } else {
+                                            android.util.Log.w("AiNoteDetail", "Blocked unsafe link scheme: $scheme")
+                                            Toast.makeText(
+                                                this@AiNoteDetailActivity,
+                                                "Unsupported link type",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     }
                                 }
                             }

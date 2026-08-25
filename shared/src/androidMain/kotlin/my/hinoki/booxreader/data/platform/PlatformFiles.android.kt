@@ -82,6 +82,7 @@ actual class PlatformFiles {
     actual fun contentType(uri: String): String? =
             runCatching { context.contentResolver.getType(Uri.parse(uri)) }.getOrNull()
 
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
     actual fun writeDownloadsFile(fileName: String, content: String): DownloadsWriteResult {
             val safeName = fileName.replace(Regex("[^A-Za-z0-9._-]"), "_")
             return runCatching {
