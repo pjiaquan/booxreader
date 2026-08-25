@@ -239,7 +239,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
-            android:text="@string/login_continue_as_guest" />
+            android:text="@string/login_continue_as_guest"
+            app:icon="@drawable/ic_person" />
 
     </LinearLayout>
 </ScrollView>
