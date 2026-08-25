@@ -99,6 +99,7 @@ actual class PlatformFiles {
                                     )
                                     put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
                             }
+                    @Suppress("NewApi")
                     val uri =
                             resolver.insert(
                                             android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,

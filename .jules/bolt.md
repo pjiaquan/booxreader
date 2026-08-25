@@ -20,3 +20,6 @@
 ## 2024-05-14 - Optimize redundant DB queries with in-memory tracking
 **Learning:** When replacing redundant database queries (`getAllList()`) with an existing in-memory list, ensure any intervening database state changes (like deletions) are reflected in the cached list.
 **Action:** Use a tracking collection (e.g., `deletedIds = mutableSetOf<Long>()`) to record deletions and filter the reused memory list against it (e.g., `allProfiles.filter { it.id !in deletedIds }`) before processing.
+## 2026-08-25 - Optimize Room Sync with Batch Inserts
+**Learning:** Blindly inserting entities in a loop using Room's OnConflictStrategy.REPLACE creates O(N) transaction overhead which severely degrades performance during sync.
+**Action:** Pre-fetch existing entities, compare them, and accumulate changes in a list to use `insertBatch` with `chunked(900)` inside a single transaction to significantly reduce SQLite churn and disk I/O.
