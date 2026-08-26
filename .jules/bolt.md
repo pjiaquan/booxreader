@@ -20,3 +20,6 @@
 ## 2024-05-14 - Optimize redundant DB queries with in-memory tracking
 **Learning:** When replacing redundant database queries (`getAllList()`) with an existing in-memory list, ensure any intervening database state changes (like deletions) are reflected in the cached list.
 **Action:** Use a tracking collection (e.g., `deletedIds = mutableSetOf<Long>()`) to record deletions and filter the reused memory list against it (e.g., `allProfiles.filter { it.id !in deletedIds }`) before processing.
+## 2024-05-24 - Batching Database Inserts
+**Learning:** When performing bulk sync operations where multiple independent entries are checked and potentially updated (like bookmarks from a remote server), performing individual SQLite/Room `insert` calls creates significant O(N) transaction overhead and disk I/O.
+**Action:** Always accumulate entities that need to be upserted in a list during iteration, and use a dedicated `@Insert` method taking a `List<Entity>` to perform batch insertions. Ensure the list is chunked (e.g. `.chunked(900)`) before batch insertion to avoid hitting SQLite parameter limits.

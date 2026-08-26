@@ -1441,6 +1441,8 @@ class UserSyncRepository(
                                         cachedBookmarks.putAll(db.bookmarkDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
+                                val bookmarksToUpsert = mutableListOf<BookmarkEntity>()
+
                                 for (item in items) {
                                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val bookmarkBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -1470,10 +1472,13 @@ class UserSyncRepository(
 
 
                                         if (existing == null || bookmark.updatedAt > existing.updatedAt) {
-                                                db.bookmarkDao().insert(bookmark)
-
+                                                bookmarksToUpsert.add(bookmark)
                                                 syncedCount++
                                         }
+                                }
+
+                                bookmarksToUpsert.chunked(900).forEach { chunk ->
+                                        db.bookmarkDao().insertBatch(chunk)
                                 }
 
                                 logger.d(
