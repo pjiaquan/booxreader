@@ -426,8 +426,15 @@ class NativeNavigatorFragment : Fragment() {
         } else {
             // 2. Handle external links
             try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                startActivity(intent)
+                val uri = Uri.parse(url)
+                val scheme = uri.scheme?.lowercase()
+                if (scheme == "http" || scheme == "https") {
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    startActivity(intent)
+                } else {
+                    Log.w(TAG, "Blocked unsafe link scheme: $scheme")
+                    Toast.makeText(requireContext(), "Unsafe link blocked", Toast.LENGTH_SHORT).show()
+                }
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Could not open link", Toast.LENGTH_SHORT).show()
             }
