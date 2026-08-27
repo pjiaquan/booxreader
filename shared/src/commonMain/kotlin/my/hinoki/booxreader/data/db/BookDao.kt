@@ -16,6 +16,9 @@ interface BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(book: BookEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatch(books: List<BookEntity>)
+
     @Update
     suspend fun update(book: BookEntity)
 

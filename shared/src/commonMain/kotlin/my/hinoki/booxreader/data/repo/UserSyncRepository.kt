@@ -1252,6 +1252,8 @@ class UserSyncRepository(
                                         cachedBooks.putAll(db.bookDao().getByIds(chunk).associateBy { it.bookId })
                                 }
 
+                                val booksToInsert = mutableListOf<BookEntity>()
+
                                 for (item in items) {
                                         val bookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val deleted = item["deleted"]?.jsonPrimitive?.booleanOrNull ?: false
@@ -1290,7 +1292,7 @@ class UserSyncRepository(
                                                                 lastOpenedAt = remoteAddedAt,
                                                                 deleted = false
                                                         )
-                                                db.bookDao().insert(newBook)
+                                                booksToInsert.add(newBook)
                                                 cachedBooks[bookId] = newBook
                                                 syncedCount++
                                         } else {
@@ -1330,9 +1332,17 @@ class UserSyncRepository(
                                                                                                 .fileUri
                                                                                 }
                                                                 )
-                                                        db.bookDao().insert(updatedBook)
+                                                        booksToInsert.add(updatedBook)
                                                         cachedBooks[bookId] = updatedBook
                                                         syncedCount++
+                                                }
+                                        }
+                                }
+
+                                if (booksToInsert.isNotEmpty()) {
+                                        db.withTransactionCompat {
+                                                booksToInsert.chunked(900).forEach { chunk ->
+                                                        db.bookDao().insertBatch(chunk)
                                                 }
                                         }
                                 }
@@ -1441,6 +1451,8 @@ class UserSyncRepository(
                                         cachedBookmarks.putAll(db.bookmarkDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
+                                val bookmarksToInsert = mutableListOf<BookmarkEntity>()
+
                                 for (item in items) {
                                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val bookmarkBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -1470,9 +1482,16 @@ class UserSyncRepository(
 
 
                                         if (existing == null || bookmark.updatedAt > existing.updatedAt) {
-                                                db.bookmarkDao().insert(bookmark)
-
+                                                bookmarksToInsert.add(bookmark)
                                                 syncedCount++
+                                        }
+                                }
+
+                                if (bookmarksToInsert.isNotEmpty()) {
+                                        db.withTransactionCompat {
+                                                bookmarksToInsert.chunked(900).forEach { chunk ->
+                                                        db.bookmarkDao().insertBatch(chunk)
+                                                }
                                         }
                                 }
 

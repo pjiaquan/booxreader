@@ -11,6 +11,9 @@ interface BookmarkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: BookmarkEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatch(entities: List<BookmarkEntity>)
+
     @androidx.room.Update
     suspend fun update(entity: BookmarkEntity)
 
