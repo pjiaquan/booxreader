@@ -30,3 +30,6 @@
 ## 2024-05-19 - Form Keyboard Navigation Improvements
 **Learning:** For inputs using `AutoCompleteTextView` inside `TextInputLayout` in forms with multiple inputs, setting `android:inputType="text"` is often not enough. Explicitly adding `android:imeOptions="actionNext"` allows the user to tap "Next" on the soft keyboard instead of "Done" or "Enter", smoothly shifting focus without collapsing the keyboard. This significantly speeds up form filling.
 **Action:** When auditing forms with multiple inputs, ensure that `android:imeOptions="actionNext"` is applied to all fields including `AutoCompleteTextView`s except the last one, which should use `android:imeOptions="actionDone".
+## 2024-08-25 - Material Button Icon Attributes
+**Learning:** The Android app uses Material Components for its UI. When styling buttons (e.g., using the project custom `@style/Widget.App.Button.Outlined` in `themes.xml`), use Material Component attributes like `app:icon` instead of standard Android `android:drawableLeft/Start` for correctly rendering icon drawables.
+**Action:** When adding icons to custom styled buttons in this repository, always prefer `app:icon` and verify if the style maps to `Widget.MaterialComponents.Button.*` before falling back to `android:drawableStart`.
