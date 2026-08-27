@@ -1,38 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
-    app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
-    app:cardCornerRadius="18dp"
-    app:cardElevation="0dp"
-    app:cardUseCompatPadding="false"
-    app:strokeColor="?attr/colorOutlineVariant"
-    app:strokeWidth="1dp">
+    android:orientation="vertical"
+    android:background="?attr/selectableItemBackground">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider_minor" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="top"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:paddingStart="24dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="14dp">
 
-        <!-- Book cover placeholder -->
+        <!-- Book cover placeholder 40x56dp -->
         <ImageView
             android:id="@+id/ivCover"
-            android:layout_width="48dp"
-            android:layout_height="64dp"
-            android:background="@drawable/bg_cover_placeholder"
+            android:layout_width="40dp"
+            android:layout_height="56dp"
+            android:background="#2E2B29"
             android:contentDescription="@string/recent_book_cover_placeholder"
-            android:padding="12dp"
+            android:padding="8dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_menu_book"
-            app:tint="?attr/colorOnSurfaceVariant" />
+            app:tint="#ECE9E6" />
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="14dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -48,38 +52,38 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:ellipsize="end"
-                    android:maxLines="2"
+                    android:maxLines="1"
                     android:text="@string/recent_book_title_placeholder"
-                    android:textColor="?attr/colorOnSurface"
+                    android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
+                <TextView
+                    android:id="@+id/tvTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/recent_book_last_opened"
+                    android:textColor="@color/text_quaternary"
+                    android:textSize="11sp" />
+
                 <ImageButton
                     android:id="@+id/btnMenu"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:layout_marginStart="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/recent_book_more_actions"
-                    android:padding="8dp"
+                    android:padding="4dp"
                     android:src="@drawable/ic_more_vert"
-                    android:tint="?attr/colorOnSurfaceVariant" />
+                    app:tint="@color/text_secondary" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/tvTime"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="@string/recent_book_last_opened"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="12sp" />
-
-            <!-- Progress -->
+            <!-- Progress row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="8dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -87,12 +91,12 @@
                     android:id="@+id/progressBook"
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="2dp"
                     android:layout_weight="1"
-                    android:indeterminateTint="@color/main_accent"
+                    android:indeterminateTint="@color/primary"
                     android:max="100"
-                    android:progressBackgroundTint="?attr/colorSurfaceContainerHighest"
-                    android:progressTint="@color/main_accent" />
+                    android:progressBackgroundTint="@color/divider_minor"
+                    android:progressTint="@color/primary" />
 
                 <TextView
                     android:id="@+id/tvProgress"
@@ -100,8 +104,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:text="@string/recent_book_progress_zero"
-                    android:textColor="@color/main_accent"
-                    android:textSize="12sp"
+                    android:textColor="@color/primary"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -109,17 +113,17 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_completed_tag"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp"
+                    android:background="@color/subtle_fill"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
                     android:text="@string/recent_book_completed"
-                    android:textColor="@color/recent_book_completed_text"
+                    android:textColor="@color/text_primary"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+</LinearLayout>

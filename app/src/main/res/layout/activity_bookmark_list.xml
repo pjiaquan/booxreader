@@ -4,12 +4,16 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="@color/background">
 
     <ListView
         android:id="@+id/listBookmarks"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:divider="@color/divider_minor"
+        android:dividerHeight="1dp"
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp" />
 
     <TextView
         android:id="@+id/tvEmptyState"
@@ -17,7 +21,7 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:text="@string/bookmark_empty_state"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textColor="@color/text_secondary"
         android:textSize="14sp"
         android:visibility="gone" />
 </LinearLayout>

@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="design_doc_mode" content="canvas">
+<style>
+body{margin:0;background:#e0dbd6;font-family:'Archivo',system-ui,sans-serif}
+*{box-sizing:border-box}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 24px}
+.dv-tid{font:700 10px ui-monospace,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:8px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}
+.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+.dv-next{margin:20px 0 0;font:12px/1.6 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+</style>
+</helmet>
+
+<!-- ═══════════════════════════════════════════════════
+     TURN 3  —  Reader + remaining screens
+════════════════════════════════════════════════════ -->
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Reader view · Text selection · Bookmarks · AI Profiles · Magic Tags · Settings sheet</span></div>
+<div class="dv-opts">
+
+<!-- ── 3a READER VIEW (normal/light, e-ink optimised) ── -->
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a> Reader — Normal</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f8f6f3;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <!-- status -->
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <!-- top info strip -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 28px 10px;flex-shrink:0;border-bottom:1px solid #e0dcd8">
+    <span style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490">Design of Everyday Things</span>
+    <span style="font:400 11px/1 'Archivo',sans-serif;color:#9a9490">Ch. 12 · 78%</span>
+  </div>
+  <!-- reading content -->
+  <div style="flex:1;overflow:hidden;padding:28px 32px 0">
+    <div style="font:700 13px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9a9490;margin-bottom:20px">Chapter 12</div>
+    <div style="font:400 18px/1.8 Georgia,serif;color:#201e1d;margin-bottom:18px">The Design of Everyday Things</div>
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28;margin-bottom:16px">Affordances provide strong clues to the operations of things. Plates are for pushing. Knobs are for turning. Slots are for inserting things into. Balls are for throwing or bouncing.</div>
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28;margin-bottom:16px">When affordances are taken advantage of, the user knows what to do just by looking: no picture, label, or instruction required. Complex things may require explanation, but simple things should not.</div>
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28;margin-bottom:16px">When simple things need pictures, labels, or instructions, the design has failed. When you walk up to a door, you should be able to tell immediately whether it needs to be pushed or pulled.</div>
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28">The design of the door should make this apparent without any need for a sign — yet, despite years of good design knowledge, poor doors are everywhere. We&#8203;</div>
+  </div>
+  <!-- progress bar -->
+  <div style="height:2px;background:#e0dcd8;flex-shrink:0;margin:0;position:relative">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:78%;background:#ec3013"></div>
+  </div>
+  <!-- bottom toolbar -->
+  <div style="height:64px;border-top:2px solid #d4d0cd;display:flex;align-items:center;flex-shrink:0">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 13.5-13.5z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">AI Note</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">Bookmark</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ec3013" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3M6.343 6.343l-.707-.707M12 21v-1M17.657 17.657l-.707-.707M6.343 17.657l-.707.707M17.657 6.343l-.707-.707M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#ec3013;letter-spacing:.06em;text-transform:uppercase">Ask AI</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">Contents</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">Settings</span>
+    </div>
+  </div>
+  <!-- home indicator -->
+  <div style="height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <div style="width:120px;height:4px;background:#d4d0cd;border-radius:2px"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── 3b TEXT SELECTION + ASK AI POPUP ── -->
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a> Text Selection — Ask AI</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f8f6f3;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 28px 10px;flex-shrink:0;border-bottom:1px solid #e0dcd8">
+    <span style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490">Design of Everyday Things</span>
+    <span style="font:400 11px/1 'Archivo',sans-serif;color:#9a9490">Ch. 12 · 78%</span>
+  </div>
+  <!-- reading content with selection -->
+  <div style="flex:1;overflow:hidden;padding:28px 32px 0;position:relative">
+    <div style="font:700 13px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9a9490;margin-bottom:20px">Chapter 12</div>
+    <div style="font:400 18px/1.8 Georgia,serif;color:#201e1d;margin-bottom:18px">The Design of Everyday Things</div>
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28;margin-bottom:16px">Affordances provide strong clues to the operations of things. Plates are for pushing. Knobs are for turning. Slots are for inserting things into. Balls are for throwing or bouncing.</div>
+    <!-- selected text highlight -->
+    <div style="position:relative;margin-bottom:16px">
+      <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28">When affordances are taken advantage of, <span style="background:rgba(236,48,19,.15);border-bottom:2px solid #ec3013">the user knows what to do just by looking: no picture, label, or instruction required.</span> Complex things may require</div>
+      <!-- selection popup -->
+      <div style="position:absolute;top:-56px;left:20px;background:#201e1d;display:flex;align-items:stretch;z-index:20;box-shadow:0 4px 16px rgba(0,0,0,.3)">
+        <div style="padding:0 16px;display:flex;align-items:center;gap:6px;border-right:1px solid #38332f">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ec3013" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3M6.343 6.343l-.707-.707M12 21v-1M17.657 17.657l-.707-.707M6.343 17.657l-.707.707M17.657 6.343l-.707-.707M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+          <span style="font:700 12px/40px 'Archivo',sans-serif;color:#ec3013;white-space:nowrap">Ask AI</span>
+        </div>
+        <div style="padding:0 14px;display:flex;align-items:center;border-right:1px solid #38332f">
+          <span style="font:400 12px/40px 'Archivo',sans-serif;color:#f0edea">Copy</span>
+        </div>
+        <div style="padding:0 14px;display:flex;align-items:center">
+          <span style="font:400 12px/40px 'Archivo',sans-serif;color:#f0edea">Bookmark</span>
+        </div>
+        <!-- triangle pointer -->
+        <div style="position:absolute;bottom:-8px;left:28px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:8px solid #201e1d"></div>
+      </div>
+    </div>
+    <!-- selection handles (cursors) -->
+    <div style="position:absolute;top:186px;left:164px;width:2px;height:30px;background:#ec3013"></div>
+    <div style="position:absolute;top:186px;left:295px;width:2px;height:30px;background:#ec3013"></div>
+  </div>
+  <div style="height:2px;background:#e0dcd8;flex-shrink:0;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:78%;background:#ec3013"></div></div>
+  <div style="height:64px;border-top:2px solid #d4d0cd;display:flex;align-items:center;flex-shrink:0">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 13.5-13.5z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">AI Note</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">Bookmark</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ec3013" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3M6.343 6.343l-.707-.707M12 21v-1M17.657 17.657l-.707-.707M6.343 17.657l-.707.707M17.657 6.343l-.707-.707M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#ec3013;letter-spacing:.06em;text-transform:uppercase">Ask AI</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">Contents</span>
+    </div>
+    <div style="width:1px;background:#d4d0cd;height:32px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:100%">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#9a9490;letter-spacing:.06em;text-transform:uppercase">Settings</span>
+    </div>
+  </div>
+  <div style="height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:120px;height:4px;background:#d4d0cd;border-radius:2px"></div></div>
+</div>
+</div>
+</div>
+
+<!-- ── 3c BOOKMARK LIST ── -->
+<div class="dv-opt" id="3c">
+<div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a> Bookmark List</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="height:56px;display:flex;align-items:center;padding:0 20px;flex-shrink:0;border-bottom:2px solid #d4d0cd;gap:10px">
+    {{ iBackD }}
+    <div style="flex:1;font:700 18px/1 'Archivo',sans-serif;color:#201e1d;padding-left:4px">Bookmarks</div>
+    <span style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.1em;color:#9a9490;text-transform:uppercase">3 saved</span>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- bookmark 1 -->
+    <div style="padding:16px 24px;border-bottom:1px solid #d4d0cd">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Ch. 12 · Design of Everyday Things</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0;flex-shrink:0;margin-left:8px">2h ago</span>
+      </div>
+      <div style="font:400 14px/1.6 Georgia,serif;color:#201e1d;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"When affordances are taken advantage of, the user knows what to do just by looking: no picture, label, or instruction required."</div>
+      <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">p. 234 of 368</div>
+    </div>
+    <!-- bookmark 2 -->
+    <div style="padding:16px 24px;border-bottom:1px solid #d4d0cd">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Ch. 4 · Thinking, Fast and Slow</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0;flex-shrink:0;margin-left:8px">Yesterday</span>
+      </div>
+      <div style="font:400 14px/1.6 Georgia,serif;color:#201e1d;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"System 2 allocates attention to the effortful mental activities that demand it, including complex computations."</div>
+      <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">p. 142 of 499</div>
+    </div>
+    <!-- bookmark 3 -->
+    <div style="padding:16px 24px;border-bottom:1px solid #d4d0cd">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Ch. 2 · Atomic Habits</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0;flex-shrink:0;margin-left:8px">3 days ago</span>
+      </div>
+      <div style="font:400 14px/1.6 Georgia,serif;color:#201e1d;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"Every action you take is a vote for the type of person you wish to become."</div>
+      <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">p. 38 of 286</div>
+    </div>
+    <!-- empty padding -->
+    <div style="height:40px"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── 3d AI PROFILE LIST ── -->
+<div class="dv-opt" id="3d">
+<div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a> AI Profile List</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#1a1817;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;background:#201e1d;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <div style="height:56px;background:#201e1d;display:flex;align-items:center;padding:0 16px;flex-shrink:0;border-bottom:2px solid #38332f;gap:10px">
+    {{ iBack }}
+    <div style="flex:1;font:700 18px/1 'Archivo',sans-serif;color:#f0edea;padding-left:4px">AI Profiles</div>
+    {{ iPlus }}
+  </div>
+  <!-- selection bar -->
+  <div style="height:44px;background:#252220;display:flex;align-items:center;padding:0 20px;gap:12px;border-bottom:1px solid #38332f;flex-shrink:0">
+    <div style="width:17px;height:17px;border:1.5px solid #5a5550;flex-shrink:0"></div>
+    <span style="font:400 13px/1 'Archivo',sans-serif;color:#908c89;flex:1">Select all</span>
+    <span style="font:600 12px/1 'Archivo',sans-serif;color:#5a5550">Delete selected</span>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- profile 1 (active) -->
+    <div style="padding:16px 20px;border-bottom:1px solid #38332f;display:flex;align-items:flex-start;gap:12px">
+      <div style="width:17px;height:17px;border:1.5px solid #5a5550;flex-shrink:0;margin-top:2px"></div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font:700 15px/1 'Archivo',sans-serif;color:#f0edea">Gemini Pro</span>
+          <div style="width:6px;height:6px;background:#ec3013;flex-shrink:0"></div>
+          <span style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#ec3013">Active</span>
+        </div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:4px">gemini-1.5-pro</div>
+        <div style="font:400 11px/1 'Archivo',sans-serif;color:#3a3533;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">generativelanguage.googleapis.com</div>
+      </div>
+      {{ iMoreD }}
+    </div>
+    <!-- profile 2 -->
+    <div style="padding:16px 20px;border-bottom:1px solid #38332f;display:flex;align-items:flex-start;gap:12px">
+      <div style="width:17px;height:17px;border:1.5px solid #5a5550;flex-shrink:0;margin-top:2px"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:700 15px/1 'Archivo',sans-serif;color:#f0edea;margin-bottom:4px">GPT-4o</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:4px">gpt-4o</div>
+        <div style="font:400 11px/1 'Archivo',sans-serif;color:#3a3533;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">api.openai.com/v1</div>
+      </div>
+      {{ iMoreD }}
+    </div>
+    <!-- profile 3 -->
+    <div style="padding:16px 20px;border-bottom:1px solid #38332f;display:flex;align-items:flex-start;gap:12px">
+      <div style="width:17px;height:17px;border:1.5px solid #5a5550;flex-shrink:0;margin-top:2px"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:700 15px/1 'Archivo',sans-serif;color:#f0edea;margin-bottom:4px">Claude Sonnet</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:4px">claude-sonnet-4-5</div>
+        <div style="font:400 11px/1 'Archivo',sans-serif;color:#3a3533;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">api.anthropic.com/v1</div>
+      </div>
+      {{ iMoreD }}
+    </div>
+    <div style="height:80px"></div>
+  </div>
+  <!-- bottom bar -->
+  <div style="height:60px;border-top:2px solid #38332f;display:flex;align-items:center;background:#201e1d;flex-shrink:0">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#908c89" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#5a5550;letter-spacing:.06em;text-transform:uppercase">Sync</span>
+    </div>
+    <div style="width:1px;background:#38332f;height:28px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#908c89" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#5a5550;letter-spacing:.06em;text-transform:uppercase">Import</span>
+    </div>
+    <div style="width:1px;background:#38332f;height:28px"></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ec3013" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span style="font:600 9px/1 'Archivo',sans-serif;color:#ec3013;letter-spacing:.06em;text-transform:uppercase">New</span>
+    </div>
+  </div>
+  <div style="height:30px;background:#201e1d;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:120px;height:4px;background:#38332f;border-radius:2px"></div></div>
+</div>
+</div>
+</div>
+
+<!-- ── 3e AI PROFILE EDIT ── -->
+<div class="dv-opt" id="3e">
+<div class="dv-olabel"><a class="dv-oid" href="#3e">3e</a> AI Profile Edit</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#1a1817;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;background:#201e1d;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <div style="height:56px;background:#201e1d;display:flex;align-items:center;padding:0 16px;flex-shrink:0;border-bottom:2px solid #38332f;gap:10px">
+    {{ iBack }}
+    <div style="flex:1;font:700 17px/1 'Archivo',sans-serif;color:#f0edea;padding-left:4px">Edit Profile</div>
+    <div style="font:700 13px/1 'Archivo',sans-serif;color:#ec3013">Save</div>
+  </div>
+  <div style="flex:1;overflow:auto;padding:0 0 48px">
+    <!-- IDENTITY section -->
+    <div style="padding:14px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;border-bottom:1px solid #38332f">Identity</div>
+    <div style="padding:16px 24px;border-bottom:1px solid #2e2b29">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Profile Name</div>
+      <div style="border-bottom:1.5px solid #908c89;padding-bottom:10px"><span style="font:400 16px/1 'Archivo',sans-serif;color:#f0edea">Gemini Pro</span></div>
+    </div>
+    <div style="padding:16px 24px;border-bottom:2px solid #38332f;display:flex;gap:12px;align-items:flex-end">
+      <div style="flex:1">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Model Name</div>
+        <div style="border-bottom:1.5px solid #38332f;padding-bottom:10px"><span style="font:400 16px/1 'Archivo',sans-serif;color:#f0edea">gemini-1.5-pro</span></div>
+      </div>
+      <button style="height:36px;padding:0 14px;background:transparent;color:#f0edea;border:1.5px solid #5a5550;font:600 12px/1 'Archivo',sans-serif;cursor:pointer;flex-shrink:0;white-space:nowrap">Fetch Models</button>
+    </div>
+    <!-- AUTH section -->
+    <div style="padding:14px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;border-bottom:1px solid #38332f">Authentication</div>
+    <div style="padding:16px 24px;border-bottom:1px solid #2e2b29">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">API Key</div>
+      <div style="border-bottom:1.5px solid #38332f;padding-bottom:10px;display:flex;align-items:center">
+        <span style="font:400 16px/1 'Archivo',sans-serif;color:#f0edea;letter-spacing:.12em;flex:1">AIzaSy••••••••••••••</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5a5550" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-bottom:2px solid #38332f">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Base URL</div>
+      <div style="border-bottom:1.5px solid #38332f;padding-bottom:10px"><span style="font:400 14px/1 'Archivo',sans-serif;color:#908c89">generativelanguage.googleapis.com</span></div>
+    </div>
+    <!-- PARAMETERS section -->
+    <div style="padding:14px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;border-bottom:1px solid #38332f">Parameters</div>
+    <div style="display:flex;border-bottom:1px solid #2e2b29">
+      <div style="flex:1;padding:16px 24px;border-right:1px solid #2e2b29">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Temperature</div>
+        <div style="border-bottom:1.5px solid #38332f;padding-bottom:10px"><span style="font:400 16px/1 'Archivo',sans-serif;color:#f0edea">0.7</span></div>
+      </div>
+      <div style="flex:1;padding:16px 24px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Max Tokens</div>
+        <div style="border-bottom:1.5px solid #38332f;padding-bottom:10px"><span style="font:400 16px/1 'Archivo',sans-serif;color:#f0edea">4096</span></div>
+      </div>
+    </div>
+    <!-- OPTIONS toggles -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #2e2b29">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#f0edea">Use Streaming</span>
+      <div style="width:44px;height:24px;background:#ec3013;display:flex;align-items:center;padding:4px;justify-content:flex-end;flex-shrink:0"><div style="width:16px;height:16px;background:#fff"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:2px solid #38332f">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#f0edea">Enable Google Search</span>
+      <div style="width:44px;height:24px;border:1.5px solid #5a5550;display:flex;align-items:center;padding:3px;flex-shrink:0"><div style="width:16px;height:16px;background:#5a5550"></div></div>
+    </div>
+    <div style="padding:24px 24px 0">
+      <button style="display:block;width:100%;height:52px;background:#ec3013;color:#fff;border:none;font:700 15px/1 'Archivo',sans-serif;cursor:pointer;text-align:left;padding:0 20px">Save Profile →</button>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── 3f MAGIC TAGS ── -->
+<div class="dv-opt" id="3f">
+<div class="dv-olabel"><a class="dv-oid" href="#3f">3f</a> Magic Tags</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="height:56px;display:flex;align-items:center;padding:0 20px;flex-shrink:0;border-bottom:2px solid #d4d0cd;gap:10px">
+    {{ iBackD }}
+    <div style="flex:1;font:700 18px/1 'Archivo',sans-serif;color:#201e1d;padding-left:4px">Magic Tags</div>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- explainer -->
+    <div style="padding:16px 24px;background:#ece9e6;border-bottom:2px solid #d4d0cd">
+      <div style="font:700 11px/1 'Archivo',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#9a9490;margin-bottom:6px">What are Magic Tags?</div>
+      <div style="font:400 13px/1.6 'Archivo',sans-serif;color:#6b6865">Tags that automatically classify your AI notes. When you Ask AI, matching tags are suggested based on the content.</div>
+    </div>
+    <!-- tag 1 -->
+    <div style="padding:16px 24px;border-bottom:1px solid #d4d0cd">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="padding:3px 10px;background:#201e1d;display:inline-flex">
+          <span style="font:700 11px/1.4 'Archivo',sans-serif;color:#f0edea;letter-spacing:.04em">concept</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+        </div>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#6b6865">Identify and explain any conceptual term or idea introduced in the passage…</div>
+    </div>
+    <!-- tag 2 -->
+    <div style="padding:16px 24px;border-bottom:1px solid #d4d0cd">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="padding:3px 10px;background:#ec3013;display:inline-flex">
+          <span style="font:700 11px/1.4 'Archivo',sans-serif;color:#fff;letter-spacing:.04em">question</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+        </div>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#6b6865">Generate 3 follow-up questions that deepen understanding of this passage…</div>
+    </div>
+    <!-- tag 3 -->
+    <div style="padding:16px 24px;border-bottom:1px solid #d4d0cd">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="padding:3px 10px;border:1.5px solid #d4d0cd;display:inline-flex">
+          <span style="font:700 11px/1.4 'Archivo',sans-serif;color:#201e1d;letter-spacing:.04em">summary</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+        </div>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#6b6865">Summarize the key points from the selected text in 2-3 sentences…</div>
+    </div>
+    <div style="height:80px"></div>
+  </div>
+  <!-- FAB -->
+  <div style="position:absolute;bottom:50px;right:24px;width:52px;height:52px;background:#ec3013;display:flex;align-items:center;justify-content:center">
+    {{ iPlus }}
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── 3g READER SETTINGS SHEET ── -->
+<div class="dv-opt" id="3g">
+<div class="dv-olabel"><a class="dv-oid" href="#3g">3g</a> Reader Settings Sheet</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f8f6f3;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <!-- dimmed reader behind -->
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5;opacity:.4">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;padding:0 28px 8px;opacity:.4;flex-shrink:0">
+    <span style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490">Design of Everyday Things</span>
+    <span style="font:400 11px/1 'Archivo',sans-serif;color:#9a9490">Ch. 12 · 78%</span>
+  </div>
+  <div style="flex:1;padding:28px 32px;opacity:.25;overflow:hidden">
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28;margin-bottom:16px">When affordances are taken advantage of, the user knows what to do just by looking: no picture, label, or instruction required.</div>
+    <div style="font:400 16px/1.85 Georgia,serif;color:#2c2a28">Complex things may require explanation, but simple things should not. When simple things need pictures, labels, or instructions, the design has failed.</div>
+  </div>
+  <!-- overlay backdrop -->
+  <div style="position:absolute;inset:0;background:rgba(26,24,23,.5);z-index:5;border-radius:40px"></div>
+  <!-- settings sheet -->
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#f3f2f2;z-index:10;border-top:2px solid #d4d0cd;border-radius:0 0 40px 40px;overflow:hidden">
+    <!-- drag handle -->
+    <div style="padding:12px 0 0;display:flex;justify-content:center"><div style="width:40px;height:4px;background:#d4d0cd;border-radius:2px"></div></div>
+    <!-- header -->
+    <div style="display:flex;align-items:center;padding:12px 20px;border-bottom:2px solid #d4d0cd;gap:10px">
+      <div style="flex:1;font:700 16px/1 'Archivo',sans-serif;color:#201e1d">Reader Settings</div>
+      {{ iCloseD }}
+    </div>
+    <!-- THEME section -->
+    <div style="padding:12px 20px 8px;font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490">Reading Theme</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 20px 16px">
+      <button style="height:40px;background:#f8f6f3;border:2px solid #ec3013;font:700 13px/1 'Archivo',sans-serif;color:#201e1d;cursor:pointer">Normal</button>
+      <button style="height:40px;background:#1a1817;border:2px solid #d4d0cd;font:700 13px/1 'Archivo',sans-serif;color:#f0edea;cursor:pointer">Dark</button>
+      <button style="height:40px;background:#f4ede0;border:2px solid #d4d0cd;font:700 13px/1 'Archivo',sans-serif;color:#3d2b1f;cursor:pointer">Sepia</button>
+      <button style="height:40px;background:#fff;border:2px solid #d4d0cd;font:700 13px/1 'Archivo',sans-serif;color:#000;cursor:pointer">High Contrast</button>
+    </div>
+    <!-- font size -->
+    <div style="border-top:2px solid #d4d0cd;padding:14px 20px;display:flex;align-items:center;gap:14px">
+      <span style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9a9490;flex-shrink:0">Font Size</span>
+      <div style="flex:1;height:2px;background:#d4d0cd;position:relative">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:55%;background:#201e1d"></div>
+        <div style="position:absolute;left:55%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;background:#201e1d;border:2px solid #f3f2f2"></div>
+      </div>
+      <span style="font:700 14px/1 'Archivo',sans-serif;color:#201e1d;flex-shrink:0">140%</span>
+    </div>
+    <!-- toggles -->
+    <div style="border-top:2px solid #d4d0cd">
+      <div style="display:flex;align-items:center;padding:0 20px;height:48px;border-bottom:1px solid #d4d0cd">
+        <span style="flex:1;font:400 14px/1 'Archivo',sans-serif;color:#201e1d">Tap to Turn Page</span>
+        <div style="width:44px;height:24px;background:#ec3013;display:flex;align-items:center;padding:4px;justify-content:flex-end;flex-shrink:0"><div style="width:16px;height:16px;background:#fff"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;padding:0 20px;height:48px;border-bottom:1px solid #d4d0cd">
+        <span style="flex:1;font:400 14px/1 'Archivo',sans-serif;color:#201e1d">Page Animation</span>
+        <div style="width:44px;height:24px;border:1.5px solid #c0bcb8;display:flex;align-items:center;padding:3px;flex-shrink:0"><div style="width:16px;height:16px;background:#c0bcb8"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;padding:0 20px;height:48px">
+        <span style="flex:1;font:400 14px/1 'Archivo',sans-serif;color:#201e1d">Show Page Indicator</span>
+        <div style="width:44px;height:24px;background:#ec3013;display:flex;align-items:center;padding:4px;justify-content:flex-end;flex-shrink:0"><div style="width:16px;height:16px;background:#fff"></div></div>
+      </div>
+    </div>
+    <!-- quick links -->
+    <div style="border-top:2px solid #d4d0cd;display:flex">
+      <div style="flex:1;padding:14px 20px;border-right:1px solid #d4d0cd;display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <span style="font:600 12px/1 'Archivo',sans-serif;color:#6b6865">Bookmarks</span>
+      </div>
+      <div style="flex:1;padding:14px 20px;border-right:1px solid #d4d0cd;display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3M6.343 6.343l-.707-.707M12 21v-1M17.657 17.657l-.707-.707M6.343 17.657l-.707.707M17.657 6.343l-.707-.707M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/></svg>
+        <span style="font:600 12px/1 'Archivo',sans-serif;color:#6b6865">AI Profiles</span>
+      </div>
+      <div style="flex:1;padding:14px 20px;display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+        <span style="font:600 12px/1 'Archivo',sans-serif;color:#6b6865">Profile</span>
+      </div>
+    </div>
+    <div style="height:30px;display:flex;align-items:center;justify-content:center"><div style="width:120px;height:4px;background:#d4d0cd;border-radius:2px"></div></div>
+  </div>
+</div>
+</div>
+</div>
+
+</div><!-- end dv-opts -->
+<p class="dv-next">Try next: "show a reader dark mode" · "show a sepia theme reader" · "add an empty state for <a class="dv-oid" href="#3c">3c</a>" · "show <a class="dv-oid" href="#3e">3e</a> with the system prompt field expanded"</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     TURN 2  —  Login + Register redesign
+════════════════════════════════════════════════════ -->
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Login &amp; Register — full redesign from source layouts</span></div>
+<div class="dv-opts">
+
+<!-- ── 2a LOGIN ── -->
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a> Login</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- brand block: red top strip -->
+    <div style="background:#201e1d;padding:28px 28px 28px;display:flex;align-items:center;gap:16px">
+      <!-- app icon placeholder -->
+      <div style="width:52px;height:52px;background:#ec3013;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/></svg>
+      </div>
+      <div>
+        <div style="font:700 18px/1 'Archivo',sans-serif;color:#f0edea;margin-bottom:4px">Boox Reader</div>
+        <div style="font:400 13px/1.3 'Archivo',sans-serif;color:#5a5550">Your minimalist reader,<br>tuned for e-ink devices</div>
+      </div>
+    </div>
+    <!-- form area -->
+    <div style="padding:28px 28px 0">
+      <div style="font:700 24px/1.1 'Archivo',sans-serif;color:#201e1d;margin-bottom:4px">Welcome back.</div>
+      <div style="font:400 14px/1 'Archivo',sans-serif;color:#9a9490;margin-bottom:28px">Sign in to sync your books and notes</div>
+      <!-- email -->
+      <div style="margin-bottom:20px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:9px">Email</div>
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #c0bcb8;padding-bottom:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b8b4b0" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <span style="font:400 16px/1 'Archivo',sans-serif;color:#b8b4b0">user@example.com</span>
+        </div>
+      </div>
+      <!-- password -->
+      <div style="margin-bottom:16px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:9px">Password</div>
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #201e1d;padding-bottom:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6b6865" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="0" ry="0"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span style="font:400 18px/1 'Archivo',sans-serif;color:#201e1d;letter-spacing:.18em;flex:1">••••••••</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+      </div>
+      <!-- remember + forgot -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:17px;height:17px;background:#ec3013;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <span style="font:400 13px/1 'Archivo',sans-serif;color:#6b6865">Remember me</span>
+        </div>
+        <span style="font:600 13px/1 'Archivo',sans-serif;color:#ec3013">Forgot email?</span>
+      </div>
+      <!-- sign in button -->
+      <button style="display:block;width:100%;height:52px;background:#ec3013;color:#fff;border:none;font:700 15px/1 'Archivo',sans-serif;cursor:pointer;text-align:left;padding:0 20px;margin-bottom:14px">Sign In →</button>
+      <!-- divider -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="flex:1;height:1px;background:#d4d0cd"></div>
+        <span style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">or</span>
+        <div style="flex:1;height:1px;background:#d4d0cd"></div>
+      </div>
+      <!-- guest mode -->
+      <button style="display:block;width:100%;height:52px;background:transparent;color:#201e1d;border:2px solid #201e1d;font:600 15px/1 'Archivo',sans-serif;cursor:pointer;text-align:left;padding:0 20px;margin-bottom:24px">Continue as Guest</button>
+      <!-- register link -->
+      <div style="text-align:center;font:400 14px/1 'Archivo',sans-serif;color:#6b6865;padding-bottom:32px">No account? <span style="color:#ec3013;font-weight:700">Register here →</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── 2b REGISTER ── -->
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a> Register</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <!-- dark nav header with back -->
+  <div style="height:56px;background:#201e1d;display:flex;align-items:center;padding:0 16px;flex-shrink:0;border-bottom:2px solid #38332f;gap:10px">
+    {{ iBack }}
+    <div style="font:700 16px/1 'Archivo',sans-serif;color:#f0edea;flex:1;padding-left:4px">Create Account</div>
+  </div>
+  <div style="flex:1;overflow:auto;padding:28px 28px 48px">
+    <!-- heading -->
+    <div style="font:700 32px/1.05 'Archivo',sans-serif;color:#201e1d;margin-bottom:6px">Start reading.</div>
+    <div style="font:400 14px/1.5 'Archivo',sans-serif;color:#6b6865;margin-bottom:36px">Create an account to sync your books and notes across devices.</div>
+    <!-- display name -->
+    <div style="margin-bottom:22px">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:9px">Display Name</div>
+      <div style="border-bottom:1.5px solid #c0bcb8;padding-bottom:10px">
+        <span style="font:400 16px/1 'Archivo',sans-serif;color:#b8b4b0">Your name</span>
+      </div>
+    </div>
+    <!-- email -->
+    <div style="margin-bottom:22px">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:9px">Email</div>
+      <div style="border-bottom:1.5px solid #c0bcb8;padding-bottom:10px">
+        <span style="font:400 16px/1 'Archivo',sans-serif;color:#b8b4b0">user@example.com</span>
+      </div>
+    </div>
+    <!-- password -->
+    <div style="margin-bottom:22px">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:9px">Password</div>
+      <div style="border-bottom:1.5px solid #c0bcb8;padding-bottom:10px;display:flex;align-items:center">
+        <span style="font:400 16px/1 'Archivo',sans-serif;color:#b8b4b0;flex:1">Minimum 8 characters</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c0bcb8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+    </div>
+    <!-- confirm password -->
+    <div style="margin-bottom:32px">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:9px">Confirm Password</div>
+      <div style="border-bottom:1.5px solid #c0bcb8;padding-bottom:10px">
+        <span style="font:400 16px/1 'Archivo',sans-serif;color:#b8b4b0">Re-enter password</span>
+      </div>
+    </div>
+    <!-- verification note -->
+    <div style="display:flex;gap:10px;padding:12px 14px;background:#ece9e6;margin-bottom:28px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span style="font:400 13px/1.5 'Archivo',sans-serif;color:#6b6865">A verification email will be sent. Please verify before signing in.</span>
+    </div>
+    <!-- register button -->
+    <button style="display:block;width:100%;height:52px;background:#ec3013;color:#fff;border:none;font:700 15px/1 'Archivo',sans-serif;cursor:pointer;text-align:left;padding:0 20px;margin-bottom:20px">Create Account →</button>
+    <!-- sign in link -->
+    <div style="text-align:center;font:400 14px/1 'Archivo',sans-serif;color:#6b6865">Already registered? <span style="color:#ec3013;font-weight:700">Sign in →</span></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── 2c LOGIN DARK ── -->
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a> Login — Dark</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#1a1817;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- brand block -->
+    <div style="background:#ec3013;padding:28px 28px;display:flex;align-items:center;gap:16px">
+      <div style="width:52px;height:52px;background:#201e1d;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f0edea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/></svg>
+      </div>
+      <div>
+        <div style="font:700 18px/1 'Archivo',sans-serif;color:#fff;margin-bottom:4px">Boox Reader</div>
+        <div style="font:400 13px/1.3 'Archivo',sans-serif;color:rgba(255,255,255,.65)">Your minimalist reader,<br>tuned for e-ink devices</div>
+      </div>
+    </div>
+    <!-- form -->
+    <div style="padding:28px 28px 0">
+      <div style="font:700 24px/1.1 'Archivo',sans-serif;color:#f0edea;margin-bottom:4px">Welcome back.</div>
+      <div style="font:400 14px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:28px">Sign in to sync your books and notes</div>
+      <!-- email -->
+      <div style="margin-bottom:20px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Email</div>
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #38332f;padding-bottom:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5a5550" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <span style="font:400 16px/1 'Archivo',sans-serif;color:#5a5550">user@example.com</span>
+        </div>
+      </div>
+      <!-- password -->
+      <div style="margin-bottom:16px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;margin-bottom:9px">Password</div>
+        <div style="display:flex;align-items:center;gap:10px;border-bottom:1.5px solid #908c89;padding-bottom:10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#908c89" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span style="font:400 18px/1 'Archivo',sans-serif;color:#f0edea;letter-spacing:.18em;flex:1">••••••••</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5a5550" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+      </div>
+      <!-- remember + forgot -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:17px;height:17px;background:#ec3013;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <span style="font:400 13px/1 'Archivo',sans-serif;color:#908c89">Remember me</span>
+        </div>
+        <span style="font:600 13px/1 'Archivo',sans-serif;color:#ec3013">Forgot email?</span>
+      </div>
+      <button style="display:block;width:100%;height:52px;background:#ec3013;color:#fff;border:none;font:700 15px/1 'Archivo',sans-serif;cursor:pointer;text-align:left;padding:0 20px;margin-bottom:14px">Sign In →</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="flex:1;height:1px;background:#38332f"></div>
+        <span style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550">or</span>
+        <div style="flex:1;height:1px;background:#38332f"></div>
+      </div>
+      <button style="display:block;width:100%;height:52px;background:transparent;color:#f0edea;border:2px solid #5a5550;font:600 15px/1 'Archivo',sans-serif;cursor:pointer;text-align:left;padding:0 20px;margin-bottom:24px">Continue as Guest</button>
+      <div style="text-align:center;font:400 14px/1 'Archivo',sans-serif;color:#5a5550;padding-bottom:32px">No account? <span style="color:#ec3013;font-weight:700">Register here →</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div><!-- end dv-opts -->
+<p class="dv-next">Try next: "show a forgot email modal overlay on <a class="dv-oid" href="#2a">2a</a>" · "add email validation error states" · "make register match <a class="dv-oid" href="#2c">2c</a> dark"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Boox Reader — Modernist redesign · clean minimal · e-ink tuned · light + dark</span></div>
+<div class="dv-opts">
+
+<!-- ═══════════════════════════════════════════════════
+     1a  ONBOARDING / WELCOME  (light)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a> Onboarding</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <!-- status -->
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <!-- content -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <!-- illustration -->
+    <div style="background:#ece9e6;height:228px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative">
+      <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#b8b4b0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/>
+        <line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="13" y2="11"/>
+      </svg>
+    </div>
+    <!-- text + cta -->
+    <div style="flex:1;display:flex;flex-direction:column;padding:30px 32px 44px">
+      <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.18em;color:#9a9490;text-transform:uppercase;margin-bottom:10px">Boox Reader</div>
+      <div style="font:700 38px/1.05 'Archivo',sans-serif;color:#201e1d;margin-bottom:14px;text-wrap:pretty">Read More.<br>Distract Less.</div>
+      <div style="font:400 14px/1.7 'Archivo',sans-serif;color:#6b6865;flex:1">Private EPUB reading with cloud sync and AI notes, tuned for e-ink devices.</div>
+      <div>
+        <button style="display:block;width:100%;height:52px;background:#ec3013;color:#fff;border:none;font:700 15px/1 'Archivo',sans-serif;cursor:pointer;letter-spacing:.01em;margin-bottom:16px">Get Started →</button>
+        <div style="text-align:center;font:500 14px/1 'Archivo',sans-serif;color:#6b6865">Sign in to existing account</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1b  LOGIN  (light)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a> Login</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="flex:1;overflow:auto;padding:32px 28px 48px">
+    <div style="font:700 11px/1 'Archivo',sans-serif;letter-spacing:.18em;color:#9a9490;text-transform:uppercase;margin-bottom:28px">Boox Reader</div>
+    <div style="font:700 32px/1.05 'Archivo',sans-serif;color:#201e1d;margin-bottom:6px">Welcome back.</div>
+    <div style="font:400 14px/1 'Archivo',sans-serif;color:#6b6865;margin-bottom:40px">Sign in to sync your books and notes</div>
+    <!-- email -->
+    <div style="margin-bottom:28px">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:10px">Email</div>
+      <div style="border-bottom:1.5px solid #c0bcb8;padding-bottom:10px;display:flex;align-items:center">
+        <span style="font:400 16px/1 'Archivo',sans-serif;color:#b8b4b0">user@example.com</span>
+      </div>
+    </div>
+    <!-- password -->
+    <div style="margin-bottom:24px">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:10px">Password</div>
+      <div style="border-bottom:1.5px solid #201e1d;padding-bottom:10px;display:flex;align-items:center">
+        <span style="font:400 18px/1 'Archivo',sans-serif;color:#201e1d;letter-spacing:.2em">••••••••</span>
+      </div>
+    </div>
+    <!-- remember + forgot -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:36px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div style="width:18px;height:18px;background:#ec3013;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <span style="font:400 13px/1 'Archivo',sans-serif;color:#6b6865">Remember me</span>
+      </div>
+      <span style="font:600 13px/1 'Archivo',sans-serif;color:#ec3013">Forgot password?</span>
+    </div>
+    <!-- sign in -->
+    <button style="display:block;width:100%;height:52px;background:#ec3013;color:#fff;border:none;font:700 15px/1 'Archivo',sans-serif;cursor:pointer;margin-bottom:20px">Sign In</button>
+    <!-- divider -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="flex:1;height:1px;background:#d4d0cd"></div>
+      <span style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">or</span>
+      <div style="flex:1;height:1px;background:#d4d0cd"></div>
+    </div>
+    <!-- google -->
+    <button style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:52px;background:transparent;color:#201e1d;border:2px solid #201e1d;font:600 15px/1 'Archivo',sans-serif;cursor:pointer;margin-bottom:32px">
+      <div style="width:20px;height:20px;border:1.5px solid #c0bcb8;display:flex;align-items:center;justify-content:center;font:700 12px 'Archivo',sans-serif;color:#6b6865;flex-shrink:0">G</div>
+      Sign in with Google
+    </button>
+    <div style="text-align:center;font:400 14px/1 'Archivo',sans-serif;color:#6b6865">No account? <span style="color:#ec3013;font-weight:700">Create one →</span></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1c  HOME — LIGHT
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a> Home — Light</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- header -->
+    <div style="padding:14px 24px 16px;display:flex;align-items:flex-end;justify-content:space-between">
+      <div>
+        <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.16em;color:#9a9490;text-transform:uppercase;margin-bottom:5px">Boox Reader</div>
+        <div style="font:700 28px/1 'Archivo',sans-serif;color:#201e1d">Good morning.</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="width:40px;height:40px;border:2px solid #d4d0cd;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          {{ iPerson }}
+        </div>
+      </div>
+    </div>
+    <!-- 2px rule -->
+    <div style="height:2px;background:#d4d0cd"></div>
+    <!-- stats -->
+    <div style="display:flex;border-bottom:2px solid #d4d0cd">
+      <div style="flex:1;padding:18px 24px">
+        <div style="font:700 30px/1 'Archivo',sans-serif;color:#ec3013;margin-bottom:5px">3</div>
+        <div style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9a9490">Books</div>
+      </div>
+      <div style="width:1px;background:#d4d0cd;margin:10px 0"></div>
+      <div style="flex:1;padding:18px 24px">
+        <div style="font:700 30px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:5px">1</div>
+        <div style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9a9490">Completed</div>
+      </div>
+      <div style="width:1px;background:#d4d0cd;margin:10px 0"></div>
+      <div style="flex:1;padding:18px 24px">
+        <div style="font:700 30px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:5px">76%</div>
+        <div style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#9a9490">Avg</div>
+      </div>
+    </div>
+    <!-- recent label -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 10px">
+      <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490">Recent</div>
+      <div style="font:600 12px/1 'Archivo',sans-serif;color:#ec3013">See all</div>
+    </div>
+    <!-- book 1 -->
+    <div style="display:flex;align-items:flex-start;padding:14px 24px;border-top:1px solid #d4d0cd;gap:14px">
+      <div style="width:40px;height:56px;background:#2e2b29;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 15px/1.25 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">The Design of Everyday Things</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490;margin-bottom:10px">Don Norman</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:2px;background:#ece9e6;position:relative"><div style="position:absolute;inset:0;right:22%;background:#ec3013"></div></div>
+          <span style="font:700 11px/1 'Archivo',sans-serif;color:#ec3013;flex-shrink:0">78%</span>
+        </div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0;padding-top:2px;flex-shrink:0">2h ago</span>
+    </div>
+    <!-- book 2 -->
+    <div style="display:flex;align-items:flex-start;padding:14px 24px;border-top:1px solid #d4d0cd;gap:14px">
+      <div style="width:40px;height:56px;background:#3d322a;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 15px/1.25 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Thinking, Fast and Slow</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490;margin-bottom:10px">Daniel Kahneman</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:2px;background:#ece9e6;position:relative"><div style="position:absolute;inset:0;right:55%;background:#ec3013"></div></div>
+          <span style="font:700 11px/1 'Archivo',sans-serif;color:#ec3013;flex-shrink:0">45%</span>
+        </div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0;padding-top:2px;flex-shrink:0">Yesterday</span>
+    </div>
+    <!-- book 3 (completed) -->
+    <div style="display:flex;align-items:flex-start;padding:14px 24px;border-top:1px solid #d4d0cd;gap:14px">
+      <div style="width:40px;height:56px;background:#262422;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 15px/1.25 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Atomic Habits</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490;margin-bottom:10px">James Clear</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:2px;background:#201e1d"></div>
+          <span style="font:700 11px/1 'Archivo',sans-serif;color:#201e1d;flex-shrink:0">✓ Done</span>
+        </div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0;padding-top:2px;flex-shrink:0">3 days</span>
+    </div>
+    <!-- sync strip -->
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 24px;border-top:2px solid #d4d0cd;border-bottom:2px solid #d4d0cd;margin-top:6px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a9490" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      <span style="font:400 13px/1 'Archivo',sans-serif;color:#9a9490;flex:1">Synced · 2:34 PM</span>
+      <span style="font:700 10px/1 'Archivo',sans-serif;color:#ec3013;letter-spacing:.1em">SYNC NOW</span>
+    </div>
+    <!-- bottom padding for FAB -->
+    <div style="height:80px"></div>
+  </div>
+  <!-- FAB -->
+  <div style="position:absolute;bottom:34px;right:24px;width:52px;height:52px;background:#ec3013;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(236,48,19,.3)">
+    {{ iPlus }}
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1d  HOME — DARK
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a> Home — Dark</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#1a1817;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <div style="padding:14px 24px 16px;display:flex;align-items:flex-end;justify-content:space-between">
+      <div>
+        <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.16em;color:#5a5550;text-transform:uppercase;margin-bottom:5px">Boox Reader</div>
+        <div style="font:700 28px/1 'Archivo',sans-serif;color:#f0edea">Good morning.</div>
+      </div>
+      <div style="width:40px;height:40px;border:2px solid #38332f;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        {{ iPersonL }}
+      </div>
+    </div>
+    <div style="height:2px;background:#38332f"></div>
+    <div style="display:flex;border-bottom:2px solid #38332f">
+      <div style="flex:1;padding:18px 24px">
+        <div style="font:700 30px/1 'Archivo',sans-serif;color:#ec3013;margin-bottom:5px">3</div>
+        <div style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550">Books</div>
+      </div>
+      <div style="width:1px;background:#38332f;margin:10px 0"></div>
+      <div style="flex:1;padding:18px 24px">
+        <div style="font:700 30px/1 'Archivo',sans-serif;color:#f0edea;margin-bottom:5px">1</div>
+        <div style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550">Completed</div>
+      </div>
+      <div style="width:1px;background:#38332f;margin:10px 0"></div>
+      <div style="flex:1;padding:18px 24px">
+        <div style="font:700 30px/1 'Archivo',sans-serif;color:#f0edea;margin-bottom:5px">76%</div>
+        <div style="font:600 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550">Avg</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 10px">
+      <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550">Recent</div>
+      <div style="font:600 12px/1 'Archivo',sans-serif;color:#ec3013">See all</div>
+    </div>
+    <!-- book 1 dark -->
+    <div style="display:flex;align-items:flex-start;padding:14px 24px;border-top:1px solid #38332f;gap:14px">
+      <div style="width:40px;height:56px;background:#3a3028;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 15px/1.25 'Archivo',sans-serif;color:#f0edea;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">The Design of Everyday Things</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:10px">Don Norman</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:2px;background:#2e2b29;position:relative"><div style="position:absolute;inset:0;right:22%;background:#ec3013"></div></div>
+          <span style="font:700 11px/1 'Archivo',sans-serif;color:#ec3013;flex-shrink:0">78%</span>
+        </div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;padding-top:2px;flex-shrink:0">2h ago</span>
+    </div>
+    <!-- book 2 dark -->
+    <div style="display:flex;align-items:flex-start;padding:14px 24px;border-top:1px solid #38332f;gap:14px">
+      <div style="width:40px;height:56px;background:#4a3c30;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 15px/1.25 'Archivo',sans-serif;color:#f0edea;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Thinking, Fast and Slow</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:10px">Daniel Kahneman</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:2px;background:#2e2b29;position:relative"><div style="position:absolute;inset:0;right:55%;background:#ec3013"></div></div>
+          <span style="font:700 11px/1 'Archivo',sans-serif;color:#ec3013;flex-shrink:0">45%</span>
+        </div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;padding-top:2px;flex-shrink:0">Yesterday</span>
+    </div>
+    <!-- book 3 dark completed -->
+    <div style="display:flex;align-items:flex-start;padding:14px 24px;border-top:1px solid #38332f;gap:14px">
+      <div style="width:40px;height:56px;background:#2e3040;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font:600 15px/1.25 'Archivo',sans-serif;color:#f0edea;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Atomic Habits</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:10px">James Clear</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:2px;background:#f0edea"></div>
+          <span style="font:700 11px/1 'Archivo',sans-serif;color:#f0edea;flex-shrink:0">✓ Done</span>
+        </div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;padding-top:2px;flex-shrink:0">3 days</span>
+    </div>
+    <!-- sync strip dark -->
+    <div style="display:flex;align-items:center;gap:10px;padding:13px 24px;border-top:2px solid #38332f;border-bottom:2px solid #38332f;margin-top:6px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5a5550" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      <span style="font:400 13px/1 'Archivo',sans-serif;color:#5a5550;flex:1">Synced · 2:34 PM</span>
+      <span style="font:700 10px/1 'Archivo',sans-serif;color:#ec3013;letter-spacing:.1em">SYNC NOW</span>
+    </div>
+    <div style="height:80px"></div>
+  </div>
+  <div style="position:absolute;bottom:34px;right:24px;width:52px;height:52px;background:#ec3013;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(236,48,19,.25)">
+    {{ iPlus }}
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1e  AI NOTES LIST  (dark)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a> AI Notes List</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#1a1817;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <!-- dark nav header -->
+  <div style="height:56px;background:#201e1d;display:flex;align-items:center;padding:0 20px;flex-shrink:0;border-bottom:2px solid #38332f;gap:8px">
+    <div style="flex:1">
+      <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#5a5550;margin-bottom:4px">Library</div>
+      <div style="font:700 16px/1 'Archivo',sans-serif;color:#f0edea">AI Notes</div>
+    </div>
+    {{ iSearch }}
+    <div style="width:8px"></div>
+    {{ iMore }}
+  </div>
+  <!-- search input -->
+  <div style="padding:14px 20px;border-bottom:1px solid #38332f;flex-shrink:0;background:#201e1d">
+    <div style="border-bottom:1px solid #5a5550;padding-bottom:10px;display:flex;align-items:center;gap:10px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a5550" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#5a5550">Search by concept, person, era…</span>
+    </div>
+  </div>
+  <!-- notes list -->
+  <div style="flex:1;overflow:auto">
+    <!-- note 1 -->
+    <div style="padding:16px 20px;border-bottom:1px solid #2e2b29">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Design of Everyday Things</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;margin-left:auto">3h ago</span>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#908c89;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"Affordances provide strong clues to the operations of things. Plates are for pushing. Knobs are for turning…"</div>
+      <div style="font:400 13px/1.4 'Archivo',sans-serif;color:#c8c4c0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">Norman defines affordances as the relationship between an object's properties and a user's capabilities…</div>
+    </div>
+    <!-- note 2 -->
+    <div style="padding:16px 20px;border-bottom:1px solid #2e2b29">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Thinking, Fast and Slow</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;margin-left:auto">Yesterday</span>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#908c89;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"System 2 allocates attention to the effortful mental activities that demand it, including complex computations…"</div>
+      <div style="font:400 13px/1.4 'Archivo',sans-serif;color:#c8c4c0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">Kahneman distinguishes two modes: System 1 (fast, intuitive) and System 2 (slow, deliberate)…</div>
+    </div>
+    <!-- note 3 -->
+    <div style="padding:16px 20px;border-bottom:1px solid #2e2b29">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Atomic Habits</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;margin-left:auto">3 days ago</span>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#908c89;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"Every action you take is a vote for the type of person you wish to become. No single instance will transform…"</div>
+      <div style="font:400 13px/1.4 'Archivo',sans-serif;color:#c8c4c0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">Clear's identity-based framework: lasting change comes from who you believe you are, not what you want to achieve…</div>
+    </div>
+    <!-- note 4 -->
+    <div style="padding:16px 20px;border-bottom:1px solid #2e2b29">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#ec3013">Design of Everyday Things</span>
+        <span style="font:400 11px/1 'Archivo',sans-serif;color:#5a5550;margin-left:auto">4 days ago</span>
+      </div>
+      <div style="font:400 13px/1.55 'Archivo',sans-serif;color:#908c89;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">"The designer has to assume that when something goes wrong, it is the designer's fault, not the user's…"</div>
+      <div style="font:400 13px/1.4 'Archivo',sans-serif;color:#c8c4c0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">Norman argues that human error is usually a symptom of bad design — good design prevents mistakes…</div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1f  AI NOTE DETAIL  (dark header, light body)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a> AI Note Detail</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <!-- dark status bar -->
+  <div style="height:52px;background:#201e1d;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <!-- dark nav header -->
+  <div style="height:56px;background:#201e1d;display:flex;align-items:center;padding:0 16px;flex-shrink:0;border-bottom:2px solid #38332f;gap:8px">
+    {{ iBack }}
+    <div style="flex:1;padding-left:4px">
+      <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;margin-bottom:4px">Design of Everyday Things</div>
+      <div style="font:700 15px/1 'Archivo',sans-serif;color:#f0edea">AI Note</div>
+    </div>
+    {{ iEdit }}
+  </div>
+  <!-- note content -->
+  <div style="flex:1;overflow:auto;padding:20px 24px 0">
+    <!-- original label -->
+    <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#ec3013;margin-bottom:10px">Original Text</div>
+    <!-- quote block -->
+    <div style="border-left:3px solid #ec3013;padding-left:14px;margin-bottom:20px">
+      <div style="font:400 14px/1.65 'Archivo',sans-serif;color:#201e1d;font-style:italic">"Affordances provide strong clues to the operations of things. Plates are for pushing. Knobs are for turning. Slots are for inserting things into."</div>
+    </div>
+    <!-- 2px divider -->
+    <div style="height:2px;background:#d4d0cd;margin-bottom:20px"></div>
+    <!-- AI response label -->
+    <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9a9490;margin-bottom:12px">AI Response</div>
+    <div style="font:400 14px/1.7 'Archivo',sans-serif;color:#201e1d;margin-bottom:12px">Norman's concept of affordances describes the relationship between an object's properties and a user's capabilities — specifically, what actions become apparent based on how something looks or feels.</div>
+    <div style="font:400 14px/1.7 'Archivo',sans-serif;color:#201e1d;margin-bottom:12px">When you see a door handle, you intuitively know to pull; a flat plate suggests pushing. This is a <span style="font-weight:600">perceived affordance</span> — the design communicates its purpose without instructions.</div>
+    <div style="font:400 14px/1.7 'Archivo',sans-serif;color:#201e1d;margin-bottom:20px">Good design makes affordances visible, reducing the need for labels or manuals.</div>
+    <!-- 2px divider -->
+    <div style="height:2px;background:#d4d0cd;margin-bottom:16px"></div>
+    <!-- related label -->
+    <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#9a9490;margin-bottom:12px">Related Notes</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+      <div style="padding:10px 14px;border:1px solid #d4d0cd;background:#fff">
+        <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#ec3013;margin-bottom:5px">Design of Everyday Things</div>
+        <div style="font:400 13px/1.4 'Archivo',sans-serif;color:#6b6865">The designer has to assume that when something goes wrong…</div>
+      </div>
+      <div style="padding:10px 14px;border:1px solid #d4d0cd;background:#fff">
+        <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#ec3013;margin-bottom:5px">Thinking, Fast and Slow</div>
+        <div style="font:400 13px/1.4 'Archivo',sans-serif;color:#6b6865">System 1 operates automatically and quickly, with little effort…</div>
+      </div>
+    </div>
+    <div style="height:80px"></div>
+  </div>
+  <!-- bottom follow-up -->
+  <div style="border-top:2px solid #d4d0cd;padding:12px 16px;display:flex;align-items:center;gap:10px;background:#f3f2f2;flex-shrink:0">
+    <div style="flex:1;border-bottom:1.5px solid #c0bcb8;padding-bottom:8px">
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#b8b4b0">Follow-up question…</span>
+    </div>
+    <div style="width:40px;height:40px;background:#ec3013;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      {{ iSend }}
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1g  SETTINGS  (light)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a> Settings</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <!-- light nav header -->
+  <div style="height:56px;display:flex;align-items:center;padding:0 24px;flex-shrink:0;border-bottom:2px solid #d4d0cd">
+    <div style="flex:1;font:700 18px/1 'Archivo',sans-serif;color:#201e1d">Settings</div>
+    {{ iCloseD }}
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- READING & DISPLAY -->
+    <div style="padding:16px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;border-bottom:1px solid #d4d0cd">Reading &amp; Display</div>
+    <!-- font size -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Font Size</span>
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#9a9490;margin-right:8px">16px</span>
+      {{ iRight }}
+    </div>
+    <!-- tap to turn (ON) -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Tap to Turn Page</span>
+      <div style="width:44px;height:24px;background:#ec3013;display:flex;align-items:center;padding:4px;justify-content:flex-end;flex-shrink:0"><div style="width:16px;height:16px;background:#fff"></div></div>
+    </div>
+    <!-- page animation (OFF) -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Page Animation</span>
+      <div style="width:44px;height:24px;border:1.5px solid #c0bcb8;display:flex;align-items:center;padding:3px;flex-shrink:0"><div style="width:16px;height:16px;background:#c0bcb8"></div></div>
+    </div>
+    <!-- reading theme -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Reading Theme</span>
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#9a9490;margin-right:8px">Normal</span>
+      {{ iRight }}
+    </div>
+    <!-- simp→trad (OFF) -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:2px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Simplified → Traditional</span>
+      <div style="width:44px;height:24px;border:1.5px solid #c0bcb8;display:flex;align-items:center;padding:3px;flex-shrink:0"><div style="width:16px;height:16px;background:#c0bcb8"></div></div>
+    </div>
+    <!-- AI & CLOUD -->
+    <div style="padding:16px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;border-bottom:1px solid #d4d0cd">AI &amp; Cloud Sync</div>
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">AI Profiles</span>
+      {{ iRight }}
+    </div>
+    <!-- daily summary (ON) -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Daily Email Summary</span>
+      <div style="width:44px;height:24px;background:#ec3013;display:flex;align-items:center;padding:4px;justify-content:flex-end;flex-shrink:0"><div style="width:16px;height:16px;background:#fff"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:2px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Export AI Notes</span>
+      {{ iRight }}
+    </div>
+    <!-- ACCOUNT -->
+    <div style="padding:16px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;border-bottom:1px solid #d4d0cd">Account</div>
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">User Profile</span>
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#9a9490;margin-right:8px">P J</span>
+      {{ iRight }}
+    </div>
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:1px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Language</span>
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#9a9490;margin-right:8px">English</span>
+      {{ iRight }}
+    </div>
+    <div style="display:flex;align-items:center;padding:0 24px;height:52px;border-bottom:2px solid #d4d0cd">
+      <span style="flex:1;font:400 15px/1 'Archivo',sans-serif;color:#201e1d">Version</span>
+      <span style="font:400 14px/1 'Archivo',sans-serif;color:#9a9490">1.4.2</span>
+    </div>
+    <div style="height:34px"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1h  USER PROFILE  (dark)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1h">
+<div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a> User Profile — Dark</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#1a1817;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;background:#201e1d;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#f0edea">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#908c89">●●● 100%</span>
+  </div>
+  <!-- dark nav -->
+  <div style="height:56px;background:#201e1d;display:flex;align-items:center;padding:0 16px;flex-shrink:0;border-bottom:2px solid #38332f;gap:8px">
+    {{ iClose }}
+    <div style="flex:1;font:700 18px/1 'Archivo',sans-serif;color:#f0edea;padding-left:4px">Profile</div>
+    <div style="font:700 13px/1 'Archivo',sans-serif;color:#ec3013">Save</div>
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- avatar area -->
+    <div style="padding:28px 24px 24px;border-bottom:2px solid #38332f;display:flex;align-items:center;gap:20px;background:#201e1d">
+      <div style="width:72px;height:72px;background:#38332f;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #5a5550">
+        <span style="font:700 24px/1 'Archivo',sans-serif;color:#f0edea">PJ</span>
+      </div>
+      <div>
+        <div style="font:700 20px/1 'Archivo',sans-serif;color:#f0edea;margin-bottom:4px">Phillip James</div>
+        <div style="font:400 14px/1 'Archivo',sans-serif;color:#5a5550;margin-bottom:10px">user@example.com</div>
+        <span style="font:700 11px/1 'Archivo',sans-serif;color:#ec3013;letter-spacing:.04em">Change Avatar</span>
+      </div>
+    </div>
+    <!-- fields -->
+    <div style="padding:20px 24px;border-bottom:2px solid #38332f">
+      <div style="margin-bottom:22px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;margin-bottom:10px">Display Name</div>
+        <div style="border-bottom:1.5px solid #908c89;padding-bottom:10px">
+          <span style="font:400 16px/1 'Archivo',sans-serif;color:#f0edea">Phillip James</span>
+        </div>
+      </div>
+      <div>
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;margin-bottom:10px">Email</div>
+        <div style="border-bottom:1.5px solid #38332f;padding-bottom:10px">
+          <span style="font:400 16px/1 'Archivo',sans-serif;color:#908c89">user@example.com</span>
+        </div>
+      </div>
+    </div>
+    <!-- change password -->
+    <div style="padding:16px 24px 8px;font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#5a5550;border-bottom:1px solid #38332f">Change Password</div>
+    <div style="padding:20px 24px;border-bottom:2px solid #38332f">
+      <div style="border-bottom:1px solid #38332f;padding:0 0 12px;margin-bottom:16px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:10px">Current Password</div>
+        <span style="font:400 18px/1 'Archivo',sans-serif;color:#5a5550;letter-spacing:.15em">••••••••</span>
+      </div>
+      <div style="border-bottom:1px solid #38332f;padding:0 0 12px;margin-bottom:16px">
+        <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5a5550;margin-bottom:10px">New Password</div>
+        <span style="font:400 14px/1 'Archivo',sans-serif;color:#5a5550">Enter new password…</span>
+      </div>
+      <button style="display:block;width:100%;height:44px;background:transparent;color:#f0edea;border:2px solid #5a5550;font:600 14px/1 'Archivo',sans-serif;cursor:pointer;margin-top:4px">Update Password</button>
+    </div>
+    <!-- logout -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:56px;gap:10px;border-bottom:1px solid #38332f">
+      {{ iLogout }}
+      <span style="font:600 15px/1 'Archivo',sans-serif;color:#ec3013">Logout</span>
+    </div>
+    <div style="height:34px"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     1i  SYNC STATUS  (light)
+════════════════════════════════════════════════════ -->
+<div class="dv-opt" id="1i">
+<div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a> Sync Status</div>
+<div style="display:inline-block;background:#1c1a19;border-radius:52px;padding:14px;box-shadow:0 0 0 1px #2a2826,0 24px 56px rgba(0,0,0,.35)">
+<div style="width:390px;height:844px;border-radius:40px;overflow:hidden;background:#f3f2f2;position:relative;display:flex;flex-direction:column;font-family:'Archivo',system-ui,sans-serif">
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:37px;background:#1c1a19;border-radius:0 0 22px 22px;z-index:10"></div>
+  <div style="height:52px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 30px 10px;flex-shrink:0;position:relative;z-index:5">
+    <span style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d">9:41</span>
+    <span style="font:500 11px/1 'Archivo',sans-serif;color:#6b6865">●●● 100%</span>
+  </div>
+  <!-- light nav header -->
+  <div style="height:56px;display:flex;align-items:center;padding:0 20px;flex-shrink:0;border-bottom:2px solid #d4d0cd;gap:8px">
+    {{ iBackD }}
+    <div style="flex:1;font:700 18px/1 'Archivo',sans-serif;color:#201e1d;padding-left:4px">Sync Status</div>
+    {{ iCloud }}
+  </div>
+  <div style="flex:1;overflow:auto">
+    <!-- last synced info -->
+    <div style="padding:20px 24px;border-bottom:2px solid #d4d0cd;background:#fff">
+      <div style="font:700 9px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;margin-bottom:8px">Last Synced</div>
+      <div style="font:700 20px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:4px">Today, 2:34 PM</div>
+      <div style="font:400 13px/1 'Archivo',sans-serif;color:#9a9490">All data up to date</div>
+    </div>
+    <!-- sync items -->
+    <div style="font:700 10px/1 'Archivo',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#9a9490;padding:14px 24px 8px;border-bottom:1px solid #d4d0cd">Sync Detail</div>
+    <!-- item 1 -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:56px;border-bottom:1px solid #d4d0cd;gap:14px">
+      {{ iCheck }}
+      <div style="flex:1">
+        <div style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px">AI Profiles</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">Up to date</div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0">just now</span>
+    </div>
+    <!-- item 2 -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:56px;border-bottom:1px solid #d4d0cd;gap:14px">
+      {{ iCheck }}
+      <div style="flex:1">
+        <div style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px">Reading Progress</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">3 books updated</div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0">just now</span>
+    </div>
+    <!-- item 3 -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:56px;border-bottom:1px solid #d4d0cd;gap:14px">
+      {{ iCheck }}
+      <div style="flex:1">
+        <div style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px">AI Notes</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">12 notes synced</div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0">just now</span>
+    </div>
+    <!-- item 4 -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:56px;border-bottom:1px solid #d4d0cd;gap:14px">
+      {{ iCheck }}
+      <div style="flex:1">
+        <div style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px">Bookmarks</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">Up to date</div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0">just now</span>
+    </div>
+    <!-- item 5 -->
+    <div style="display:flex;align-items:center;padding:0 24px;height:56px;border-bottom:2px solid #d4d0cd;gap:14px">
+      {{ iCheck }}
+      <div style="flex:1">
+        <div style="font:600 14px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:3px">EPUB Files</div>
+        <div style="font:400 12px/1 'Archivo',sans-serif;color:#9a9490">1 uploaded, 0 downloaded</div>
+      </div>
+      <span style="font:400 11px/1 'Archivo',sans-serif;color:#b8b4b0">just now</span>
+    </div>
+    <!-- sync now button -->
+    <div style="padding:24px 24px 16px">
+      <button style="display:block;width:100%;height:52px;background:transparent;color:#201e1d;border:2px solid #201e1d;font:700 15px/1 'Archivo',sans-serif;cursor:pointer">Sync Now</button>
+    </div>
+    <!-- storage test -->
+    <div style="margin:0 24px;padding:12px 16px;background:#fff;border:1px solid #d4d0cd;display:flex;align-items:center;gap:10px">
+      <div style="width:8px;height:8px;background:#2e7d32;flex-shrink:0"></div>
+      <div>
+        <div style="font:700 12px/1 'Archivo',sans-serif;color:#201e1d;margin-bottom:2px">Storage Self-Test</div>
+        <div style="font:400 11px/1 'Archivo',sans-serif;color:#9a9490">PASSED</div>
+      </div>
+    </div>
+    <div style="height:40px"></div>
+  </div>
+</div>
+</div>
+</div>
+
+</div><!-- end dv-opts -->
+<p class="dv-next">Try next: "riff on <a class="dv-oid" href="#1c">1c</a> with a reading streak banner" · "show a reader view screen" · "make <a class="dv-oid" href="#1f">1f</a> full dark mode" · "add a register screen variant"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  _ic(d, size=20, stroke='currentColor', sw=1.75) {
+    return React.createElement('svg', {
+      width: size, height: size, viewBox: '0 0 24 24',
+      fill: 'none', stroke, strokeWidth: sw,
+      strokeLinecap: 'round', strokeLinejoin: 'round',
+      style: { display: 'block', flexShrink: 0 }
+    }, React.createElement('path', { d }));
+  }
+  renderVals() {
+    const ic = this._ic.bind(this);
+    return {
+      iPerson:  ic('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 20, '#201e1d'),
+      iPersonL: ic('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 20, '#908c89'),
+      iPlus:    ic('M12 5v14M5 12h14', 22, '#fff', 2.5),
+      iBack:    ic('M15 18l-6-6 6-6', 22, '#f0edea', 2),
+      iBackD:   ic('M15 18l-6-6 6-6', 22, '#201e1d', 2),
+      iSearch:  ic('M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0', 20, '#f0edea'),
+      iMore:    ic('M12 5v.01M12 12v.01M12 19v.01', 20, '#f0edea', 2.5),
+      iRight:   ic('M9 18l6-6-6-6', 18, '#c0bcb8'),
+      iCheck:   ic('M20 6L9 17l-5-5', 18, '#ec3013', 2),
+      iLogout:  ic('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', 18, '#ec3013'),
+      iSend:    ic('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z', 18, '#fff'),
+      iEdit:    ic('M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 13.5-13.5z', 18, '#f0edea'),
+      iClose:   ic('M18 6L6 18M6 6l12 12', 20, '#f0edea'),
+      iCloud:   ic('M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z', 20, '#9a9490'),
+      iMoreD:   ic('M12 5v.01M12 12v.01M12 19v.01', 20, '#9a9490', 2.5),
+      iCloseD:  ic('M18 6L6 18M6 6l12 12', 20, '#201e1d'),
+    };
+  }
+}
+</script>
+</body>
+</html>

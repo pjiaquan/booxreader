@@ -1,49 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- =====================================================================
-         BooxReader Design System — Night Palette (Material 3 semantics)
+         BooxReader Design System — Modernist Dark Palette
+         Dark background (#1A1817), Surface (#252220), Nav Header (#201E1D),
+         Red accent (#EC3013), high contrast for e-ink devices.
          ===================================================================== -->
 
-    <!-- Brand / Primary (blue identity, lightened for dark surfaces) -->
-    <color name="primary">#64B5FF</color>
-    <color name="primary_variant">#7CC0FF</color>
-    <color name="on_primary">#003258</color>
-    <color name="primary_container">#00497E</color>
-    <color name="on_primary_container">#D3E7FF</color>
+    <!-- Brand / Primary (red identity) -->
+    <color name="primary">#EC3013</color>
+    <color name="primary_variant">#FF5C42</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#38332F</color>
+    <color name="on_primary_container">#F0EDEA</color>
 
     <!-- Secondary -->
-    <color name="secondary">#B3C8DC</color>
-    <color name="secondary_variant">#98AFC5</color>
-    <color name="on_secondary">#243140</color>
-    <color name="secondary_container">#3B4857</color>
-    <color name="on_secondary_container">#DAE9F9</color>
+    <color name="secondary">#F0EDEA</color>
+    <color name="secondary_variant">#908C89</color>
+    <color name="on_secondary">#1A1817</color>
+    <color name="secondary_container">#252220</color>
+    <color name="on_secondary_container">#F0EDEA</color>
 
     <!-- Tertiary -->
-    <color name="tertiary">#FFC46B</color>
-    <color name="on_tertiary">#4A3100</color>
-    <color name="tertiary_container">#6B4700</color>
-    <color name="on_tertiary_container">#FFDEA6</color>
+    <color name="tertiary">#908C89</color>
+    <color name="on_tertiary">#FFFFFF</color>
+    <color name="tertiary_container">#252220</color>
+    <color name="on_tertiary_container">#F0EDEA</color>
 
     <!-- Background / Surface -->
-    <color name="background">#0F1115</color>
-    <color name="on_background">#E2E6EC</color>
-    <color name="surface">#15171C</color>
-    <color name="on_surface">#E2E6EC</color>
-    <color name="surface_variant">#33383F</color>
-    <color name="on_surface_variant">#B9C2CC</color>
-    <color name="surface_container_lowest">#101217</color>
-    <color name="surface_container_low">#1B1E24</color>
-    <color name="surface_container">#20232A</color>
-    <color name="surface_container_high">#272B32</color>
-    <color name="surface_container_highest">#2E333B</color>
+    <color name="background">#1A1817</color>
+    <color name="on_background">#F0EDEA</color>
+    <color name="surface">#252220</color>
+    <color name="on_surface">#F0EDEA</color>
+    <color name="surface_variant">#38332F</color>
+    <color name="on_surface_variant">#908C89</color>
+    <color name="surface_container_lowest">#141211</color>
+    <color name="surface_container_low">#1A1817</color>
+    <color name="surface_container">#252220</color>
+    <color name="surface_container_high">#2E2B29</color>
+    <color name="surface_container_highest">#38332F</color>
 
-    <!-- Outline -->
-    <color name="outline">#8E97A2</color>
-    <color name="outline_variant">#3E454E</color>
+    <!-- Outline / Dividers -->
+    <color name="outline">#5A5550</color>
+    <color name="outline_variant">#38332F</color>
+    <color name="divider_major">#38332F</color>
+    <color name="divider_minor">#2E2B29</color>
+    <color name="subtle_fill">#2E2B29</color>
+    <color name="reader_bg">#1A1817</color>
+
+    <!-- Text hierarchy tokens -->
+    <color name="text_primary">#F0EDEA</color>
+    <color name="text_secondary">#908C89</color>
+    <color name="text_tertiary">#5A5550</color>
+    <color name="text_quaternary">#3A3533</color>
 
     <!-- Error / Success -->
-    <color name="error">#FFB4AB</color>
-    <color name="on_error">#690005</color>
+    <color name="error">#EC3013</color>
+    <color name="on_error">#FFFFFF</color>
     <color name="error_container">#93000A</color>
     <color name="on_error_container">#FFDAD6</color>
     <color name="success">#81C995</color>
@@ -52,30 +64,30 @@
     <color name="on_success_container">#C8E6C9</color>
 
     <!-- =====================================================================
-         Legacy colors (kept for compatibility with existing layouts/code)
+         Legacy colors
          ===================================================================== -->
 
     <!-- Recent Book Item Colors (Night) -->
-    <color name="recent_book_title">#FFFFFF</color>
-    <color name="recent_book_secondary">#BDBDBD</color>
-    <color name="recent_book_progress">#E0E0E0</color>
-    <color name="recent_book_menu">#E0E0E0</color>
-    <color name="recent_book_completed_text">#A5D6A7</color>
-    <color name="recent_book_completed_bg">#2E4B35</color>
+    <color name="recent_book_title">#F0EDEA</color>
+    <color name="recent_book_secondary">#908C89</color>
+    <color name="recent_book_progress">#EC3013</color>
+    <color name="recent_book_menu">#908C89</color>
+    <color name="recent_book_completed_text">#F0EDEA</color>
+    <color name="recent_book_completed_bg">#38332F</color>
 
     <!-- Main Activity Card Colors (Night) -->
-    <color name="main_card_bg">#1E1E1E</color>
-    <color name="main_card_title">#FFFFFF</color>
-    <color name="main_card_subtitle">#BDBDBD</color>
-    <color name="main_accent">#64D2FF</color>
-    <color name="main_bar_bg">#1B1D22</color>
-    <color name="main_bar_stroke">#2D323A</color>
-    <color name="main_bg_start">#0F1115</color>
-    <color name="main_bg_mid">#151821</color>
-    <color name="main_bg_end">#1A1E28</color>
+    <color name="main_card_bg">#252220</color>
+    <color name="main_card_title">#F0EDEA</color>
+    <color name="main_card_subtitle">#908C89</color>
+    <color name="main_accent">#EC3013</color>
+    <color name="main_bar_bg">#201E1D</color>
+    <color name="main_bar_stroke">#38332F</color>
+    <color name="main_bg_start">#1A1817</color>
+    <color name="main_bg_mid">#1A1817</color>
+    <color name="main_bg_end">#1A1817</color>
 
     <!-- Shared ActionBar Colors -->
-    <color name="action_bar_surface">#121820</color>
-    <color name="action_bar_on_surface">#E7EDF6</color>
-    <color name="ai_note_top_bar">#0C0F14</color>
+    <color name="action_bar_surface">#201E1D</color>
+    <color name="action_bar_on_surface">#F0EDEA</color>
+    <color name="ai_note_top_bar">#201E1D</color>
 </resources>
