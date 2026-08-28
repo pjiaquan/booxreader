@@ -109,6 +109,12 @@
             android:label="Edit Profile"
             android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
 
+        <activity
+            android:name="my.hinoki.booxreader.ui.settings.MagicTagListActivity"
+            android:exported="false"
+            android:label="@string/magic_tag_title"
+            android:theme="@style/AppTheme.ActionBar" />
+
         <!-- FileProvider for secure file sharing -->
         <provider
             android:name="androidx.core.content.FileProvider"

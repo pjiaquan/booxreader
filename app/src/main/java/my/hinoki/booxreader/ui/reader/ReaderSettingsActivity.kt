@@ -51,6 +51,7 @@ import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import my.hinoki.booxreader.ui.auth.UserProfileActivity
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.settings.AiProfileListActivity
+import my.hinoki.booxreader.ui.settings.MagicTagListActivity
 import my.hinoki.booxreader.data.remote.isValidHttpUrl
 
 class ReaderSettingsActivity : BaseActivity() {
@@ -948,18 +949,6 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun showMagicTagManager() {
-        val prefs = getSharedPreferences(ReaderActivity.PREFS_NAME, MODE_PRIVATE)
-        val settings = ReaderSettings.fromStorage(SharedPreferencesStorage(prefs))
-
-        val dialog = MagicTagManagerDialog(this, settings.magicTags) { updatedTags ->
-            val updatedSettings = settings.copy(
-                magicTags = updatedTags,
-                updatedAt = System.currentTimeMillis()
-            )
-            updatedSettings.saveTo(SharedPreferencesStorage(prefs))
-            pushSettingsToCloud()
-            setResult(RESULT_OK)
-        }
-        dialog.show()
+        startActivity(Intent(this, MagicTagListActivity::class.java))
     }
 }

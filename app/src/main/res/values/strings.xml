@@ -53,6 +53,14 @@
     <string name="magic_tag_invalid_empty_name">Tag name is required.</string>
     <string name="magic_tag_invalid_duplicate">Tag names must be unique.</string>
     <string name="magic_tag_save_failed">Failed to save magic tags. Please try again.</string>
+    <string name="magic_tag_title">Magic Tags</string>
+    <string name="magic_tag_add_title">Add Magic Tag</string>
+    <string name="magic_tag_edit_title">Edit Magic Tag</string>
+    <string name="magic_tag_name_hint">Tag name</string>
+    <string name="magic_tag_desc_hint">What this tag matches (optional)</string>
+    <string name="magic_tag_edit">Edit tag</string>
+    <string name="magic_tag_delete">Delete tag</string>
+    <string name="magic_tag_empty">No magic tags yet. Tap + to add one.</string>
     <string name="ai_note_original_label">Original Text (Question):</string>
     <string name="ai_note_response_label">AI Response (Answer):</string>
     <string name="ai_note_copy_response">Copy AI response</string>
