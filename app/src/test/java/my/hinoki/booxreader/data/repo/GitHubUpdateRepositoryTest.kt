@@ -52,6 +52,42 @@ class GitHubUpdateRepositoryTest {
     assertFalse(checker.isNewerVersion("1.0.9", current))
   }
 
+  /**
+   * Regression: identical versions must never trigger an update notification.
+   * Previously, when numeric parsing failed the fallback `remoteVersion != currentVersion`
+   * could return true for the same version, causing a permanent false-positive dialog.
+   */
+  @Test
+  fun `isNewerVersion returns false when versions are identical`() {
+    assertFalse(checker.isNewerVersion("v1.1.274", "1.1.274"))
+    assertFalse(checker.isNewerVersion("1.1.274",  "1.1.274"))
+    // With extra whitespace (possible in tag_name from GitHub API)
+    assertFalse(checker.isNewerVersion("v1.1.274\n", "1.1.274"))
+    assertFalse(checker.isNewerVersion(" v1.1.274 ", "1.1.274"))
+  }
+
+  /**
+   * Regression: when version strings cannot be parsed as integers the old code fell back to
+   * `remoteVersion != currentVersion`, which incorrectly returned true.
+   * The fix returns false conservatively so no spurious dialog appears.
+   */
+  @Test
+  fun `isNewerVersion returns false when versions cannot be parsed`() {
+    // Pre-release suffixes break toInt()
+    assertFalse(checker.isNewerVersion("v1.1.274-alpha", "1.1.274"))
+    assertFalse(checker.isNewerVersion("v1.1.274-rc1",   "1.1.274"))
+    // Both unparseable — must not show a dialog
+    assertFalse(checker.isNewerVersion("nightly", "debug-build"))
+  }
+
+  @Test
+  fun `isNewerVersion handles different segment counts correctly`() {
+    // Remote has more segments
+    assertTrue(checker.isNewerVersion("1.1.170.1", "1.1.170"))
+    // Current has more segments — not newer
+    assertFalse(checker.isNewerVersion("1.1.170", "1.1.170.1"))
+  }
+
   @Test
   fun `fetchLatestRelease parses JSON correctly`() = runBlocking {
     val json =

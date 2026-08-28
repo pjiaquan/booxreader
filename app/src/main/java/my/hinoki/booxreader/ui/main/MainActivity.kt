@@ -684,22 +684,41 @@ class MainActivity : BaseActivity() {
                 ))
         if (!settings.autoCheckUpdates) return
 
+        val updatePrefs = getSharedPreferences("update_prefs", MODE_PRIVATE)
+
+        // Throttle: only check once every 24 hours.
+        val lastCheckedMs = updatePrefs.getLong("last_checked_ms", 0L)
+        val now = System.currentTimeMillis()
+        if (now - lastCheckedMs < 24 * 60 * 60 * 1000L) return
+
         lifecycleScope.launch {
             val release = updateRepository.fetchLatestRelease() ?: return@launch
-            if (updateRepository.isNewerVersion(release.tagName)) {
-                showUpdateDialog(release)
-            }
+            updatePrefs.edit().putLong("last_checked_ms", System.currentTimeMillis()).apply()
+
+            if (!updateRepository.isNewerVersion(release.tagName)) return@launch
+
+            // Skip if the user already dismissed this exact release version.
+            val skippedTag = updatePrefs.getString("skipped_tag", null)
+            if (skippedTag == release.tagName) return@launch
+
+            showUpdateDialog(release)
         }
     }
 
     private fun showUpdateDialog(release: GitHubRelease) {
+        val updatePrefs = getSharedPreferences("update_prefs", MODE_PRIVATE)
         androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(getString(R.string.update_available_title))
                 .setMessage(getString(R.string.update_new_version_available, release.tagName))
                 .setPositiveButton(getString(R.string.update_action_download_and_install)) { _, _ ->
+                    // Clear any skip so user doesn't get stuck if install failed.
+                    updatePrefs.edit().remove("skipped_tag").apply()
                     downloadAndInstallUpdate(release)
                 }
-                .setNegativeButton(getString(R.string.update_action_later), null)
+                .setNegativeButton(getString(R.string.update_action_later)) { _, _ ->
+                    // Remember this tag — don't nag again until a newer release appears.
+                    updatePrefs.edit().putString("skipped_tag", release.tagName).apply()
+                }
                 .show()
     }
 

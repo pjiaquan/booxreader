@@ -38,11 +38,12 @@ class GitHubUpdateChecker(
 
     fun isNewerVersion(remoteTagName: String, currentVersion: String): Boolean {
         val remoteVersion = remoteTagName.removePrefix("v").trim()
+        val localVersion  = currentVersion.trim()
 
-        // Simple version comparison logic
+        // Parse each dotted segment as an integer for a proper numeric comparison.
         return try {
-            val currentParts = currentVersion.split(".").map { it.toInt() }
-            val remoteParts = remoteVersion.split(".").map { it.toInt() }
+            val currentParts = localVersion.split(".").map { it.toInt() }
+            val remoteParts  = remoteVersion.split(".").map { it.toInt() }
 
             for (i in 0 until minOf(currentParts.size, remoteParts.size)) {
                 if (remoteParts[i] > currentParts[i]) return true
@@ -50,8 +51,9 @@ class GitHubUpdateChecker(
             }
             remoteParts.size > currentParts.size
         } catch (e: Exception) {
-            // Fallback to string comparison if numeric fails
-            remoteVersion != currentVersion
+            // Cannot parse version numbers — conservatively assume no update needed
+            // to avoid a false-positive notification loop.
+            false
         }
     }
 }
