@@ -36,7 +36,8 @@ class ReaderSettingsTest {
 
     @Test
     fun testSafeIndexClampingForViewInsertion() {
-        // Simulates safeAddViewAt index calculation when dynamic views are inserted into layouts with arbitrary child counts
+        // Guards the index-clamping invariant used when inserting views into
+        // layouts with arbitrary child counts.
         val initialChildCount = 5
 
         val desiredIndices = listOf(0, 1, 2, 3, 4, 10, 100)
