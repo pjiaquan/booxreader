@@ -608,10 +608,8 @@ class ReaderSettingsActivity : BaseActivity() {
             ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
         }
         val darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
-        val textColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
-            else -> if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
-        }
+        val textColor =
+            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
         return buttonStyle(
             fillColor = accentColor,
             textColor = textColor,

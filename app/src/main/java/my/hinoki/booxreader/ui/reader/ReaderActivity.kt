@@ -1086,15 +1086,15 @@ class ReaderActivity : BaseActivity() {
 
         val backgroundColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.NORMAL -> Color.parseColor("#F8F6F3")
+                    ContrastMode.DARK -> Color.parseColor("#1A1817")
                     ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         val textColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+                    ContrastMode.NORMAL -> Color.parseColor("#2C2A28")
+                    ContrastMode.DARK -> Color.parseColor("#F0EDEA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }

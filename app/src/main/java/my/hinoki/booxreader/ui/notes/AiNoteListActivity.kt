@@ -348,15 +348,15 @@ class AiNoteListActivity : BaseActivity() {
     private fun applyContrastMode(mode: ContrastMode) {
         listBackgroundColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+                    ContrastMode.DARK -> Color.parseColor("#1A1817")
                     ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         listTextColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+                    ContrastMode.NORMAL -> Color.parseColor("#201E1D")
+                    ContrastMode.DARK -> Color.parseColor("#F0EDEA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }

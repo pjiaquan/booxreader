@@ -355,8 +355,8 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun applyContrastMode(mode: ContrastMode) {
         val backgroundColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+                    ContrastMode.DARK -> Color.parseColor("#1A1817")
                     ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
@@ -375,8 +375,8 @@ class AiNoteDetailActivity : BaseActivity() {
                 }
         val textColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+                    ContrastMode.NORMAL -> Color.parseColor("#201E1D")
+                    ContrastMode.DARK -> Color.parseColor("#F0EDEA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
@@ -450,18 +450,13 @@ class AiNoteDetailActivity : BaseActivity() {
     ) {
         val accentColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
-                    ContrastMode.DARK -> Color.parseColor("#86AEEA")
+                    ContrastMode.NORMAL -> Color.parseColor("#EC3013")
+                    ContrastMode.DARK -> Color.parseColor("#EC3013")
                     ContrastMode.SEPIA -> Color.parseColor("#8A6740")
                     ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
                 }
         val primaryTextColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
-                    else ->
-                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
-                            else Color.WHITE
-                }
+                if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
         val primaryStyle =
                 buttonStyle(
                         fillColor = accentColor,
@@ -479,11 +474,7 @@ class AiNoteDetailActivity : BaseActivity() {
         val secondaryStyle =
                 buttonStyle(
                         fillColor = secondaryFill,
-                        textColor =
-                                when (mode) {
-                                    ContrastMode.NORMAL -> Color.parseColor("#16324F")
-                                    else -> textColor
-                                },
+                        textColor = textColor,
                         backgroundColor = backgroundColor,
                         darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST,
                         strokeColor =
@@ -514,7 +505,7 @@ class AiNoteDetailActivity : BaseActivity() {
                                         if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 72
                                         else 44
                                 ),
-                        cornerRadiusDp = 20f
+                        cornerRadiusDp = 0f
                 )
     }
 
@@ -608,7 +599,7 @@ class AiNoteDetailActivity : BaseActivity() {
     private fun createRoundedBackground(
             fillColor: Int,
             strokeColor: Int,
-            cornerRadiusDp: Float = 14f
+            cornerRadiusDp: Float = 0f
     ): GradientDrawable {
         val strokeWidthPx = (resources.displayMetrics.density * 1f).roundToInt().coerceAtLeast(1)
         return GradientDrawable().apply {
@@ -1707,7 +1698,7 @@ class AiNoteDetailActivity : BaseActivity() {
                                     .apply {
                                         if (index > 0) topMargin = dp(12)
                                     }
-                    radius = dp(18).toFloat()
+                    radius = 0f
                     strokeWidth = dp(1)
                     strokeColor = palette.cardBorder
                     cardElevation = dp(0).toFloat()
@@ -1918,7 +1909,7 @@ class AiNoteDetailActivity : BaseActivity() {
                                             LinearLayout.LayoutParams.WRAP_CONTENT
                                     )
                                     .apply { topMargin = dp(14) }
-                    radius = dp(16).toFloat()
+                    radius = 0f
                     strokeWidth = dp(1)
                     strokeColor = ColorUtils.setAlphaComponent(palette.cardBorder, 180)
                     cardElevation = 0f
