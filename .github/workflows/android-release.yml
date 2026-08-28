@@ -12,9 +12,25 @@ on:
         type: string
 
 jobs:
+  # Compute the release tag in a step output. Referencing inputs/github contexts
+  # directly inside a reusable-workflow `with:` is invalid for a workflow that
+  # also triggers on `push` (where the `inputs` context does not exist), which
+  # caused the whole workflow to be rejected with `startup_failure`. Passing it
+  # via a job output mirrors the proven daily-release.yml pattern.
+  prep:
+    name: Resolve release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - name: Resolve tag
+        id: resolve
+        run: echo "tag=${{ inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
   release:
     name: Build & publish release
+    needs: prep
     uses: ./.github/workflows/release-build.yml
     with:
-      tag: ${{ inputs.tag || github.ref_name }}
+      tag: ${{ needs.prep.outputs.tag }}
     secrets: inherit
