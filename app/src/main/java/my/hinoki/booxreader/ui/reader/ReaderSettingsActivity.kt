@@ -631,9 +631,19 @@ class ReaderSettingsActivity : BaseActivity() {
         val baseBottom = footer.paddingBottom
         val baseTopToolbar = toolbar?.paddingTop ?: 0
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
-            val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            footer.updatePadding(bottom = baseBottom + systemBars.bottom)
-            toolbar?.updatePadding(top = baseTopToolbar + systemBars.top)
+            // Cover the status bar AND any display cutout (notch/punch-hole),
+            // which on many devices is taller than the reported status-bar inset
+            // and would otherwise clip the nav-header title (edge-to-edge).
+            val topInset = maxOf(
+                windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top,
+                windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
+            )
+            val bottomInset = maxOf(
+                windowInsets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom,
+                windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout()).bottom
+            )
+            footer.updatePadding(bottom = baseBottom + bottomInset)
+            toolbar?.updatePadding(top = baseTopToolbar + topInset)
             windowInsets
         }
         ViewCompat.requestApplyInsets(root)
