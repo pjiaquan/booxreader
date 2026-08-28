@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modernist 2dp slider track (design spec: 2dp track, fill text color, rest divider) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <size android:height="2dp" />
+            <solid android:color="@color/divider_major" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <size android:height="2dp" />
+                <solid android:color="@color/text_primary" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

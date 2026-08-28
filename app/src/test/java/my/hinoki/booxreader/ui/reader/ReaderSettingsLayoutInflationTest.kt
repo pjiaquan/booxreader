@@ -69,11 +69,13 @@ class ReaderSettingsLayoutInflationTest {
     }
 
     /**
-     * Verify that all MaterialCardView instances in the inflated layout have
-     * a non-null strokeColor (i.e. the color reference resolved successfully).
+     * Verify the Modernist redesign: the settings layout must no longer use
+     * rounded MaterialCardView containers (design spec: 0dp corner radius,
+     * flat surfaces with 1dp/2dp architectural rules). Any remaining card
+     * would violate the handoff spec and must be caught here.
      */
     @Test
-    fun materialCardViews_haveValidStrokeColor() {
+    fun modernistLayout_isCardFree() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val themedContext = ContextThemeWrapper(context, R.style.AppTheme_ReaderSettings)
 
@@ -85,19 +87,20 @@ class ReaderSettingsLayoutInflationTest {
         collectViews(rootView, MaterialCardView::class.java, cardViews)
 
         assertTrue(
-            "Should find at least one MaterialCardView in the layout",
-            cardViews.isNotEmpty()
+            "Modernist settings redesign must not contain MaterialCardView " +
+                "(flat surfaces, 0dp radius per design handoff)",
+            cardViews.isEmpty()
         )
 
-        for (card in cardViews) {
-            // strokeColorStateList is non-null if the color resolved correctly
-            assertNotNull(
-                "MaterialCardView strokeColor should resolve to a valid " +
-                    "ColorStateList (was the card inflated with " +
-                    "?android:attr/listDivider which is a drawable, not a color?)",
-                card.strokeColorStateList
-            )
-        }
+        // Core Modernist controls must still inflate: square toggle + slider
+        assertNotNull(
+            "Square toggle (Widget.App.Switch.Modernist) should inflate",
+            rootView.findViewById<View>(R.id.switchPageTap)
+        )
+        assertNotNull(
+            "Font size slider should inflate",
+            rootView.findViewById<View>(R.id.seekBarTextSize)
+        )
     }
 
     /**

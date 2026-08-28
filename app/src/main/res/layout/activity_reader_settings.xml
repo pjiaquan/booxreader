@@ -1,23 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Reader Settings — full-screen shell (Modernist redesign, handoff screen 1g).
+    56dp nav header with 2dp bottom rule, flat content, 52dp footer actions.
+    Runtime colors are re-applied per selected reading theme by
+    ReaderSettingsActivity.applySettingsChrome().
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/readerSettingsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="?attr/colorSurface">
+    android:background="@color/background"
+    android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbarSettings"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?attr/actionBarSize"
-        android:background="?attr/colorSurface"
+        android:layout_height="56dp"
+        android:background="@color/background"
         android:elevation="0dp"
-        app:title="@string/reader_settings_title"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:navigationIconTint="?attr/colorOnSurface"
-        app:titleTextColor="?attr/colorOnSurface" />
+        app:navigationIconTint="@color/text_primary"
+        app:title="@string/reader_settings_title"
+        app:titleTextAppearance="@style/TextAppearance.App.NavHeader"
+        app:titleTextColor="@color/text_primary" />
+
+    <View
+        android:id="@+id/toolbarDivider"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="@color/divider_major" />
 
     <include
         android:id="@+id/settingsContent"
@@ -29,42 +41,41 @@
     <View
         android:id="@+id/settingsFooterDivider"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="?android:attr/listDivider" />
+        android:layout_height="2dp"
+        android:background="@color/divider_major" />
 
     <LinearLayout
         android:id="@+id/settingsFooter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurface"
-        android:elevation="8dp"
+        android:background="@color/surface"
         android:orientation="horizontal"
-        android:paddingStart="@dimen/spacing_xl"
-        android:paddingTop="@dimen/spacing_md"
-        android:paddingEnd="@dimen/spacing_xl"
-        android:paddingBottom="@dimen/spacing_md">
+        android:paddingStart="24dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="12dp">
 
         <Button
             android:id="@+id/btnSettingsCancel"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/Widget.App.Button.Outlined"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="@dimen/settings_button_height"
+            android:minHeight="52dp"
             android:text="@android:string/cancel"
             android:textAllCaps="false" />
 
         <Space
-            android:layout_width="@dimen/settings_split_spacing"
+            android:layout_width="12dp"
             android:layout_height="wrap_content" />
 
         <Button
             android:id="@+id/btnSettingsSave"
-            style="@style/Widget.MaterialComponents.Button"
+            style="@style/Widget.App.Button.Primary"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="@dimen/settings_button_height"
+            android:minHeight="52dp"
             android:text="@android:string/ok"
             android:textAllCaps="false" />
     </LinearLayout>

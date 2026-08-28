@@ -14,7 +14,6 @@ import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Patterns
-import android.util.TypedValue
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -298,7 +297,8 @@ class ReaderSettingsActivity : BaseActivity() {
         val btnSepia = root.findViewById<Button>(R.id.btnThemeSepia) ?: return
         val btnHighContrast = root.findViewById<Button>(R.id.btnThemeHighContrast) ?: return
 
-        val activeBorderColor = Color.parseColor("#007AFF")
+        // Modernist: active border is the accent red, 0 radius, 2dp/1dp strokes
+        val activeBorderColor = Color.parseColor("#EC3013")
 
         fun styleThemeOptionButton(
             button: Button,
@@ -308,14 +308,13 @@ class ReaderSettingsActivity : BaseActivity() {
             unselectedBorder: Int
         ) {
             val stroke = if (isSelected) activeBorderColor else unselectedBorder
-            val strokeWidth = if (isSelected) 4 else 1
+            val strokeWidthPx =
+                (resources.displayMetrics.density * (if (isSelected) 2f else 1f)).toInt().coerceAtLeast(1)
             val drawable = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_DIP, 8f, root.resources.displayMetrics
-                )
+                cornerRadius = 0f
                 setColor(bg)
-                setStroke(strokeWidth, stroke)
+                setStroke(strokeWidthPx, stroke)
             }
             button.backgroundTintList = null
             button.background = drawable
@@ -324,32 +323,32 @@ class ReaderSettingsActivity : BaseActivity() {
 
         styleThemeOptionButton(
             btnNormal,
-            bg = Color.parseColor("#F8F9FA"),
-            txt = Color.parseColor("#1C1C1E"),
+            bg = Color.parseColor("#F8F6F3"),
+            txt = Color.parseColor("#201E1D"),
             isSelected = (mode == ContrastMode.NORMAL),
-            unselectedBorder = Color.parseColor("#D1D1D6")
+            unselectedBorder = Color.parseColor("#D4D0CD")
         )
 
         styleThemeOptionButton(
             btnDark,
-            bg = Color.parseColor("#1C1C1E"),
-            txt = Color.parseColor("#FFFFFF"),
+            bg = Color.parseColor("#1A1817"),
+            txt = Color.parseColor("#F0EDEA"),
             isSelected = (mode == ContrastMode.DARK),
-            unselectedBorder = Color.parseColor("#38383A")
+            unselectedBorder = Color.parseColor("#38332F")
         )
 
         styleThemeOptionButton(
             btnSepia,
-            bg = Color.parseColor("#F4ECD8"),
-            txt = Color.parseColor("#4A3B2C"),
+            bg = Color.parseColor("#F4EDE0"),
+            txt = Color.parseColor("#3D2B1F"),
             isSelected = (mode == ContrastMode.SEPIA),
             unselectedBorder = Color.parseColor("#DCD0BA")
         )
 
         styleThemeOptionButton(
             btnHighContrast,
-            bg = Color.parseColor("#000000"),
-            txt = Color.parseColor("#FFFFFF"),
+            bg = Color.parseColor("#FFFFFF"),
+            txt = Color.parseColor("#000000"),
             isSelected = (mode == ContrastMode.HIGH_CONTRAST),
             unselectedBorder = Color.parseColor("#48484A")
         )
@@ -465,15 +464,17 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun applySettingsPageTheme(root: View, mode: ContrastMode) {
+        // Modernist palette: light bg #F3F2F2 / text #201E1D,
+        // dark bg #1A1817 / text #F0EDEA, accent #EC3013.
         val backgroundColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+            ContrastMode.DARK -> Color.parseColor("#1A1817")
             ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
             ContrastMode.HIGH_CONTRAST -> Color.BLACK
         }
         val textColor = when (mode) {
-            ContrastMode.NORMAL -> Color.BLACK
-            ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+            ContrastMode.NORMAL -> Color.parseColor("#201E1D")
+            ContrastMode.DARK -> Color.parseColor("#F0EDEA")
             ContrastMode.SEPIA -> Color.parseColor("#5B4636")
             ContrastMode.HIGH_CONTRAST -> Color.WHITE
         }
@@ -481,18 +482,23 @@ class ReaderSettingsActivity : BaseActivity() {
             textColor,
             if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190 else 140
         )
-        val dividerColor = ColorUtils.setAlphaComponent(
-            textColor,
-            if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 90 else 60
-        )
+        val labelColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#9A9490")
+            ContrastMode.DARK -> Color.parseColor("#5A5550")
+            ContrastMode.SEPIA -> ColorUtils.blendARGB(backgroundColor, textColor, 0.35f)
+            ContrastMode.HIGH_CONTRAST -> textColor
+        }
+        val dividerColor = when (mode) {
+            ContrastMode.NORMAL -> Color.parseColor("#D4D0CD")
+            ContrastMode.DARK -> Color.parseColor("#38332F")
+            ContrastMode.SEPIA -> Color.parseColor("#CCBCA0")
+            ContrastMode.HIGH_CONTRAST -> Color.WHITE
+        }
         val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
         val secondaryFill = ColorUtils.blendARGB(backgroundColor, textColor, if (isDarkMode) 0.22f else 0.11f)
         val secondaryStyle = buttonStyle(
             fillColor = secondaryFill,
-            textColor = when (mode) {
-                ContrastMode.NORMAL -> Color.parseColor("#16324F")
-                else -> textColor
-            },
+            textColor = textColor,
             backgroundColor = backgroundColor,
             darkMode = isDarkMode,
             strokeColor = ColorUtils.setAlphaComponent(textColor, if (isDarkMode) 80 else 56)
@@ -502,7 +508,7 @@ class ReaderSettingsActivity : BaseActivity() {
 
         val cardBgColor = when (mode) {
             ContrastMode.NORMAL -> Color.parseColor("#FFFFFF")
-            ContrastMode.DARK -> Color.parseColor("#1E1E1E")
+            ContrastMode.DARK -> Color.parseColor("#252220")
             ContrastMode.SEPIA -> Color.parseColor("#F7EFE0")
             ContrastMode.HIGH_CONTRAST -> Color.parseColor("#121212")
         }
@@ -537,7 +543,11 @@ class ReaderSettingsActivity : BaseActivity() {
                     view.setTextColor(textColor)
                 }
                 is TextView -> {
-                    view.setTextColor(textColor)
+                    if (view.tag == "section_label") {
+                        view.setTextColor(labelColor)
+                    } else {
+                        view.setTextColor(textColor)
+                    }
                 }
                 is SeekBar -> {
                     view.progressTintList = ColorStateList.valueOf(textColor)
@@ -605,14 +615,14 @@ class ReaderSettingsActivity : BaseActivity() {
 
     private fun primarySettingsButtonStyle(mode: ContrastMode): ButtonVisualStyle {
         val backgroundColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+            ContrastMode.DARK -> Color.parseColor("#1A1817")
             ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
             ContrastMode.HIGH_CONTRAST -> Color.BLACK
         }
         val accentColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
-            ContrastMode.DARK -> Color.parseColor("#86AEEA")
+            ContrastMode.NORMAL -> Color.parseColor("#EC3013")
+            ContrastMode.DARK -> Color.parseColor("#EC3013")
             ContrastMode.SEPIA -> Color.parseColor("#8A6740")
             ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
         }
@@ -650,32 +660,36 @@ class ReaderSettingsActivity : BaseActivity() {
     }
 
     private fun applySettingsChrome(mode: ContrastMode) {
+        // Modernist chrome: light #F3F2F2 page / #FFFFFF surface,
+        // dark #1A1817 page / #201E1D bar / #252220 surface.
         val pageColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#F8F9FB")
-            ContrastMode.DARK -> Color.parseColor("#0B0E13")
-            ContrastMode.SEPIA -> Color.parseColor("#F0E6D3")
+            ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+            ContrastMode.DARK -> Color.parseColor("#1A1817")
+            ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
             ContrastMode.HIGH_CONTRAST -> Color.BLACK
         }
         val barColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#EEF1F5")
-            ContrastMode.DARK -> Color.parseColor("#0A0D12")
+            ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+            ContrastMode.DARK -> Color.parseColor("#201E1D")
             ContrastMode.SEPIA -> Color.parseColor("#E7D9BF")
             ContrastMode.HIGH_CONTRAST -> Color.BLACK
         }
         val footerColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#F2F4F8")
-            ContrastMode.DARK -> Color.parseColor("#0E1217")
+            ContrastMode.NORMAL -> Color.parseColor("#FFFFFF")
+            ContrastMode.DARK -> Color.parseColor("#252220")
             ContrastMode.SEPIA -> Color.parseColor("#EBDDCA")
             ContrastMode.HIGH_CONTRAST -> Color.BLACK
         }
         val dividerColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#D9DEE6")
-            ContrastMode.DARK -> Color.parseColor("#26303A")
+            ContrastMode.NORMAL -> Color.parseColor("#D4D0CD")
+            ContrastMode.DARK -> Color.parseColor("#38332F")
             ContrastMode.SEPIA -> Color.parseColor("#CCBCA0")
             ContrastMode.HIGH_CONTRAST -> Color.WHITE
         }
 
         findViewById<View>(R.id.readerSettingsRoot).setBackgroundColor(pageColor)
+        findViewById<View>(R.id.toolbarSettings).setBackgroundColor(barColor)
+        findViewById<View>(R.id.toolbarDivider).setBackgroundColor(dividerColor)
         findViewById<View>(R.id.settingsFooter).setBackgroundColor(footerColor)
         findViewById<View>(R.id.settingsFooterDivider).setBackgroundColor(dividerColor)
         styleFooterButtons(mode)
@@ -703,28 +717,25 @@ class ReaderSettingsActivity : BaseActivity() {
         val cancel = findViewById<Button>(R.id.btnSettingsCancel)
         val save = findViewById<Button>(R.id.btnSettingsSave)
         val backgroundColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-            ContrastMode.DARK -> Color.parseColor("#121212")
+            ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+            ContrastMode.DARK -> Color.parseColor("#1A1817")
             ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
             ContrastMode.HIGH_CONTRAST -> Color.BLACK
         }
         val textColor = when (mode) {
-            ContrastMode.NORMAL -> Color.BLACK
-            ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+            ContrastMode.NORMAL -> Color.parseColor("#201E1D")
+            ContrastMode.DARK -> Color.parseColor("#F0EDEA")
             ContrastMode.SEPIA -> Color.parseColor("#5B4636")
             ContrastMode.HIGH_CONTRAST -> Color.WHITE
         }
         val isDarkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
         val accentColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
-            ContrastMode.DARK -> Color.parseColor("#86AEEA")
+            ContrastMode.NORMAL -> Color.parseColor("#EC3013")
+            ContrastMode.DARK -> Color.parseColor("#EC3013")
             ContrastMode.SEPIA -> Color.parseColor("#8A6740")
             ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
         }
-        val primaryTextColor = when (mode) {
-            ContrastMode.NORMAL -> Color.parseColor("#F8FBFF")
-            else -> if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
-        }
+        val primaryTextColor = if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK else Color.WHITE
         val primaryStyle = buttonStyle(
             fillColor = accentColor,
             textColor = primaryTextColor,
@@ -734,10 +745,7 @@ class ReaderSettingsActivity : BaseActivity() {
         val secondaryFill = ColorUtils.blendARGB(backgroundColor, textColor, if (isDarkMode) 0.22f else 0.11f)
         val secondaryStyle = buttonStyle(
             fillColor = secondaryFill,
-            textColor = when (mode) {
-                ContrastMode.NORMAL -> Color.parseColor("#16324F")
-                else -> textColor
-            },
+            textColor = textColor,
             backgroundColor = backgroundColor,
             darkMode = isDarkMode,
             strokeColor = ColorUtils.setAlphaComponent(textColor, if (isDarkMode) 80 else 56)
@@ -927,7 +935,7 @@ class ReaderSettingsActivity : BaseActivity() {
     private fun createRoundedBackground(
         fillColor: Int,
         strokeColor: Int,
-        cornerRadiusDp: Float = 14f
+        cornerRadiusDp: Float = 0f
     ): GradientDrawable {
         val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
         return GradientDrawable().apply {

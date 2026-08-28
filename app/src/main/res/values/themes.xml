@@ -197,6 +197,14 @@
         <item name="android:letterSpacing">0.12</item>
     </style>
 
+    <!-- Nav header title: 18sp, 700 weight (design spec: Screen title) -->
+    <style name="TextAppearance.App.NavHeader" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
     <!-- Card title -->
     <style name="TextAppearance.App.CardTitle" parent="TextAppearance.MaterialComponents.Subtitle1">
         <item name="android:textSize">15sp</item>

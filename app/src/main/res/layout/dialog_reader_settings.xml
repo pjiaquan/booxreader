@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Reader Settings content — Modernist redesign (handoff screen 1g / 3g).
+    Flat surfaces, 0dp radius, 2dp/1dp architectural rules, square toggles,
+    ALL-CAPS section kickers, 52dp rows. All runtime colors (text, dividers,
+    backgrounds) are re-applied per selected reading theme by
+    ReaderSettingsActivity.applySettingsPageTheme().
+-->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/settingsScroll"
@@ -11,1185 +18,964 @@
         android:id="@+id/settingsMainContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="@dimen/spacing_lg"
-        android:paddingTop="@dimen/spacing_md"
-        android:paddingEnd="@dimen/spacing_lg"
-        android:paddingBottom="@dimen/settings_content_bottom_spacing">
+        android:orientation="vertical">
 
-        <!-- ======================= 1. Account & Profiles ======================= -->
+        <!-- ======================= 1. READING & DISPLAY ======================= -->
         <TextView
             style="@style/TextAppearance.App.SectionLabel"
             android:layout_width="wrap_content"
+            android:tag="section_label"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
-            android:text="@string/reader_settings_cat_account" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingBottom="@dimen/spacing_md">
-
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_cat_account"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_person"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_cat_account" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btnUserProfile"
-                        style="@style/Widget.App.Button.Outlined"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_user_profile"
-                        android:textAllCaps="false" />
-
-                    <Space
-                        android:layout_width="@dimen/spacing_sm"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btnAiProfiles"
-                        style="@style/Widget.App.Button.Outlined"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_ai_profiles"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ======================= 2. Reading & Theme ======================= -->
-        <TextView
-            style="@style/TextAppearance.App.SectionLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
-            android:text="@string/reader_settings_theme_title" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingBottom="@dimen/spacing_md">
-
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_theme_title"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_palette"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_theme_title" />
-                </LinearLayout>
-
-                <!-- Theme Selection Button Grid -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_sm"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btnThemeNormal"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_theme_normal"
-                        android:textAllCaps="false" />
-
-                    <Space
-                        android:layout_width="@dimen/spacing_xs"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btnThemeDark"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_theme_dark"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:orientation="horizontal">
-
-                    <Button
-                        android:id="@+id/btnThemeSepia"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_theme_sepia"
-                        android:textAllCaps="false" />
-
-                    <Space
-                        android:layout_width="@dimen/spacing_xs"
-                        android:layout_height="wrap_content" />
-
-                    <Button
-                        android:id="@+id/btnThemeHighContrast"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_theme_high_contrast"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Font Size Slider -->
-                <TextView
-                    style="@style/TextAppearance.App.Hint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_xs"
-                    android:text="@string/reader_settings_font_size" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <SeekBar
-                        android:id="@+id/seekBarTextSize"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:max="250"
-                        android:progress="90" />
-
-                    <TextView
-                        android:id="@+id/tvTextSizeValue"
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="@dimen/spacing_sm"
-                        android:text="140%" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ======================= 3. Reading & Page Turning ======================= -->
-        <TextView
-            style="@style/TextAppearance.App.SectionLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
+            android:layout_marginStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
             android:text="@string/reader_settings_cat_reading" />
 
-        <com.google.android.material.card.MaterialCardView
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Reading Theme — 2x2 grid of 40dp square theme buttons -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="@dimen/spacing_sm">
-
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_cat_reading"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_touch_app"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_cat_reading" />
-                </LinearLayout>
-
-                <!-- Tap to turn -->
-                <LinearLayout
-                    android:id="@+id/rowPageTap"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_tap_to_turn" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchPageTap"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Swipe to turn -->
-                <LinearLayout
-                    android:id="@+id/rowPageSwipe"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_swipe_to_turn" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchPageSwipe"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Page Animation -->
-                <LinearLayout
-                    android:id="@+id/rowPageAnimation"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_page_animation" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchPageAnimation"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Show Page Indicator -->
-                <LinearLayout
-                    android:id="@+id/rowPageIndicator"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_show_page_indicator" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchPageIndicator"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Convert Chinese -->
-                <LinearLayout
-                    android:id="@+id/rowConvertChinese"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_convert_chinese" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchConvertChinese"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ======================= 4. Language ======================= -->
-        <TextView
-            style="@style/TextAppearance.App.SectionLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
-            android:text="@string/reader_settings_language_title" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="@dimen/spacing_sm">
-
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_language_title"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_language"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_language_title" />
-                </LinearLayout>
-
-                <!-- System Default Row -->
-                <LinearLayout
-                    android:id="@+id/rowLangSystem"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="52dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_lang_system" />
-
-                    <ImageView
-                        android:id="@+id/ivCheckLangSystem"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="@string/reader_settings_lang_selected"
-                        android:src="@drawable/ic_check_24"
-                        android:tag="check_icon" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- English Row -->
-                <LinearLayout
-                    android:id="@+id/rowLangEnglish"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="52dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_lang_english" />
-
-                    <ImageView
-                        android:id="@+id/ivCheckLangEnglish"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="@string/reader_settings_lang_selected"
-                        android:src="@drawable/ic_check_24"
-                        android:tag="check_icon"
-                        android:visibility="gone" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Chinese Row -->
-                <LinearLayout
-                    android:id="@+id/rowLangChinese"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="52dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="@dimen/spacing_xs">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_lang_chinese" />
-
-                    <ImageView
-                        android:id="@+id/ivCheckLangChinese"
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:contentDescription="@string/reader_settings_lang_selected"
-                        android:src="@drawable/ic_check_24"
-                        android:tag="check_icon"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ======================= 5. AI & Cloud Sync ======================= -->
-        <TextView
-            style="@style/TextAppearance.App.SectionLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
-            android:text="@string/reader_settings_cat_ai_cloud" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingBottom="@dimen/spacing_sm">
-
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_cat_ai_cloud"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_auto_awesome"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_cat_ai_cloud" />
-                </LinearLayout>
-
-                <TextView
-                    style="@style/TextAppearance.App.Hint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:text="@string/reader_settings_ai_section_body" />
+                android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/btnManageMagicTags"
-                    style="@style/Widget.MaterialComponents.Button"
-                    android:layout_width="match_parent"
+                    android:id="@+id/btnThemeNormal"
+                    style="@style/Widget.App.Button.Outlined"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:minHeight="@dimen/settings_button_height"
-                    android:text="@string/action_manage_magic_tags"
-                    android:textAllCaps="false" />
+                    android:layout_weight="1"
+                    android:minHeight="40dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/reader_settings_theme_normal"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
-                <TextView
-                    style="@style/TextAppearance.App.Hint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_xs"
-                    android:text="@string/reader_settings_server_url" />
+                <Space
+                    android:layout_width="8dp"
+                    android:layout_height="wrap_content" />
 
-                <EditText
-                    android:id="@+id/etServerUrl"
-                    android:layout_width="match_parent"
+                <Button
+                    android:id="@+id/btnThemeDark"
+                    style="@style/Widget.App.Button.Outlined"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:hint="@string/reader_settings_server_url_hint"
-                    android:inputType="textUri"
-                    android:padding="12dp"
-                    android:textSize="14sp" />
-
-                <TextView
-                    style="@style/TextAppearance.App.Hint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_xs"
-                    android:text="@string/reader_settings_api_key" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:endIconMode="password_toggle">
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etApiKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:autofillHints="password"
-                        android:hint="@string/reader_settings_api_key_hint"
-                        android:inputType="textPassword"
-                        android:textSize="14sp" />
-                </com.google.android.material.textfield.TextInputLayout>
+                    android:layout_weight="1"
+                    android:minHeight="40dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/reader_settings_theme_dark"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
-        <!-- ======================= 6. Daily Digest ======================= -->
+            <Space
+                android:layout_width="wrap_content"
+                android:layout_height="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnThemeSepia"
+                    style="@style/Widget.App.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="40dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/reader_settings_theme_sepia"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Space
+                    android:layout_width="8dp"
+                    android:layout_height="wrap_content" />
+
+                <Button
+                    android:id="@+id/btnThemeHighContrast"
+                    style="@style/Widget.App.Button.Outlined"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="40dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/reader_settings_theme_high_contrast"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
+
+        <!-- Font Size row: label + custom 2dp slider + value -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/reader_settings_font_size" />
+
+            <SeekBar
+                android:id="@+id/seekBarTextSize"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:max="250"
+                android:progress="90"
+                android:minHeight="24dp"
+                android:progressDrawable="@drawable/bg_seekbar_progress"
+                android:thumb="@drawable/bg_seekbar_thumb"
+                android:progressTint="@color/text_primary"
+                android:progressBackgroundTint="@color/divider_major" />
+
+            <TextView
+                android:id="@+id/tvTextSizeValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="140%"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
+
+        <!-- Tap to Turn Page -->
+        <LinearLayout
+            android:id="@+id/rowPageTap"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_tap_to_turn" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchPageTap"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Swipe to Turn -->
+        <LinearLayout
+            android:id="@+id/rowPageSwipe"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_swipe_to_turn" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchPageSwipe"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Page Animation -->
+        <LinearLayout
+            android:id="@+id/rowPageAnimation"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_page_animation" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchPageAnimation"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Show Page Indicator -->
+        <LinearLayout
+            android:id="@+id/rowPageIndicator"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_show_page_indicator" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchPageIndicator"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Simplified -> Traditional -->
+        <LinearLayout
+            android:id="@+id/rowConvertChinese"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_convert_chinese" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchConvertChinese"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- ======================= 2. LANGUAGE ======================= -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
+
         <TextView
             style="@style/TextAppearance.App.SectionLabel"
             android:layout_width="wrap_content"
+            android:tag="section_label"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
+            android:layout_marginStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
+            android:text="@string/reader_settings_language_title" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- System Default -->
+        <LinearLayout
+            android:id="@+id/rowLangSystem"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_lang_system" />
+
+            <ImageView
+                android:id="@+id/ivCheckLangSystem"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/reader_settings_lang_selected"
+                android:src="@drawable/ic_check_24"
+                android:tag="check_icon"
+                android:tint="@color/text_primary" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- English -->
+        <LinearLayout
+            android:id="@+id/rowLangEnglish"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_lang_english" />
+
+            <ImageView
+                android:id="@+id/ivCheckLangEnglish"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/reader_settings_lang_selected"
+                android:src="@drawable/ic_check_24"
+                android:tag="check_icon"
+                android:tint="@color/text_primary"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Chinese -->
+        <LinearLayout
+            android:id="@+id/rowLangChinese"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_lang_chinese" />
+
+            <ImageView
+                android:id="@+id/ivCheckLangChinese"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/reader_settings_lang_selected"
+                android:src="@drawable/ic_check_24"
+                android:tag="check_icon"
+                android:tint="@color/text_primary"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- ======================= 3. AI & CLOUD SYNC ======================= -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
+
+        <TextView
+            style="@style/TextAppearance.App.SectionLabel"
+            android:layout_width="wrap_content"
+            android:tag="section_label"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
+            android:text="@string/reader_settings_cat_ai_cloud" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- AI Profiles -->
+        <Button
+            android:id="@+id/btnAiProfiles"
+            style="@style/Widget.App.Button.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="52dp"
+            android:gravity="start|center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:text="@string/reader_settings_ai_profiles"
+            android:textAllCaps="false" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Manage Magic Tags -->
+        <Button
+            android:id="@+id/btnManageMagicTags"
+            style="@style/Widget.App.Button.Primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="52dp"
+            android:text="@string/action_manage_magic_tags"
+            android:textAllCaps="false" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Server URL -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SectionLabel"
+                android:layout_width="wrap_content"
+                android:tag="section_label"
+                android:layout_height="wrap_content"
+                android:paddingBottom="4dp"
+                android:text="@string/reader_settings_server_url" />
+
+            <EditText
+                android:id="@+id/etServerUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_input_underline"
+                android:hint="@string/reader_settings_server_url_hint"
+                android:inputType="textUri"
+                android:minHeight="40dp"
+                android:paddingStart="0dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="0dp"
+                android:paddingBottom="8dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_tertiary"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- API Key -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SectionLabel"
+                android:layout_width="wrap_content"
+                android:tag="section_label"
+                android:layout_height="wrap_content"
+                android:paddingBottom="4dp"
+                android:text="@string/reader_settings_api_key" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.App.TextInputLayout.Underline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:endIconMode="password_toggle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etApiKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:autofillHints="password"
+                    android:hint="@string/reader_settings_api_key_hint"
+                    android:inputType="textPassword"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="16sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+
+        <!-- ======================= 4. DAILY READING DIGEST ======================= -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
+
+        <TextView
+            style="@style/TextAppearance.App.SectionLabel"
+            android:layout_width="wrap_content"
+            android:tag="section_label"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
             android:text="@string/reader_settings_cat_daily" />
 
-        <com.google.android.material.card.MaterialCardView
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Enable daily email -->
+        <LinearLayout
+            android:id="@+id/rowDailySummaryEmail"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_daily_email_enable" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchDailySummaryEmail"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Send time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_daily_email_time_label" />
+
+            <TextView
+                android:id="@+id/tvDailySummaryTimeValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:text="21:00"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnDailySummaryPickTime"
+                style="@style/Widget.App.Button.Outlined"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minHeight="40dp"
+                android:text="@string/reader_settings_daily_email_pick_time"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Recipient email -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="12dp">
 
-            <LinearLayout
+            <TextView
+                style="@style/TextAppearance.App.SectionLabel"
+                android:layout_width="wrap_content"
+                android:tag="section_label"
+                android:layout_height="wrap_content"
+                android:paddingBottom="4dp"
+                android:text="@string/reader_settings_daily_email_to_label" />
+
+            <EditText
+                android:id="@+id/etDailySummaryEmailTo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
+                android:autofillHints="emailAddress"
+                android:background="@drawable/bg_input_underline"
+                android:hint="@string/reader_settings_daily_email_to_hint"
+                android:inputType="textEmailAddress"
+                android:minHeight="40dp"
+                android:paddingStart="0dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="0dp"
+                android:paddingBottom="8dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_tertiary"
+                android:textSize="16sp" />
+        </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingBottom="@dimen/spacing_md">
+        <!-- ======================= 5. BOOKMARKS & EXPORT ======================= -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
 
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_cat_daily"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_mail"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_cat_daily" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/rowDailySummaryEmail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="52dp"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_daily_email_enable" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchDailySummaryEmail"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            style="@style/TextAppearance.App.Hint"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/reader_settings_daily_email_time_label" />
-
-                        <TextView
-                            android:id="@+id/tvDailySummaryTimeValue"
-                            style="@style/TextAppearance.App.CardTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/spacing_xs"
-                            android:text="21:00" />
-                    </LinearLayout>
-
-                    <Button
-                        android:id="@+id/btnDailySummaryPickTime"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_daily_email_pick_time"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-
-                <TextView
-                    style="@style/TextAppearance.App.Hint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="@dimen/spacing_xs"
-                    android:text="@string/reader_settings_daily_email_to_label" />
-
-                <EditText
-                    android:id="@+id/etDailySummaryEmailTo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:autofillHints="emailAddress"
-                    android:hint="@string/reader_settings_daily_email_to_hint"
-                    android:inputType="textEmailAddress"
-                    android:padding="12dp"
-                    android:textSize="14sp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ======================= 7. Bookmarks & Export ======================= -->
         <TextView
             style="@style/TextAppearance.App.SectionLabel"
             android:layout_width="wrap_content"
+            android:tag="section_label"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
+            android:layout_marginStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
             android:text="@string/reader_settings_cat_bookmarks_export" />
 
-        <com.google.android.material.card.MaterialCardView
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Add Bookmark / View Bookmarks -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/spacing_md"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="8dp">
 
-            <LinearLayout
+            <Button
+                android:id="@+id/btnSettingsAddBookmark"
+                style="@style/Widget.App.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="52dp"
+                android:text="@string/reader_settings_add_bookmark"
+                android:textAllCaps="false" />
+
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="wrap_content" />
+
+            <Button
+                android:id="@+id/btnSettingsShowBookmarks"
+                style="@style/Widget.App.Button.Outlined"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="52dp"
+                android:text="@string/reader_settings_view_bookmark"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Use custom export URL -->
+        <LinearLayout
+            android:id="@+id/rowCustomExport"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_custom_export_checkbox" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/cbCustomExportUrl"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Custom export URL input -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SectionLabel"
+                android:layout_width="wrap_content"
+                android:tag="section_label"
+                android:layout_height="wrap_content"
+                android:paddingBottom="4dp"
+                android:text="@string/reader_settings_custom_export_label" />
+
+            <EditText
+                android:id="@+id/etCustomExportUrl"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:background="@drawable/bg_input_underline"
+                android:enabled="false"
+                android:hint="@string/reader_settings_custom_export_hint"
+                android:inputType="textUri"
+                android:minHeight="40dp"
+                android:paddingStart="0dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="0dp"
+                android:paddingBottom="8dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_tertiary"
+                android:textSize="16sp" />
+        </LinearLayout>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="@dimen/spacing_md">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
 
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_cat_bookmarks_export"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_bookmark"
-                        android:tag="settings_icon" />
+        <!-- Save AI notes to Downloads -->
+        <LinearLayout
+            android:id="@+id/rowLocalExport"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
 
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_cat_bookmarks_export" />
-                </LinearLayout>
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_local_export_checkbox" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:layout_marginEnd="@dimen/spacing_lg"
-                    android:layout_marginBottom="@dimen/spacing_md"
-                    android:orientation="horizontal">
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/cbLocalExport"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
 
-                    <Button
-                        android:id="@+id/btnSettingsAddBookmark"
-                        style="@style/Widget.App.Button.Outlined"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_add_bookmark"
-                        android:textAllCaps="false" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
 
-                    <Space
-                        android:layout_width="@dimen/spacing_sm"
-                        android:layout_height="wrap_content" />
+        <!-- Test export endpoint -->
+        <Button
+            android:id="@+id/btnTestExportEndpoint"
+            style="@style/Widget.App.Button.Primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="8dp"
+            android:minHeight="52dp"
+            android:text="@string/reader_settings_test_export"
+            android:textAllCaps="false" />
 
-                    <Button
-                        android:id="@+id/btnSettingsShowBookmarks"
-                        style="@style/Widget.App.Button.Outlined"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_view_bookmark"
-                        android:textAllCaps="false" />
-                </LinearLayout>
+        <!-- ======================= 6. ACCOUNT ======================= -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
 
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Use Custom Export URL -->
-                <LinearLayout
-                    android:id="@+id/rowCustomExport"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_custom_export_checkbox" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/cbCustomExportUrl"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="@dimen/spacing_md">
-
-                    <TextView
-                        style="@style/TextAppearance.App.Hint"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="@dimen/spacing_xs"
-                        android:text="@string/reader_settings_custom_export_label" />
-
-                    <EditText
-                        android:id="@+id/etCustomExportUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:enabled="false"
-                        android:hint="@string/reader_settings_custom_export_hint"
-                        android:inputType="textUri"
-                        android:padding="12dp"
-                        android:textSize="14sp" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <!-- Save AI Notes to Downloads -->
-                <LinearLayout
-                    android:id="@+id/rowLocalExport"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="56dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="@dimen/spacing_lg"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="@dimen/spacing_lg"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_local_export_checkbox" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/cbLocalExport"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginStart="@dimen/spacing_lg"
-                    android:background="?android:attr/listDivider" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="@dimen/spacing_lg">
-
-                    <Button
-                        android:id="@+id/btnTestExportEndpoint"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="@dimen/settings_button_height"
-                        android:text="@string/reader_settings_test_export"
-                        android:textAllCaps="false" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ======================= 8. App Preferences ======================= -->
         <TextView
             style="@style/TextAppearance.App.SectionLabel"
             android:layout_width="wrap_content"
+            android:tag="section_label"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="6dp"
-            android:text="@string/reader_settings_cat_system" />
+            android:layout_marginStart="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
+            android:text="@string/reader_settings_cat_account" />
 
-        <com.google.android.material.card.MaterialCardView
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- User Profile -->
+        <Button
+            android:id="@+id/btnUserProfile"
+            style="@style/Widget.App.Button.Outlined"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp">
+            android:minHeight="52dp"
+            android:gravity="start|center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:text="@string/reader_settings_user_profile"
+            android:textAllCaps="false" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_major" />
+
+        <!-- Auto-check for updates -->
+        <LinearLayout
+            android:id="@+id/rowAutoCheckUpdates"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="@dimen/spacing_lg">
+                android:layout_weight="1"
+                android:text="@string/reader_settings_auto_check_updates" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingBottom="@dimen/spacing_sm">
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchAutoCheckUpdates"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
 
-                    <ImageView
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="@drawable/bg_icon_circle"
-                        android:contentDescription="@string/reader_settings_cat_system"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_update"
-                        android:tag="settings_icon" />
-
-                    <TextView
-                        style="@style/TextAppearance.App.CardTitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/reader_settings_cat_system" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/rowAutoCheckUpdates"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="52dp"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        style="@style/TextAppearance.App.SettingRow"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/reader_settings_auto_check_updates" />
-
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchAutoCheckUpdates"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:thumb="@drawable/ios_switch_thumb"
-                        android:track="@drawable/ios_switch_track"
-                        app:showText="false"
-                        app:splitTrack="false"
-                        app:switchMinWidth="51dp" />
-                </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@color/divider_major" />
 
         <!-- App Version Footer -->
         <TextView
             android:id="@+id/tvAppVersion"
-            style="@style/TextAppearance.App.Hint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_lg"
-            android:layout_marginBottom="@dimen/spacing_xl"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="32dp"
             android:gravity="center"
-            android:text="BooxReader" />
+            android:text="BooxReader"
+            android:textColor="@color/text_quaternary"
+            android:textSize="11sp" />
 
     </LinearLayout>
 </ScrollView>

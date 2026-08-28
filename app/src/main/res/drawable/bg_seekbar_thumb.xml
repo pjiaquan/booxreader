@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modernist square slider thumb: 14x14dp, 0 radius (design spec: Font Size row) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <size
+        android:width="14dp"
+        android:height="14dp" />
+    <solid android:color="@color/text_primary" />
+    <corners android:radius="0dp" />
+</shape>
