@@ -26,8 +26,14 @@ interface AiProfileDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(profile: AiProfileEntity): Long
     
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatch(profiles: List<AiProfileEntity>)
+
     @Update
     suspend fun update(profile: AiProfileEntity)
+
+    @Update
+    suspend fun updateBatch(profiles: List<AiProfileEntity>)
 
     @Delete
     suspend fun delete(profile: AiProfileEntity)

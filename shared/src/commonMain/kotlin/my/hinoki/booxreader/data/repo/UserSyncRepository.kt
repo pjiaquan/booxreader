@@ -1671,8 +1671,14 @@ class UserSyncRepository(
                                         cachedNotes.putAll(db.aiNoteDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
+                                val processedRemoteIds = mutableSetOf<String>()
+                                val notesToInsert = mutableListOf<AiNoteEntity>()
+                                val notesToUpdate = mutableListOf<AiNoteEntity>()
+
                                 for (item in items) {
                                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
+                                        if (!processedRemoteIds.add(remoteId)) continue // Skip duplicates in sync list
+
                                         val note =
                                                 AiNoteEntity(
                                                         remoteId = remoteId,
@@ -1697,15 +1703,29 @@ class UserSyncRepository(
 
                                         val existing = cachedNotes[remoteId]
                                         if (existing == null) {
-                                                val insertedId = db.aiNoteDao().insert(note)
-                                                cachedNotes[remoteId] = note.copy(id = insertedId)
+                                                notesToInsert.add(note)
                                                 syncedCount++
                                         } else if (note.updatedAt > existing.updatedAt) {
-                                                db.aiNoteDao().update(note.copy(id = existing.id))
-                                                cachedNotes[remoteId] = note.copy(id = existing.id)
+                                                notesToUpdate.add(note.copy(id = existing.id))
                                                 syncedCount++
                                         }
                                 }
+
+                                if (notesToInsert.isNotEmpty() || notesToUpdate.isNotEmpty()) {
+                                        db.withTransactionCompat {
+                                                if (notesToInsert.isNotEmpty()) {
+                                                        notesToInsert.chunked(900).forEach { chunk ->
+                                                                db.aiNoteDao().insertBatch(chunk)
+                                                        }
+                                                }
+                                                if (notesToUpdate.isNotEmpty()) {
+                                                        notesToUpdate.chunked(900).forEach { chunk ->
+                                                                db.aiNoteDao().updateBatch(chunk)
+                                                        }
+                                                }
+                                        }
+                                }
+
                                 cleanupDuplicateNotes()
 
                                 logger.d("UserSyncRepository", "pullNotes - Synced $syncedCount notes")
@@ -2025,13 +2045,16 @@ class UserSyncRepository(
                                         }
                                 }
 
+                                val profilesToInsert = mutableListOf<AiProfileEntity>()
+                                val profilesToUpdate = mutableListOf<AiProfileEntity>()
+
                                 for ((nameKey, remoteProfile) in selectedRemoteByName) {
                                         val remoteId = remoteProfile.remoteId ?: continue
                                         val byRemote = localByRemoteId[remoteId]
                                         if (byRemote != null) {
                                                 if (shouldPreferProfile(remoteProfile, byRemote)) {
                                                         val merged = remoteProfile.copy(id = byRemote.id)
-                                                        db.aiProfileDao().insert(merged)
+                                                        profilesToInsert.add(merged)
                                                         localByName[nameKey] = merged
                                                         localByRemoteId[remoteId] = merged
                                                         syncedCount++
@@ -2043,13 +2066,13 @@ class UserSyncRepository(
                                         if (byName != null) {
                                                 if (shouldPreferProfile(remoteProfile, byName)) {
                                                         val merged = remoteProfile.copy(id = byName.id)
-                                                        db.aiProfileDao().insert(merged)
+                                                        profilesToInsert.add(merged)
                                                         localByName[nameKey] = merged
                                                         localByRemoteId[remoteId] = merged
                                                         syncedCount++
                                                 } else if (byName.remoteId.isNullOrBlank()) {
                                                         val linked = byName.copy(remoteId = remoteId)
-                                                        db.aiProfileDao().update(linked)
+                                                        profilesToUpdate.add(linked)
                                                         localByName[nameKey] = linked
                                                         localByRemoteId[remoteId] = linked
                                                         syncedCount++
@@ -2057,11 +2080,23 @@ class UserSyncRepository(
                                                 continue
                                         }
 
-                                        val insertedId = db.aiProfileDao().insert(remoteProfile)
-                                        val inserted = remoteProfile.copy(id = insertedId)
-                                        localByName[nameKey] = inserted
-                                        localByRemoteId[remoteId] = inserted
+                                        profilesToInsert.add(remoteProfile)
                                         syncedCount++
+                                }
+
+                                if (profilesToInsert.isNotEmpty() || profilesToUpdate.isNotEmpty()) {
+                                        db.withTransactionCompat {
+                                                if (profilesToInsert.isNotEmpty()) {
+                                                        profilesToInsert.chunked(900).forEach { chunk ->
+                                                                db.aiProfileDao().insertBatch(chunk)
+                                                        }
+                                                }
+                                                if (profilesToUpdate.isNotEmpty()) {
+                                                        profilesToUpdate.chunked(900).forEach { chunk ->
+                                                                db.aiProfileDao().updateBatch(chunk)
+                                                        }
+                                                }
+                                        }
                                 }
 
                                 syncedCount += cleanupDuplicateProfilesAndRepairActive()
