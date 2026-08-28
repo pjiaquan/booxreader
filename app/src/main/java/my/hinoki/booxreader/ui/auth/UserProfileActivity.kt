@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.view.MenuItem
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -37,7 +38,9 @@ class UserProfileActivity : BaseActivity() {
         createAuthRepository(this, (application as BooxReaderApp).tokenManager)
     }
 
+    private lateinit var containerAvatar: View
     private lateinit var ivAvatar: ImageView
+    private lateinit var tvAvatarInitials: TextView
     private lateinit var btnChangeAvatar: Button
     private lateinit var etUsername: EditText
     private lateinit var tvEmail: TextView
@@ -51,6 +54,7 @@ class UserProfileActivity : BaseActivity() {
     private lateinit var tvVersion: TextView
 
     private var selectedAvatarUri: Uri? = null
+    private var currentDisplayName: String? = null
 
     private val pickAvatar =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -59,6 +63,7 @@ class UserProfileActivity : BaseActivity() {
                 }
                 selectedAvatarUri = uri
                 ivAvatar.setImageURI(uri)
+                showAvatarImage()
             }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,7 +72,9 @@ class UserProfileActivity : BaseActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         applyActionBarContrast()
 
+        containerAvatar = findViewById(R.id.containerAvatar)
         ivAvatar = findViewById(R.id.ivAvatar)
+        tvAvatarInitials = findViewById(R.id.tvAvatarInitials)
         btnChangeAvatar = findViewById(R.id.btnChangeAvatar)
         etUsername = findViewById(R.id.etUsername)
         tvEmail = findViewById(R.id.tvEmail)
@@ -87,6 +94,7 @@ class UserProfileActivity : BaseActivity() {
                 )
 
         val launchPicker: () -> Unit = { pickAvatar.launch("image/*") }
+        containerAvatar.setOnClickListener { launchPicker() }
         ivAvatar.setOnClickListener { launchPicker() }
         btnChangeAvatar.setOnClickListener { launchPicker() }
 
@@ -154,13 +162,15 @@ class UserProfileActivity : BaseActivity() {
         lifecycleScope.launch {
             val user = authRepository.getCurrentUser()
             if (user != null) {
+                currentDisplayName = user.displayName
                 etUsername.setText(user.displayName ?: "")
                 tvEmail.text = user.email
                 loadAvatar(user.avatarUrl)
             } else {
-                etUsername.setText(getString(R.string.profile_guest_name))
+                currentDisplayName = getString(R.string.profile_guest_name)
+                etUsername.setText(currentDisplayName)
                 tvEmail.text = getString(R.string.profile_login_required)
-                ivAvatar.setImageResource(R.mipmap.ic_launcher_round)
+                loadAvatar(null)
                 setEditingEnabled(false)
             }
         }
@@ -192,7 +202,8 @@ class UserProfileActivity : BaseActivity() {
 
             val user = result.getOrThrow()
             selectedAvatarUri = null
-            etUsername.setText(user.displayName ?: username)
+            currentDisplayName = user.displayName ?: username
+            etUsername.setText(currentDisplayName)
             tvEmail.text = user.email
             loadAvatar(user.avatarUrl)
             Toast.makeText(this@UserProfileActivity, R.string.profile_saved, Toast.LENGTH_SHORT)
@@ -251,11 +262,12 @@ class UserProfileActivity : BaseActivity() {
 
     private fun loadAvatar(avatarUrl: String?) {
         if (avatarUrl.isNullOrBlank()) {
-            ivAvatar.setImageResource(R.mipmap.ic_launcher_round)
+            showAvatarInitials()
             return
         }
         if (avatarUrl.startsWith("content://") || avatarUrl.startsWith("file://")) {
             ivAvatar.setImageURI(Uri.parse(avatarUrl))
+            showAvatarImage()
             return
         }
         if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
@@ -271,13 +283,39 @@ class UserProfileActivity : BaseActivity() {
                         }
                 if (bitmap != null) {
                     ivAvatar.setImageBitmap(bitmap)
+                    showAvatarImage()
                 } else {
-                    ivAvatar.setImageResource(R.mipmap.ic_launcher_round)
+                    showAvatarInitials()
                 }
             }
             return
         }
-        ivAvatar.setImageResource(R.mipmap.ic_launcher_round)
+        showAvatarInitials()
+    }
+
+    /** Modernist avatar: square placeholder with initials when no image is present. */
+    private fun showAvatarImage() {
+        tvAvatarInitials.visibility = View.GONE
+        ivAvatar.visibility = View.VISIBLE
+    }
+
+    private fun showAvatarInitials() {
+        tvAvatarInitials.text = initialsFor(currentDisplayName)
+        tvAvatarInitials.visibility = View.VISIBLE
+        ivAvatar.setImageDrawable(null)
+        ivAvatar.visibility = View.INVISIBLE
+    }
+
+    private fun initialsFor(name: String?): String {
+        val trimmed = name?.trim().orEmpty()
+        if (trimmed.isEmpty()) return "?"
+        val parts = trimmed.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        return if (parts.size >= 2) {
+            (parts[0].first().uppercaseChar().toString() +
+                    parts[1].first().uppercaseChar().toString())
+        } else {
+            trimmed.take(2).uppercase()
+        }
     }
 
     private fun setBusy(busy: Boolean) {

@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modernist avatar frame: 72x72dp square, 0dp radius, 2dp border (design spec: 1h) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
+    android:shape="rectangle">
     <solid android:color="?attr/colorSurface" />
     <stroke
-        android:width="3dp"
-        android:color="@color/primary" />
+        android:width="2dp"
+        android:color="?attr/colorOutlineVariant" />
+    <corners android:radius="0dp" />
 </shape>

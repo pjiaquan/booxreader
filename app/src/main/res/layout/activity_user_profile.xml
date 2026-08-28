@@ -14,17 +14,35 @@
         android:padding="24dp"
         android:paddingBottom="40dp">
 
-        <!-- ======================= Avatar ======================= -->
-        <ImageView
-            android:id="@+id/ivAvatar"
-            android:layout_width="104dp"
-            android:layout_height="104dp"
+        <!-- ======================= Avatar (Modernist square + initials) ======================= -->
+        <FrameLayout
+            android:id="@+id/containerAvatar"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
             android:layout_gravity="center_horizontal"
             android:background="@drawable/bg_avatar_frame"
+            android:clickable="true"
             android:contentDescription="@string/profile_avatar_content_description"
-            android:padding="5dp"
-            android:scaleType="centerCrop"
-            android:src="@mipmap/ic_launcher_round" />
+            android:focusable="true"
+            android:padding="2dp">
+
+            <ImageView
+                android:id="@+id/ivAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@android:color/transparent" />
+
+            <TextView
+                android:id="@+id/tvAvatarInitials"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+        </FrameLayout>
 
         <Button
             android:id="@+id/btnChangeAvatar"
