@@ -59,6 +59,13 @@
         <item name="android:windowBackground">?attr/colorSurface</item>
         <item name="materialButtonStyle">@style/Widget.App.Button.Primary</item>
         <item name="materialCardViewStyle">@style/Widget.App.Card</item>
+        <!-- M3 attrs not present in the Theme.MaterialComponents (M2) parent.
+             activity_user_profile.xml uses ?attr/colorOutlineVariant on card strokeColor
+             and ?attr/colorOnSurfaceVariant on icon tints; define them explicitly. -->
+        <item name="colorOutlineVariant">@color/outline_variant</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/on_surface</item>
     </style>
 
     <!-- ReaderSettingsActivity: Material3-based theme so Material3 attrs resolve on all API levels. -->
