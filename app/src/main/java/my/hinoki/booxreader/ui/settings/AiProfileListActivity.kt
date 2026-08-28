@@ -204,15 +204,15 @@ class AiProfileListActivity : BaseActivity() {
     private fun applyContrastMode(mode: ContrastMode) {
         listBackgroundColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#FAF9F6")
-                    ContrastMode.DARK -> Color.parseColor("#121212")
+                    ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
+                    ContrastMode.DARK -> Color.parseColor("#1A1817")
                     ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
                     ContrastMode.HIGH_CONTRAST -> Color.BLACK
                 }
         listTextColor =
                 when (mode) {
-                    ContrastMode.NORMAL -> Color.BLACK
-                    ContrastMode.DARK -> Color.parseColor("#F2F5FA")
+                    ContrastMode.NORMAL -> Color.parseColor("#201E1D")
+                    ContrastMode.DARK -> Color.parseColor("#F0EDEA")
                     ContrastMode.SEPIA -> Color.parseColor("#5B4636")
                     ContrastMode.HIGH_CONTRAST -> Color.WHITE
                 }
@@ -239,8 +239,8 @@ class AiProfileListActivity : BaseActivity() {
         binding.tvEmptyState.setTextColor(listSecondaryTextColor)
         val accentColor =
             when (mode) {
-                ContrastMode.NORMAL -> Color.parseColor("#3F6FA8")
-                ContrastMode.DARK -> Color.parseColor("#86AEEA")
+                ContrastMode.NORMAL -> Color.parseColor("#EC3013")
+                ContrastMode.DARK -> Color.parseColor("#EC3013")
                 ContrastMode.SEPIA -> Color.parseColor("#8A6740")
                 ContrastMode.HIGH_CONTRAST -> Color.parseColor("#F2F2F2")
             }
@@ -339,9 +339,9 @@ class AiProfileListActivity : BaseActivity() {
     }
 
     private fun applyIconButtonStyle(button: ImageButton, style: ButtonVisualStyle, iconColor: Int) {
-        val normal = createRoundedBackground(style.fillColor, style.strokeColor, cornerRadiusDp = 18f)
-        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor, cornerRadiusDp = 18f)
-        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor, cornerRadiusDp = 18f)
+        val normal = createRoundedBackground(style.fillColor, style.strokeColor, cornerRadiusDp = 0f)
+        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor, cornerRadiusDp = 0f)
+        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor, cornerRadiusDp = 0f)
         button.background =
             StateListDrawable().apply {
                 addState(intArrayOf(-android.R.attr.state_enabled), disabled)
@@ -365,7 +365,7 @@ class AiProfileListActivity : BaseActivity() {
     private fun createRoundedBackground(
         fillColor: Int,
         strokeColor: Int,
-        cornerRadiusDp: Float = 14f
+        cornerRadiusDp: Float = 0f
     ): GradientDrawable {
         val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
         return GradientDrawable().apply {
