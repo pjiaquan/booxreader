@@ -16,9 +16,10 @@
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbarSettings"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="wrap_content"
         android:background="@color/background"
         android:elevation="0dp"
+        android:minHeight="56dp"
         app:navigationIcon="?attr/homeAsUpIndicator"
         app:navigationIconTint="@color/text_primary"
         app:title="@string/reader_settings_title"

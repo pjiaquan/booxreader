@@ -630,6 +630,10 @@ class ReaderSettingsActivity : BaseActivity() {
         val toolbar = findViewById<View>(R.id.toolbarSettings)
         val baseBottom = footer.paddingBottom
         val baseTopToolbar = toolbar?.paddingTop ?: 0
+        // The nav-header is 56dp of content. Keep a full 56dp below the status
+        // bar/cutout instead of squeezing it inside a fixed 56dp view (which
+        // clipped the title on taller-status-bar devices like the S24 Ultra).
+        val navHeaderContentPx = (56 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
             // Cover the status bar AND any display cutout (notch/punch-hole),
             // which on many devices is taller than the reported status-bar inset
@@ -643,7 +647,10 @@ class ReaderSettingsActivity : BaseActivity() {
                 windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout()).bottom
             )
             footer.updatePadding(bottom = baseBottom + bottomInset)
-            toolbar?.updatePadding(top = baseTopToolbar + topInset)
+            toolbar?.apply {
+                updatePadding(top = baseTopToolbar + topInset)
+                minimumHeight = navHeaderContentPx + topInset
+            }
             windowInsets
         }
         ViewCompat.requestApplyInsets(root)
