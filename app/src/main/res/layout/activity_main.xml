@@ -427,6 +427,7 @@
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="34dp"
         android:contentDescription="@string/main_select_epub"
+        app:tooltipText="@string/main_select_epub"
         android:src="@drawable/ic_add"
         app:backgroundTint="@color/primary"
         app:tint="#FFFFFF"
