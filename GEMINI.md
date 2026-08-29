@@ -39,6 +39,12 @@ Boox Reader is specifically tuned for e-ink devices (like Onyx Boox).
     - `--auto-select`: Automatically select the first connected device for installation.
 - **CI/CD**: GitHub Actions are used for automated releases (`.github/workflows/android-release.yml`). Manual version bumps are handled by `run.sh` or the `incrementVersionCode` Gradle task.
 
+### Release workflows (important)
+- `release-build.yml` is a **reusable** workflow; it is called by `android-release.yml` (manual `workflow_dispatch` / `v*` tag push) and `daily-release.yml` (scheduled daily release). It builds the signed APK+AAB, attaches them to a GitHub Release, and notifies Telegram.
+- **The reusable workflow's caller MUST declare `permissions: contents: write`.** Reusable workflows cannot elevate permissions beyond the caller's ceiling. This repo's `default_workflow_permissions` is `read`, and the reusable `publish` job needs `contents: write`; a caller without it (this was `android-release.yml`) is rejected at load with **`startup_failure`** — it fails in ~2s with no jobs and no logs. `daily-release.yml` works because it declares `permissions: contents: write`.
+- The release tag passed to the reusable workflow should be resolved in a job step output and forwarded via `needs.<job>.outputs.<output>`, mirroring `daily-release.yml` (`v${{ needs.bump-version.outputs.version_name }}`). Mixing `inputs`/`github` contexts directly in the reusable `with:` is fragile.
+- When locally verifying `android-release.yml`, dispatch with `gh workflow run android-release.yml -f tag=v<version>` and watch with `gh run watch <id>`; a successful run will actually publish a GitHub Release and send a Telegram notification.
+
 ## 6. Testing & Validation
 - **Unit Tests**: Add JUnit tests for business logic, especially for sync and progress tracking. Run them via `./gradlew test` or `./run.sh`.
 - **Verification**: Always run `./gradlew :app:assembleDebug` or `./run.sh --debug` to verify build integrity after changes.
