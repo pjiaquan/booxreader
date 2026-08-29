@@ -11,12 +11,16 @@ on:
         required: false
         type: string
 
+# Reusable workflows CANNOT elevate permissions beyond the caller's ceiling.
+# The reusable release-build.yml publish job needs contents: write, and this
+# repo's default_workflow_permissions is read, so without granting write here
+# the workflow is rejected at load with startup_failure.
+permissions:
+  contents: write
+
 jobs:
-  # Compute the release tag in a step output. Referencing inputs/github contexts
-  # directly inside a reusable-workflow `with:` is invalid for a workflow that
-  # also triggers on `push` (where the `inputs` context does not exist), which
-  # caused the whole workflow to be rejected with `startup_failure`. Passing it
-  # via a job output mirrors the proven daily-release.yml pattern.
+  # Resolve the release tag in a step output; passing it via a job output
+  # mirrors the proven daily-release.yml pattern.
   prep:
     name: Resolve release tag
     runs-on: ubuntu-latest
