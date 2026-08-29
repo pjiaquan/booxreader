@@ -95,7 +95,11 @@
          ===================================================================== -->
 
     <!-- Modernist Switch Style (Square Toggle) -->
-    <style name="Widget.App.Switch.Modernist" parent="Widget.MaterialComponents.CompoundButton.Switch">
+    <!-- Based on the appcompat switch (not Material) so the custom square
+         thumb/track drawables render at their intrinsic 16dp/24dp size and stay
+         vertically centered in the row (the Material parent adds a 48dp
+         touch-target min-height that pushed the visual toggle off-center). -->
+    <style name="Widget.App.Switch.Modernist" parent="Widget.AppCompat.CompoundButton.Switch">
         <item name="track">@drawable/switch_track_modernist</item>
         <item name="android:thumb">@drawable/switch_thumb_modernist</item>
         <item name="thumbTint">@null</item>
@@ -103,6 +107,9 @@
         <item name="showText">false</item>
         <item name="android:switchMinWidth">44dp</item>
         <item name="android:switchPadding">8dp</item>
+        <item name="android:minHeight">24dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:background">@null</item>
     </style>
 
     <!-- Primary filled button: 52dp height, 0dp radius, red fill, left aligned -->

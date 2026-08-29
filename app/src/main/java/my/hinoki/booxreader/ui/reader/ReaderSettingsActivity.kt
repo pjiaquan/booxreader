@@ -629,11 +629,6 @@ class ReaderSettingsActivity : BaseActivity() {
         val footer = findViewById<View>(R.id.settingsFooter)
         val toolbar = findViewById<View>(R.id.toolbarSettings)
         val baseBottom = footer.paddingBottom
-        val baseTopToolbar = toolbar?.paddingTop ?: 0
-        // The nav-header is 56dp of content. Keep a full 56dp below the status
-        // bar/cutout instead of squeezing it inside a fixed 56dp view (which
-        // clipped the title on taller-status-bar devices like the S24 Ultra).
-        val navHeaderContentPx = (56 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, windowInsets ->
             // Cover the status bar AND any display cutout (notch/punch-hole),
             // which on many devices is taller than the reported status-bar inset
@@ -647,9 +642,13 @@ class ReaderSettingsActivity : BaseActivity() {
                 windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout()).bottom
             )
             footer.updatePadding(bottom = baseBottom + bottomInset)
-            toolbar?.apply {
-                updatePadding(top = baseTopToolbar + topInset)
-                minimumHeight = navHeaderContentPx + topInset
+            // Push the nav-header below the status bar with a top margin instead of
+            // adding it as toolbar padding. Adding padding to the toolbar shifts the
+            // title / back-arrow off-center (and squeezes them on tall status bars).
+            val lp = toolbar?.layoutParams as? ViewGroup.MarginLayoutParams
+            if (lp != null) {
+                lp.topMargin = topInset
+                toolbar.layoutParams = lp
             }
             windowInsets
         }
@@ -685,14 +684,14 @@ class ReaderSettingsActivity : BaseActivity() {
         }
 
         findViewById<View>(R.id.readerSettingsRoot).setBackgroundColor(pageColor)
-        findViewById<View>(R.id.toolbarSettings).setBackgroundColor(barColor)
+        findViewById<View>(R.id.toolbarSettings).setBackgroundColor(pageColor)
         findViewById<View>(R.id.toolbarDivider).setBackgroundColor(dividerColor)
         findViewById<View>(R.id.settingsFooter).setBackgroundColor(footerColor)
         findViewById<View>(R.id.settingsFooterDivider).setBackgroundColor(dividerColor)
         styleFooterButtons(mode)
 
         supportActionBar?.setBackgroundDrawable(ColorDrawable(barColor))
-        applyActionBarContentColor(barColor)
+        applyActionBarContentColor(pageColor)
         @Suppress("DEPRECATION")
         run {
             window.decorView.setBackgroundColor(pageColor)
