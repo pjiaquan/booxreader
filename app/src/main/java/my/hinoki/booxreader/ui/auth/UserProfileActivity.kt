@@ -169,7 +169,9 @@ class UserProfileActivity : BaseActivity() {
             } else {
                 currentDisplayName = getString(R.string.profile_guest_name)
                 etUsername.setText(currentDisplayName)
-                tvEmail.text = getString(R.string.profile_login_required)
+                tvEmail.text = getString(R.string.profile_sign_in_to_edit)
+                tvEmail.setTextColor(ContextCompat.getColor(this@UserProfileActivity, R.color.primary))
+                tvEmail.setOnClickListener { openLogin() }
                 loadAvatar(null)
                 setEditingEnabled(false)
             }
@@ -340,5 +342,16 @@ class UserProfileActivity : BaseActivity() {
         etCurrentPassword.isEnabled = enabled
         etNewPassword.isEnabled = enabled
         etConfirmPassword.isEnabled = enabled
+
+        // Grey the primary actions in the read-only (guest) state so they no
+        // longer look like live red buttons that do nothing.
+        val dimmed = if (enabled) 1f else 0.35f
+        btnSaveProfile.alpha = dimmed
+        btnChangePassword.alpha = dimmed
+        btnChangeAvatar.alpha = dimmed
+    }
+
+    private fun openLogin() {
+        startActivity(Intent(this, LoginActivity::class.java))
     }
 }

@@ -111,6 +111,7 @@
     <string name="profile_password_change_failed">Failed to update password</string>
     <string name="profile_guest_name">Guest</string>
     <string name="profile_login_required">Please login</string>
+    <string name="profile_sign_in_to_edit">Sign in to edit your profile →</string>
     <string name="ai_profile_name_placeholder">Profile Name</string>
     <string name="ai_profile_model_info">Model Info</string>
     <string name="reader_ai_note">AI Note</string>
