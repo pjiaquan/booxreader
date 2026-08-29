@@ -26,8 +26,14 @@ interface AiNoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(note: AiNoteEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatch(notes: List<AiNoteEntity>)
+
     @androidx.room.Update
     suspend fun update(note: AiNoteEntity)
+
+    @androidx.room.Update
+    suspend fun updateBatch(notes: List<AiNoteEntity>)
 
     @Query("SELECT * FROM ai_notes WHERE id = :id")
     suspend fun getById(id: Long): AiNoteEntity?
