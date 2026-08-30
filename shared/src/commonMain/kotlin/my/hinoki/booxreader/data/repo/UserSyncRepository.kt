@@ -1671,6 +1671,9 @@ class UserSyncRepository(
                                         cachedNotes.putAll(db.aiNoteDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
+                                val notesToInsert = mutableListOf<AiNoteEntity>()
+                                val notesToUpdate = mutableListOf<AiNoteEntity>()
+
                                 for (item in items) {
                                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                                         val note =
@@ -1697,15 +1700,35 @@ class UserSyncRepository(
 
                                         val existing = cachedNotes[remoteId]
                                         if (existing == null) {
-                                                val insertedId = db.aiNoteDao().insert(note)
-                                                cachedNotes[remoteId] = note.copy(id = insertedId)
-                                                syncedCount++
+                                                notesToInsert.add(note)
                                         } else if (note.updatedAt > existing.updatedAt) {
-                                                db.aiNoteDao().update(note.copy(id = existing.id))
-                                                cachedNotes[remoteId] = note.copy(id = existing.id)
-                                                syncedCount++
+                                                notesToUpdate.add(note.copy(id = existing.id))
                                         }
                                 }
+
+                                if (notesToInsert.isNotEmpty()) {
+                                    db.withTransactionCompat {
+                                        val insertedIds = db.aiNoteDao().insertBatch(notesToInsert)
+                                        notesToInsert.forEachIndexed { index, note ->
+                                            val insertedId = insertedIds[index]
+                                            val remoteId = note.remoteId ?: return@forEachIndexed
+                                            cachedNotes[remoteId] = note.copy(id = insertedId)
+                                        }
+                                    }
+                                    syncedCount += notesToInsert.size
+                                }
+
+                                if (notesToUpdate.isNotEmpty()) {
+                                    db.withTransactionCompat {
+                                        db.aiNoteDao().updateBatch(notesToUpdate)
+                                    }
+                                    notesToUpdate.forEach { note ->
+                                        val remoteId = note.remoteId ?: return@forEach
+                                        cachedNotes[remoteId] = note
+                                    }
+                                    syncedCount += notesToUpdate.size
+                                }
+
                                 cleanupDuplicateNotes()
 
                                 logger.d("UserSyncRepository", "pullNotes - Synced $syncedCount notes")
@@ -2025,16 +2048,18 @@ class UserSyncRepository(
                                         }
                                 }
 
+                                val profilesToInsert = mutableListOf<AiProfileEntity>()
+                                val profilesToUpdate = mutableListOf<AiProfileEntity>()
+
                                 for ((nameKey, remoteProfile) in selectedRemoteByName) {
                                         val remoteId = remoteProfile.remoteId ?: continue
                                         val byRemote = localByRemoteId[remoteId]
                                         if (byRemote != null) {
                                                 if (shouldPreferProfile(remoteProfile, byRemote)) {
                                                         val merged = remoteProfile.copy(id = byRemote.id)
-                                                        db.aiProfileDao().insert(merged)
+                                                        profilesToUpdate.add(merged)
                                                         localByName[nameKey] = merged
                                                         localByRemoteId[remoteId] = merged
-                                                        syncedCount++
                                                 }
                                                 continue
                                         }
@@ -2043,25 +2068,41 @@ class UserSyncRepository(
                                         if (byName != null) {
                                                 if (shouldPreferProfile(remoteProfile, byName)) {
                                                         val merged = remoteProfile.copy(id = byName.id)
-                                                        db.aiProfileDao().insert(merged)
+                                                        profilesToUpdate.add(merged)
                                                         localByName[nameKey] = merged
                                                         localByRemoteId[remoteId] = merged
-                                                        syncedCount++
                                                 } else if (byName.remoteId.isNullOrBlank()) {
                                                         val linked = byName.copy(remoteId = remoteId)
-                                                        db.aiProfileDao().update(linked)
+                                                        profilesToUpdate.add(linked)
                                                         localByName[nameKey] = linked
                                                         localByRemoteId[remoteId] = linked
-                                                        syncedCount++
                                                 }
                                                 continue
                                         }
 
-                                        val insertedId = db.aiProfileDao().insert(remoteProfile)
-                                        val inserted = remoteProfile.copy(id = insertedId)
-                                        localByName[nameKey] = inserted
-                                        localByRemoteId[remoteId] = inserted
-                                        syncedCount++
+                                        profilesToInsert.add(remoteProfile)
+                                }
+
+                                if (profilesToInsert.isNotEmpty()) {
+                                    db.withTransactionCompat {
+                                        val insertedIds = db.aiProfileDao().insertBatch(profilesToInsert)
+                                        profilesToInsert.forEachIndexed { index, profile ->
+                                            val insertedId = insertedIds[index]
+                                            val remoteId = profile.remoteId ?: return@forEachIndexed
+                                            val nameKey = profileNameKey(profile.name)
+                                            val inserted = profile.copy(id = insertedId)
+                                            localByName[nameKey] = inserted
+                                            localByRemoteId[remoteId] = inserted
+                                        }
+                                    }
+                                    syncedCount += profilesToInsert.size
+                                }
+
+                                if (profilesToUpdate.isNotEmpty()) {
+                                    db.withTransactionCompat {
+                                        db.aiProfileDao().updateBatch(profilesToUpdate)
+                                    }
+                                    syncedCount += profilesToUpdate.size
                                 }
 
                                 syncedCount += cleanupDuplicateProfilesAndRepairActive()

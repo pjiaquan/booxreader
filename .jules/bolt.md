@@ -23,3 +23,6 @@
 ## 2026-08-25 - Optimize Room Sync with Batch Inserts
 **Learning:** Blindly inserting entities in a loop using Room's OnConflictStrategy.REPLACE creates O(N) transaction overhead which severely degrades performance during sync.
 **Action:** Pre-fetch existing entities, compare them, and accumulate changes in a list to use `insertBatch` with `chunked(900)` inside a single transaction to significantly reduce SQLite churn and disk I/O.
+## 2026-08-25 - Optimize Room Sync with Batch Inserts
+**Learning:** Blindly inserting entities in a loop using Room's OnConflictStrategy.REPLACE creates O(N) transaction overhead which severely degrades performance during sync.
+**Action:** Pre-fetch existing entities, compare them, and accumulate changes in a list to use `insertBatch` inside a single transaction to significantly reduce SQLite churn and disk I/O. Unlike `IN` queries, do not use `.chunked()` for `@Insert` or `@Update`, as Room automatically iterates list parameters, bypassing SQLite's parameter limits.
