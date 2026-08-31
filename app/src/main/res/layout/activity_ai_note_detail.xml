@@ -256,6 +256,7 @@
         android:layout_marginBottom="8dp"
         android:backgroundTint="@android:color/transparent"
         android:contentDescription="@string/ai_note_scroll_to_bottom"
+        app:tooltipText="@string/ai_note_scroll_to_bottom"
         android:src="@android:drawable/arrow_down_float"
         android:tint="@android:color/white"
         app:borderWidth="0dp"

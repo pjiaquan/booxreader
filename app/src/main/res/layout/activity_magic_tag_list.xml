@@ -62,14 +62,15 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="34dp"
+        android:contentDescription="@string/magic_tag_add"
+        app:tooltipText="@string/magic_tag_add"
         android:src="@drawable/ic_add"
         app:backgroundTint="@color/primary"
         app:tint="#FFFFFF"
         app:elevation="0dp"
         app:pressedTranslationZ="0dp"
         app:shapeAppearanceOverlay="@null"
-        app:maxImageSize="22dp"
-        android:contentDescription="@string/magic_tag_add"/>
+        app:maxImageSize="22dp" />
 
     <TextView
         android:id="@+id/tvEmptyState"
