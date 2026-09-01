@@ -69,6 +69,7 @@
         app:pressedTranslationZ="0dp"
         app:shapeAppearanceOverlay="@null"
         app:maxImageSize="22dp"
+        app:tooltipText="@string/magic_tag_add"
         android:contentDescription="@string/magic_tag_add"/>
 
     <TextView
