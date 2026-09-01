@@ -1671,8 +1671,14 @@ class UserSyncRepository(
                                         cachedNotes.putAll(db.aiNoteDao().getByRemoteIds(chunk).associateBy { it.remoteId!! })
                                 }
 
+                                val notesToInsert = mutableListOf<AiNoteEntity>()
+                                val notesToUpdate = mutableListOf<AiNoteEntity>()
+                                val processedRemoteIds = mutableSetOf<String>()
+
                                 for (item in items) {
                                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
+                                        if (!processedRemoteIds.add(remoteId)) continue
+
                                         val note =
                                                 AiNoteEntity(
                                                         remoteId = remoteId,
@@ -1697,15 +1703,25 @@ class UserSyncRepository(
 
                                         val existing = cachedNotes[remoteId]
                                         if (existing == null) {
-                                                val insertedId = db.aiNoteDao().insert(note)
-                                                cachedNotes[remoteId] = note.copy(id = insertedId)
+                                                notesToInsert.add(note)
                                                 syncedCount++
                                         } else if (note.updatedAt > existing.updatedAt) {
-                                                db.aiNoteDao().update(note.copy(id = existing.id))
-                                                cachedNotes[remoteId] = note.copy(id = existing.id)
+                                                notesToUpdate.add(note.copy(id = existing.id))
                                                 syncedCount++
                                         }
                                 }
+
+                                if (notesToInsert.isNotEmpty() || notesToUpdate.isNotEmpty()) {
+                                        db.withTransactionCompat {
+                                                if (notesToInsert.isNotEmpty()) {
+                                                        db.aiNoteDao().insertBatch(notesToInsert)
+                                                }
+                                                if (notesToUpdate.isNotEmpty()) {
+                                                        db.aiNoteDao().updateBatch(notesToUpdate)
+                                                }
+                                        }
+                                }
+
                                 cleanupDuplicateNotes()
 
                                 logger.d("UserSyncRepository", "pullNotes - Synced $syncedCount notes")

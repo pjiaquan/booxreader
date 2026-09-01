@@ -23,3 +23,6 @@
 ## 2026-08-25 - Optimize Room Sync with Batch Inserts
 **Learning:** Blindly inserting entities in a loop using Room's OnConflictStrategy.REPLACE creates O(N) transaction overhead which severely degrades performance during sync.
 **Action:** Pre-fetch existing entities, compare them, and accumulate changes in a list to use `insertBatch` with `chunked(900)` inside a single transaction to significantly reduce SQLite churn and disk I/O.
+## 2025-03-09 - Avoid mid-loop cache assignments in Sync batch refactoring
+**Learning:** When refactoring a sync loop (like `pullNotes`) to use batch Room operations (e.g., `insertBatch`), attempting to assign generated IDs immediately within the loop to update a cache map (e.g., `cachedNotes`) breaks because batch IDs are not available until the transaction executes post-loop. Furthermore, updating the map mid-loop for duplicate entries corrupts conflict resolution.
+**Action:** When migrating from individual `insert()` to `insertBatch()`, use a `Set` (e.g., `processedRemoteIds`) to track IDs, skip duplicates in the loop, and populate `notesToInsert`/`notesToUpdate` lists. Apply the batched transaction post-loop without needing to re-sync the read-only cache map.
