@@ -1035,10 +1035,9 @@ class AiNoteRepository(
                                 null
                             }
                     } else {
-                            val errorBody = response.bodyAsText()
                             logger.e(
                                     TAG,
-                                    "AI Request Failed: Code=${response.status.value}, Body=$errorBody"
+                                    "AI Request Failed: Code=${response.status.value}"
                             )
                             null
                     }
