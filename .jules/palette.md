@@ -33,3 +33,7 @@
 ## 2024-08-25 - Material Button Icon Attributes
 **Learning:** The Android app uses Material Components for its UI. When styling buttons (e.g., using the project custom `@style/Widget.App.Button.Outlined` in `themes.xml`), use Material Component attributes like `app:icon` instead of standard Android `android:drawableLeft/Start` for correctly rendering icon drawables.
 **Action:** When adding icons to custom styled buttons in this repository, always prefer `app:icon` and verify if the style maps to `Widget.MaterialComponents.Button.*` before falling back to `android:drawableStart`.
+
+## 2024-11-20 - Missing tooltipText on Icon-Only Buttons
+**Learning:** Found that multiple icon-only buttons (`ImageButton`, `FloatingActionButton`) lacked `app:tooltipText`. While they had `android:contentDescription` for screen readers, sighted users (especially those using a mouse or long-pressing on touch screens) received no visual hint about the button's action.
+**Action:** When adding or modifying icon-only interactive elements, ensure `app:tooltipText` is set, typically mirroring the `android:contentDescription` string resource.
