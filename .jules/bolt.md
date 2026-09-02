@@ -27,3 +27,7 @@
 ## 2026-08-31 - Avoid chunking for batch inserts/updates in Room
 **Learning:** Room automatically iterates list parameters for @Insert and @Update batch operations, bypassing SQLite's parameter limits. Chunking is unnecessary and degrades performance compared to a single transaction.
 **Action:** Never use `.chunked()` for `@Insert` or `@Update` list operations in Room DAOs; only use it for `IN` clause queries.
+
+## 2026-09-02 - Always use existing private helper functions for caching
+**Learning:** When matching or caching items, always check for and use existing private helper functions (like `profileNameKey`) to ensure correct manipulation logic (such as string trimming and capitalization).
+**Action:** Use tools like `grep` or check for helper functions near the loop logic before writing custom string manipulation code to avoid logic issues.
