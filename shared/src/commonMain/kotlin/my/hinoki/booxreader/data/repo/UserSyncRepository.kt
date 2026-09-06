@@ -2045,16 +2045,15 @@ class UserSyncRepository(
                                         }
                                 }
 
+                                val profilesToInsert = mutableListOf<AiProfileEntity>()
+                                val profilesToUpdate = mutableListOf<AiProfileEntity>()
+
                                 for ((nameKey, remoteProfile) in selectedRemoteByName) {
                                         val remoteId = remoteProfile.remoteId ?: continue
                                         val byRemote = localByRemoteId[remoteId]
                                         if (byRemote != null) {
                                                 if (shouldPreferProfile(remoteProfile, byRemote)) {
-                                                        val merged = remoteProfile.copy(id = byRemote.id)
-                                                        db.aiProfileDao().insert(merged)
-                                                        localByName[nameKey] = merged
-                                                        localByRemoteId[remoteId] = merged
-                                                        syncedCount++
+                                                        profilesToInsert.add(remoteProfile.copy(id = byRemote.id))
                                                 }
                                                 continue
                                         }
@@ -2062,26 +2061,44 @@ class UserSyncRepository(
                                         val byName = localByName[nameKey]
                                         if (byName != null) {
                                                 if (shouldPreferProfile(remoteProfile, byName)) {
-                                                        val merged = remoteProfile.copy(id = byName.id)
-                                                        db.aiProfileDao().insert(merged)
-                                                        localByName[nameKey] = merged
-                                                        localByRemoteId[remoteId] = merged
-                                                        syncedCount++
+                                                        profilesToInsert.add(remoteProfile.copy(id = byName.id))
                                                 } else if (byName.remoteId.isNullOrBlank()) {
-                                                        val linked = byName.copy(remoteId = remoteId)
-                                                        db.aiProfileDao().update(linked)
-                                                        localByName[nameKey] = linked
-                                                        localByRemoteId[remoteId] = linked
-                                                        syncedCount++
+                                                        profilesToUpdate.add(byName.copy(remoteId = remoteId))
                                                 }
                                                 continue
                                         }
 
-                                        val insertedId = db.aiProfileDao().insert(remoteProfile)
-                                        val inserted = remoteProfile.copy(id = insertedId)
-                                        localByName[nameKey] = inserted
-                                        localByRemoteId[remoteId] = inserted
-                                        syncedCount++
+                                        profilesToInsert.add(remoteProfile)
+                                }
+
+                                if (profilesToInsert.isNotEmpty() || profilesToUpdate.isNotEmpty()) {
+                                        db.withTransactionCompat {
+                                                if (profilesToInsert.isNotEmpty()) {
+                                                        val insertedIds = db.aiProfileDao().insertBatch(profilesToInsert)
+                                                        for (i in profilesToInsert.indices) {
+                                                                val profile = profilesToInsert[i]
+                                                                val insertedId = insertedIds[i]
+                                                                val nameKey = profileNameKey(profile.name)
+                                                                val inserted = profile.copy(id = insertedId)
+                                                                localByName[nameKey] = inserted
+                                                                if (!profile.remoteId.isNullOrBlank()) {
+                                                                        localByRemoteId[profile.remoteId] = inserted
+                                                                }
+                                                        }
+                                                        syncedCount += profilesToInsert.size
+                                                }
+                                                if (profilesToUpdate.isNotEmpty()) {
+                                                        db.aiProfileDao().updateBatch(profilesToUpdate)
+                                                        for (profile in profilesToUpdate) {
+                                                                val nameKey = profileNameKey(profile.name)
+                                                                localByName[nameKey] = profile
+                                                                if (!profile.remoteId.isNullOrBlank()) {
+                                                                        localByRemoteId[profile.remoteId] = profile
+                                                                }
+                                                        }
+                                                        syncedCount += profilesToUpdate.size
+                                                }
+                                        }
                                 }
 
                                 syncedCount += cleanupDuplicateProfilesAndRepairActive()
