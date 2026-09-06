@@ -16,6 +16,8 @@ import kotlin.math.min
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.util.Url
 import org.readium.r2.shared.util.mediatype.MediaType
+import my.hinoki.booxreader.data.db.AnnotationEntity
+import my.hinoki.booxreader.data.db.AnnotationStyle
 
 class NativeReaderView
 @JvmOverloads
@@ -43,6 +45,29 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     private val selectionPath = Path()
     private val focusSelectionPath = Path()
+    private val annotationPath = Path()
+
+    // Annotation drawing paints
+    private val underlinePaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.BLACK
+                style = Paint.Style.STROKE
+                strokeWidth = 2f * context.resources.displayMetrics.density
+            }
+
+    private val dashedPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.BLACK
+                style = Paint.Style.STROKE
+                strokeWidth = 2f * context.resources.displayMetrics.density
+                pathEffect = DashPathEffect(floatArrayOf(8f, 6f), 0f)
+            }
+
+    private val grayFillPaint =
+            Paint().apply {
+                color = Color.BLACK
+                alpha = 32 // Subtle high-contrast tint on E-ink
+            }
 
     private val handlePaint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -70,6 +95,15 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var focusSelectionEnd: Int = -1
     private var isSelecting = false
     private var activeHandle: Int = 0 // 0: none, 1: start, 2: end
+
+    data class DisplayAnnotation(
+        val entity: AnnotationEntity,
+        val startOffset: Int, // global offset in resource
+        val endOffset: Int    // global offset in resource
+    )
+
+    private var pageAnnotations: List<DisplayAnnotation> = emptyList()
+    private var onAnnotationClickListener: ((AnnotationEntity) -> Unit)? = null
 
     private var onTouchTapListener: ((Float, Float) -> Unit)? = null
     private var onSelectionListener: ((Boolean, Float, Float) -> Unit)? = null
@@ -126,6 +160,11 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         selectionPaint.color = textColor
         selectionPaint.alpha = 40
 
+        underlinePaint.color = textColor
+        dashedPaint.color = textColor
+        grayFillPaint.color = textColor
+        grayFillPaint.alpha = if (isDark) 50 else 32
+
         focusSelectionPaint.color =
                 if (isDark) {
                     Color.parseColor("#FFD54F")
@@ -157,6 +196,15 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     fun setOnPageEdgeHoldListener(listener: (Int) -> Unit) {
         this.onPageEdgeHoldListener = listener
+    }
+
+    fun setOnAnnotationClickListener(listener: (AnnotationEntity) -> Unit) {
+        this.onAnnotationClickListener = listener
+    }
+
+    fun setPageAnnotations(annotations: List<DisplayAnnotation>) {
+        this.pageAnnotations = annotations
+        invalidate()
     }
 
     fun setPageRange(startOffset: Int, endOffset: Int) {
@@ -229,6 +277,13 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                             val linkUrl = findLinkAt(e.x, e.y)
                             if (linkUrl != null) {
                                 onLinkClickListener?.invoke(linkUrl)
+                                return true
+                            }
+
+                            // Annotation tap detection
+                            val clickedAnnotation = findAnnotationAt(e.x, e.y)
+                            if (clickedAnnotation != null) {
+                                onAnnotationClickListener?.invoke(clickedAnnotation)
                                 return true
                             }
 
@@ -472,22 +527,71 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             drawHighlightPath(canvas, l, localFocus.first, localFocus.second, focusSelectionPath, focusSelectionPaint)
         }
 
-        // 2. Draw Selection Background
+        // 2. Draw Persistent Annotations / Highlights
+        drawAnnotationSpans(canvas, l)
+
+        // 3. Draw Selection Background
         val localSelection = getLocalSelectionRange()
         if (localSelection != null) {
             drawHighlightPath(canvas, l, localSelection.first, localSelection.second, selectionPath, selectionPaint)
 
-            // 3. Draw Handles (Premium Pill Style)
+            // 4. Draw Handles (Premium Pill Style)
             drawHandles(canvas)
         }
 
-        // 4. Draw Text
+        // 5. Draw Text
         l.draw(canvas)
         canvas.restore()
 
-        // 5. Draw Magnifier Overlay
+        // 6. Draw Magnifier Overlay
         if (isMagnifying && (selectionStart != -1 || selectionEnd != -1)) {
             drawMagnifier(canvas, l)
+        }
+    }
+
+    private fun drawAnnotationSpans(canvas: Canvas, l: Layout) {
+        if (pageAnnotations.isEmpty()) return
+
+        for (displayAnn in pageAnnotations) {
+            val localRange = getLocalRange(displayAnn.startOffset, displayAnn.endOffset) ?: continue
+            val start = localRange.first
+            val end = localRange.second
+            if (start >= end) continue
+
+            val style = try {
+                AnnotationStyle.valueOf(displayAnn.entity.style)
+            } catch (_: Exception) {
+                AnnotationStyle.UNDERLINE
+            }
+
+            when (style) {
+                AnnotationStyle.GRAY_FILL -> {
+                    drawHighlightPath(canvas, l, start, end, annotationPath, grayFillPaint)
+                }
+                AnnotationStyle.UNDERLINE -> {
+                    drawAnnotationUnderline(canvas, l, start, end, underlinePaint)
+                }
+                AnnotationStyle.DASHED -> {
+                    drawAnnotationUnderline(canvas, l, start, end, dashedPaint)
+                }
+            }
+        }
+    }
+
+    private fun drawAnnotationUnderline(canvas: Canvas, l: Layout, start: Int, end: Int, paint: Paint) {
+        val startLine = l.getLineForOffset(start)
+        val endLine = l.getLineForOffset(end)
+        for (line in startLine..endLine) {
+            val lineStart = if (line == startLine) start else l.getLineStart(line)
+            val lineEnd = if (line == endLine) end else l.getLineEnd(line)
+
+            val left = if (line == startLine) l.getPrimaryHorizontal(lineStart) else 0f
+            val right = if (line == endLine) l.getPrimaryHorizontal(lineEnd) else l.width.toFloat()
+
+            val baseline = l.getLineBaseline(line).toFloat()
+            val underlineY = baseline + (2f * context.resources.displayMetrics.density)
+
+            canvas.drawLine(left, underlineY, right, underlineY, paint)
         }
     }
 
@@ -887,6 +991,37 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                 }
             }
             return findLinkByBounds(x, y, spanned, l)
+        }
+        return null
+    }
+
+    private fun findAnnotationAt(x: Float, y: Float): AnnotationEntity? {
+        if (pageAnnotations.isEmpty()) return null
+        val l = layout ?: return null
+        val density = resources.displayMetrics.density
+        val radius = 12f * density
+
+        val offsets = mutableSetOf<Int>()
+        val directOffset = getLocalOffsetForPosition(x, y)
+        if (directOffset != -1) offsets.add(directOffset)
+        val leftOffset = getLocalOffsetForPosition(x - radius, y)
+        if (leftOffset != -1) offsets.add(leftOffset)
+        val rightOffset = getLocalOffsetForPosition(x + radius, y)
+        if (rightOffset != -1) offsets.add(rightOffset)
+        val topOffset = getLocalOffsetForPosition(x, y - radius)
+        if (topOffset != -1) offsets.add(topOffset)
+        val bottomOffset = getLocalOffsetForPosition(x, y + radius)
+        if (bottomOffset != -1) offsets.add(bottomOffset)
+
+        for (displayAnn in pageAnnotations) {
+            val localRange = getLocalRange(displayAnn.startOffset, displayAnn.endOffset) ?: continue
+            val start = localRange.first
+            val end = localRange.second
+            for (off in offsets) {
+                if (off in start..end) {
+                    return displayAnn.entity
+                }
+            }
         }
         return null
     }

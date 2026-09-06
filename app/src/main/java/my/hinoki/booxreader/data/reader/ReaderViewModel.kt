@@ -19,7 +19,10 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.remote.ProgressPublisher
+import my.hinoki.booxreader.data.db.AnnotationEntity
+import my.hinoki.booxreader.data.db.AnnotationStyle
 import my.hinoki.booxreader.data.repo.AiNoteRepository
+import my.hinoki.booxreader.data.repo.AnnotationRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
@@ -48,6 +51,7 @@ class ReaderViewModel(
         private val bookRepo: BookRepository,
         private val bookmarkRepo: BookmarkRepository,
         private val aiNoteRepo: AiNoteRepository,
+        private val annotationRepo: AnnotationRepository,
         private val syncRepo: UserSyncRepository,
         private val progressPublisher: ProgressPublisher,
         private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -142,6 +146,7 @@ class ReaderViewModel(
 
                 val key = book.bookId
                 _currentBookKey.value = key
+                loadAnnotations()
 
                 // Ensure new book files are synced
                 viewModelScope.launch(ioDispatcher) {
@@ -262,9 +267,104 @@ class ReaderViewModel(
         }
     }
 
+    private val _annotations = MutableStateFlow<List<AnnotationEntity>>(emptyList())
+    val annotations: StateFlow<List<AnnotationEntity>> = _annotations.asStateFlow()
+
+    fun loadAnnotations() {
+        val key = _currentBookKey.value ?: return
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val list = annotationRepo.getAnnotations(key)
+                _annotations.value = list
+            } catch (e: Exception) {
+                ErrorReporter.report(
+                    getApplication(),
+                    "ReaderViewModel.loadAnnotations",
+                    "Failed to load annotations",
+                    e
+                )
+            }
+        }
+    }
+
+    fun addAnnotation(
+        locator: Locator,
+        selectedText: String,
+        note: String? = null,
+        style: AnnotationStyle = AnnotationStyle.UNDERLINE
+    ) {
+        val key = _currentBookKey.value ?: return
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val json = LocatorJsonHelper.toJson(locator) ?: return@launch
+                annotationRepo.addAnnotation(key, json, selectedText, note, style)
+                loadAnnotations()
+                _toastMessage.emit(
+                    if (note.isNullOrBlank()) "Highlight saved" else "Note saved"
+                )
+            } catch (e: Exception) {
+                ErrorReporter.report(
+                    getApplication(),
+                    "ReaderViewModel.addAnnotation",
+                    "Failed to add annotation",
+                    e
+                )
+                _toastMessage.emit("Failed to save annotation")
+            }
+        }
+    }
+
+    fun updateAnnotationStyle(annotationId: Long, style: AnnotationStyle) {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                annotationRepo.updateStyle(annotationId, style)
+                loadAnnotations()
+            } catch (e: Exception) {
+                ErrorReporter.report(
+                    getApplication(),
+                    "ReaderViewModel.updateAnnotationStyle",
+                    "Failed to update annotation style",
+                    e
+                )
+            }
+        }
+    }
+
+    fun updateAnnotationNote(annotationId: Long, note: String?) {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                annotationRepo.updateNote(annotationId, note)
+                loadAnnotations()
+            } catch (e: Exception) {
+                ErrorReporter.report(
+                    getApplication(),
+                    "ReaderViewModel.updateAnnotationNote",
+                    "Failed to update annotation note",
+                    e
+                )
+            }
+        }
+    }
+
+    fun deleteAnnotation(annotationId: Long) {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                annotationRepo.deleteAnnotation(annotationId)
+                loadAnnotations()
+                _toastMessage.emit("Annotation deleted")
+            } catch (e: Exception) {
+                ErrorReporter.report(
+                    getApplication(),
+                    "ReaderViewModel.deleteAnnotation",
+                    "Failed to delete annotation",
+                    e
+                )
+            }
+        }
+    }
+
     fun loadHighlights() {
-        // Decorations (highlights) are not yet supported in the native reader.
-        // This will be re-implemented when a native decoration system is available.
+        loadAnnotations()
     }
 
     fun postTextToServer(text: String, locatorJson: String?) {

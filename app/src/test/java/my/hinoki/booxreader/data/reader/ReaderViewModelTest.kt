@@ -37,6 +37,7 @@ class ReaderViewModelTest {
     @Mock private lateinit var bookRepo: BookRepository
     @Mock private lateinit var bookmarkRepo: BookmarkRepository
     @Mock private lateinit var aiNoteRepo: AiNoteRepository
+    @Mock private lateinit var annotationRepo: my.hinoki.booxreader.data.repo.AnnotationRepository
     @Mock private lateinit var syncRepo: UserSyncRepository
     @Mock private lateinit var progressPublisher: ProgressPublisher
     
@@ -47,7 +48,7 @@ class ReaderViewModelTest {
         MockitoAnnotations.openMocks(this)
         Dispatchers.setMain(testDispatcher)
         
-        viewModel = ReaderViewModel(app, bookRepo, bookmarkRepo, aiNoteRepo, syncRepo, progressPublisher)
+        viewModel = ReaderViewModel(app, bookRepo, bookmarkRepo, aiNoteRepo, annotationRepo, syncRepo, progressPublisher, testDispatcher)
     }
 
     @After

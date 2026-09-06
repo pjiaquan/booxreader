@@ -31,12 +31,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import my.hinoki.booxreader.data.db.AnnotationEntity
+import my.hinoki.booxreader.data.db.AnnotationStyle
 import my.hinoki.booxreader.data.reader.ReaderViewModel
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.ui.reader.ReaderActivity
 import my.hinoki.booxreader.data.util.ChineseConverter
 import my.hinoki.booxreader.databinding.FragmentNativeReaderBinding
+import my.hinoki.booxreader.databinding.DialogAddNoteBinding
+import my.hinoki.booxreader.databinding.BottomSheetAnnotationDetailBinding
 import my.hinoki.booxreader.reader.LocatorJsonHelper
+import my.hinoki.booxreader.R
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import androidx.appcompat.app.AlertDialog
 import java.net.URI
 import kotlin.math.abs
 import kotlin.math.max
@@ -145,6 +152,8 @@ class NativeNavigatorFragment : Fragment() {
 
             binding.btnCopy.setTextColor(textColor)
             binding.btnSearch.setTextColor(textColor)
+            binding.btnHighlight.setTextColor(textColor)
+            binding.btnNote.setTextColor(textColor)
             binding.btnAskAi.setTextColor(textColor)
 
             // Re-apply button tint for extra safety
@@ -154,12 +163,16 @@ class NativeNavigatorFragment : Fragment() {
                     ) // Since they are borderless
             binding.btnCopy.backgroundTintList = btnTint
             binding.btnSearch.backgroundTintList = btnTint
+            binding.btnHighlight.backgroundTintList = btnTint
+            binding.btnNote.backgroundTintList = btnTint
             binding.btnAskAi.backgroundTintList = btnTint
 
             // Theme separators - use text color with very low alpha for a subtle look
             val sepColor = (textColor and 0x00FFFFFF) or 0x1A000000 // ~10% opacity
             binding.sep1.setBackgroundColor(sepColor)
             binding.sep2.setBackgroundColor(sepColor)
+            binding.sepHl.setBackgroundColor(sepColor)
+            binding.sepNote.setBackgroundColor(sepColor)
         } else {
             pendingThemeColors = Triple(backgroundColor, textColor, buttonColor)
         }
@@ -273,6 +286,30 @@ class NativeNavigatorFragment : Fragment() {
             }
         }
 
+        binding.btnHighlight.setOnClickListener {
+            val text = getSelectedTextFromRange()
+            if (!text.isNullOrBlank()) {
+                val locator = buildSelectionLocator()
+                if (locator != null) {
+                    viewModel.addAnnotation(locator, text, note = null, style = AnnotationStyle.UNDERLINE)
+                }
+                binding.nativeReaderView.clearSelection()
+                hideSelectionMenu()
+            }
+        }
+
+        binding.btnNote.setOnClickListener {
+            val text = getSelectedTextFromRange()
+            if (!text.isNullOrBlank()) {
+                val locator = buildSelectionLocator()
+                if (locator != null) {
+                    showAddNoteDialog(locator, text)
+                }
+                binding.nativeReaderView.clearSelection()
+                hideSelectionMenu()
+            }
+        }
+
         binding.btnAskAi.setOnClickListener {
             val text = getSelectedTextFromRange()
             if (!text.isNullOrBlank()) {
@@ -290,6 +327,18 @@ class NativeNavigatorFragment : Fragment() {
                     binding.nativeReaderView.clearSelection()
                     hideSelectionMenu()
                 }
+            }
+        }
+
+        // Annotation click listener
+        binding.nativeReaderView.setOnAnnotationClickListener { annotation ->
+            showAnnotationDetailSheet(annotation)
+        }
+
+        // Observe annotations from ViewModel
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.annotations.collect {
+                updatePageAnnotations()
             }
         }
     }
@@ -754,6 +803,7 @@ class NativeNavigatorFragment : Fragment() {
         // Re-converting page slices can drop spans (e.g., image/link spans).
         binding.nativeReaderView.setContent(text, resetSelection = !preserveSelection)
         applyActiveSelectionFocus()
+        updatePageAnnotations()
         updatePageIndicator()
         updateLocator()
     }
@@ -1402,6 +1452,113 @@ class NativeNavigatorFragment : Fragment() {
         pendingSelectionFocusTarget = null
         activeSelectionFocusRange = null
         _binding?.nativeReaderView?.clearFocusSelectionRange()
+    }
+
+    private fun updatePageAnnotations() {
+        val b = _binding ?: return
+        val currentHref = currentResourceHref ?: return
+        val allAnnotations = viewModel.annotations.value
+        if (allAnnotations.isEmpty() || resourceText.isEmpty()) {
+            b.nativeReaderView.setPageAnnotations(emptyList())
+            return
+        }
+
+        val displayList = mutableListOf<NativeReaderView.DisplayAnnotation>()
+        for (ann in allAnnotations) {
+            val locator = LocatorJsonHelper.fromJson(ann.locatorJson) ?: continue
+            if (!hrefTargetsSameResource(locator.href.toString(), currentHref)) continue
+
+            val target = parseSelectionFocusTarget(locator) ?: continue
+            val range = resolveSelectionFocusRange(target) ?: continue
+            displayList.add(NativeReaderView.DisplayAnnotation(ann, range.start, range.end))
+        }
+
+        b.nativeReaderView.setPageAnnotations(displayList)
+    }
+
+    private fun showAddNoteDialog(locator: Locator, selectedText: String) {
+        val context = requireContext()
+        val dialogBinding = DialogAddNoteBinding.inflate(layoutInflater)
+
+        dialogBinding.tvSelectedText.text = selectedText.trim()
+
+        AlertDialog.Builder(context)
+            .setTitle(R.string.annotation_note_title)
+            .setView(dialogBinding.root)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val noteText = dialogBinding.etNote.text?.toString()?.trim()
+                val style = when (dialogBinding.rgStyle.checkedRadioButtonId) {
+                    R.id.rbDashed -> AnnotationStyle.DASHED
+                    R.id.rbGrayFill -> AnnotationStyle.GRAY_FILL
+                    else -> AnnotationStyle.UNDERLINE
+                }
+                viewModel.addAnnotation(locator, selectedText, noteText, style)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showAnnotationDetailSheet(annotation: AnnotationEntity) {
+        val context = requireContext()
+        val sheet = BottomSheetDialog(context)
+        val sheetBinding = BottomSheetAnnotationDetailBinding.inflate(layoutInflater)
+
+        sheetBinding.tvDetailQuote.text = annotation.selectedText.trim()
+
+        if (!annotation.note.isNullOrBlank()) {
+            sheetBinding.tvDetailNote.text = annotation.note
+            sheetBinding.tvDetailNote.visibility = View.VISIBLE
+        } else {
+            sheetBinding.tvDetailNote.visibility = View.GONE
+        }
+
+        when (annotation.style) {
+            AnnotationStyle.DASHED.name -> sheetBinding.rbDetailDashed.isChecked = true
+            AnnotationStyle.GRAY_FILL.name -> sheetBinding.rbDetailGrayFill.isChecked = true
+            else -> sheetBinding.rbDetailUnderline.isChecked = true
+        }
+
+        sheetBinding.rgDetailStyle.setOnCheckedChangeListener { _, checkedId ->
+            val newStyle = when (checkedId) {
+                R.id.rbDetailDashed -> AnnotationStyle.DASHED
+                R.id.rbDetailGrayFill -> AnnotationStyle.GRAY_FILL
+                else -> AnnotationStyle.UNDERLINE
+            }
+            viewModel.updateAnnotationStyle(annotation.id, newStyle)
+        }
+
+        sheetBinding.btnDetailDelete.setOnClickListener {
+            sheet.dismiss()
+            AlertDialog.Builder(context)
+                .setTitle(R.string.annotation_delete)
+                .setMessage(R.string.annotation_delete_confirm)
+                .setPositiveButton(R.string.annotation_delete) { _, _ ->
+                    viewModel.deleteAnnotation(annotation.id)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        sheetBinding.btnDetailEditNote.setOnClickListener {
+            sheet.dismiss()
+            val editDialogBinding = DialogAddNoteBinding.inflate(layoutInflater)
+            editDialogBinding.tvSelectedText.text = annotation.selectedText.trim()
+            editDialogBinding.etNote.setText(annotation.note ?: "")
+            editDialogBinding.rgStyle.visibility = View.GONE
+
+            AlertDialog.Builder(context)
+                .setTitle(R.string.annotation_note_edit_title)
+                .setView(editDialogBinding.root)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    val newNote = editDialogBinding.etNote.text?.toString()?.trim()
+                    viewModel.updateAnnotationNote(annotation.id, newNote)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        sheet.setContentView(sheetBinding.root)
+        sheet.show()
     }
 
     override fun onDestroyView() {

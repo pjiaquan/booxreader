@@ -52,6 +52,7 @@ import my.hinoki.booxreader.data.remote.HttpConfig
 import my.hinoki.booxreader.data.repo.createAiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
+import my.hinoki.booxreader.data.repo.AnnotationRepository
 import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
@@ -84,6 +85,7 @@ class ReaderActivity : BaseActivity() {
                         BookRepository(app, syncRepo),
                         BookmarkRepository(app, syncRepo),
                         createAiNoteRepository(app, syncRepo),
+                        AnnotationRepository(syncRepo),
                         syncRepo,
                         my.hinoki.booxreader.data.remote.ProgressPublisher(
                                 baseUrlProvider = {

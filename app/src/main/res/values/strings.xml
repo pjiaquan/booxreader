@@ -342,4 +342,18 @@
     <string name="ai_note_empty_state">No AI notes found. Ask AI a question while reading!</string>
     <string name="ai_profile_select_checkbox">Select profile</string>
     <string name="ai_note_select_checkbox">Select note</string>
+    <string name="action_highlight">Highlight</string>
+    <string name="action_note">Note</string>
+    <string name="highlight_saved">Highlight saved</string>
+    <string name="annotation_note_title">Add Note</string>
+    <string name="annotation_note_edit_title">Edit Note</string>
+    <string name="annotation_note_hint">Write your note here...</string>
+    <string name="annotation_style_underline">Underline</string>
+    <string name="annotation_style_dashed">Dashed</string>
+    <string name="annotation_style_gray_fill">Shade</string>
+    <string name="annotation_delete">Delete</string>
+    <string name="annotation_delete_confirm">Delete this annotation?</string>
+    <string name="annotation_deleted">Annotation deleted</string>
+    <string name="annotation_list_title">Annotations &amp; Notes</string>
+    <string name="annotation_list_empty">No highlights or notes yet</string>
 </resources>

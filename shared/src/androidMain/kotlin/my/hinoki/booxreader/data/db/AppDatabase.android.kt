@@ -35,7 +35,8 @@ actual fun databaseMigrations(): Array<Migration> =
         MIGRATION_10_11,
         MIGRATION_11_12,
         MIGRATION_12_13,
-        MIGRATION_13_14
+        MIGRATION_13_14,
+        MIGRATION_14_15
     )
 
 private val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -176,3 +177,22 @@ private val MIGRATION_13_14 = object : Migration(13, 14) {
         database.execSQL("ALTER TABLE `ai_profiles` ADD COLUMN `extraParamsJson` TEXT")
     }
 }
+
+private val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL(
+            "CREATE TABLE IF NOT EXISTS `annotations` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`remoteId` TEXT, " +
+                    "`bookId` TEXT NOT NULL, " +
+                    "`locatorJson` TEXT NOT NULL, " +
+                    "`selectedText` TEXT NOT NULL, " +
+                    "`note` TEXT, " +
+                    "`style` TEXT NOT NULL DEFAULT 'UNDERLINE', " +
+                    "`createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, " +
+                    "`isSynced` INTEGER NOT NULL DEFAULT 0)"
+        )
+    }
+}
+

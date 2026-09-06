@@ -1,27 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootBookmarkList"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <ListView
-        android:id="@+id/listBookmarks"
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:divider="@color/divider_minor"
-        android:dividerHeight="1dp"
-        android:paddingStart="0dp"
-        android:paddingEnd="0dp" />
+        android:layout_height="48dp"
+        app:tabMode="fixed"
+        app:tabGravity="fill"
+        android:background="@color/background" />
 
-    <TextView
-        android:id="@+id/tvEmptyState"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="@string/bookmark_empty_state"
-        android:textColor="@color/text_secondary"
-        android:textSize="14sp"
-        android:visibility="gone" />
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/listBookmarks"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="@color/divider_minor"
+            android:dividerHeight="1dp" />
+
+        <TextView
+            android:id="@+id/tvEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/bookmark_empty_state"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
 </LinearLayout>

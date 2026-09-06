@@ -158,6 +158,7 @@ class ReloginBookDownloadOpenIntegrationTest {
         val bookRepo = Mockito.mock(BookRepository::class.java)
         val bookmarkRepo = Mockito.mock(BookmarkRepository::class.java)
         val aiNoteRepo = Mockito.mock(AiNoteRepository::class.java)
+        val annotationRepo = Mockito.mock(my.hinoki.booxreader.data.repo.AnnotationRepository::class.java)
         val syncRepoForViewModel = Mockito.mock(UserSyncRepository::class.java)
         val progressPublisher = Mockito.mock(ProgressPublisher::class.java)
 
@@ -170,6 +171,7 @@ class ReloginBookDownloadOpenIntegrationTest {
                         bookRepo = bookRepo,
                         bookmarkRepo = bookmarkRepo,
                         aiNoteRepo = aiNoteRepo,
+                        annotationRepo = annotationRepo,
                         syncRepo = syncRepoForViewModel,
                         progressPublisher = progressPublisher,
                         ioDispatcher = testDispatcher

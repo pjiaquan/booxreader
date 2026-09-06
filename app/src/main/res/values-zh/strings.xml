@@ -283,4 +283,18 @@
     <string name="update_install_launch_failed">無法開啟安裝程式</string>
     <string name="update_install_success">已更新到版本 %1$s</string>
     <string name="update_install_failed_or_cancelled">更新未完成安裝</string>
+    <string name="action_highlight">劃線</string>
+    <string name="action_note">筆記</string>
+    <string name="highlight_saved">已保存劃線</string>
+    <string name="annotation_note_title">新增筆記</string>
+    <string name="annotation_note_edit_title">編輯筆記</string>
+    <string name="annotation_note_hint">在此輸入筆記內容...</string>
+    <string name="annotation_style_underline">底線</string>
+    <string name="annotation_style_dashed">虛線</string>
+    <string name="annotation_style_gray_fill">陰影</string>
+    <string name="annotation_delete">刪除</string>
+    <string name="annotation_delete_confirm">確定要刪除此筆記/劃線嗎？</string>
+    <string name="annotation_deleted">已刪除</string>
+    <string name="annotation_list_title">劃線與筆記</string>
+    <string name="annotation_list_empty">暫無劃線或筆記</string>
 </resources>

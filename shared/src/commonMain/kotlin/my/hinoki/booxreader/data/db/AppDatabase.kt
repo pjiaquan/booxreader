@@ -6,8 +6,8 @@ import androidx.room.migration.Migration
 import kotlin.concurrent.Volatile
 
 @Database(
-    entities = [BookEntity::class, BookmarkEntity::class, AiNoteEntity::class, UserEntity::class, AiProfileEntity::class],
-    version = 14,
+    entities = [BookEntity::class, BookmarkEntity::class, AiNoteEntity::class, UserEntity::class, AiProfileEntity::class, AnnotationEntity::class],
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun aiNoteDao(): AiNoteDao
     abstract fun userDao(): UserDao
     abstract fun aiProfileDao(): AiProfileDao
+    abstract fun annotationDao(): AnnotationDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
