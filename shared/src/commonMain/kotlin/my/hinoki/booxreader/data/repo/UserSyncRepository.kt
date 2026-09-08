@@ -1341,9 +1341,9 @@ class UserSyncRepository(
 
                                 if (booksToInsert.isNotEmpty()) {
                                         db.withTransactionCompat {
-                                                booksToInsert.chunked(900).forEach { chunk ->
-                                                        db.bookDao().insertBatch(chunk)
-                                                }
+                                                // ⚡ Bolt Performance: Room automatically iterates list parameters for @Insert batch operations.
+                                                // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
+                                                db.bookDao().insertBatch(booksToInsert)
                                         }
                                 }
 
@@ -1489,9 +1489,9 @@ class UserSyncRepository(
 
                                 if (bookmarksToInsert.isNotEmpty()) {
                                         db.withTransactionCompat {
-                                                bookmarksToInsert.chunked(900).forEach { chunk ->
-                                                        db.bookmarkDao().insertBatch(chunk)
-                                                }
+                                                // ⚡ Bolt Performance: Room automatically iterates list parameters for @Insert batch operations.
+                                                // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
+                                                db.bookmarkDao().insertBatch(bookmarksToInsert)
                                         }
                                 }
 
@@ -2213,9 +2213,9 @@ class UserSyncRepository(
                                 }
                                 if (updates.isNotEmpty()) {
                                         db.withTransactionCompat {
-                                                updates.chunked(900).forEach { chunk ->
-                                                        db.bookDao().updateProgressBatch(chunk)
-                                                }
+                                                // ⚡ Bolt Performance: Room automatically iterates list parameters for @Update batch operations.
+                                                // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
+                                                db.bookDao().updateProgressBatch(updates)
                                         }
                                 }
                                 logger.d(
