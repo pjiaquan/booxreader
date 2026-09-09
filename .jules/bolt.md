@@ -27,3 +27,6 @@
 ## 2026-08-31 - Avoid chunking for batch inserts/updates in Room
 **Learning:** Room automatically iterates list parameters for @Insert and @Update batch operations, bypassing SQLite's parameter limits. Chunking is unnecessary and degrades performance compared to a single transaction.
 **Action:** Never use `.chunked()` for `@Insert` or `@Update` list operations in Room DAOs; only use it for `IN` clause queries.
+## 2026-09-07 - Optimize SQLite insert bottleneck inside loops
+**Learning:** Sequential database insertions inside synchronization loops using `@Insert(onConflict = OnConflictStrategy.REPLACE)` cause an O(N) transaction overhead and severely degrade sync performance in SQLite/Room.
+**Action:** Pre-batch entities in memory lists (e.g., `profilesToUpdate`, `remoteProfilesToProcess`) and execute them outside the loop using Room batch DAOs (e.g., `@Insert fun insertBatch`, `@Update fun updateBatch`) wrapped inside a single `db.withTransactionCompat` block to minimize disk I/O.
