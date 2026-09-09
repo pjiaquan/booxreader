@@ -85,6 +85,7 @@
                         android:layout_height="40dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:contentDescription="@string/ai_note_copy_response"
+                        app:tooltipText="@string/ai_note_copy_response"
                         android:padding="8dp"
                         android:src="@drawable/ic_content_copy" />
                 </LinearLayout>
