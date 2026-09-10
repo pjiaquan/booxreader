@@ -35,6 +35,9 @@ interface AnnotationDao {
     @Query("SELECT * FROM annotations WHERE remoteId IS NULL")
     suspend fun getLocalOnly(): List<AnnotationEntity>
 
+    @Query("SELECT * FROM annotations WHERE isSynced = 0")
+    suspend fun getPendingSync(): List<AnnotationEntity>
+
     @Query("UPDATE annotations SET bookId = :newBookId WHERE bookId = :oldBookId")
     suspend fun migrateBookId(oldBookId: String, newBookId: String)
 

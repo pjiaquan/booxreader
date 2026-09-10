@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.data.db.BookProgressUpdate
 import my.hinoki.booxreader.data.core.CrashReport
 import my.hinoki.booxreader.data.db.AiNoteEntity
+import my.hinoki.booxreader.data.db.AnnotationEntity
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.db.ApiKey
 import my.hinoki.booxreader.data.db.AppDatabase
@@ -96,6 +97,9 @@ class UserSyncRepository(
 
         /** 書籤同步（實作見 BookmarkSync.kt）。 */
         private val bookmarkSync by lazy { BookmarkSync(this) }
+
+        /** 畫線 / 註記同步（實作見 AnnotationSync.kt）。 */
+        private val annotationSync by lazy { AnnotationSync(this) }
 
         /** AI 筆記同步（實作見 AiNoteSync.kt）。 */
         private val aiNoteSync by lazy { AiNoteSync(this) }
@@ -319,6 +323,17 @@ class UserSyncRepository(
 
         suspend fun pushBookmark(entity: BookmarkEntity): BookmarkEntity? =
                 bookmarkSync.pushBookmark(entity)
+
+        // --- Annotation Sync（實作見 AnnotationSync.kt） ---
+
+        suspend fun pullAnnotations(bookId: String? = null): Int =
+                annotationSync.pullAnnotations(bookId)
+
+        suspend fun pushAnnotation(entity: AnnotationEntity): AnnotationEntity? =
+                annotationSync.pushAnnotation(entity)
+
+        suspend fun deleteAnnotation(remoteId: String): Boolean =
+                annotationSync.deleteAnnotation(remoteId)
 
 
         // --- Note Sync（實作見 AiNoteSync.kt） ---

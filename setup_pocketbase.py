@@ -455,6 +455,25 @@ def get_default_collections_schema():
             "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
         },
         {
+            "name": "annotations",
+            "type": "base",
+            "fields": [
+                {"name": "user", "type": "relation", "required": True, "options": {"collectionId": "_pb_users_auth_", "cascadeDelete": False, "maxSelect": 1}},
+                {"name": "bookId", "type": "text", "required": True},
+                {"name": "locatorJson", "type": "text", "required": True},
+                {"name": "selectedText", "type": "text", "required": False},
+                {"name": "note", "type": "text", "required": False},
+                {"name": "style", "type": "text", "required": False},
+                {"name": "createdAt", "type": "number", "required": False},
+                {"name": "updatedAt", "type": "number", "required": False}
+            ],
+            "listRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "viewRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "createRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "updateRule": "@request.auth.id != \"\" && user = @request.auth.id",
+            "deleteRule": "@request.auth.id != \"\" && user = @request.auth.id"
+        },
+        {
             "name": "ai_notes",
             "type": "base",
             "fields": [

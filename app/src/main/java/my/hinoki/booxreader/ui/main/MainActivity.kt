@@ -33,6 +33,7 @@ import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.core.ErrorReporter
 import my.hinoki.booxreader.data.db.BookEntity
+import my.hinoki.booxreader.data.repo.AnnotationRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.GitHubRelease
 import my.hinoki.booxreader.data.repo.GitHubUpdateRepository
@@ -345,6 +346,9 @@ class MainActivity : BaseActivity() {
 
                 val bookmarksResult = runCatching { syncRepo.pullBookmarks() }
                 val bookmarksUpdated = bookmarksResult.getOrNull() ?: 0
+
+                // 畫線 / 註記：先推本機未同步的，再拉遠端（見 AnnotationSync）
+                runCatching { AnnotationRepository(syncRepo).sync() }
 
                 // Force refresh recent books after sync to ensure UI updates
                 // This ensures progress updates are reflected even if Flow doesn't emit
