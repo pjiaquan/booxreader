@@ -858,6 +858,10 @@ class NativeNavigatorFragment : Fragment() {
                     else -> {
                         val resolvedHref = resolveResourceHref(baseHref, rawSource) ?: return fallback
                         val link = findPublicationLink(publication, resolvedHref) ?: return fallback
+                        // TODO(perf): `Html.ImageGetter.getDrawable` 是同步 API，這裡的
+                        // runBlocking 會在主執行緒上讀取出版物資源（e-ink 裝置上可能造成卡頓/ANR）。
+                        // 正確解法：先回傳 placeholder，背景載入後快取 Drawable，再觸發該頁重繪
+                        // （需要調整 setContent / 重繪流程，無法在此環境用裝置驗證）。
                         runBlocking { publication.get(link)?.read()?.getOrNull() }
                     }
                 } ?: return fallback

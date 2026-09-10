@@ -6,245 +6,241 @@
     android:id="@+id/rootView"
     android:background="?attr/colorSurface">
 
-    <LinearLayout
+    <ScrollView
+        android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <ScrollView
-            android:id="@+id/scrollView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:scrollbarSize="1dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="16dp"
-            android:clipToPadding="false">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tvOriginalLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:text="@string/ai_note_original_label"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvOriginalText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:textIsSelectable="true"
-                    android:textSize="24sp" />
-
-                <Button
-                    android:id="@+id/btnGoToPage"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="24dp"
-                    android:text="@string/ai_note_go_to_page"
-                    android:visibility="gone" />
-
-                <Button
-                    android:id="@+id/btnBackToLinkedNote"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:text="@string/ai_note_back_to_linked_note"
-                    android:visibility="gone" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/tvResponseLabel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/ai_note_response_label"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
-
-                    <ImageButton
-                        android:id="@+id/btnCopyAiResponse"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="@string/ai_note_copy_response"
-                        app:tooltipText="@string/ai_note_copy_response"
-                        android:padding="8dp"
-                        android:src="@drawable/ic_content_copy" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvAiResponse"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textIsSelectable="true"
-                    android:textSize="24sp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvAiModelInfo"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Model: --"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvAiDisclaimer"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="@string/ai_note_model_disclaimer"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:textSize="14sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvRelatedNotesLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="6dp"
-                    android:text="@string/ai_note_related_label"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tvRelatedNotesHint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="6dp"
-                    android:text="@string/ai_note_related_tap_hint"
-                    android:textSize="13sp"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/tvRelatedNotesStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:textSize="15sp"
-                    android:visibility="gone" />
-
-                <LinearLayout
-                    android:id="@+id/llRelatedNotesContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:orientation="vertical"
-                    android:visibility="gone" />
-
-                <Button
-                    android:id="@+id/btnPublish"
-                    style="@style/Widget.MaterialComponents.Button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/ai_note_publish_retry"
-                    android:visibility="gone" />
-
-                <Button
-                    android:id="@+id/btnRepublishSelection"
-                    style="@style/Widget.MaterialComponents.Button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/ai_note_republish_selected" />
-
-                <ProgressBar
-                    android:id="@+id/pbLoading"
-                    style="?android:attr/progressBarStyleSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="12dp"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-        </ScrollView>
+        android:layout_alignParentTop="true"
+        android:layout_above="@id/llInputArea"
+        android:scrollbarSize="1dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="0dp"
+        android:paddingBottom="16dp"
+        android:clipToPadding="false">
 
         <LinearLayout
-            android:id="@+id/llInputArea"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="8dp"
-            android:paddingTop="8dp"
-            android:elevation="4sp">
+            android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tvAiInputDisclaimer"
+                android:id="@+id/tvOriginalLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
-                android:text="@string/ai_note_input_disclaimer"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="12sp" />
+                android:layout_marginBottom="8dp"
+                android:text="@string/ai_note_original_label"
+                android:textSize="24sp"
+                android:textStyle="bold" />
 
-            <HorizontalScrollView
+            <TextView
+                android:id="@+id/tvOriginalText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:scrollbars="none">
+                android:textIsSelectable="true"
+                android:textSize="24sp" />
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/cgMagicTags"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true" />
+            <Button
+                android:id="@+id/btnGoToPage"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:text="@string/ai_note_go_to_page"
+                android:visibility="gone" />
 
-            </HorizontalScrollView>
+            <Button
+                android:id="@+id/btnBackToLinkedNote"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="@string/ai_note_back_to_linked_note"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <EditText
-                    android:id="@+id/etFollowUp"
+                <TextView
+                    android:id="@+id/tvResponseLabel"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="@string/ai_note_follow_up_hint"
-                    android:inputType="textMultiLine"
-                    android:maxLines="4"
-                    android:minLines="1" />
+                    android:text="@string/ai_note_response_label"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
 
-                <Button
-                    android:id="@+id/btnFollowUp"
-                    style="@style/Widget.MaterialComponents.Button"
+                <ImageButton
+                    android:id="@+id/btnCopyAiResponse"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/ai_note_copy_response"
+                    app:tooltipText="@string/ai_note_copy_response"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_content_copy" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvAiResponse"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textIsSelectable="true"
+                android:textSize="24sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvAiModelInfo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="@string/ai_note_publish" />
+                    android:text="Model: --"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/tvAiDisclaimer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/ai_note_model_disclaimer"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:textSize="14sp" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvRelatedNotesLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="6dp"
+                android:text="@string/ai_note_related_label"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvRelatedNotesHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="@string/ai_note_related_tap_hint"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvRelatedNotesStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:textSize="15sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/llRelatedNotesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnPublish"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/ai_note_publish_retry"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnRepublishSelection"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/ai_note_republish_selected" />
+
+            <ProgressBar
+                android:id="@+id/pbLoading"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="12dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/llInputArea"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:paddingTop="8dp"
+        android:elevation="4sp">
+
+        <TextView
+            android:id="@+id/tvAiInputDisclaimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:text="@string/ai_note_input_disclaimer"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="12sp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:scrollbars="none">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/cgMagicTags"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleLine="true" />
+
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/etFollowUp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/ai_note_follow_up_hint"
+                android:inputType="textMultiLine"
+                android:maxLines="4"
+                android:minLines="1" />
+
+            <Button
+                android:id="@+id/btnFollowUp"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/ai_note_publish" />
         </LinearLayout>
     </LinearLayout>
 
