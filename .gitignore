@@ -39,6 +39,12 @@ release.keystore
 app/.grok/
 .kotlin/
 
+# CI / local run artifacts
+android-crash-log/
+crash_log.txt
+instrument_output.txt
+dependencies.txt
+
 # Temporary build directories
 .tmp/
 

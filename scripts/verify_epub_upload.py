@@ -13,7 +13,7 @@ Usage:
   python3 scripts/verify_epub_upload.py \
     --email your_user@example.com \
     --password your_password \
-    --epub test.epub
+    --epub scripts/test.epub
 
 Optional env/.env keys:
   POCKETBASE_URL
@@ -370,7 +370,7 @@ def main() -> int:
     parser.add_argument("--url", help="PocketBase base URL (e.g. https://pb.example.com)")
     parser.add_argument("--email", help="PocketBase user email")
     parser.add_argument("--password", help="PocketBase user password")
-    parser.add_argument("--epub", default="test.epub", help="EPUB file path (default: test.epub)")
+    parser.add_argument("--epub", default="scripts/test.epub", help="EPUB file path (default: scripts/test.epub)")
     parser.add_argument("--title", default="Upload Verification Book", help="Book title to store in metadata")
     parser.add_argument("--field", help="Force a specific file field name (e.g. bookFile)")
     parser.add_argument("--insecure", action="store_true", help="Disable SSL verification")
