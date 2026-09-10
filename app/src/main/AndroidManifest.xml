@@ -4,14 +4,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- Required when accessing Advertising ID on Android 13+ -->
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
-    <!-- Storage permissions for EPUB file download and access -->
-    <!-- Android 13+ media read permission (needed when targeting SDK 33+) -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-
-    <!-- For Android 10 and below -->
+    <!--
+      Storage permissions for EPUB file download and access.
+      Android 13+ 不需要任何媒體權限：EPUB 一律經由 SAF (content://) 或 App 專屬目錄存取，
+      而 MediaStore 下載在 API 29+ 也不需要權限。因此不宣告 READ_MEDIA_IMAGES。
+    -->
+    <!-- For Android 12 and below -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -70,26 +69,26 @@
             android:name="my.hinoki.booxreader.ui.notes.AiNoteListActivity"
             android:exported="false"
             android:theme="@style/AppTheme"
-            android:label="AI Notes" />
+            android:label="@string/ai_notes_title" />
 
         <activity
             android:name="my.hinoki.booxreader.ui.notes.AiNoteDetailActivity"
             android:exported="false"
             android:theme="@style/AppTheme.ActionBar.AiNoteDetail"
             android:windowSoftInputMode="adjustResize"
-            android:label="AI Note Details" />
+            android:label="@string/ai_note_details_title" />
 
         <activity
             android:name="my.hinoki.booxreader.ui.auth.LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
-            android:label="Login" />
+            android:label="@string/login_title" />
 
         <activity
             android:name="my.hinoki.booxreader.ui.auth.RegisterActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
-            android:label="Register" />
+            android:label="@string/register_title" />
 
         <activity
             android:name="my.hinoki.booxreader.ui.auth.UserProfileActivity"
@@ -100,13 +99,13 @@
         <activity
             android:name="my.hinoki.booxreader.ui.settings.AiProfileListActivity"
             android:exported="false"
-            android:label="AI Profiles"
+            android:label="@string/reader_settings_ai_profiles"
             android:theme="@style/AppTheme.ActionBar" />
 
         <activity
             android:name="my.hinoki.booxreader.ui.settings.AiProfileEditActivity"
             android:exported="false"
-            android:label="Edit Profile"
+            android:label="@string/ai_profile_edit_title"
             android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
 
         <activity

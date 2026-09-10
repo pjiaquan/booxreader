@@ -113,8 +113,8 @@ class WelcomeActivity : BaseActivity() {
 
     private fun hasPermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) ==
-                    PackageManager.PERMISSION_GRANTED
+            // Android 13+：EPUB 經由 SAF / App 專屬目錄存取，不需執行時權限。
+            true
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) ==
                     PackageManager.PERMISSION_GRANTED
@@ -141,7 +141,9 @@ class WelcomeActivity : BaseActivity() {
         val permissionsToRequest = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            // Android 13+ 不需權限（見 hasPermissions）。
+            navigateToMain()
+            return
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         } else {

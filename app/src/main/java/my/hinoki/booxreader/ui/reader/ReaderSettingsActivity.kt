@@ -172,6 +172,9 @@ class ReaderSettingsActivity : BaseActivity() {
         val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
         val etServerUrl = dialogView.findViewById<EditText>(R.id.etServerUrl)
         val etApiKey = dialogView.findViewById<EditText>(R.id.etApiKey)
+        val switchSyncAiApiKeys = dialogView.findViewById<SwitchCompat>(R.id.switchSyncAiApiKeys)
+        val rowSyncAiApiKeys = dialogView.findViewById<View>(R.id.rowSyncAiApiKeys)
+        rowSyncAiApiKeys?.setOnClickListener { switchSyncAiApiKeys?.toggle() }
 
         // Daily Digest Controls
         val switchDailySummaryEmail = dialogView.findViewById<SwitchCompat>(R.id.switchDailySummaryEmail)
@@ -238,7 +241,7 @@ class ReaderSettingsActivity : BaseActivity() {
             readerSettings, prefs, etServerUrl, etApiKey, switchPageTap, switchPageSwipe,
             switchPageAnimation, switchPageIndicator, switchAutoCheckUpdates, switchDailySummaryEmail,
             etDailySummaryEmailTo, switchConvertChinese, cbCustomExport, etCustomExportUrl,
-            cbLocalExport, seekBarTextSize, tvTextSizeValue
+            cbLocalExport, seekBarTextSize, tvTextSizeValue, switchSyncAiApiKeys
         )
 
         setupDailySummary(switchDailySummaryEmail, tvDailySummaryTimeValue, btnDailySummaryPickTime, etDailySummaryEmailTo)
@@ -283,7 +286,8 @@ class ReaderSettingsActivity : BaseActivity() {
                 cbCustomExport = cbCustomExport,
                 etCustomExportUrl = etCustomExportUrl,
                 cbLocalExport = cbLocalExport,
-                seekBarTextSize = seekBarTextSize
+                seekBarTextSize = seekBarTextSize,
+                switchSyncAiApiKeys = switchSyncAiApiKeys
             )
         }
 
@@ -375,7 +379,8 @@ class ReaderSettingsActivity : BaseActivity() {
         cbCustomExport: SwitchCompat,
         etCustomExportUrl: EditText,
         cbLocalExport: SwitchCompat,
-        seekBarTextSize: SeekBar
+        seekBarTextSize: SeekBar,
+        switchSyncAiApiKeys: SwitchCompat
     ) {
         val newUrlRaw = etServerUrl.text.toString().trim()
         val newApiKey = etApiKey.text.toString().trim()
@@ -391,6 +396,7 @@ class ReaderSettingsActivity : BaseActivity() {
         val customExportUrlRaw = etCustomExportUrl.text.toString().trim()
         val exportToLocal = cbLocalExport.isChecked
         val newTextSize = seekBarTextSize.progress + 50
+        val newSyncAiApiKeys = switchSyncAiApiKeys.isChecked
 
         val normalizedBaseUrl = if (newUrlRaw.isNotEmpty()) normalizeUrl(newUrlRaw) else currentSettings.serverBaseUrl
         val normalizedCustomUrl = if (useCustomExport && customExportUrlRaw.isNotEmpty()) normalizeUrl(customExportUrlRaw) else ""
@@ -429,6 +435,7 @@ class ReaderSettingsActivity : BaseActivity() {
             exportCustomUrl = normalizedCustomUrl,
             exportToLocalDownloads = exportToLocal,
             textSize = newTextSize,
+            syncAiApiKeys = newSyncAiApiKeys,
             contrastMode = selectedContrastMode.ordinal,
             language = selectedLanguage,
             updatedAt = System.currentTimeMillis()
@@ -864,10 +871,12 @@ class ReaderSettingsActivity : BaseActivity() {
         etCustomExportUrl: EditText,
         cbLocalExport: SwitchCompat,
         seekBarTextSize: SeekBar,
-        tvTextSizeValue: TextView
+        tvTextSizeValue: TextView,
+        switchSyncAiApiKeys: SwitchCompat
     ) {
         etServerUrl.setText(readerSettings.serverBaseUrl)
         etApiKey.setText(readerSettings.apiKey)
+        switchSyncAiApiKeys.isChecked = readerSettings.syncAiApiKeys
         switchPageTap.isChecked = readerSettings.pageTapEnabled
         switchPageSwipe.isChecked = readerSettings.pageSwipeEnabled
         switchPageAnimation.isChecked = readerSettings.pageAnimationEnabled

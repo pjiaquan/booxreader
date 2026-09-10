@@ -584,6 +584,43 @@
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
+        <!-- API Key 是否上傳雲端（預設關閉，金鑰僅留在本機） -->
+        <LinearLayout
+            android:id="@+id/rowSyncAiApiKeys"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_sync_api_keys" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchSyncAiApiKeys"
+                style="@style/Widget.App.Switch.Modernist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="12dp"
+            android:text="@string/reader_settings_sync_api_keys_desc"
+            android:textColor="@color/text_tertiary"
+            android:textSize="12sp" />
+
         <!-- ======================= 4. DAILY READING DIGEST ======================= -->
         <View
             android:layout_width="match_parent"

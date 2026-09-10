@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import my.hinoki.booxreader.data.platform.currentEpochMillis
 import my.hinoki.booxreader.data.remote.HttpConfig
+import my.hinoki.booxreader.data.security.Secrets
 
 enum class ContrastMode {
   NORMAL,
@@ -31,6 +32,13 @@ data class ReaderSettings(
         val exportCustomUrl: String = "",
         val exportToLocalDownloads: Boolean = false,
         val apiKey: String = "",
+        /**
+         * 是否將 AI API key 同步到雲端。
+         *
+         * 預設 false：金鑰只留在本機，且以 [Secrets]（Android Keystore AES-GCM）加密儲存，
+         * 伺服器端不會拿到明文金鑰。使用者可在設定中明確開啟。
+         */
+        val syncAiApiKeys: Boolean = false,
         val aiModelName: String = "deepseek-chat",
         // Default System Prompt
         val aiSystemPrompt: String = DEFAULT_AI_SYSTEM_PROMPT,
@@ -71,7 +79,8 @@ data class ReaderSettings(
     storage.putBoolean("export_to_custom_url", exportToCustomUrl)
     storage.putString("export_custom_url", exportCustomUrl)
     storage.putBoolean("export_to_local_downloads", exportToLocalDownloads)
-    storage.putString("api_key", apiKey)
+    storage.putString("api_key", Secrets.protect(apiKey))
+    storage.putBoolean("sync_ai_api_keys", syncAiApiKeys)
     storage.putString("ai_model_name", aiModelName)
     storage.putString("ai_system_prompt", aiSystemPrompt)
     storage.putString("ai_user_prompt_template", aiUserPromptTemplate)
@@ -277,7 +286,8 @@ data class ReaderSettings(
               exportToCustomUrl = storage.getBoolean("export_to_custom_url", false),
               exportCustomUrl = storage.getString("export_custom_url") ?: "",
               exportToLocalDownloads = storage.getBoolean("export_to_local_downloads", false),
-              apiKey = storage.getString("api_key") ?: "",
+              apiKey = Secrets.reveal(storage.getString("api_key") ?: ""),
+              syncAiApiKeys = storage.getBoolean("sync_ai_api_keys", false),
               aiModelName = storage.getString("ai_model_name") ?: "deepseek-chat",
               aiSystemPrompt = storage.getString("ai_system_prompt") ?: DEFAULT_AI_SYSTEM_PROMPT,
               aiUserPromptTemplate =

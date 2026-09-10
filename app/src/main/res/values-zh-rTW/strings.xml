@@ -161,6 +161,8 @@
     <string name="reader_settings_server_url_hint">https://your-server.com</string>
     <string name="reader_settings_api_key">API Key</string>
     <string name="reader_settings_api_key_hint">sk-...</string>
+    <string name="reader_settings_sync_api_keys">同步 API Key 到雲端</string>
+    <string name="reader_settings_sync_api_keys_desc">預設關閉：金鑰只留在這台裝置並加密儲存。開啟後會將金鑰上傳到你的同步伺服器。</string>
     <string name="reader_settings_ai_section_title">AI 設定</string>
     <string name="reader_settings_ai_section_body">AI 設定已移至「AI 設定檔」以便更好地管理。請點擊下方按鈕管理您的 AI 模型與設定。</string>
     <string name="reader_settings_export_section_title">AI 筆記匯出</string>
@@ -173,6 +175,9 @@
     <string name="reader_settings_theme_title">閱讀主題</string>
     <string name="reader_settings_user_profile">使用者設定檔</string>
     <string name="reader_settings_ai_profiles">AI 設定檔</string>
+    <string name="ai_notes_title">AI 筆記</string>
+    <string name="ai_note_details_title">AI 筆記詳情</string>
+    <string name="ai_profile_edit_title">編輯設定檔</string>
     <string name="reader_settings_cat_account">帳號與個人設定</string>
     <string name="reader_settings_theme_normal">明亮</string>
     <string name="reader_settings_theme_dark">深色</string>

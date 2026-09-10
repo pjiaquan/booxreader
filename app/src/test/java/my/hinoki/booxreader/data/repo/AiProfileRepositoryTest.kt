@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import my.hinoki.booxreader.data.db.AiProfileEntity
+import my.hinoki.booxreader.data.db.ApiKey
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import org.junit.After
@@ -70,7 +71,7 @@ class AiProfileRepositoryTest {
         val customProfile = AiProfileEntity(
             name = "Custom LLM",
             modelName = "custom-model",
-            apiKey = "key-123",
+            apiKey = ApiKey("key-123"),
             serverBaseUrl = "https://api.custom.com",
             systemPrompt = "sys",
             userPromptTemplate = "%s",
@@ -95,7 +96,7 @@ class AiProfileRepositoryTest {
         val profile1 = AiProfileEntity(
             name = "Profile 1",
             modelName = "model-1",
-            apiKey = "key-1",
+            apiKey = ApiKey("key-1"),
             serverBaseUrl = "https://api.test1.com",
             systemPrompt = "prompt 1",
             userPromptTemplate = "%s",
@@ -106,7 +107,7 @@ class AiProfileRepositoryTest {
         val profile2 = AiProfileEntity(
             name = "Claude 3.5 Sonnet",
             modelName = "claude-3-5-sonnet",
-            apiKey = "sk-ant-123",
+            apiKey = ApiKey("sk-ant-123"),
             serverBaseUrl = "https://api.anthropic.com",
             systemPrompt = "You are a helpful assistant.",
             userPromptTemplate = "%s",

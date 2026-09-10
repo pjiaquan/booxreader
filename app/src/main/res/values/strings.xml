@@ -191,6 +191,8 @@
     <string name="reader_settings_server_url_hint">https://your-server.com</string>
     <string name="reader_settings_api_key">API Key</string>
     <string name="reader_settings_api_key_hint">sk-...</string>
+    <string name="reader_settings_sync_api_keys">Sync API key to cloud</string>
+    <string name="reader_settings_sync_api_keys_desc">Off by default: the key stays on this device and is stored encrypted. Turning this on uploads it to your sync server.</string>
     <string name="reader_settings_ai_section_title">AI Settings</string>
     <string name="reader_settings_ai_section_body">AI settings have been moved to AI Profiles for better organization and management. Click the button below to manage your AI models and settings.</string>
     <string name="reader_settings_export_section_title">AI Note Export</string>
@@ -203,6 +205,9 @@
     <string name="reader_settings_theme_title">Reading Theme</string>
     <string name="reader_settings_user_profile">User Profile</string>
     <string name="reader_settings_ai_profiles">AI Profiles</string>
+    <string name="ai_notes_title">AI Notes</string>
+    <string name="ai_note_details_title">AI Note Details</string>
+    <string name="ai_profile_edit_title">Edit Profile</string>
     <string name="reader_settings_cat_account">Account &amp; Profiles</string>
     <string name="reader_settings_theme_normal">Normal</string>
     <string name="reader_settings_theme_dark">Dark</string>

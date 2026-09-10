@@ -14,6 +14,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import my.hinoki.booxreader.data.db.AiProfileEntity
+import my.hinoki.booxreader.data.db.ApiKey
 import my.hinoki.booxreader.data.db.AppDatabase
 import my.hinoki.booxreader.data.settings.KeyValueStorage
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -64,7 +65,7 @@ class AiProfileRepository(
                             AiProfileEntity(
                                     name = name,
                                     modelName = modelName,
-                                    apiKey = apiKey,
+                                    apiKey = ApiKey(apiKey),
                                     serverBaseUrl = serverBaseUrl,
                                     systemPrompt = systemPrompt,
                                     userPromptTemplate = userPromptTemplate,
@@ -167,7 +168,7 @@ class AiProfileRepository(
                 val newSettings =
                         currentSettings.copy(
                                 aiModelName = profile.modelName,
-                                apiKey = profile.apiKey,
+                                apiKey = profile.apiKey.value,
                                 serverBaseUrl = profile.serverBaseUrl,
                                 aiSystemPrompt = profile.systemPrompt,
                                 aiUserPromptTemplate = profile.userPromptTemplate,

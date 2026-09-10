@@ -366,10 +366,9 @@ class MainActivity : BaseActivity() {
 
     private fun hasFilePermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ uses READ_MEDIA_IMAGES for EPUB files
-            // We only need read permission for accessing EPUB files
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) ==
-                    PackageManager.PERMISSION_GRANTED
+            // Android 13+：EPUB 一律經由 SAF (content://) 或 App 專屬目錄存取，
+            // 沒有適用的執行時權限（READ_MEDIA_IMAGES 只涵蓋圖片，對 EPUB 無效）。
+            true
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Android 11-12, no permission needed for app-specific files
             // But we still need READ_EXTERNAL_STORAGE for accessing EPUB files outside app dir
@@ -418,8 +417,9 @@ class MainActivity : BaseActivity() {
         val permissionsToRequest = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+
-            permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            // Android 13+ 不需權限（見 hasFilePermissions），直接繼續同步流程。
+            performFullSync()
+            return
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Android 11-12
             permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)

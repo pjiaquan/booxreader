@@ -524,7 +524,7 @@ class AiProfileListActivity : BaseActivity() {
         val payload = buildJsonObject {
             put("name", profile.name)
             put("modelName", profile.modelName)
-            put("apiKey", profile.apiKey)
+            put("apiKey", profile.apiKey.value)
             put("serverBaseUrl", profile.serverBaseUrl)
             put("systemPrompt", profile.systemPrompt)
             put("userPromptTemplate", profile.userPromptTemplate)

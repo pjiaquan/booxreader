@@ -1,6 +1,7 @@
 package my.hinoki.booxreader.data.repo
 
 import my.hinoki.booxreader.data.db.AiProfileEntity
+import my.hinoki.booxreader.data.db.ApiKey
 import my.hinoki.booxreader.data.platform.currentEpochMillis
 
 /**
@@ -15,7 +16,7 @@ class AiProfileDefaultGenerator {
         return AiProfileEntity(
             name = "Gemini",
             modelName = "gemini-3-flash-preview",
-            apiKey = "<YOUR_GEMINI_API_KEY>",
+            apiKey = ApiKey("<YOUR_GEMINI_API_KEY>"),
             serverBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
             systemPrompt = "You are a helpful AI assistant.",
             userPromptTemplate = "%s",

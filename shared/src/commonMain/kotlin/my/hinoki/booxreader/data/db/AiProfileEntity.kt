@@ -12,7 +12,9 @@ data class AiProfileEntity(
     // Core Settings
     val name: String, // Profile name (e.g. "DeepSeek Chat")
     val modelName: String,
-    val apiKey: String,
+    // 以 ApiKey 包裝：Room 透過 ApiKeyConverter 自動加解密（見 ApiKey.kt），
+    // 避免明文 API key 落地。
+    val apiKey: ApiKey = ApiKey(""),
     val serverBaseUrl: String,
     val systemPrompt: String,
     val userPromptTemplate: String,

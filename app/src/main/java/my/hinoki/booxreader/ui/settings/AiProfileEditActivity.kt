@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
+import my.hinoki.booxreader.data.db.ApiKey
 import my.hinoki.booxreader.data.remote.AiModelFetcher
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.createAiProfileRepository
@@ -89,7 +90,7 @@ class AiProfileEditActivity : BaseActivity() {
             profile?.let { p ->
                 binding.etName.setText(p.name)
                 binding.etModelName.setText(p.modelName)
-                binding.etApiKey.setText(p.apiKey)
+                binding.etApiKey.setText(p.apiKey.value)
                 binding.etBaseUrl.setText(p.serverBaseUrl)
                 binding.etSystemPrompt.setText(p.systemPrompt)
                 binding.etUserPromptTemplate.setText(p.userPromptTemplate)
@@ -153,7 +154,7 @@ class AiProfileEditActivity : BaseActivity() {
                 val updated = original.copy(
                     name = name,
                     modelName = modelName,
-                    apiKey = apiKey,
+                    apiKey = ApiKey(apiKey),
                     serverBaseUrl = baseUrl,
                     systemPrompt = systemPrompt,
                     userPromptTemplate = userPromptTemplate,
@@ -173,7 +174,7 @@ class AiProfileEditActivity : BaseActivity() {
                 val newProfile = AiProfileEntity(
                     name = name,
                     modelName = modelName,
-                    apiKey = apiKey,
+                    apiKey = ApiKey(apiKey),
                     serverBaseUrl = baseUrl,
                     systemPrompt = systemPrompt,
                     userPromptTemplate = userPromptTemplate,
