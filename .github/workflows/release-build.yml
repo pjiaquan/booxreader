@@ -49,6 +49,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # 必須明確 checkout tag：daily-release 是在 workflow 執行中才產生版本號 bump
+          # commit 並推上 tag，若沿用觸發 ref 會建到 bump「之前」的 commit，導致 APK 的
+          # versionName/versionCode 比 release tag 少一版。
+          ref: ${{ inputs.tag }}
 
       - name: Create google-services.json
         run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > app/google-services.json
@@ -78,6 +83,19 @@ jobs:
           echo "apk_unsigned=dist/${APP_NAME}-${VERSION_NAME}-release-unsigned.apk" >> $GITHUB_OUTPUT
           echo "apk_signed=dist/${APP_NAME}-${VERSION_NAME}-release.apk" >> $GITHUB_OUTPUT
           echo "aab_path=dist/${APP_NAME}-${VERSION_NAME}-release.aab" >> $GITHUB_OUTPUT
+
+      - name: Verify the built version matches the release tag
+        run: |
+          EXPECTED="${{ inputs.tag }}"
+          EXPECTED="${EXPECTED#v}"
+          ACTUAL="${{ steps.names.outputs.version_name }}"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::versionName '$ACTUAL' does not match release tag '${{ inputs.tag }}'."
+            echo "::error::The checkout ref is probably wrong, which ships an APK that reports a stale"
+            echo "::error::version and makes the in-app update check offer an update forever."
+            exit 1
+          fi
+          echo "✅ versionName $ACTUAL matches release tag ${{ inputs.tag }}"
 
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
