@@ -18,9 +18,16 @@
       --password '***'
 
   加上 --dry-run 只檢查現況，不會建立任何東西。
+
+密碼不會經過命令列（命令列的參數會進入 shell history 與 process list）：
+  1. 優先讀環境變數 POCKETBASE_ADMIN_PASSWORD
+  2. 否則互動式提示輸入（不回顯）
+只有在無法提示時（非互動環境）才需要 --password，且會印出警告。
 """
 
 import argparse
+import getpass
+import os
 import sys
 from typing import Optional
 
@@ -107,7 +114,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--url", required=True, help="PocketBase URL（例如 https://pocket.risc-v.tw）")
     parser.add_argument("--email", required=True, help="superuser email")
-    parser.add_argument("--password", required=True, help="superuser 密碼")
+    parser.add_argument(
+        "--password",
+        required=False,
+        default=None,
+        help="superuser 密碼（建議改用 POCKETBASE_ADMIN_PASSWORD 或互動輸入，避免留在 shell history）",
+    )
     parser.add_argument("--no-verify-ssl", action="store_true", help="停用 SSL 憑證驗證")
     parser.add_argument("--dry-run", action="store_true", help="只檢查現況，不建立任何東西")
     args = parser.parse_args()
@@ -115,11 +127,26 @@ def main() -> int:
     base_url = args.url.rstrip("/")
     verify_ssl = not args.no_verify_ssl
 
+    password = args.password or os.environ.get("POCKETBASE_ADMIN_PASSWORD")
+    if password is None:
+        if sys.stdin.isatty():
+            password = getpass.getpass("PocketBase superuser 密碼（不會顯示）: ")
+        else:
+            parser.error(
+                "找不到密碼：請設定 POCKETBASE_ADMIN_PASSWORD 環境變數，或在互動式終端執行"
+            )
+    elif args.password is not None:
+        print(
+            "⚠️  偵測到 --password：命令列參數會留在 shell history 與 process list。\n"
+            "   建議改用 `read -s POCKETBASE_ADMIN_PASSWORD && export POCKETBASE_ADMIN_PASSWORD`。\n"
+        )
+
     print(f"PocketBase: {base_url}")
     print("1) 登入…")
-    token = authenticate(base_url, args.email, args.password, verify_ssl)
+    token = authenticate(base_url, args.email, password, verify_ssl)
     if not token:
         print("✗ 登入失敗：請確認 email / password 是 PocketBase 的 superuser 帳號")
+        print("   （PocketBase 0.23+ 可用 ./pocketbase superuser upsert <email> <password> 重設）")
         return 1
 
     print("2) 讀取現有 collections…")
