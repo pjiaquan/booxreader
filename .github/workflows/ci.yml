@@ -1,0 +1,70 @@
+name: CI
+
+# 單元測試與 lint 的守門員。
+#
+# 為什麼需要這個 workflow：
+#   - `daily-release.yml` / `release-build.yml` 只負責打包與發佈，不會跑單元測試。
+#   - `android_ui_test.yml` 只做 emulator 上的 instrumented test。
+#   在加入這個 workflow 之前，repo 內 150+ 個 JVM 單元測試在任何自動化流程中都不會被執行。
+#
+# lint 使用 `app/lint-baseline.xml` 記錄既有債務：baseline 內的舊問題不會失敗，
+# 但任何**新增**的 lint error 都會讓這個 workflow 變紅。
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit tests & lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run JVM unit tests
+        run: ./gradlew :app:testDebugUnitTest :shared:testDebugUnitTest --stacktrace
+
+      - name: Run lint (baseline-gated)
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          if-no-files-found: ignore
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+            shared/build/reports/tests/testDebugUnitTest/
+            shared/build/test-results/testDebugUnitTest/
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          if-no-files-found: ignore
+          path: app/build/reports/lint-results-debug.html

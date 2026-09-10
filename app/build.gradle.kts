@@ -148,7 +148,11 @@ android {
     }
 
     lint {
-        abortOnError = false
+        // 既有債務記錄在 baseline，不阻擋本機開發；之後新增的 error 會讓 CI 的 lint 任務失敗。
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+        // release 的 lintVital 需要簽章設定才能執行，改由 CI 的 lint 任務統一判準。
+        checkReleaseBuilds = false
         disable += "FlowOperatorInvokedInComposition"
         disable += "StateFlowValueCalledInComposition"
         disable += "CoroutineCreationDuringComposition" // Workaround for lint crash with Kotlin 2.1.0 metadata
@@ -227,7 +231,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation("androidx.fragment:fragment-ktx:1.8.5")
+    implementation(libs.androidx.fragment.ktx)
 
     // --- OkHttp + Gson ---
     implementation(libs.squareup.okhttp)
@@ -242,7 +246,7 @@ dependencies {
     implementation(libs.markwon.inline.parser)
 
     // --- Chinese Conversion ---
-    implementation("com.github.houbb:opencc4j:1.8.1")
+    implementation(libs.opencc4j)
 
     // --- Auth & Security ---
     implementation(libs.androidx.security.crypto)
@@ -275,7 +279,7 @@ dependencies {
     testImplementation(libs.json)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation(libs.squareup.okhttp.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.uiautomator)
@@ -285,8 +289,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     constraints {
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1") {
-            version { strictly("0.7.1") }
+        implementation(libs.kotlinx.datetime) {
+            version { strictly(libs.versions.kotlinxDatetime.get()) }
             because("Readium 3.1.2 expects kotlinx-datetime 0.7.x APIs (kotlin.time.Instant)")
         }
     }

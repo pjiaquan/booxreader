@@ -44,14 +44,20 @@ jobs:
 
             # Install Debug APK and AndroidTest APK
             adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk || true
+            adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 
             # Launch Welcome Activity
             adb shell am start -n my.hinoki.booxreader/my.hinoki.booxreader.ui.welcome.WelcomeActivity || true
             sleep 2
 
-            # Run UI Automator Android Instrumented Tests via adb am instrument
-            adb shell am instrument -w -r my.hinoki.booxreader.test/androidx.test.runner.AndroidJUnitRunner || true
+            # Run UI Automator Android Instrumented Tests via adb am instrument.
+            # 保留 `|| true` 只是為了讓後面的判斷拿得到輸出（測試崩潰時 emulator runner
+            # 會直接中斷、看不到原因）；失敗與否由下面的 grep 判斷，不再被靜默忽略。
+            adb shell am instrument -w -r my.hinoki.booxreader.test/androidx.test.runner.AndroidJUnitRunner > instrument_output.txt 2>&1 || true
+            tail -n 40 instrument_output.txt
+
+            # 測試失敗 / instrumentation 中斷 → 讓 CI 變紅
+            grep -qE "FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED|Process crashed|No tests found" instrument_output.txt && { echo "❌ Instrumented tests failed"; exit 1; } || echo "✅ Instrumented tests reported no failures."
 
             # Capture only BooxReader-specific FATAL EXCEPTION or AndroidRuntime crashes.
             # Filtering by package name prevents false positives from unrelated system-level
@@ -68,4 +74,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-crash-log
-          path: crash_log.txt
+          path: |
+            crash_log.txt
+            instrument_output.txt

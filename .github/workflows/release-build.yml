@@ -79,6 +79,9 @@ jobs:
           echo "apk_signed=dist/${APP_NAME}-${VERSION_NAME}-release.apk" >> $GITHUB_OUTPUT
           echo "aab_path=dist/${APP_NAME}-${VERSION_NAME}-release.aab" >> $GITHUB_OUTPUT
 
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
       - name: Build release APK & AAB
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
