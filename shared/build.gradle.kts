@@ -8,6 +8,11 @@ plugins {
 }
 
 kotlin {
+    // 與 :app 一致：單元測試任務要用 JDK 21 執行。
+    // （少了這行，測試程式碼雖然以 jvmTarget 21 編譯，卻會在 Gradle 的 JDK 17 上載入失敗：
+    //   UnsupportedClassVersionError: class file version 65.0）
+    jvmToolchain(21)
+
     androidTarget {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
@@ -55,6 +60,13 @@ dependencies {
     // Room KMP: KSP processes commonMain metadata + Android target
     add("kspCommonMainMetadata", libs.androidx.room.compiler)
     add("kspAndroid", libs.androidx.room.compiler)
+}
+
+ksp {
+    // 匯出 Room schema（搭配 AppDatabase 的 exportSchema = true）：
+    // schema JSON 進版控後，migration 可以在 PR 中被 diff，也才能用 Room 的
+    // migration 測試工具驗證歷史版本。
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 android {
