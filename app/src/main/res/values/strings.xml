@@ -216,6 +216,7 @@
     <string name="reader_settings_lang_system">System Default</string>
     <string name="reader_settings_lang_english">English</string>
     <string name="reader_settings_lang_chinese">Traditional Chinese (繁體中文)</string>
+    <string name="reader_settings_lang_chinese_simplified">Simplified Chinese (简体中文)</string>
     <string name="main_title">Boox Reader</string>
     <string name="main_subtitle">Quickly open recent books or add new EPUBs</string>
     <string name="main_select_epub">Select EPUB</string>

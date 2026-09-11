@@ -44,6 +44,7 @@ import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.data.worker.DailySummaryEmailScheduler
 import my.hinoki.booxreader.ui.auth.UserProfileActivity
+import my.hinoki.booxreader.ui.common.LocaleHelper
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.settings.AiProfileListActivity
 import my.hinoki.booxreader.ui.settings.MagicTagListActivity
@@ -155,6 +156,9 @@ class ReaderSettingsActivity : BaseActivity() {
         val ivCheckLangSystem = dialogView.findViewById<ImageView>(R.id.ivCheckLangSystem)
         val ivCheckLangEnglish = dialogView.findViewById<ImageView>(R.id.ivCheckLangEnglish)
         val ivCheckLangChinese = dialogView.findViewById<ImageView>(R.id.ivCheckLangChinese)
+        val rowLangChineseSimplified = dialogView.findViewById<View>(R.id.rowLangChineseSimplified)
+        val ivCheckLangChineseSimplified =
+                dialogView.findViewById<ImageView>(R.id.ivCheckLangChineseSimplified)
 
         // AI & Cloud Sync Controls
         val btnManageMagicTags = dialogView.findViewById<Button>(R.id.btnManageMagicTags)
@@ -201,16 +205,33 @@ class ReaderSettingsActivity : BaseActivity() {
 
         fun updateLanguageUI(lang: String) {
             selectedLanguage = lang
-            ivCheckLangSystem?.visibility = if (lang == "system" || (lang != "zh" && lang != "en")) View.VISIBLE else View.GONE
-            ivCheckLangEnglish?.visibility = if (lang == "en") View.VISIBLE else View.GONE
-            ivCheckLangChinese?.visibility = if (lang == "zh") View.VISIBLE else View.GONE
+            // 未知值（含 "system"）都視為跟隨系統；簡體是新增的 zh-Hans，必須一起判斷，
+            // 否則選了簡體會同時顯示「跟隨系統」的勾選。
+            val knownLanguages =
+                    setOf(
+                            LocaleHelper.LANGUAGE_ENGLISH,
+                            LocaleHelper.LANGUAGE_TRADITIONAL_CHINESE,
+                            LocaleHelper.LANGUAGE_SIMPLIFIED_CHINESE
+                    )
+            ivCheckLangSystem?.visibility = if (lang !in knownLanguages) View.VISIBLE else View.GONE
+            ivCheckLangEnglish?.visibility =
+                    if (lang == LocaleHelper.LANGUAGE_ENGLISH) View.VISIBLE else View.GONE
+            ivCheckLangChinese?.visibility =
+                    if (lang == LocaleHelper.LANGUAGE_TRADITIONAL_CHINESE) View.VISIBLE else View.GONE
+            ivCheckLangChineseSimplified?.visibility =
+                    if (lang == LocaleHelper.LANGUAGE_SIMPLIFIED_CHINESE) View.VISIBLE else View.GONE
         }
 
         updateLanguageUI(selectedLanguage)
 
-        rowLangSystem?.setOnClickListener { updateLanguageUI("system") }
-        rowLangEnglish?.setOnClickListener { updateLanguageUI("en") }
-        rowLangChinese?.setOnClickListener { updateLanguageUI("zh") }
+        rowLangSystem?.setOnClickListener { updateLanguageUI(LocaleHelper.LANGUAGE_SYSTEM) }
+        rowLangEnglish?.setOnClickListener { updateLanguageUI(LocaleHelper.LANGUAGE_ENGLISH) }
+        rowLangChinese?.setOnClickListener {
+            updateLanguageUI(LocaleHelper.LANGUAGE_TRADITIONAL_CHINESE)
+        }
+        rowLangChineseSimplified?.setOnClickListener {
+            updateLanguageUI(LocaleHelper.LANGUAGE_SIMPLIFIED_CHINESE)
+        }
 
         // Setup Theme selection buttons
         fun updateThemeSelection(mode: ContrastMode) {

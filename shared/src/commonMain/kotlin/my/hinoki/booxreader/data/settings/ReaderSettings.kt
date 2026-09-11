@@ -60,7 +60,7 @@ data class ReaderSettings(
         val dailySummaryEmailHour: Int = 21,
         val dailySummaryEmailMinute: Int = 0,
         val dailySummaryEmailTo: String = "",
-        val language: String = "system", // "system", "en", "zh"
+        val language: String = "system", // "system", "en", "zh"(繁), "zh-Hans"(簡)
         val updatedAt: Long = currentEpochMillis(),
         val activeProfileId: Long = -1L,
         val magicTags: List<MagicTag> = defaultMagicTags

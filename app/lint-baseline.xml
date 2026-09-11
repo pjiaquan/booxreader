@@ -8,7 +8,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="459"
+            line="480"
             column="16"/>
     </issue>
 
@@ -41,7 +41,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/common/LocaleHelper.kt"
-            line="46"
+            line="60"
             column="9"/>
     </issue>
 
@@ -202,154 +202,154 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.compose:compose-bom than 2025.07.00 is available: 2026.09.00"
-        errorLine1="# 上限：Compose BOM 2025.07.00 = Compose 1.8.3，是 compileSdk 35 + AGP 8.13.1 能用的最新版。"
+        errorLine1="composeBom = &quot;2025.07.00&quot;"
         errorLine2="             ~~~~~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="14"
+            line="18"
             column="14"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.room:room-compiler than 2.8.4 is available: 2.8.5"
-        errorLine1="#   - BOM 2026.09.00（foundation 1.12.x）需要 compileSdk 37 且 AGP >= 9.1.0"
+        errorLine1="room = &quot;2.8.4&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="16"
+            line="20"
             column="8"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.room:room-runtime than 2.8.4 is available: 2.8.5"
-        errorLine1="#   - BOM 2026.09.00（foundation 1.12.x）需要 compileSdk 37 且 AGP >= 9.1.0"
+        errorLine1="room = &quot;2.8.4&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="16"
+            line="20"
             column="8"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.fragment:fragment-ktx than 1.8.5 is available: 1.9.0"
-        errorLine1="composeBom = &quot;2025.07.00&quot;"
+        errorLine1="fragment = &quot;1.8.5&quot;"
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="18"
+            line="22"
             column="12"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of com.google.android.material:material than 1.12.0 is available: 1.14.0"
-        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine1="material = &quot;1.12.0&quot;"
         errorLine2="           ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="21"
+            line="25"
             column="12"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of com.android.tools:desugar_jdk_libs than 2.0.4 is available: 2.1.5"
-        errorLine1="fragment = &quot;1.8.5&quot;"
+        errorLine1="desugar = &quot;2.0.4&quot;"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="22"
+            line="26"
             column="11"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.recyclerview:recyclerview than 1.3.2 is available: 1.4.0"
-        errorLine1="kotlinxDatetime = &quot;0.7.1&quot;"
+        errorLine1="recyclerview = &quot;1.3.2&quot;"
         errorLine2="               ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="24"
+            line="28"
             column="16"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of com.google.android.gms:play-services-auth than 21.0.0 is available: 22.0.0"
-        errorLine1="recyclerview = &quot;1.3.2&quot;"
+        errorLine1="playServicesAuth = &quot;21.0.0&quot;"
         errorLine2="                   ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="28"
+            line="32"
             column="20"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.security:security-crypto than 1.0.0 is available: 1.1.0"
-        errorLine1="mockito = &quot;5.11.0&quot;"
+        errorLine1="securityCrypto = &quot;1.0.0&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="29"
+            line="33"
             column="18"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.swiperefreshlayout:swiperefreshlayout than 1.1.0 is available: 1.2.0"
-        errorLine1="playServicesAuth = &quot;21.0.0&quot;"
+        errorLine1="swiperefreshlayout = &quot;1.1.0&quot;"
         errorLine2="                     ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="32"
+            line="36"
             column="22"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.2"
-        errorLine1="securityCrypto = &quot;1.0.0&quot;"
+        errorLine1="work = &quot;2.10.0&quot;"
         errorLine2="       ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="33"
+            line="37"
             column="8"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.0"
-        errorLine1="robolectric = &quot;4.12.2&quot;"
+        errorLine1="uiautomator = &quot;2.3.0&quot;"
         errorLine2="              ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="34"
+            line="38"
             column="15"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.sqlite:sqlite-bundled than 2.6.2 is available: 2.7.1"
-        errorLine1="uiautomator = &quot;2.3.0&quot;"
+        errorLine1="sqlite = &quot;2.6.2&quot;"
         errorLine2="         ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="38"
+            line="42"
             column="10"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.sqlite:sqlite-framework than 2.6.2 is available: 2.7.1"
-        errorLine1="uiautomator = &quot;2.3.0&quot;"
+        errorLine1="sqlite = &quot;2.6.2&quot;"
         errorLine2="         ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="38"
+            line="42"
             column="10"/>
     </issue>
 
@@ -400,209 +400,209 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.readium.kotlin-toolkit:readium-navigator than 3.1.2 is available: 3.3.0"
-        errorLine1="#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36"
+        errorLine1="readium = &quot;3.1.2&quot;"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="15"
+            line="19"
             column="11"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.readium.kotlin-toolkit:readium-shared than 3.1.2 is available: 3.3.0"
-        errorLine1="#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36"
+        errorLine1="readium = &quot;3.1.2&quot;"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="15"
+            line="19"
             column="11"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.readium.kotlin-toolkit:readium-streamer than 3.1.2 is available: 3.3.0"
-        errorLine1="#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36"
+        errorLine1="readium = &quot;3.1.2&quot;"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="15"
+            line="19"
             column="11"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:mockwebserver than 4.12.0 is available: 5.5.0"
-        errorLine1="# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
         errorLine2="         ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="17"
+            line="21"
             column="10"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.0"
-        errorLine1="# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
         errorLine2="         ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="17"
+            line="21"
             column="10"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:okhttp-sse than 4.12.0 is available: 5.5.0"
-        errorLine1="# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
         errorLine2="         ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="17"
+            line="21"
             column="10"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.github.houbb:opencc4j than 1.8.1 is available: 1.14.0"
-        errorLine1="readium = &quot;3.1.2&quot;"
+        errorLine1="opencc4j = &quot;1.8.1&quot;"
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="19"
+            line="23"
             column="12"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-datetime than 0.7.1 is available: 0.8.0"
-        errorLine1="room = &quot;2.8.4&quot;"
+        errorLine1="kotlinxDatetime = &quot;0.7.1&quot;"
         errorLine2="                  ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="20"
+            line="24"
             column="19"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.mockito:mockito-core than 5.11.0 is available: 5.23.0"
-        errorLine1="material = &quot;1.12.0&quot;"
+        errorLine1="mockito = &quot;5.11.0&quot;"
         errorLine2="          ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="25"
+            line="29"
             column="11"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.mockito.kotlin:mockito-kotlin than 5.2.1 is available: 6.3.0"
-        errorLine1="desugar = &quot;2.0.4&quot;"
+        errorLine1="mockitoKotlin = &quot;5.2.1&quot;"
         errorLine2="                ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="26"
+            line="30"
             column="17"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-test than 1.7.3 is available: 1.11.0"
-        errorLine1="markwon = &quot;4.6.2&quot;"
+        errorLine1="coroutinesTest = &quot;1.7.3&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="27"
+            line="31"
             column="18"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.robolectric:robolectric than 4.12.2 is available: 4.16.1"
-        errorLine1="mockitoKotlin = &quot;5.2.1&quot;"
+        errorLine1="robolectric = &quot;4.12.2&quot;"
         errorLine2="              ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="30"
+            line="34"
             column="15"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of aws.sdk.kotlin:s3 than 1.5.109 is available: 1.8.49"
-        errorLine1="coroutinesTest = &quot;1.7.3&quot;"
+        errorLine1="awsSdkKotlin = &quot;1.5.109&quot;"
         errorLine2="               ~~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="31"
+            line="35"
             column="16"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.7.3 is available: 1.11.0"
-        errorLine1="awsSdkKotlin = &quot;1.5.109&quot;"
+        errorLine1="kotlinxSerialization = &quot;1.7.3&quot;"
         errorLine2="                       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="35"
+            line="39"
             column="24"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-core than 1.8.1 is available: 1.11.0"
-        errorLine1="swiperefreshlayout = &quot;1.1.0&quot;"
+        errorLine1="coroutines = &quot;1.8.1&quot;"
         errorLine2="             ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="36"
+            line="40"
             column="14"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of io.ktor:ktor-client-core than 3.0.3 is available: 3.5.2"
-        errorLine1="work = &quot;2.10.0&quot;"
+        errorLine1="ktor = &quot;3.0.3&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="37"
+            line="41"
             column="8"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of io.ktor:ktor-client-darwin than 3.0.3 is available: 3.5.2"
-        errorLine1="work = &quot;2.10.0&quot;"
+        errorLine1="ktor = &quot;3.0.3&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="37"
+            line="41"
             column="8"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of io.ktor:ktor-client-okhttp than 3.0.3 is available: 3.5.2"
-        errorLine1="work = &quot;2.10.0&quot;"
+        errorLine1="ktor = &quot;3.0.3&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="37"
+            line="41"
             column="8"/>
     </issue>
 
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.json:json than 20231013 is available: 20260814"
-        errorLine1="markwon-ext-tables = { group = &quot;io.noties.markwon&quot;, name = &quot;ext-tables&quot;, version.ref = &quot;markwon&quot; }"
+        errorLine1="json = { group = &quot;org.json&quot;, name = &quot;json&quot;, version = &quot;20231013&quot; }"
         errorLine2="                                                      ~~~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
-            line="84"
+            line="88"
             column="55"/>
     </issue>
 
@@ -681,39 +681,6 @@
             file="src/main/res/layout/activity_reader.xml"
             line="100"
             column="13"/>
-    </issue>
-
-    <issue
-        id="UseAppTint"
-        message="Must use `app:tint` instead of `android:tint`"
-        errorLine1="                android:tint=&quot;@color/text_primary&quot; />"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_reader_settings.xml"
-            line="379"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="UseAppTint"
-        message="Must use `app:tint` instead of `android:tint`"
-        errorLine1="                android:tint=&quot;@color/text_primary&quot;"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_reader_settings.xml"
-            line="414"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="UseAppTint"
-        message="Must use `app:tint` instead of `android:tint`"
-        errorLine1="                android:tint=&quot;@color/text_primary&quot;"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/layout/dialog_reader_settings.xml"
-            line="450"
-            column="17"/>
     </issue>
 
     <issue
@@ -1570,7 +1537,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="292"
+            line="293"
             column="5"/>
     </issue>
 
@@ -1581,7 +1548,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="321"
+            line="322"
             column="5"/>
     </issue>
 
@@ -1592,7 +1559,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="323"
+            line="324"
             column="5"/>
     </issue>
 
@@ -1603,7 +1570,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="324"
+            line="325"
             column="5"/>
     </issue>
 
@@ -1614,7 +1581,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="325"
+            line="326"
             column="5"/>
     </issue>
 
@@ -1757,6 +1724,17 @@
         <location
             file="src/main/res/layout/dialog_reader_settings.xml"
             line="424"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="        &lt;LinearLayout"
+        errorLine2="         ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/dialog_reader_settings.xml"
+            line="455"
             column="10"/>
     </issue>
 
@@ -2658,7 +2636,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="220"
+            line="221"
             column="13"/>
     </issue>
 
@@ -2669,7 +2647,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="223"
+            line="224"
             column="13"/>
     </issue>
 
@@ -2680,7 +2658,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="227"
+            line="228"
             column="13"/>
     </issue>
 
@@ -2691,7 +2669,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="228"
+            line="229"
             column="13"/>
     </issue>
 
@@ -2702,7 +2680,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="232"
+            line="233"
             column="13"/>
     </issue>
 
@@ -2713,7 +2691,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="244"
+            line="245"
             column="13"/>
     </issue>
 
@@ -2724,7 +2702,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="245"
+            line="246"
             column="13"/>
     </issue>
 
@@ -2735,7 +2713,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="255"
+            line="256"
             column="13"/>
     </issue>
 
@@ -2746,7 +2724,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="256"
+            line="257"
             column="13"/>
     </issue>
 
@@ -2757,7 +2735,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="257"
+            line="258"
             column="13"/>
     </issue>
 
@@ -2768,7 +2746,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="258"
+            line="259"
             column="13"/>
     </issue>
 
@@ -2779,7 +2757,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="259"
+            line="260"
             column="13"/>
     </issue>
 
@@ -2790,7 +2768,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="260"
+            line="261"
             column="13"/>
     </issue>
 
@@ -2801,7 +2779,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="261"
+            line="262"
             column="13"/>
     </issue>
 
@@ -2812,7 +2790,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="262"
+            line="263"
             column="13"/>
     </issue>
 
@@ -2823,7 +2801,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="263"
+            line="264"
             column="13"/>
     </issue>
 
@@ -2834,7 +2812,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="264"
+            line="265"
             column="13"/>
     </issue>
 
@@ -2845,7 +2823,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="265"
+            line="266"
             column="13"/>
     </issue>
 
@@ -2856,7 +2834,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="266"
+            line="267"
             column="13"/>
     </issue>
 
@@ -2867,7 +2845,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="267"
+            line="268"
             column="13"/>
     </issue>
 
@@ -2878,7 +2856,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="268"
+            line="269"
             column="13"/>
     </issue>
 
@@ -2889,7 +2867,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="269"
+            line="270"
             column="13"/>
     </issue>
 
@@ -2900,7 +2878,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="270"
+            line="271"
             column="13"/>
     </issue>
 
@@ -2911,7 +2889,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="271"
+            line="272"
             column="13"/>
     </issue>
 
@@ -2922,7 +2900,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="272"
+            line="273"
             column="13"/>
     </issue>
 
@@ -2933,7 +2911,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="273"
+            line="274"
             column="13"/>
     </issue>
 
@@ -2944,7 +2922,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="274"
+            line="275"
             column="13"/>
     </issue>
 
@@ -2955,7 +2933,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="275"
+            line="276"
             column="13"/>
     </issue>
 
@@ -2966,7 +2944,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="283"
+            line="284"
             column="13"/>
     </issue>
 
@@ -2977,7 +2955,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="285"
+            line="286"
             column="13"/>
     </issue>
 
@@ -2988,7 +2966,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="286"
+            line="287"
             column="13"/>
     </issue>
 
@@ -2999,7 +2977,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="287"
+            line="288"
             column="13"/>
     </issue>
 
@@ -3010,7 +2988,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="292"
+            line="293"
             column="13"/>
     </issue>
 
@@ -3021,7 +2999,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="293"
+            line="294"
             column="13"/>
     </issue>
 
@@ -3032,7 +3010,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="294"
+            line="295"
             column="13"/>
     </issue>
 
@@ -3043,7 +3021,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="295"
+            line="296"
             column="13"/>
     </issue>
 
@@ -3054,7 +3032,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="300"
+            line="301"
             column="13"/>
     </issue>
 
@@ -3065,7 +3043,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="312"
+            line="313"
             column="13"/>
     </issue>
 
@@ -3076,7 +3054,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="313"
+            line="314"
             column="13"/>
     </issue>
 
@@ -3087,7 +3065,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="328"
+            line="329"
             column="13"/>
     </issue>
 
@@ -3098,7 +3076,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="352"
+            line="353"
             column="13"/>
     </issue>
 
@@ -3109,7 +3087,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="361"
+            line="362"
             column="13"/>
     </issue>
 
@@ -3215,12 +3193,12 @@
     <issue
         id="TooManyViews"
         message="`dialog_reader_settings.xml` has more than 80 views, bad for performance"
-        errorLine1="        &lt;LinearLayout"
-        errorLine2="         ~~~~~~~~~~~~">
+        errorLine1="            &lt;TextView"
+        errorLine2="             ~~~~~~~~">
         <location
             file="src/main/res/layout/dialog_reader_settings.xml"
-            line="678"
-            column="10"/>
+            line="689"
+            column="14"/>
     </issue>
 
     <issue
@@ -3582,7 +3560,7 @@
         errorLine2="                                     ~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="224"
+            line="225"
             column="38"/>
     </issue>
 
@@ -3593,7 +3571,7 @@
         errorLine2="                                     ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="224"
+            line="225"
             column="38"/>
     </issue>
 
@@ -3604,7 +3582,7 @@
         errorLine2="                                          ~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="225"
+            line="226"
             column="43"/>
     </issue>
 
@@ -3615,7 +3593,7 @@
         errorLine2="                                          ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="225"
+            line="226"
             column="43"/>
     </issue>
 
@@ -3626,7 +3604,7 @@
         errorLine2="                                              ~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="226"
+            line="227"
             column="47"/>
     </issue>
 
@@ -3637,7 +3615,7 @@
         errorLine2="                                              ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="226"
+            line="227"
             column="47"/>
     </issue>
 
@@ -3648,7 +3626,7 @@
         errorLine2="                                                ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="227"
+            line="228"
             column="49"/>
     </issue>
 
@@ -3659,7 +3637,7 @@
         errorLine2="                                                ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="227"
+            line="228"
             column="49"/>
     </issue>
 
@@ -3670,7 +3648,7 @@
         errorLine2="                                 ~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="228"
+            line="229"
             column="34"/>
     </issue>
 
@@ -3681,7 +3659,7 @@
         errorLine2="                                 ~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="228"
+            line="229"
             column="34"/>
     </issue>
 
@@ -3692,7 +3670,7 @@
         errorLine2="                                 ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="229"
+            line="230"
             column="34"/>
     </issue>
 
@@ -3703,7 +3681,7 @@
         errorLine2="                                 ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="229"
+            line="230"
             column="34"/>
     </issue>
 
@@ -3714,7 +3692,7 @@
         errorLine2="                                 ~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="230"
+            line="231"
             column="34"/>
     </issue>
 
@@ -3725,7 +3703,7 @@
         errorLine2="                                 ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="230"
+            line="231"
             column="34"/>
     </issue>
 
@@ -3736,7 +3714,7 @@
         errorLine2="                                  ~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="231"
+            line="232"
             column="35"/>
     </issue>
 
@@ -3747,7 +3725,7 @@
         errorLine2="                                  ~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="231"
+            line="232"
             column="35"/>
     </issue>
 
@@ -3758,7 +3736,7 @@
         errorLine2="                                    ~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="240"
+            line="241"
             column="37"/>
     </issue>
 
@@ -3769,7 +3747,7 @@
         errorLine2="                                    ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="240"
+            line="241"
             column="37"/>
     </issue>
 
@@ -3780,7 +3758,7 @@
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="256"
+            line="257"
             column="38"/>
     </issue>
 
@@ -3791,7 +3769,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="257"
+            line="258"
             column="43"/>
     </issue>
 
@@ -3802,7 +3780,7 @@
         errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="258"
+            line="259"
             column="47"/>
     </issue>
 
@@ -3813,7 +3791,7 @@
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="259"
+            line="260"
             column="49"/>
     </issue>
 
@@ -3824,7 +3802,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="260"
+            line="261"
             column="37"/>
     </issue>
 
@@ -3835,7 +3813,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="261"
+            line="262"
             column="34"/>
     </issue>
 
@@ -3846,7 +3824,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="262"
+            line="263"
             column="34"/>
     </issue>
 
@@ -3857,7 +3835,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="263"
+            line="264"
             column="34"/>
     </issue>
 
@@ -3868,7 +3846,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="264"
+            line="265"
             column="35"/>
     </issue>
 
@@ -3879,7 +3857,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="273"
+            line="274"
             column="37"/>
     </issue>
 
@@ -3890,7 +3868,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="276"
+            line="277"
             column="44"/>
     </issue>
 
@@ -3901,7 +3879,7 @@
         errorLine2="                                      ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="285"
+            line="286"
             column="39"/>
     </issue>
 
@@ -3912,7 +3890,7 @@
         errorLine2="                                      ~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="287"
+            line="288"
             column="39"/>
     </issue>
 
@@ -3923,7 +3901,7 @@
         errorLine2="                                        ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
-            line="296"
+            line="297"
             column="41"/>
     </issue>
 
@@ -3934,7 +3912,7 @@
         errorLine2="                                        ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rTW/strings.xml"
-            line="298"
+            line="299"
             column="41"/>
     </issue>
 
@@ -3945,7 +3923,7 @@
         errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="337"
+            line="338"
             column="39"/>
     </issue>
 
@@ -3956,7 +3934,7 @@
         errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="355"
+            line="356"
             column="41"/>
     </issue>
 
@@ -4294,7 +4272,7 @@
         errorLine2="             ~~~~~~~~">
         <location
             file="src/main/res/layout/dialog_reader_settings.xml"
-            line="526"
+            line="557"
             column="14"/>
     </issue>
 
@@ -4305,7 +4283,7 @@
         errorLine2="             ~~~~~~~~">
         <location
             file="src/main/res/layout/dialog_reader_settings.xml"
-            line="865"
+            line="896"
             column="14"/>
     </issue>
 
@@ -5251,7 +5229,7 @@
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="294"
+            line="315"
             column="33"/>
     </issue>
 
@@ -5262,7 +5240,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="319"
+            line="340"
             column="18"/>
     </issue>
 
@@ -5273,7 +5251,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="320"
+            line="341"
             column="19"/>
     </issue>
 
@@ -5284,7 +5262,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="322"
+            line="343"
             column="32"/>
     </issue>
 
@@ -5295,7 +5273,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="327"
+            line="348"
             column="18"/>
     </issue>
 
@@ -5306,7 +5284,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="328"
+            line="349"
             column="19"/>
     </issue>
 
@@ -5317,7 +5295,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="330"
+            line="351"
             column="32"/>
     </issue>
 
@@ -5328,7 +5306,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="335"
+            line="356"
             column="18"/>
     </issue>
 
@@ -5339,7 +5317,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="336"
+            line="357"
             column="19"/>
     </issue>
 
@@ -5350,7 +5328,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="338"
+            line="359"
             column="32"/>
     </issue>
 
@@ -5361,7 +5339,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="343"
+            line="364"
             column="18"/>
     </issue>
 
@@ -5372,7 +5350,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="344"
+            line="365"
             column="19"/>
     </issue>
 
@@ -5383,7 +5361,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="346"
+            line="367"
             column="32"/>
     </issue>
 
@@ -5394,7 +5372,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="466"
+            line="487"
             column="36"/>
     </issue>
 
@@ -5405,7 +5383,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="467"
+            line="488"
             column="34"/>
     </issue>
 
@@ -5416,7 +5394,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="468"
+            line="489"
             column="35"/>
     </issue>
 
@@ -5427,7 +5405,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="472"
+            line="493"
             column="36"/>
     </issue>
 
@@ -5438,7 +5416,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="473"
+            line="494"
             column="34"/>
     </issue>
 
@@ -5449,7 +5427,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="474"
+            line="495"
             column="35"/>
     </issue>
 
@@ -5460,7 +5438,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="482"
+            line="503"
             column="36"/>
     </issue>
 
@@ -5471,7 +5449,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="483"
+            line="504"
             column="34"/>
     </issue>
 
@@ -5482,7 +5460,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="488"
+            line="509"
             column="36"/>
     </issue>
 
@@ -5493,7 +5471,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="489"
+            line="510"
             column="34"/>
     </issue>
 
@@ -5504,7 +5482,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="490"
+            line="511"
             column="35"/>
     </issue>
 
@@ -5515,7 +5493,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="506"
+            line="527"
             column="36"/>
     </issue>
 
@@ -5526,7 +5504,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="507"
+            line="528"
             column="34"/>
     </issue>
 
@@ -5537,7 +5515,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="508"
+            line="529"
             column="35"/>
     </issue>
 
@@ -5548,7 +5526,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="509"
+            line="530"
             column="43"/>
     </issue>
 
@@ -5559,7 +5537,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="595"
+            line="616"
             column="36"/>
     </issue>
 
@@ -5570,7 +5548,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="596"
+            line="617"
             column="34"/>
     </issue>
 
@@ -5581,7 +5559,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="597"
+            line="618"
             column="35"/>
     </issue>
 
@@ -5592,7 +5570,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="601"
+            line="622"
             column="36"/>
     </issue>
 
@@ -5603,7 +5581,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="602"
+            line="623"
             column="34"/>
     </issue>
 
@@ -5614,7 +5592,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="603"
+            line="624"
             column="35"/>
     </issue>
 
@@ -5625,7 +5603,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="604"
+            line="625"
             column="43"/>
     </issue>
 
@@ -5636,7 +5614,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="657"
+            line="678"
             column="36"/>
     </issue>
 
@@ -5647,7 +5625,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="658"
+            line="679"
             column="34"/>
     </issue>
 
@@ -5658,7 +5636,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="659"
+            line="680"
             column="35"/>
     </issue>
 
@@ -5669,7 +5647,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="663"
+            line="684"
             column="36"/>
     </issue>
 
@@ -5680,7 +5658,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="664"
+            line="685"
             column="34"/>
     </issue>
 
@@ -5691,7 +5669,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="665"
+            line="686"
             column="35"/>
     </issue>
 
@@ -5702,7 +5680,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="669"
+            line="690"
             column="36"/>
     </issue>
 
@@ -5713,7 +5691,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="670"
+            line="691"
             column="34"/>
     </issue>
 
@@ -5724,7 +5702,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="671"
+            line="692"
             column="35"/>
     </issue>
 
@@ -5735,7 +5713,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="675"
+            line="696"
             column="36"/>
     </issue>
 
@@ -5746,7 +5724,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="676"
+            line="697"
             column="34"/>
     </issue>
 
@@ -5757,7 +5735,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="677"
+            line="698"
             column="35"/>
     </issue>
 
@@ -5768,7 +5746,7 @@
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="688"
+            line="709"
             column="49"/>
     </issue>
 
@@ -5779,7 +5757,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="711"
+            line="732"
             column="36"/>
     </issue>
 
@@ -5790,7 +5768,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="712"
+            line="733"
             column="34"/>
     </issue>
 
@@ -5801,7 +5779,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="713"
+            line="734"
             column="35"/>
     </issue>
 
@@ -5812,7 +5790,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="717"
+            line="738"
             column="36"/>
     </issue>
 
@@ -5823,7 +5801,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="718"
+            line="739"
             column="34"/>
     </issue>
 
@@ -5834,7 +5812,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="719"
+            line="740"
             column="35"/>
     </issue>
 
@@ -5845,7 +5823,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="724"
+            line="745"
             column="36"/>
     </issue>
 
@@ -5856,7 +5834,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="725"
+            line="746"
             column="34"/>
     </issue>
 
@@ -5867,7 +5845,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="726"
+            line="747"
             column="35"/>
     </issue>
 
@@ -5878,7 +5856,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="727"
+            line="748"
             column="43"/>
     </issue>
 
@@ -6241,7 +6219,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="192"
+            line="196"
             column="30"/>
     </issue>
 
@@ -6252,7 +6230,7 @@
         errorLine2="                              ~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="192"
+            line="196"
             column="31"/>
     </issue>
 
@@ -6263,7 +6241,7 @@
         errorLine2="                                  ~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="835"
+            line="856"
             column="35"/>
     </issue>
 
@@ -6274,7 +6252,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="881"
+            line="902"
             column="32"/>
     </issue>
 
@@ -6285,7 +6263,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="886"
+            line="907"
             column="44"/>
     </issue>
 
@@ -6296,7 +6274,7 @@
         errorLine2="                                              ~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="886"
+            line="907"
             column="47"/>
     </issue>
 
@@ -6417,7 +6395,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/layout/dialog_reader_settings.xml"
-            line="698"
+            line="729"
             column="17"/>
     </issue>
 
@@ -6428,7 +6406,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/layout/dialog_reader_settings.xml"
-            line="1013"
+            line="1044"
             column="13"/>
     </issue>
 

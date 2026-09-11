@@ -29,14 +29,28 @@ object LocaleHelper {
             // For now, if "system", we try to respect the device's default.
         }
 
-        val locale = when (language) {
-            "zh" -> Locale.TRADITIONAL_CHINESE
-            "en" -> Locale.ENGLISH
-            else -> Locale.getDefault()
-        }
-        
-        return updateResources(context, locale)
+        return updateResources(context, localeFor(language))
     }
+
+    /**
+     * 語言設定值 → [Locale]。
+     *
+     * 抽成獨立函式以便測試，並且**刻意保留** `"zh"` = 繁體：既有使用者的偏好是這個值，
+     * 不能改動其意義。簡體是新增的 `"zh-Hans"`（`Locale.SIMPLIFIED_CHINESE`，
+     * 會解析到 `values-zh`；繁體則解析到 `values-zh-rTW`）。
+     */
+    fun localeFor(language: String): Locale =
+            when (language) {
+                LANGUAGE_TRADITIONAL_CHINESE -> Locale.TRADITIONAL_CHINESE
+                LANGUAGE_SIMPLIFIED_CHINESE -> Locale.SIMPLIFIED_CHINESE
+                LANGUAGE_ENGLISH -> Locale.ENGLISH
+                else -> Locale.getDefault()
+            }
+
+    const val LANGUAGE_SYSTEM = "system"
+    const val LANGUAGE_TRADITIONAL_CHINESE = "zh"
+    const val LANGUAGE_SIMPLIFIED_CHINESE = "zh-Hans"
+    const val LANGUAGE_ENGLISH = "en"
 
     private fun updateResources(context: Context, locale: Locale): Context {
         Locale.setDefault(locale)

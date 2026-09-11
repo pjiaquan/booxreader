@@ -376,7 +376,7 @@
                 android:contentDescription="@string/reader_settings_lang_selected"
                 android:src="@drawable/ic_check_24"
                 android:tag="check_icon"
-                android:tint="@color/text_primary" />
+                app:tint="@color/text_primary" />
         </LinearLayout>
 
         <View
@@ -411,7 +411,7 @@
                 android:contentDescription="@string/reader_settings_lang_selected"
                 android:src="@drawable/ic_check_24"
                 android:tag="check_icon"
-                android:tint="@color/text_primary"
+                app:tint="@color/text_primary"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -447,7 +447,38 @@
                 android:contentDescription="@string/reader_settings_lang_selected"
                 android:src="@drawable/ic_check_24"
                 android:tag="check_icon"
-                android:tint="@color/text_primary"
+                app:tint="@color/text_primary"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Simplified Chinese -->
+        <LinearLayout
+            android:id="@+id/rowLangChineseSimplified"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <TextView
+                style="@style/TextAppearance.App.SettingRow"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/reader_settings_lang_chinese_simplified" />
+
+            <ImageView
+                android:id="@+id/ivCheckLangChineseSimplified"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@string/reader_settings_lang_selected"
+                android:src="@drawable/ic_check_24"
+                android:tag="check_icon"
+                app:tint="@color/text_primary"
                 android:visibility="gone" />
         </LinearLayout>
 

@@ -186,6 +186,7 @@
     <string name="reader_settings_lang_system">跟隨系統 (System Default)</string>
     <string name="reader_settings_lang_english">English (英文)</string>
     <string name="reader_settings_lang_chinese">繁體中文 (Traditional Chinese)</string>
+    <string name="reader_settings_lang_chinese_simplified">簡體中文 (Simplified Chinese)</string>
     <string name="main_title">Boox Reader</string>
     <string name="main_subtitle">快速開啟最近閱讀的書籍或新增新的 EPUB</string>
     <string name="main_select_epub">選擇 EPUB</string>
