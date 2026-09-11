@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BooxReader</string>
-    <string name="default_web_client_id">657934964854-qimhv328gs2g1tcq7dlj79tq3i943ua4.apps.googleusercontent.com</string>
-    <string name="default_android_client_id">657934964854-869verk35pehtvis9f57mujpqi7gu2p3.apps.googleusercontent.com</string>
+    <string name="default_web_client_id" translatable="false">657934964854-qimhv328gs2g1tcq7dlj79tq3i943ua4.apps.googleusercontent.com</string>
+    <string name="default_android_client_id" translatable="false">657934964854-869verk35pehtvis9f57mujpqi7gu2p3.apps.googleusercontent.com</string>
     <string name="streaming_toggle_label">Use Streaming</string>
     <string name="enable_google_search">Enable Google Search (Gemini native)</string>
     <string name="save_profile">Save Profile</string>
