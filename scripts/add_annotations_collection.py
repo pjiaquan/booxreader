@@ -88,6 +88,9 @@ def build_payload(users_collection_id: str) -> dict:
                 "name": "user",
                 "type": "relation",
                 "required": True,
+                "collectionId": users_collection_id,
+                "cascadeDelete": False,
+                "maxSelect": 1,
                 "options": {
                     "collectionId": users_collection_id,
                     "cascadeDelete": False,

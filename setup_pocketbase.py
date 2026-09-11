@@ -46,9 +46,9 @@ def authenticate_admin(base_url, email, password, verify_ssl=True):
     for endpoint_index, auth_url in enumerate(auth_endpoints, 1):
         print(f"   Endpoint {endpoint_index}: {auth_url}")
 
-        # Try with 'email' field first
-        for attempt, payload in enumerate([payload_email, payload_identity], 1):
-            field_name = "email" if attempt == 1 else "identity"
+        # Try with 'identity' field first (PocketBase 0.23+ superusers), fallback to 'email'
+        payloads = [("identity", payload_identity), ("email", payload_email)]
+        for attempt, (field_name, payload) in enumerate(payloads, 1):
             print(f"   Attempt {attempt}: Using '{field_name}' field...")
 
             try:
@@ -72,7 +72,7 @@ def authenticate_admin(base_url, email, password, verify_ssl=True):
                     return token
                 elif response.status_code == 400 and attempt == 1:
                     # Try next attempt with 'identity' field
-                    print(f"   ⚠️  Failed with '{field_name}', trying alternative...")
+                    print(f"   ⚠️  Failed with '{field_name}', trying alternative: {response.text}")
                     continue
                 else:
                     # Last attempt failed or non-400 error
@@ -154,12 +154,18 @@ def create_collection(base_url, token, collection_data, collection_map=None, inc
             f["options"] = opts
         elif f.get("type") == "relation":
             opts = (f.get("options") or {}).copy()
-            rel_target = opts.get("collectionId")
+            rel_target = opts.get("collectionId") or f.get("collectionId")
             if not rel_target or rel_target in ["_pb_users_auth_", "users"]:
-                opts["collectionId"] = collection_map.get("users", "_pb_users_auth_")
+                target_id = collection_map.get("users", "_pb_users_auth_")
             elif rel_target in collection_map:
-                opts["collectionId"] = collection_map[rel_target]
+                target_id = collection_map[rel_target]
+            else:
+                target_id = rel_target
+            opts["collectionId"] = target_id
             f["options"] = opts
+            f["collectionId"] = target_id
+            f["cascadeDelete"] = opts.get("cascadeDelete", f.get("cascadeDelete", False))
+            f["maxSelect"] = opts.get("maxSelect", f.get("maxSelect", 1))
         return f
 
     cleaned_fields = []
