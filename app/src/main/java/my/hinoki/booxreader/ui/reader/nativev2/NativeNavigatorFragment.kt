@@ -408,84 +408,68 @@ class NativeNavigatorFragment : Fragment() {
                                 )
                 ))
 
-        // 1. Handle internal links / footnotes
-        if (url.startsWith("#") || !url.contains("://")) {
-            lifecycleScope.launch {
-                try {
-                    val href =
-                            if (url.startsWith("#")) {
-                                currentResourceHref?.let { "$it$url" } ?: url
-                            } else {
-                                url
-                            }
+        when (val target = ReaderLinkRouter.classify(url, currentResourceHref)) {
+            is ReaderLinkTarget.Internal -> handleInternalLink(target, pub, settings)
+            is ReaderLinkTarget.External -> handleExternalLink(target)
+        }
+    }
 
-                    // Simple heuristic: if it contains a fragment, it might be a footnote
-                    if (url.contains("#")) {
-                        val parts = href.split("#")
-                        val resourceHref = parts[0]
-                        val fragmentId = parts.getOrNull(1)
+    /** 內部連結：先試著當 footnote 開 popup，否則直接跳到該位置。 */
+    private fun handleInternalLink(
+            target: ReaderLinkTarget.Internal,
+            pub: Publication,
+            settings: ReaderSettings
+    ) {
+        lifecycleScope.launch {
+            try {
+                val resourceHref = target.resourceHref
+                val fragmentId = target.fragmentId
+                val href = target.href
 
-                        val link = pub.linkWithHref(Url(resourceHref)!!)
-                        if (link != null) {
-                            val resource = pub.get(link)
-                            val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8)
+                if (fragmentId != null) {
+                    val link = pub.linkWithHref(Url(resourceHref)!!)
+                    if (link != null) {
+                        val resource = pub.get(link)
+                        val html = resource?.read()?.getOrNull()?.toString(Charsets.UTF_8)
 
-                            if (html != null && fragmentId != null) {
-                                // Extract the content of the element with the ID
-                                // Use a simple regex-based extraction to avoid full JSoup if
-                                // possible
-                                // For better results, JSoup is preferred, but let's try a simple
-                                // one first
-                                val pattern =
-                                        Regex(
-                                                "<[^>]*id=\"$fragmentId\"[^>]*>(.*?)</[^>]*>",
-                                                RegexOption.DOT_MATCHES_ALL
-                                        )
-                                val match = pattern.find(html)
-                                if (match != null) {
-                                    val content = match.groupValues[1]
-                                    val textColor = currentThemeColors?.second ?: Color.BLACK
-                                    val imageGetter = createImageGetter(pub, resourceHref)
-                                    var parsed =
-                                            HtmlContentParser.parseHtml(
-                                                    content,
-                                                    textColor,
-                                                    imageGetter
-                                            )
+                        if (html != null) {
+                            val content = ReaderLinkRouter.extractElementById(html, fragmentId)
+                            if (content != null) {
+                                val textColor = currentThemeColors?.second ?: Color.BLACK
+                                val imageGetter = createImageGetter(pub, resourceHref)
+                                var parsed = HtmlContentParser.parseHtml(content, textColor, imageGetter)
 
-                                    // Apply Chinese conversion if enabled
-                                    if (settings.convertToTraditionalChinese) {
-                                        parsed = ChineseConverter.toTraditional(parsed)
-                                    }
-
-                                    showFootnotePopup(parsed)
-                                    return@launch
+                                // Apply Chinese conversion if enabled
+                                if (settings.convertToTraditionalChinese) {
+                                    parsed = ChineseConverter.toTraditional(parsed)
                                 }
+
+                                showFootnotePopup(parsed)
+                                return@launch
                             }
                         }
                     }
+                }
 
-                    // Fallback: if not handled as popup, just jump to it
-                    go(Locator(href = Url(href)!!, mediaType = MediaType.HTML))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error handling internal link: $url", e)
-                }
-            }
-        } else {
-            // 2. Handle external links
-            try {
-                val uri = Uri.parse(url)
-                val scheme = uri.scheme?.lowercase()
-                if (scheme == "http" || scheme == "https") {
-                    val intent = Intent(Intent.ACTION_VIEW, uri)
-                    startActivity(intent)
-                } else {
-                    Log.w(TAG, "Blocked unsafe link scheme: $scheme")
-                    Toast.makeText(requireContext(), "Unsafe link blocked", Toast.LENGTH_SHORT).show()
-                }
+                // Fallback: if not handled as popup, just jump to it
+                go(Locator(href = Url(href)!!, mediaType = MediaType.HTML))
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Could not open link", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Error handling internal link: ${target.href}", e)
             }
+        }
+    }
+
+    /** 外部連結：只放行 http/https，其餘 scheme 一律封鎖。 */
+    private fun handleExternalLink(target: ReaderLinkTarget.External) {
+        try {
+            if (ReaderLinkRouter.isAllowedExternalScheme(target.scheme)) {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target.url)))
+            } else {
+                Log.w(TAG, "Blocked unsafe link scheme: ${target.scheme}")
+                Toast.makeText(requireContext(), "Unsafe link blocked", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(requireContext(), "Could not open link", Toast.LENGTH_SHORT).show()
         }
     }
 
