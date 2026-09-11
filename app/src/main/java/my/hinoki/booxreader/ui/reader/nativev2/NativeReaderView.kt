@@ -985,43 +985,20 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         }
         return null
     }
-
     private fun findLinkByBounds(
             x: Float,
             y: Float,
             spanned: android.text.Spanned,
             l: Layout
-    ): String? {
-        val density = resources.displayMetrics.density
-        val xPad = 14f * density
-        val relX = x - paddingLeft
-        val relY = y - paddingTop
-        if (relY < 0 || relX < 0) return null
-
-        val line = l.getLineForVertical(relY.toInt())
-        val lineStart = l.getLineStart(line)
-        val lineEnd = l.getLineEnd(line)
-        val spans = spanned.getSpans(lineStart, lineEnd, android.text.style.URLSpan::class.java)
-        if (spans.isEmpty()) return null
-
-        for (span in spans) {
-            val spanStart = max(spanned.getSpanStart(span), lineStart)
-            val spanEnd = min(spanned.getSpanEnd(span), lineEnd)
-            if (spanStart >= spanEnd) continue
-            var left = l.getPrimaryHorizontal(spanStart)
-            var right = l.getPrimaryHorizontal(spanEnd)
-            if (left > right) {
-                val tmp = left
-                left = right
-                right = tmp
-            }
-            if (relX + xPad >= left && relX - xPad <= right) {
-                return span.url
-            }
-        }
-        return null
-    }
-
+    ): String? =
+            ReaderLinkHitTest.findLinkAt(
+                    relX = x - paddingLeft,
+                    relY = y - paddingTop,
+                    tolerancePx = ReaderLinkHitTest.HORIZONTAL_TOLERANCE_DP *
+                            resources.displayMetrics.density,
+                    spanned = spanned,
+                    metrics = l.asLinkLayoutMetrics()
+            )
     private fun getLocalSelectionRange(): Pair<Int, Int>? {
         if (!hasSelection()) return null
         return getLocalRange(min(selectionStart, selectionEnd), max(selectionStart, selectionEnd))
