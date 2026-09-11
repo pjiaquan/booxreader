@@ -97,13 +97,33 @@
 
 ## 驗證
 
-**1. 確認 collection 存在、且規則生效**（未帶 token 應回 **401**，不是 404）：
+**1. 確認 collection 存在、且規則生效**
+
+未登入時，PocketBase 會把 list rule 當成過濾條件套用，因此**回應是 200 加上空的清單**
+（不是 401）。要判定的重點是 `totalItems` 是否為 0：
+
+```bash
+curl -s https://<你的網域>/api/collections/annotations/records
+# 期望： {"items":[],"page":1,"perPage":30,"totalItems":0,"totalPages":0}
+#        totalItems > 0 而未登入 → 規則沒設好（資料對外洩漏）
+#        404 → collection 還沒建立
+```
+
+最可靠的比對方式：拿一個已經設好規則的 collection（例如 `bookmarks`）對照，兩者回應應該一模一樣：
+
+```bash
+for c in bookmarks annotations; do
+  printf '%-12s ' "$c"
+  curl -s "https://<你的網域>/api/collections/$c/records" | head -c 80; echo
+done
+```
+
+另外，未登入讀取單筆（view rule 失敗）應回 **404**：
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' \
-  https://<你的網域>/api/collections/annotations/records
-# 期望：401   代表存在且要求登入
-# 404 代表還沒建立
+  https://<你的網域>/api/collections/annotations/records/doesnotexist
+# 期望：404
 ```
 
 **2. 在 App 上驗證**
@@ -118,7 +138,8 @@ curl -s -o /dev/null -w '%{http_code}\n' \
 | --- | --- |
 | 完全沒有記錄 | 裝置是否已登入？App 的 `POCKETBASE_URL` 是否指向同一個伺服器？ |
 | 有記錄但其他裝置看不到 | 拉取端的 `user` 是否相同帳號（`user = @request.auth.id` 規則會過濾） |
-| 401 / 403 | 五條 API rules 是否都填了同一行 |
+| 未登入卻看得到別人的畫線（`totalItems > 0`）| 五條 API rules 是否都填了 `@request.auth.id != "" && user = @request.auth.id` |
+| 已登入卻拉不到資料（401/403）| 同上；並確認 `user` 是 relation 指向 `users` 且該筆記錄的 `user` 就是你自己的帳號 |
 | 只有本機有 | `AnnotationRepository.sync()` 未被呼叫 —— 完整同步在 `MainActivity.executeFullSync` 內應已包含畫線 |
 
 ---
