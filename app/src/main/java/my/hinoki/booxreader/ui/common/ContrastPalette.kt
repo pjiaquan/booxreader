@@ -1,24 +1,26 @@
-package my.hinoki.booxreader.ui.notes
+package my.hinoki.booxreader.ui.common
 
 import android.content.Context
 import android.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.toColorInt
-import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.settings.ContrastMode
 
 /**
- * AI 筆記詳情頁的主題調色盤。
+ * 對比模式 → 整頁配色的**純色彩計算**（不碰任何 View，可單獨測試）。
  *
- * 這裡只做**純色彩計算**，不碰任何 View，因此可以單獨測試（見 `NoteDetailPaletteTest`）。
- * 抽出它的目的是：原本這些 `when (mode)` 階梯與 `mode == DARK || mode == HIGH_CONTRAST`
- * 判斷散落在 `AiNoteDetailActivity` 的多個私有方法裡（約 330 行的樣式叢集），
- * 任何一處寫錯都只會表現成「某一種對比模式顏色不對」，沒有測試就抓不到。
+ * 這些 `when (mode)` 階梯原本各自散落在 `AiNoteDetailActivity`（那裡的樣式叢集約 330 行）
+ * 與 `AiNoteListActivity`（93 行）。兩份比對後確認底色 / 文字 / secondary / hint / 系統列
+ * 的數值**完全相同**，只有 topBar 用的 color resource 不同，因此收斂成這一份：
  *
- * 各項數值是原本程式碼的行為，**刻意保持一致**（改動會改變外觀）。
+ * - 任何一處寫錯只會表現成「某種對比模式顏色怪怪的」，沒有測試抓不到
+ * - 兩頁共用同一組數值，不會再出現「改了 A 頁忘了 B 頁」
+ *
+ * 各項數值都是原本程式碼的行為，**刻意保持一致**（改動會改變外觀），
+ * 並由 `ContrastPaletteTest` 逐項釘住。
  */
-internal data class NoteDetailPalette(
+internal data class ContrastPalette(
         val darkMode: Boolean,
         val backgroundColor: Int,
         val topBarColor: Int,
@@ -26,8 +28,14 @@ internal data class NoteDetailPalette(
         val textColor: Int,
         val secondaryTextColor: Int,
         val hintColor: Int,
+        /** 畫線 / 註記 chip 的文字色。 */
         val magicTagTextColor: Int,
+        /** 畫線 / 註記 chip 的底色。 */
         val magicTagBackgroundColor: Int,
+        /** 輸入框（語意搜尋、追問）的表面色。 */
+        val inputSurfaceColor: Int,
+        /** 次要按鈕 / 次要表面色（例如語意搜尋按鈕）。 */
+        val secondarySurfaceColor: Int,
         val accentColor: Int,
         val primaryButtonTextColor: Int,
         /** 輸入框底線：與 textColor 混色的比例。 */
@@ -57,7 +65,19 @@ internal data class NoteDetailPalette(
         private const val ALPHA_HINT_LIGHT = 140
         private const val ALPHA_HINT_DARK = 190
 
-        fun of(mode: ContrastMode, context: Context): NoteDetailPalette {
+        /**
+         * 在 [background] 上可讀的文字色（亮底配黑字、暗底配白字）。
+         * 原本在兩頁各寫了一次同樣的 luminance 判斷。
+         */
+        fun readableTextColorOn(background: Int): Int =
+                if (ColorUtils.calculateLuminance(background) > 0.5) Color.BLACK else Color.WHITE
+
+        /**
+         * @param topBarColorRes 非 DARK / HIGH_CONTRAST 時使用的 topBar 顏色資源
+         *   （詳情頁用 `R.color.ai_note_top_bar`、列表頁用 `R.color.action_bar_surface`，
+         *   這是兩頁唯一真正不同的地方）。
+         */
+        fun of(mode: ContrastMode, context: Context, topBarColorRes: Int): ContrastPalette {
             val darkMode = mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST
 
             val backgroundColor =
@@ -71,7 +91,7 @@ internal data class NoteDetailPalette(
                     when (mode) {
                         ContrastMode.DARK -> "#0A0D12".toColorInt()
                         ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                        else -> ContextCompat.getColor(context, R.color.ai_note_top_bar)
+                        else -> ContextCompat.getColor(context, topBarColorRes)
                     }
             val topBarContentColor =
                     when (mode) {
@@ -95,7 +115,7 @@ internal data class NoteDetailPalette(
                         ContrastMode.HIGH_CONTRAST -> "#F2F2F2".toColorInt()
                     }
 
-            return NoteDetailPalette(
+            return ContrastPalette(
                     darkMode = darkMode,
                     backgroundColor = backgroundColor,
                     topBarColor = topBarColor,
@@ -119,10 +139,22 @@ internal data class NoteDetailPalette(
                                 ContrastMode.SEPIA -> "#E6D9BE".toColorInt()
                                 ContrastMode.HIGH_CONTRAST -> "#202020".toColorInt()
                             },
+                    inputSurfaceColor =
+                            when (mode) {
+                                ContrastMode.NORMAL -> Color.WHITE
+                                ContrastMode.DARK -> "#1E232C".toColorInt()
+                                ContrastMode.SEPIA -> "#F6EEDC".toColorInt()
+                                ContrastMode.HIGH_CONTRAST -> "#0D0D0D".toColorInt()
+                            },
+                    secondarySurfaceColor =
+                            when (mode) {
+                                ContrastMode.NORMAL -> "#E4E9F2".toColorInt()
+                                ContrastMode.DARK -> "#2B3240".toColorInt()
+                                ContrastMode.SEPIA -> "#E8D8BB".toColorInt()
+                                ContrastMode.HIGH_CONTRAST -> "#1F1F1F".toColorInt()
+                            },
                     accentColor = accentColor,
-                    primaryButtonTextColor =
-                            if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.BLACK
-                            else Color.WHITE,
+                    primaryButtonTextColor = readableTextColorOn(accentColor),
                     inputUnderlineBlend = if (darkMode) 0.22f else 0.12f,
                     secondaryFillBlend = if (darkMode) 0.22f else 0.11f,
                     secondaryStrokeAlpha = if (darkMode) 80 else 56,
@@ -133,7 +165,9 @@ internal data class NoteDetailPalette(
                     disabledTextAlpha = if (darkMode) 160 else 140,
                     useLightStatusIcons =
                             !darkMode && ColorUtils.calculateLuminance(topBarColor) > 0.5,
-                    useLightNavIcons = mode == ContrastMode.NORMAL || mode == ContrastMode.SEPIA
+                    // 列表頁原本以背景亮度判斷、詳情頁原本以模式判斷；兩者對四種模式的結果
+                    // 一致（見 ContrastPaletteTest 的等價性斷言），這裡採用亮度版本。
+                    useLightNavIcons = ColorUtils.calculateLuminance(backgroundColor) > 0.5
             )
         }
     }

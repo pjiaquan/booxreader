@@ -20,12 +20,13 @@ import com.google.android.material.chip.Chip
 import kotlin.math.roundToInt
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
+import my.hinoki.booxreader.ui.common.ContrastPalette
 
 /**
  * AI 筆記詳情頁的 View 樣式套用（自 `AiNoteDetailActivity` 抽出的樣式叢集）。
  *
- * 只依賴 `binding` 與 `NoteDetailPalette`（色彩計算已抽到那裡），不碰任何 Activity 狀態，
- * 因此與 `NoteDetailPalette` 一起構成可測試的樣式層。
+ * 只依賴 `binding` 與 `ContrastPalette`（色彩計算已抽到那裡），不碰任何 Activity 狀態，
+ * 因此與 `ContrastPalette` 一起構成可測試的樣式層。
  *
  * 系統列 / ActionBar 樣式仍在 Activity 內（需要 `window` 與 `supportActionBar`）。
  */
@@ -42,7 +43,7 @@ internal data class ButtonVisualStyle(
 internal class NoteDetailStyler(
         private val activity: androidx.appcompat.app.AppCompatActivity,
         private val binding: ActivityAiNoteDetailBinding,
-        private val palette: NoteDetailPalette
+        private val palette: ContrastPalette
 ) {
 
     fun applyBaseViewColors() {

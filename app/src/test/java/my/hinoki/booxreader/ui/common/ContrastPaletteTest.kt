@@ -1,9 +1,12 @@
-package my.hinoki.booxreader.ui.notes
+package my.hinoki.booxreader.ui.common
 
 import android.content.Context
 import android.graphics.Color
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.toColorInt
 import androidx.test.core.app.ApplicationProvider
+import androidx.core.content.ContextCompat
+import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.settings.ContrastMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * `NoteDetailPalette` 的行為測試。
+ * `ContrastPalette` 的行為測試（原 NoteDetailPaletteTest，兩頁共用後搬到 ui/common）。
  *
  * 這些數值原本散在 `AiNoteDetailActivity` 四個私有方法裡的 `when (mode)` 階梯，
  * 寫錯只會表現成「某個對比模式顏色怪怪的」而沒有任何測試會發現。
@@ -22,11 +25,12 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
-class NoteDetailPaletteTest {
+class ContrastPaletteTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
-    private fun palette(mode: ContrastMode) = NoteDetailPalette.of(mode, context)
+    private fun palette(mode: ContrastMode) =
+            ContrastPalette.of(mode, context, R.color.ai_note_top_bar)
 
     @Test
     fun normalModeMatchesDocumentedColors() {
@@ -129,6 +133,56 @@ class NoteDetailPaletteTest {
             val expected =
                     !p.darkMode && ColorUtils.calculateLuminance(p.topBarColor) > 0.5
             assertEquals("mode=$mode", expected, p.useLightStatusIcons)
+        }
+    }
+
+    @Test
+    fun listScreenSurfaceColorsArePinned() {
+        // 原本散在 AiNoteListActivity.applyContrastMode 的兩個表面色
+        val expectedInput =
+                mapOf(
+                        ContrastMode.NORMAL to Color.WHITE,
+                        ContrastMode.DARK to "#1E232C".toColorInt(),
+                        ContrastMode.SEPIA to "#F6EEDC".toColorInt(),
+                        ContrastMode.HIGH_CONTRAST to "#0D0D0D".toColorInt()
+                )
+        val expectedButton =
+                mapOf(
+                        ContrastMode.NORMAL to "#E4E9F2".toColorInt(),
+                        ContrastMode.DARK to "#2B3240".toColorInt(),
+                        ContrastMode.SEPIA to "#E8D8BB".toColorInt(),
+                        ContrastMode.HIGH_CONTRAST to "#1F1F1F".toColorInt()
+                )
+
+        ContrastMode.values().forEach { mode ->
+            assertEquals("inputSurfaceColor $mode", expectedInput[mode], palette(mode).inputSurfaceColor)
+            assertEquals("secondarySurfaceColor $mode", expectedButton[mode], palette(mode).secondarySurfaceColor)
+        }
+    }
+
+    @Test
+    fun topBarColorUsesTheCallersResourceOnLightModes() {
+        val fromResource = ContextCompat.getColor(context, R.color.ai_note_top_bar)
+
+        assertEquals(fromResource, palette(ContrastMode.NORMAL).topBarColor)
+        assertEquals(fromResource, palette(ContrastMode.SEPIA).topBarColor)
+        // DARK / HIGH_CONTRAST 不查資源
+        assertEquals("#0A0D12".toColorInt(), palette(ContrastMode.DARK).topBarColor)
+        assertEquals(Color.BLACK, palette(ContrastMode.HIGH_CONTRAST).topBarColor)
+    }
+
+    @Test
+    fun readableTextColorOnPicksContrastingText() {
+        assertEquals(Color.BLACK, ContrastPalette.readableTextColorOn(Color.WHITE))
+        assertEquals(Color.WHITE, ContrastPalette.readableTextColorOn(Color.BLACK))
+
+        ContrastMode.values().forEach { mode ->
+            val p = palette(mode)
+            assertEquals(
+                    "mode=$mode",
+                    ContrastPalette.readableTextColorOn(p.accentColor),
+                    p.primaryButtonTextColor
+            )
         }
     }
 }

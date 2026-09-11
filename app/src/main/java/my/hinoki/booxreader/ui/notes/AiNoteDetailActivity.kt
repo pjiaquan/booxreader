@@ -57,6 +57,7 @@ import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.MagicTag
 import my.hinoki.booxreader.data.settings.ReaderSettings
 import my.hinoki.booxreader.ui.common.BaseActivity
+import my.hinoki.booxreader.ui.common.ContrastPalette
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 
 class AiNoteDetailActivity : BaseActivity() {
@@ -334,8 +335,8 @@ class AiNoteDetailActivity : BaseActivity() {
     }
 
     private fun applyContrastMode(mode: ContrastMode) {
-        // 色彩計算集中在 NoteDetailPalette；View 套用集中在 NoteDetailStyler（兩者皆可測試）。
-        val palette = NoteDetailPalette.of(mode, this)
+        // 色彩計算集中在 ContrastPalette；View 套用集中在 NoteDetailStyler（兩者皆可測試）。
+        val palette = ContrastPalette.of(mode, this, R.color.ai_note_top_bar)
 
         magicTagTextColor = palette.magicTagTextColor
         magicTagBackgroundColor = palette.magicTagBackgroundColor

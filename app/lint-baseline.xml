@@ -19,7 +19,7 @@
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="752"
+            line="756"
             column="45"/>
     </issue>
 
@@ -1702,7 +1702,7 @@
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="142"
+            line="143"
             column="45"/>
     </issue>
 
@@ -5251,7 +5251,7 @@
         errorLine2="                                                  ~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="119"
+            line="120"
             column="51"/>
     </issue>
 
@@ -5262,7 +5262,7 @@
         errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="190"
+            line="191"
             column="48"/>
     </issue>
 
@@ -5273,7 +5273,7 @@
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="907"
+            line="908"
             column="25"/>
     </issue>
 
@@ -5284,7 +5284,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="925"
+            line="926"
             column="44"/>
     </issue>
 
@@ -5295,7 +5295,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1042"
+            line="1043"
             column="17"/>
     </issue>
 
@@ -5306,7 +5306,7 @@
         errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1310"
+            line="1311"
             column="50"/>
     </issue>
 
@@ -5317,7 +5317,7 @@
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1311"
+            line="1312"
             column="49"/>
     </issue>
 
@@ -5328,7 +5328,7 @@
         errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1312"
+            line="1313"
             column="51"/>
     </issue>
 
@@ -5339,7 +5339,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1552"
+            line="1553"
             column="28"/>
     </issue>
 
@@ -5350,7 +5350,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1553"
+            line="1554"
             column="31"/>
     </issue>
 
@@ -5361,7 +5361,7 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1554"
+            line="1555"
             column="26"/>
     </issue>
 
@@ -5372,7 +5372,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1555"
+            line="1556"
             column="30"/>
     </issue>
 
@@ -5383,7 +5383,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1556"
+            line="1557"
             column="30"/>
     </issue>
 
@@ -5394,7 +5394,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1557"
+            line="1558"
             column="34"/>
     </issue>
 
@@ -5405,7 +5405,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1558"
+            line="1559"
             column="30"/>
     </issue>
 
@@ -5416,7 +5416,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1559"
+            line="1560"
             column="31"/>
     </issue>
 
@@ -5427,7 +5427,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1560"
+            line="1561"
             column="31"/>
     </issue>
 
@@ -5438,7 +5438,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1561"
+            line="1562"
             column="29"/>
     </issue>
 
@@ -5449,7 +5449,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1562"
+            line="1563"
             column="29"/>
     </issue>
 
@@ -5460,7 +5460,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1608"
+            line="1609"
             column="44"/>
     </issue>
 
@@ -5471,7 +5471,7 @@
         errorLine2="                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1657"
+            line="1658"
             column="70"/>
     </issue>
 
@@ -5482,7 +5482,7 @@
         errorLine2="                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1657"
+            line="1658"
             column="70"/>
     </issue>
 
@@ -5493,162 +5493,8 @@
         errorLine2="                                ~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1704"
+            line="1705"
             column="33"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.NORMAL -> Color.parseColor(&quot;#F3F2F2&quot;)"
-        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="351"
-            column="44"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.DARK -> Color.parseColor(&quot;#1A1817&quot;)"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="352"
-            column="42"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.SEPIA -> Color.parseColor(&quot;#F2E7D0&quot;)"
-        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="353"
-            column="43"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.NORMAL -> Color.parseColor(&quot;#201E1D&quot;)"
-        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="358"
-            column="44"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.DARK -> Color.parseColor(&quot;#F0EDEA&quot;)"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="359"
-            column="42"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.SEPIA -> Color.parseColor(&quot;#5B4636&quot;)"
-        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="360"
-            column="43"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.DARK -> Color.parseColor(&quot;#1E232C&quot;)"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="366"
-            column="42"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.SEPIA -> Color.parseColor(&quot;#F6EEDC&quot;)"
-        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="367"
-            column="43"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.HIGH_CONTRAST -> Color.parseColor(&quot;#0D0D0D&quot;)"
-        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="368"
-            column="51"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.NORMAL -> Color.parseColor(&quot;#E4E9F2&quot;)"
-        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="372"
-            column="44"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.DARK -> Color.parseColor(&quot;#2B3240&quot;)"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="373"
-            column="42"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.SEPIA -> Color.parseColor(&quot;#E8D8BB&quot;)"
-        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="374"
-            column="43"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.HIGH_CONTRAST -> Color.parseColor(&quot;#1F1F1F&quot;)"
-        errorLine2="                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="375"
-            column="51"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toColorInt` instead?"
-        errorLine1="                    ContrastMode.DARK -> Color.parseColor(&quot;#0A0D12&quot;)"
-        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="384"
-            column="42"/>
     </issue>
 
     <issue
@@ -5658,7 +5504,7 @@
         errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="413"
+            line="375"
             column="39"/>
     </issue>
 
@@ -5669,7 +5515,7 @@
         errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="413"
+            line="375"
             column="39"/>
     </issue>
 
@@ -5680,7 +5526,7 @@
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="415"
+            line="377"
             column="49"/>
     </issue>
 
@@ -5691,7 +5537,7 @@
         errorLine2="                          ~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="513"
+            line="470"
             column="27"/>
     </issue>
 
@@ -5702,7 +5548,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="514"
+            line="471"
             column="24"/>
     </issue>
 
@@ -5713,7 +5559,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="1057"
+            line="1011"
             column="31"/>
     </issue>
 
@@ -5724,7 +5570,7 @@
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="1058"
+            line="1012"
             column="24"/>
     </issue>
 
@@ -5911,7 +5757,7 @@
         errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="594"
+            line="598"
             column="27"/>
     </issue>
 
@@ -5922,7 +5768,7 @@
         errorLine2="                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="616"
+            line="620"
             column="64"/>
     </issue>
 
@@ -5933,7 +5779,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="696"
+            line="700"
             column="13"/>
     </issue>
 
@@ -5944,7 +5790,7 @@
         errorLine2="                    ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="715"
+            line="719"
             column="21"/>
     </issue>
 
@@ -5955,7 +5801,7 @@
         errorLine2="                    ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="720"
+            line="724"
             column="21"/>
     </issue>
 
@@ -5966,7 +5812,7 @@
         errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="729"
+            line="733"
             column="53"/>
     </issue>
 
@@ -5977,7 +5823,7 @@
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="753"
+            line="757"
             column="45"/>
     </issue>
 
@@ -5988,7 +5834,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="821"
+            line="825"
             column="9"/>
     </issue>
 
@@ -5999,7 +5845,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="829"
+            line="833"
             column="9"/>
     </issue>
 
@@ -7088,7 +6934,7 @@
         errorLine2="                                                 ^">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="285"
+            line="286"
             column="50"/>
     </issue>
 
@@ -7099,7 +6945,7 @@
         errorLine2="        ^">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="328"
+            line="329"
             column="9"/>
     </issue>
 
@@ -7110,7 +6956,7 @@
         errorLine2="                                                    ^">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteListActivity.kt"
-            line="328"
+            line="329"
             column="53"/>
     </issue>
 
@@ -7176,7 +7022,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1426"
+            line="1427"
             column="28"/>
     </issue>
 
@@ -7187,7 +7033,7 @@
         errorLine2="                                              ~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1426"
+            line="1427"
             column="47"/>
     </issue>
 
@@ -7198,7 +7044,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1426"
+            line="1427"
             column="29"/>
     </issue>
 
@@ -7209,7 +7055,7 @@
         errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/notes/AiNoteDetailActivity.kt"
-            line="1517"
+            line="1518"
             column="28"/>
     </issue>
 
@@ -7275,7 +7121,7 @@
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="501"
+            line="505"
             column="45"/>
     </issue>
 
@@ -7286,7 +7132,7 @@
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="519"
+            line="523"
             column="49"/>
     </issue>
 
@@ -7297,7 +7143,7 @@
         errorLine2="                                               ~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="652"
+            line="656"
             column="48"/>
     </issue>
 
@@ -7308,7 +7154,7 @@
         errorLine2="                                               ~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/main/MainActivity.kt"
-            line="657"
+            line="661"
             column="48"/>
     </issue>
 

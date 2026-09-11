@@ -38,6 +38,7 @@ import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
+import my.hinoki.booxreader.ui.common.ContrastPalette
 import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.databinding.ActivityAiNoteListBinding
 import my.hinoki.booxreader.databinding.ItemAiNoteSelectableBinding
@@ -346,67 +347,28 @@ class AiNoteListActivity : BaseActivity() {
     }
 
     private fun applyContrastMode(mode: ContrastMode) {
-        listBackgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#F3F2F2")
-                    ContrastMode.DARK -> Color.parseColor("#1A1817")
-                    ContrastMode.SEPIA -> Color.parseColor("#F2E7D0")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                }
-        listTextColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#201E1D")
-                    ContrastMode.DARK -> Color.parseColor("#F0EDEA")
-                    ContrastMode.SEPIA -> Color.parseColor("#5B4636")
-                    ContrastMode.HIGH_CONTRAST -> Color.WHITE
-                }
-        semanticInputBackgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.WHITE
-                    ContrastMode.DARK -> Color.parseColor("#1E232C")
-                    ContrastMode.SEPIA -> Color.parseColor("#F6EEDC")
-                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#0D0D0D")
-                }
-        semanticButtonBackgroundColor =
-                when (mode) {
-                    ContrastMode.NORMAL -> Color.parseColor("#E4E9F2")
-                    ContrastMode.DARK -> Color.parseColor("#2B3240")
-                    ContrastMode.SEPIA -> Color.parseColor("#E8D8BB")
-                    ContrastMode.HIGH_CONTRAST -> Color.parseColor("#1F1F1F")
-                }
-        val secondaryTextAlpha =
-                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 215 else 170
-        val hintTextAlpha =
-                if (mode == ContrastMode.DARK || mode == ContrastMode.HIGH_CONTRAST) 190 else 140
-        listSecondaryTextColor = ColorUtils.setAlphaComponent(listTextColor, secondaryTextAlpha)
-        val topBarColor =
-                when (mode) {
-                    ContrastMode.DARK -> Color.parseColor("#0A0D12")
-                    ContrastMode.HIGH_CONTRAST -> Color.BLACK
-                    else -> ContextCompat.getColor(this, R.color.action_bar_surface)
-                }
-        topBarContentColor =
-                when (mode) {
-                    ContrastMode.DARK, ContrastMode.HIGH_CONTRAST -> Color.WHITE
-                    else ->
-                            if (ColorUtils.calculateLuminance(topBarColor) > 0.5) Color.BLACK
-                            else Color.WHITE
-                }
+        // 色彩計算集中在 ContrastPalette（與詳情頁共用同一份），這裡只負責套用到 View。
+        val palette = ContrastPalette.of(mode, this, R.color.action_bar_surface)
+
+        listBackgroundColor = palette.backgroundColor
+        listTextColor = palette.textColor
+        listSecondaryTextColor = palette.secondaryTextColor
+        topBarContentColor = palette.topBarContentColor
+        val topBarColor = palette.topBarColor
 
         binding.root.setBackgroundColor(listBackgroundColor)
         binding.llSemanticSearch.setBackgroundColor(listBackgroundColor)
         binding.listAiNotes.setBackgroundColor(listBackgroundColor)
-        binding.progressBar.indeterminateTintList =
-                ColorStateList.valueOf(listTextColor)
+        binding.progressBar.indeterminateTintList = ColorStateList.valueOf(listTextColor)
         binding.etSemanticSearch.setTextColor(listTextColor)
-        binding.etSemanticSearch.setHintTextColor(
-                ColorUtils.setAlphaComponent(listTextColor, hintTextAlpha)
-        )
+        binding.etSemanticSearch.setHintTextColor(palette.hintColor)
         binding.etSemanticSearch.backgroundTintList =
-                ColorStateList.valueOf(semanticInputBackgroundColor)
+                ColorStateList.valueOf(palette.inputSurfaceColor)
         binding.btnSemanticSearch.backgroundTintList =
-                ColorStateList.valueOf(semanticButtonBackgroundColor)
-        binding.btnSemanticSearch.setTextColor(readableTextColorOn(semanticButtonBackgroundColor))
+                ColorStateList.valueOf(palette.secondarySurfaceColor)
+        binding.btnSemanticSearch.setTextColor(
+                ContrastPalette.readableTextColorOn(palette.secondarySurfaceColor)
+        )
         semanticClearDrawable = createSemanticClearDrawable(listTextColor)
         updateSemanticSearchClearIcon()
         binding.tvSemanticSearchStatus.setTextColor(listSecondaryTextColor)
@@ -427,13 +389,8 @@ class AiNoteListActivity : BaseActivity() {
             window.isNavigationBarContrastEnforced = false
         }
         val insetsController = WindowInsetsControllerCompat(window, window.decorView)
-        val useLightStatusIcons =
-                mode != ContrastMode.DARK &&
-                        mode != ContrastMode.HIGH_CONTRAST &&
-                        ColorUtils.calculateLuminance(topBarColor) > 0.5
-        val useLightNavIcons = ColorUtils.calculateLuminance(listBackgroundColor) > 0.5
-        insetsController.isAppearanceLightStatusBars = useLightStatusIcons
-        insetsController.isAppearanceLightNavigationBars = useLightNavIcons
+        insetsController.isAppearanceLightStatusBars = palette.useLightStatusIcons
+        insetsController.isAppearanceLightNavigationBars = palette.useLightNavIcons
 
         applySelectionBarTheme()
         adapter.notifyDataSetChanged()
@@ -520,9 +477,6 @@ class AiNoteListActivity : BaseActivity() {
         tintToolbarIcons(topBarContentColor)
     }
 
-    private fun readableTextColorOn(backgroundColor: Int): Int {
-        return if (ColorUtils.calculateLuminance(backgroundColor) > 0.5) Color.BLACK else Color.WHITE
-    }
 
     private fun tintToolbarIcons(contentColor: Int) {
         val toolbar = binding.toolbarAiNotes
