@@ -57,7 +57,6 @@ private const val TAG = "NativeNavigator"
 
 class NativeNavigatorFragment : Fragment() {
 
-    private data class NavigationTarget(val index: Int, val fragment: String?)
     private data class TextRange(val start: Int, val end: Int)
     private data class SelectionFocusTarget(
             val highlight: String,
@@ -914,103 +913,24 @@ class NativeNavigatorFragment : Fragment() {
         return null
     }
 
-    private fun resolveNavigationTarget(rawHref: String): NavigationTarget? {
-        val pub = publication ?: return null
-        val trimmed = rawHref.trim()
-        if (trimmed.isEmpty()) return null
+    /** 目前 publication 的 reading order href 清單（抽取後僅作為參數來源）。 */
+    private fun readingOrderHrefs(): List<String> =
+            publication?.readingOrder?.map { it.href.toString() } ?: emptyList()
 
-        val fragment = extractFragmentId(trimmed)
-        val rawResource = trimmed.substringBefore('#').trim()
-        val resourceHref =
-                if (rawResource.isNotEmpty()) {
-                    rawResource
-                } else {
-                    currentResourceHref?.substringBefore('#') ?: return null
-                }
+    private fun resolveNavigationTarget(rawHref: String): NavigationTarget? =
+            ReaderNavigationTargets.resolve(
+                    rawHref = rawHref,
+                    readingOrderHrefs = readingOrderHrefs(),
+                    currentResourceHref = currentResourceHref
+            )
 
-        val candidates = buildNavigationHrefCandidates(resourceHref)
-        if (candidates.isEmpty()) return null
-
-        val normalizedReadingOrder =
-                pub.readingOrder.map { normalizeHrefForMatch(it.href.toString()) }
-
-        for (candidate in candidates) {
-            val index = normalizedReadingOrder.indexOf(candidate)
-            if (index >= 0) {
-                return NavigationTarget(index = index, fragment = fragment)
-            }
-        }
-
-        for (candidate in candidates.sortedByDescending { it.length }) {
-            if (candidate.length < 3) continue
-            val matches =
-                    normalizedReadingOrder.mapIndexedNotNull { index, href ->
-                        if (href == candidate ||
-                                        href.endsWith("/$candidate") ||
-                                        candidate.endsWith("/$href")) {
-                                    index
-                                } else {
-                                    null
-                                }
-                    }
-            if (matches.size == 1) {
-                return NavigationTarget(index = matches.first(), fragment = fragment)
-            }
-        }
-        return null
-    }
-
-    private fun buildNavigationHrefCandidates(rawHref: String): Set<String> {
-        val candidates = linkedSetOf<String>()
-
-        fun addCandidate(value: String?) {
-            val normalized = normalizeHrefForMatch(value)
-            if (normalized.isNotEmpty()) {
-                candidates.add(normalized)
-            }
-        }
-
-        addCandidate(rawHref)
-        if (!rawHref.contains("://")) {
-            val base = currentResourceHref?.substringBefore('#')
-            if (!base.isNullOrBlank()) {
-                val resolved = runCatching { URI(base).resolve(rawHref).toString() }.getOrNull()
-                addCandidate(resolved)
-            }
-        }
-        return candidates
-    }
-
-    private fun normalizeHrefForMatch(href: String?): String {
-        if (href.isNullOrBlank()) return ""
-        var normalized = href.trim().substringBefore('#').substringBefore('?')
-        if (normalized.isEmpty()) return ""
-        normalized = Uri.decode(normalized)
-
-        val asUri = runCatching { URI(normalized).normalize() }.getOrNull()
-        normalized = asUri?.toString() ?: normalized
-        if (normalized.contains("://")) {
-            normalized = runCatching { URI(normalized).path ?: normalized }.getOrDefault(normalized)
-        }
-
-        normalized = normalized.replace('\\', '/')
-        normalized = normalized.removePrefix("./")
-        normalized = normalized.removePrefix("/")
-        return normalized
-    }
-
-    private fun extractFragmentId(href: String): String? {
-        val raw = href.substringAfter('#', "").trim()
-        if (raw.isEmpty()) return null
-        return Uri.decode(raw)
-    }
-
-    private fun hrefTargetsSameResource(targetHref: String, loadedResourceHref: String): Boolean {
-        val target = resolveNavigationTarget(targetHref) ?: return false
-        val loaded = normalizeHrefForMatch(loadedResourceHref)
-        val targetResource = publication?.readingOrder?.getOrNull(target.index)?.href?.toString()
-        return loaded == normalizeHrefForMatch(targetResource)
-    }
+    private fun hrefTargetsSameResource(targetHref: String, loadedResourceHref: String): Boolean =
+            ReaderNavigationTargets.targetsSameResource(
+                    targetHref = targetHref,
+                    loadedResourceHref = loadedResourceHref,
+                    readingOrderHrefs = readingOrderHrefs(),
+                    currentResourceHref = currentResourceHref
+            )
 
     private fun findPageForFragment(fragmentId: String): Int? {
         val p = pager ?: return null
