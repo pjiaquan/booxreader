@@ -15,7 +15,6 @@ import android.widget.Toast
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
@@ -27,14 +26,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.db.AiProfileEntity
 import my.hinoki.booxreader.data.repo.AiProfileRepository
 import my.hinoki.booxreader.data.repo.createAiProfileRepository
-import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -42,10 +39,12 @@ import my.hinoki.booxreader.databinding.ActivityAiProfileListBinding
 import my.hinoki.booxreader.databinding.ItemAiProfileBinding
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import my.hinoki.booxreader.ui.common.ButtonVisualStyle
+import my.hinoki.booxreader.ui.common.applyButtonStyle
+import my.hinoki.booxreader.ui.common.createRoundedBackground
 
 class AiProfileListActivity : BaseActivity() {
 
@@ -59,15 +58,6 @@ class AiProfileListActivity : BaseActivity() {
     private var pendingExportJson: String? = null
     private var pendingExportName: String? = null
     private val selectedProfileIds = mutableSetOf<Long>()
-
-    private data class ButtonVisualStyle(
-        val fillColor: Int,
-        val pressedFillColor: Int,
-        val disabledFillColor: Int,
-        val strokeColor: Int,
-        val textColor: Int,
-        val disabledTextColor: Int
-    )
 
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importProfileFromFile(it) }
@@ -316,32 +306,10 @@ class AiProfileListActivity : BaseActivity() {
         )
     }
 
-    private fun applyButtonStyle(button: android.widget.Button, style: ButtonVisualStyle) {
-        val normal = createRoundedBackground(style.fillColor, style.strokeColor)
-        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
-        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
-        button.background =
-            StateListDrawable().apply {
-                addState(intArrayOf(-android.R.attr.state_enabled), disabled)
-                addState(intArrayOf(android.R.attr.state_pressed), pressed)
-                addState(intArrayOf(android.R.attr.state_focused), pressed)
-                addState(intArrayOf(), normal)
-            }
-        button.setTextColor(
-            ColorStateList(
-                arrayOf(
-                    intArrayOf(-android.R.attr.state_enabled),
-                    intArrayOf()
-                ),
-                intArrayOf(style.disabledTextColor, style.textColor)
-            )
-        )
-    }
-
     private fun applyIconButtonStyle(button: ImageButton, style: ButtonVisualStyle, iconColor: Int) {
-        val normal = createRoundedBackground(style.fillColor, style.strokeColor, cornerRadiusDp = 0f)
-        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor, cornerRadiusDp = 0f)
-        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor, cornerRadiusDp = 0f)
+        val normal = createRoundedBackground(resources, style.fillColor, style.strokeColor, cornerRadiusDp = 0f)
+        val pressed = createRoundedBackground(resources, style.pressedFillColor, style.strokeColor, cornerRadiusDp = 0f)
+        val disabled = createRoundedBackground(resources, style.disabledFillColor, style.strokeColor, cornerRadiusDp = 0f)
         button.background =
             StateListDrawable().apply {
                 addState(intArrayOf(-android.R.attr.state_enabled), disabled)
@@ -360,22 +328,6 @@ class AiProfileListActivity : BaseActivity() {
                     iconColor
                 )
             )
-    }
-
-    private fun createRoundedBackground(
-        fillColor: Int,
-        strokeColor: Int,
-        cornerRadiusDp: Float = 0f
-    ): GradientDrawable {
-        val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = resources.displayMetrics.density * cornerRadiusDp
-            setColor(fillColor)
-            if (strokeColor != Color.TRANSPARENT) {
-                setStroke(strokeWidthPx, strokeColor)
-            }
-        }
     }
 
     private fun observeData() {

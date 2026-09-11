@@ -8,7 +8,6 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
 import android.os.Build
 import android.os.Bundle
 import android.text.SpannableString
@@ -18,11 +17,9 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -41,9 +38,7 @@ import kotlinx.coroutines.launch
 import my.hinoki.booxreader.BooxReaderApp
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.data.remote.HttpConfig
-import my.hinoki.booxreader.data.repo.AiNoteRepository
 import my.hinoki.booxreader.data.repo.createAiNoteRepository
-import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -53,6 +48,8 @@ import my.hinoki.booxreader.ui.common.BaseActivity
 import my.hinoki.booxreader.ui.settings.AiProfileListActivity
 import my.hinoki.booxreader.ui.settings.MagicTagListActivity
 import my.hinoki.booxreader.data.remote.isValidHttpUrl
+import my.hinoki.booxreader.ui.common.ButtonVisualStyle
+import my.hinoki.booxreader.ui.common.applyButtonStyle
 
 class ReaderSettingsActivity : BaseActivity() {
 
@@ -81,15 +78,6 @@ class ReaderSettingsActivity : BaseActivity() {
     private var selectedDailySummaryHour: Int = 0
     private var selectedDailySummaryMinute: Int = 0
     private var selectedLanguage: String = "system"
-
-    private data class ButtonVisualStyle(
-        val fillColor: Int,
-        val pressedFillColor: Int,
-        val disabledFillColor: Int,
-        val strokeColor: Int,
-        val textColor: Int,
-        val disabledTextColor: Int
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -913,43 +901,6 @@ class ReaderSettingsActivity : BaseActivity() {
             setResult(RESULT_OK)
             val message = if (isChecked) "已啟用簡體轉繁體" else "已停用簡體轉繁體"
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun applyButtonStyle(button: Button, style: ButtonVisualStyle) {
-        val normal = createRoundedBackground(style.fillColor, style.strokeColor)
-        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
-        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
-        button.background = StateListDrawable().apply {
-            addState(intArrayOf(-android.R.attr.state_enabled), disabled)
-            addState(intArrayOf(android.R.attr.state_pressed), pressed)
-            addState(intArrayOf(android.R.attr.state_focused), pressed)
-            addState(intArrayOf(), normal)
-        }
-        button.setTextColor(
-            ColorStateList(
-                arrayOf(
-                    intArrayOf(-android.R.attr.state_enabled),
-                    intArrayOf()
-                ),
-                intArrayOf(style.disabledTextColor, style.textColor)
-            )
-        )
-    }
-
-    private fun createRoundedBackground(
-        fillColor: Int,
-        strokeColor: Int,
-        cornerRadiusDp: Float = 0f
-    ): GradientDrawable {
-        val strokeWidthPx = (resources.displayMetrics.density * 1f).toInt().coerceAtLeast(1)
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = resources.displayMetrics.density * cornerRadiusDp
-            setColor(fillColor)
-            if (strokeColor != Color.TRANSPARENT) {
-                setStroke(strokeWidthPx, strokeColor)
-            }
         }
     }
 

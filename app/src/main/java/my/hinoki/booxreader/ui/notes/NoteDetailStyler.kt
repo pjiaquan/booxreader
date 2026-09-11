@@ -3,24 +3,23 @@ package my.hinoki.booxreader.ui.notes
 
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
 import android.os.Build
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.view.View
-import android.widget.Button
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.material.chip.Chip
-import kotlin.math.roundToInt
 import my.hinoki.booxreader.R
 import my.hinoki.booxreader.databinding.ActivityAiNoteDetailBinding
 import my.hinoki.booxreader.ui.common.ContrastPalette
+import my.hinoki.booxreader.ui.common.ButtonVisualStyle
+import my.hinoki.booxreader.ui.common.applyButtonStyle
+import my.hinoki.booxreader.ui.common.createRoundedBackground
 
 /**
  * AI 筆記詳情頁的 View 樣式套用（自 `AiNoteDetailActivity` 抽出的樣式叢集）。
@@ -30,15 +29,6 @@ import my.hinoki.booxreader.ui.common.ContrastPalette
  *
  * 系統列 / ActionBar 樣式仍在 Activity 內（需要 `window` 與 `supportActionBar`）。
  */
-
-internal data class ButtonVisualStyle(
-        val fillColor: Int,
-        val pressedFillColor: Int,
-        val disabledFillColor: Int,
-        val strokeColor: Int,
-        val textColor: Int,
-        val disabledTextColor: Int
-)
 
 internal class NoteDetailStyler(
         private val activity: androidx.appcompat.app.AppCompatActivity,
@@ -108,6 +98,7 @@ internal class NoteDetailStyler(
         applyButtonStyle(binding.btnBackToLinkedNote, secondaryStyle)
         binding.btnCopyAiResponse.background =
                 createRoundedBackground(
+                        resources = binding.root.resources,
                         fillColor =
                                 ColorUtils.blendARGB(
                                         palette.backgroundColor,
@@ -146,44 +137,6 @@ internal class NoteDetailStyler(
                 textColor = textColor,
                 disabledTextColor = disabledTextColor
         )
-    }
-
-    private fun applyButtonStyle(button: Button, style: ButtonVisualStyle) {
-        val normal = createRoundedBackground(style.fillColor, style.strokeColor)
-        val pressed = createRoundedBackground(style.pressedFillColor, style.strokeColor)
-        val disabled = createRoundedBackground(style.disabledFillColor, style.strokeColor)
-        button.background =
-                StateListDrawable().apply {
-                    addState(intArrayOf(-android.R.attr.state_enabled), disabled)
-                    addState(intArrayOf(android.R.attr.state_pressed), pressed)
-                    addState(intArrayOf(android.R.attr.state_focused), pressed)
-                    addState(intArrayOf(), normal)
-                }
-        button.setTextColor(
-                ColorStateList(
-                        arrayOf(
-                                intArrayOf(-android.R.attr.state_enabled),
-                                intArrayOf()
-                        ),
-                        intArrayOf(style.disabledTextColor, style.textColor)
-                )
-        )
-    }
-
-    private fun createRoundedBackground(
-            fillColor: Int,
-            strokeColor: Int,
-            cornerRadiusDp: Float = 0f
-    ): GradientDrawable {
-        val strokeWidthPx = (binding.root.resources.displayMetrics.density * 1f).roundToInt().coerceAtLeast(1)
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = binding.root.resources.displayMetrics.density * cornerRadiusDp
-            setColor(fillColor)
-            if (strokeColor != Color.TRANSPARENT) {
-                setStroke(strokeWidthPx, strokeColor)
-            }
-        }
     }
 
     fun applySystemUiStyles() {

@@ -8,7 +8,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="471"
+            line="459"
             column="16"/>
     </issue>
 
@@ -1637,7 +1637,7 @@
     <issue
         id="StringFormatCount"
         message="Inconsistent number of arguments in formatting string `recent_book_progress_zero`; found both 0 here and 1 in values/strings.xml"
-        errorLine1="    &lt;string name=&quot;recent_book_progress_zero&quot;>進度 0%&lt;/string>"
+        errorLine1="    &lt;string name=&quot;recent_book_progress_zero&quot;>进度 0%&lt;/string>"
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -1657,7 +1657,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="291"
+            line="281"
             column="9"/>
     </issue>
 
@@ -1668,7 +1668,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="411"
+            line="363"
             column="13"/>
     </issue>
 
@@ -1679,7 +1679,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="585"
+            line="537"
             column="13"/>
     </issue>
 
@@ -1690,7 +1690,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="591"
+            line="543"
             column="13"/>
     </issue>
 
@@ -3237,7 +3237,7 @@
     <issue
         id="TypographyDashes"
         message="Replace &quot;-&quot; with an &quot;en dash&quot; character (–, &amp;#8211;) ?"
-        errorLine1="    &lt;string name=&quot;temperature_hint&quot;>溫度 (0-2)&lt;/string>"
+        errorLine1="    &lt;string name=&quot;temperature_hint&quot;>温度 (0-2)&lt;/string>"
         errorLine2="                                    ~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3292,7 +3292,7 @@
     <issue
         id="TypographyDashes"
         message="Replace &quot;-&quot; with an &quot;en dash&quot; character (–, &amp;#8211;) ?"
-        errorLine1="    &lt;string name=&quot;frequency_penalty_hint&quot;>頻率懲罰 (0-2)&lt;/string>"
+        errorLine1="    &lt;string name=&quot;frequency_penalty_hint&quot;>频率惩罚 (0-2)&lt;/string>"
         errorLine2="                                          ~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3314,7 +3314,7 @@
     <issue
         id="TypographyDashes"
         message="Replace &quot;-&quot; with an &quot;en dash&quot; character (–, &amp;#8211;) ?"
-        errorLine1="    &lt;string name=&quot;presence_penalty_hint&quot;>存在懲罰 (0-2)&lt;/string>"
+        errorLine1="    &lt;string name=&quot;presence_penalty_hint&quot;>存在惩罚 (0-2)&lt;/string>"
         errorLine2="                                         ~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3380,7 +3380,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;ai_note_related_loading&quot;>正在搜尋相關筆記...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;ai_note_related_loading&quot;>正在搜寻相关笔记...&lt;/string>"
         errorLine2="                                           ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3402,7 +3402,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;ai_note_semantic_search_running&quot;>正在進行語義搜尋...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;ai_note_semantic_search_running&quot;>正在进行语义搜寻...&lt;/string>"
         errorLine2="                                                   ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3457,7 +3457,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;recent_book_path_placeholder&quot;>檔案路徑...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;recent_book_path_placeholder&quot;>档案路径...&lt;/string>"
         errorLine2="                                                ~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3479,7 +3479,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;recent_book_last_opened&quot;>上次開啟...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;recent_book_last_opened&quot;>上次开启...&lt;/string>"
         errorLine2="                                           ~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3589,7 +3589,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_manual_start&quot;>開始手動同步...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_manual_start&quot;>开始手动同步...&lt;/string>"
         errorLine2="                                     ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3611,7 +3611,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_downloading_books&quot;>下載雲端書籍...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_downloading_books&quot;>下载云端书籍...&lt;/string>"
         errorLine2="                                          ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3633,7 +3633,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_uploading_local_books&quot;>上傳本地書籍...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_uploading_local_books&quot;>上传本地书籍...&lt;/string>"
         errorLine2="                                              ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3655,7 +3655,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_downloading_books_again&quot;>再次下載雲端書籍...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_downloading_books_again&quot;>再次下载云端书籍...&lt;/string>"
         errorLine2="                                                ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3677,7 +3677,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_settings&quot;>同步設定...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_settings&quot;>同步设定...&lt;/string>"
         errorLine2="                                 ~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3699,7 +3699,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_ai_notes&quot;>同步 AI 筆記...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_ai_notes&quot;>同步 AI 笔记...&lt;/string>"
         errorLine2="                                 ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3721,7 +3721,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_progress&quot;>同步閱讀進度...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_progress&quot;>同步阅读进度...&lt;/string>"
         errorLine2="                                 ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3743,7 +3743,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_bookmarks&quot;>同步書籤...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_bookmarks&quot;>同步书签...&lt;/string>"
         errorLine2="                                  ~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3765,7 +3765,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;sync_start_toast&quot;>開始同步資料...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;sync_start_toast&quot;>开始同步资料...&lt;/string>"
         errorLine2="                                    ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3897,7 +3897,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;update_downloading&quot;>正在下載更新...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;update_downloading&quot;>正在下载更新...&lt;/string>"
         errorLine2="                                      ~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -3919,7 +3919,7 @@
     <issue
         id="TypographyEllipsis"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?"
-        errorLine1="    &lt;string name=&quot;annotation_note_hint&quot;>在此輸入筆記內容...&lt;/string>"
+        errorLine1="    &lt;string name=&quot;annotation_note_hint&quot;>在此输入笔记内容...&lt;/string>"
         errorLine2="                                        ~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh/strings.xml"
@@ -4646,7 +4646,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="58"
+            line="57"
             column="43"/>
     </issue>
 
@@ -4657,7 +4657,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="207"
+            line="197"
             column="44"/>
     </issue>
 
@@ -4668,7 +4668,7 @@
         errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="208"
+            line="198"
             column="42"/>
     </issue>
 
@@ -4679,7 +4679,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="209"
+            line="199"
             column="43"/>
     </issue>
 
@@ -4690,7 +4690,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="214"
+            line="204"
             column="44"/>
     </issue>
 
@@ -4701,7 +4701,7 @@
         errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="215"
+            line="205"
             column="42"/>
     </issue>
 
@@ -4712,7 +4712,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="216"
+            line="206"
             column="43"/>
     </issue>
 
@@ -4723,7 +4723,7 @@
         errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="242"
+            line="232"
             column="40"/>
     </issue>
 
@@ -4734,7 +4734,7 @@
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="243"
+            line="233"
             column="38"/>
     </issue>
 
@@ -4745,7 +4745,7 @@
         errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="244"
+            line="234"
             column="39"/>
     </issue>
 
@@ -4756,7 +4756,7 @@
         errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/settings/AiProfileListActivity.kt"
-            line="245"
+            line="235"
             column="47"/>
     </issue>
 
@@ -5251,7 +5251,7 @@
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="306"
+            line="294"
             column="33"/>
     </issue>
 
@@ -5262,7 +5262,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="331"
+            line="319"
             column="18"/>
     </issue>
 
@@ -5273,7 +5273,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="332"
+            line="320"
             column="19"/>
     </issue>
 
@@ -5284,7 +5284,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="334"
+            line="322"
             column="32"/>
     </issue>
 
@@ -5295,7 +5295,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="339"
+            line="327"
             column="18"/>
     </issue>
 
@@ -5306,7 +5306,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="340"
+            line="328"
             column="19"/>
     </issue>
 
@@ -5317,7 +5317,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="342"
+            line="330"
             column="32"/>
     </issue>
 
@@ -5328,7 +5328,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="347"
+            line="335"
             column="18"/>
     </issue>
 
@@ -5339,7 +5339,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="348"
+            line="336"
             column="19"/>
     </issue>
 
@@ -5350,7 +5350,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="350"
+            line="338"
             column="32"/>
     </issue>
 
@@ -5361,7 +5361,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="355"
+            line="343"
             column="18"/>
     </issue>
 
@@ -5372,7 +5372,7 @@
         errorLine2="                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="356"
+            line="344"
             column="19"/>
     </issue>
 
@@ -5383,7 +5383,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="358"
+            line="346"
             column="32"/>
     </issue>
 
@@ -5394,7 +5394,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="478"
+            line="466"
             column="36"/>
     </issue>
 
@@ -5405,7 +5405,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="479"
+            line="467"
             column="34"/>
     </issue>
 
@@ -5416,7 +5416,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="480"
+            line="468"
             column="35"/>
     </issue>
 
@@ -5427,7 +5427,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="484"
+            line="472"
             column="36"/>
     </issue>
 
@@ -5438,7 +5438,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="485"
+            line="473"
             column="34"/>
     </issue>
 
@@ -5449,7 +5449,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="486"
+            line="474"
             column="35"/>
     </issue>
 
@@ -5460,7 +5460,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="494"
+            line="482"
             column="36"/>
     </issue>
 
@@ -5471,7 +5471,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="495"
+            line="483"
             column="34"/>
     </issue>
 
@@ -5482,7 +5482,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="500"
+            line="488"
             column="36"/>
     </issue>
 
@@ -5493,7 +5493,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="501"
+            line="489"
             column="34"/>
     </issue>
 
@@ -5504,7 +5504,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="502"
+            line="490"
             column="35"/>
     </issue>
 
@@ -5515,7 +5515,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="518"
+            line="506"
             column="36"/>
     </issue>
 
@@ -5526,7 +5526,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="519"
+            line="507"
             column="34"/>
     </issue>
 
@@ -5537,7 +5537,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="520"
+            line="508"
             column="35"/>
     </issue>
 
@@ -5548,7 +5548,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="521"
+            line="509"
             column="43"/>
     </issue>
 
@@ -5559,7 +5559,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="607"
+            line="595"
             column="36"/>
     </issue>
 
@@ -5570,7 +5570,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="608"
+            line="596"
             column="34"/>
     </issue>
 
@@ -5581,7 +5581,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="609"
+            line="597"
             column="35"/>
     </issue>
 
@@ -5592,7 +5592,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="613"
+            line="601"
             column="36"/>
     </issue>
 
@@ -5603,7 +5603,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="614"
+            line="602"
             column="34"/>
     </issue>
 
@@ -5614,7 +5614,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="615"
+            line="603"
             column="35"/>
     </issue>
 
@@ -5625,7 +5625,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="616"
+            line="604"
             column="43"/>
     </issue>
 
@@ -5636,7 +5636,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="669"
+            line="657"
             column="36"/>
     </issue>
 
@@ -5647,7 +5647,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="670"
+            line="658"
             column="34"/>
     </issue>
 
@@ -5658,7 +5658,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="671"
+            line="659"
             column="35"/>
     </issue>
 
@@ -5669,7 +5669,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="675"
+            line="663"
             column="36"/>
     </issue>
 
@@ -5680,7 +5680,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="676"
+            line="664"
             column="34"/>
     </issue>
 
@@ -5691,7 +5691,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="677"
+            line="665"
             column="35"/>
     </issue>
 
@@ -5702,7 +5702,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="681"
+            line="669"
             column="36"/>
     </issue>
 
@@ -5713,7 +5713,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="682"
+            line="670"
             column="34"/>
     </issue>
 
@@ -5724,7 +5724,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="683"
+            line="671"
             column="35"/>
     </issue>
 
@@ -5735,7 +5735,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="687"
+            line="675"
             column="36"/>
     </issue>
 
@@ -5746,7 +5746,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="688"
+            line="676"
             column="34"/>
     </issue>
 
@@ -5757,7 +5757,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="689"
+            line="677"
             column="35"/>
     </issue>
 
@@ -5768,7 +5768,7 @@
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="700"
+            line="688"
             column="49"/>
     </issue>
 
@@ -5779,7 +5779,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="723"
+            line="711"
             column="36"/>
     </issue>
 
@@ -5790,7 +5790,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="724"
+            line="712"
             column="34"/>
     </issue>
 
@@ -5801,7 +5801,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="725"
+            line="713"
             column="35"/>
     </issue>
 
@@ -5812,7 +5812,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="729"
+            line="717"
             column="36"/>
     </issue>
 
@@ -5823,7 +5823,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="730"
+            line="718"
             column="34"/>
     </issue>
 
@@ -5834,7 +5834,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="731"
+            line="719"
             column="35"/>
     </issue>
 
@@ -5845,7 +5845,7 @@
         errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="736"
+            line="724"
             column="36"/>
     </issue>
 
@@ -5856,7 +5856,7 @@
         errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="737"
+            line="725"
             column="34"/>
     </issue>
 
@@ -5867,7 +5867,7 @@
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="738"
+            line="726"
             column="35"/>
     </issue>
 
@@ -5878,7 +5878,7 @@
         errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="739"
+            line="727"
             column="43"/>
     </issue>
 
@@ -6241,7 +6241,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="204"
+            line="192"
             column="30"/>
     </issue>
 
@@ -6252,7 +6252,7 @@
         errorLine2="                              ~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="204"
+            line="192"
             column="31"/>
     </issue>
 
@@ -6263,7 +6263,7 @@
         errorLine2="                                  ~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="847"
+            line="835"
             column="35"/>
     </issue>
 
@@ -6274,7 +6274,7 @@
         errorLine2="                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="893"
+            line="881"
             column="32"/>
     </issue>
 
@@ -6285,7 +6285,7 @@
         errorLine2="                                           ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="898"
+            line="886"
             column="44"/>
     </issue>
 
@@ -6296,7 +6296,7 @@
         errorLine2="                                              ~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/ReaderSettingsActivity.kt"
-            line="898"
+            line="886"
             column="47"/>
     </issue>
 
