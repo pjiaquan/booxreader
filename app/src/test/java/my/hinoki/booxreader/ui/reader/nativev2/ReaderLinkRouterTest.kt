@@ -33,33 +33,31 @@ class ReaderLinkRouterTest {
 
     @Test
     fun dangerousSchemesAreBlocked() {
-        listOf("javascript", "intent", "file", "content", "data", "mailto", "tel", null)
+        // mailto / tel 已改為允許（見 mailAndPhoneSchemesAreAllowedButScriptSchemesAreNot）
+        listOf("javascript", "intent", "file", "content", "data", null)
                 .forEach { scheme ->
                     assertFalse("scheme=$scheme should be blocked", ReaderLinkRouter.isAllowedExternalScheme(scheme))
                 }
     }
 
     /**
-     * ⚠️ **已知問題**（記錄現況、未變更行為）：內外部的判定是「不含 `://` 就算內部」，
-     * 因此 `javascript:`、`mailto:`、`tel:` 這類**沒有 `//` 的 scheme** 一律被歸類為內部連結，
-     * 不會走外部（也就不會開郵件 / 電話 App）。
-     *
-     * 對 javascript: 而言這反而意外安全（內部路徑不會建 Intent，只會找不到資源）；
-     * 但 mailto:/tel: 是使用者可見的功能缺失。
+     * `scheme:` 形式（沒有 `//`）**不是**內部連結。修正前它們全被當成內部連結，
+     * 導致點 mailto:/tel: 沒反應。
      */
     @Test
-    fun schemesWithoutDoubleSlashAreClassifiedAsInternal() {
-        listOf("javascript:alert(1)", "mailto:a@b.c", "tel:+886912345678")
+    fun schemesWithoutDoubleSlashAreClassifiedAsExternal() {
+        listOf("mailto:a@b.c", "tel:+886912345678", "javascript:alert(1)", "data:text/html,x")
                 .forEach { url ->
-                    assertTrue("$url should be Internal", ReaderLinkRouter.classify(url, null) is ReaderLinkTarget.Internal)
+                    assertTrue("$url should be External", ReaderLinkRouter.classify(url, null) is ReaderLinkTarget.External)
                 }
     }
 
     @Test
-    fun allowListStillRejectsThoseSchemesIfTheyEverReachTheExternalPath() {
+    fun mailAndPhoneSchemesAreAllowedButScriptSchemesAreNot() {
+        assertTrue(ReaderLinkRouter.isAllowedExternalScheme("mailto"))
+        assertTrue(ReaderLinkRouter.isAllowedExternalScheme("tel"))
         assertFalse(ReaderLinkRouter.isAllowedExternalScheme("javascript"))
-        assertFalse(ReaderLinkRouter.isAllowedExternalScheme("mailto"))
-        assertFalse(ReaderLinkRouter.isAllowedExternalScheme("tel"))
+        assertFalse(ReaderLinkRouter.isAllowedExternalScheme("data"))
     }
 
     @Test
@@ -182,25 +180,48 @@ class ReaderLinkRouterTest {
     }
 
     /**
-     * ⚠️ **已知問題**（本次只記錄、未變更行為）：id 直接內插進 regex，因此 EPUB 中常見
-     * 帶 `.` 的 id 會變成「任意字元」而命中錯的元素。
-     *
-     * 這裡的 id `sec.1` 會先命中 `id="secX1"`，回傳錯誤的 footnote 內容。
-     * 修法是一行：`Regex.escape(id)`（對沒有特殊字元的 id 行為完全相同）。
-     * 因為屬於使用者可見的行為變更，另外提出而不是順手改。
+     * id 會經過 `Regex.escape`，因此 EPUB 常見帶 `.` 的 id 不會變成「任意字元」
+     * 而命中錯的元素（修正前的行為是回傳 "WRONG"）。
      */
     @Test
-    fun dotInFragmentIdCurrentlyMatchesAnyCharacter() {
+    fun regexMetacharactersInTheIdAreEscaped() {
         val html = """<p id="secX1">WRONG</p><p id="sec.1">RIGHT</p>"""
-        assertEquals("WRONG", ReaderLinkRouter.extractElementById(html, "sec.1"))
+        assertEquals("RIGHT", ReaderLinkRouter.extractElementById(html, "sec.1"))
     }
 
-    /**
-     * 對照組：不含 regex 特殊字元的 id 完全正常。
-     */
     @Test
-    fun plainIdsAreUnaffectedByThatIssue() {
-        val html = """<p id="sec-1">RIGHT</p>"""
-        assertEquals("RIGHT", ReaderLinkRouter.extractElementById(html, "sec-1"))
+    fun otherMetacharactersAreAlsoEscaped() {
+        val html = """<p id="a+b">PLUS</p><p id="aab">WRONG</p>"""
+        assertEquals("PLUS", ReaderLinkRouter.extractElementById(html, "a+b"))
+
+        // id 內含 $ 與大括號：未 escape 時 "$" / "{1}" 會被 regex 當成錨點或量詞
+        val dollarId = "a" + '$' + "{1}"
+        val htmlWithDollar = """<p id="$dollarId">DOLLAR</p>"""
+        assertEquals("DOLLAR", ReaderLinkRouter.extractElementById(htmlWithDollar, dollarId))
+    }
+
+    @Test
+    fun plainIdsStillWorkAsBefore() {
+        assertEquals("RIGHT", ReaderLinkRouter.extractElementById("""<p id="sec-1">RIGHT</p>""", "sec-1"))
+    }
+
+    // --- isInternalLink ---
+
+    @Test
+    fun relativePathsAndFragmentsAreInternal() {
+        listOf("#sec", "ch2.xhtml", "text/ch2.xhtml#n", "../ch2.xhtml", "/OEBPS/ch2.xhtml", "./ch2.xhtml")
+                .forEach { assertTrue("$it should be Internal", ReaderLinkRouter.isInternalLink(it)) }
+    }
+
+    @Test
+    fun aColonInsideThePathDoesNotMakeItAScheme() {
+        // scheme 必須出現在第一個 '/' 之前
+        assertTrue(ReaderLinkRouter.isInternalLink("files/ch:2.xhtml"))
+    }
+
+    @Test
+    fun anythingWithASchemeOrDoubleSlashIsNotInternal() {
+        listOf("https://x/y", "mailto:a@b.c", "tel:+886", "javascript:void(0)", "file:///etc/passwd")
+                .forEach { assertFalse("$it should not be Internal", ReaderLinkRouter.isInternalLink(it)) }
     }
 }

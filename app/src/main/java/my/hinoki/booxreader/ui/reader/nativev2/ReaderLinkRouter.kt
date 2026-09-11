@@ -34,8 +34,19 @@ internal sealed interface ReaderLinkTarget {
  */
 internal object ReaderLinkRouter {
 
-    /** 只有這兩個 scheme 允許交給系統開啟。 */
-    val ALLOWED_EXTERNAL_SCHEMES = setOf("http", "https")
+    /**
+     * 允許交給系統開啟的 scheme。
+     *
+     * `http`/`https` 開瀏覽器，`mailto`/`tel` 開郵件或電話 App —— 這四種都不會執行內容。
+     * 其餘（`javascript`、`data`、`file`、`content`、`intent` …）一律封鎖。
+     */
+    val ALLOWED_EXTERNAL_SCHEMES = setOf("http", "https", "mailto", "tel")
+
+    /**
+     * 形如 `scheme:` 的開頭（沒有 `//`）。用來把 `mailto:`、`tel:`、`javascript:` 這類
+     * 連結認出來 —— 它們不含 `://`，但**不是**出版物內部連結。
+     */
+    private val SCHEME_PREFIX = Regex("^[a-zA-Z][a-zA-Z0-9+.\\-]*:")
 
     fun isAllowedExternalScheme(scheme: String?): Boolean =
             scheme != null && scheme.lowercase() in ALLOWED_EXTERNAL_SCHEMES
@@ -43,10 +54,13 @@ internal object ReaderLinkRouter {
     /**
      * 分類連結。
      *
-     * 「內部」的判定與原本一致：以 `#` 開頭，**或**不含 `://`。
+     * 內部連結：以 `#` 開頭，或**既不含 `://` 也不是 `scheme:` 形式**。
+     *
+     * 修正：原本只檢查「不含 `://`」，導致 `mailto:`、`tel:`（以及 `javascript:`）全被當成
+     * 內部連結，實際結果是點了沒反應。現在它們會走外部路徑並由白名單決定放行或封鎖。
      */
     fun classify(url: String, currentResourceHref: String?): ReaderLinkTarget {
-        if (url.startsWith("#") || !url.contains("://")) {
+        if (isInternalLink(url)) {
             val href =
                     if (url.startsWith("#")) {
                         currentResourceHref?.let { "$it$url" } ?: url
@@ -68,6 +82,10 @@ internal object ReaderLinkRouter {
         return ReaderLinkTarget.External(url = url, scheme = scheme)
     }
 
+    /** 內部連結的判定（相對於「外部」）。 */
+    fun isInternalLink(url: String): Boolean =
+            url.startsWith("#") || (!url.contains("://") && !SCHEME_PREFIX.containsMatchIn(url))
+
     /**
      * 從 HTML 取出 `id` 對應元素的可見內容（給 footnote popup 用）。
      *
@@ -75,7 +93,10 @@ internal object ReaderLinkRouter {
      * 找不到回 null。
      */
     fun extractElementById(html: String, id: String): String? {
-        val pattern = Regex("<[^>]*id=\"$id\"[^>]*>(.*?)</[^>]*>", RegexOption.DOT_MATCHES_ALL)
+        // id 用 Regex.escape：EPUB 常見帶 . 的 id（如 "sec.1"），未 escape 會變成「任意字元」
+        // 而命中錯的元素、顯示錯的 footnote。對沒有特殊字元的 id 行為完全相同。
+        val pattern =
+                Regex("<[^>]*id=\"${Regex.escape(id)}\"[^>]*>(.*?)</[^>]*>", RegexOption.DOT_MATCHES_ALL)
         return pattern.find(html)?.groupValues?.get(1)
     }
 }
