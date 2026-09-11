@@ -8,6 +8,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import my.hinoki.booxreader.data.core.Logger
+import my.hinoki.booxreader.data.core.NoOpLogger
 import my.hinoki.booxreader.data.platform.currentEpochMillis
 
 /**
@@ -16,7 +18,8 @@ import my.hinoki.booxreader.data.platform.currentEpochMillis
 class ProgressPublisher(
     private val baseUrlProvider: () -> String,
     private val client: HttpClient = HttpClient(),
-    private val json: Json = Json
+    private val json: Json = Json,
+    private val logger: Logger = NoOpLogger
 ) {
 
     /**
@@ -40,7 +43,8 @@ class ProgressPublisher(
                 setBody(body)
             }
         } catch (e: Exception) {
-            // 與原本行為一致：best-effort，失敗時靜默忽略
+            // best-effort：不影響閱讀流程，但要留下痕跡，否則後端拒絕時完全無從得知
+            logger.w("ProgressPublisher", "publishProgress failed", e)
         }
     }
 }

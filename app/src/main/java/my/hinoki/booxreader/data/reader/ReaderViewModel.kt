@@ -179,7 +179,6 @@ class ReaderViewModel(
                 // Trigger highlights load
                 loadHighlights()
             } catch (e: Exception) {
-                e.printStackTrace()
                 ErrorReporter.report(
                         getApplication(),
                         "ReaderViewModel.openBook",
@@ -245,7 +244,9 @@ class ReaderViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 bookRepo.updateProgress(bookId, json)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                my.hinoki.booxreader.data.core.AndroidLogger.w("ReaderViewModel", "failed to persist reading progress", e)
+            }
         }
     }
 

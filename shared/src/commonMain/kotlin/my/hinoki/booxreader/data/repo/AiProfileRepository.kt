@@ -205,8 +205,8 @@ class AiProfileRepository(
                                 totalSynced++
                             }
                         } catch (e: Exception) {
-                            // Log error but continue with other profiles
-
+                            // best-effort：單一 profile 推送失敗不阻斷其他 profile。
+                            // 此類別沒有 logger（需要的話由 factory 注入，見 NoOpLogger）。
                         }
                     }
 
@@ -218,7 +218,7 @@ class AiProfileRepository(
                     try {
                         syncRepo.pullSettingsIfNewer()
                     } catch (e: Exception) {
-
+                        // best-effort：settings 拉取失敗不影響 profile 同步結果
                     }
                     ensureSingleProfileAppliedIfNeeded()
                 } catch (e: Exception) {

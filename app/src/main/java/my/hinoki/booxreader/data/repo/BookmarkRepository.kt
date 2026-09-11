@@ -27,7 +27,11 @@ class BookmarkRepository(
     }
 
     // ✨ 新增：HTTP 發佈工具（KMP Ktor 版本）
-    private val publisher = BookmarkPublisher(baseUrlProvider = { getBaseUrl(context) })
+    private val publisher =
+            BookmarkPublisher(
+                    baseUrlProvider = { getBaseUrl(context) },
+                    logger = my.hinoki.booxreader.data.core.AndroidLogger
+            )
 
     suspend fun getBookmarks(bookId: String): List<BookmarkEntity> =
         withContext(Dispatchers.IO) {
@@ -60,6 +64,7 @@ class BookmarkRepository(
                 val syncedEntity = entity.copy(id = insertedId, isSynced = true)
                 dao.update(syncedEntity)
             } catch (e: Exception) {
+                my.hinoki.booxreader.data.core.AndroidLogger.w("BookmarkRepository", "local update after sync failed", e)
             }
 
             // 4. Firestore sync (best effort)

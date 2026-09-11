@@ -90,7 +90,11 @@ class AiProfileListActivity : BaseActivity() {
                         getString(R.string.ai_profile_export_failed, e.message ?: ""),
                         Toast.LENGTH_LONG
                     ).show()
-                    e.printStackTrace()
+                    my.hinoki.booxreader.data.core.AndroidLogger.e(
+                            "AiProfileListActivity",
+                            "profile export failed",
+                            e
+                    )
                 }
             }
         }
@@ -451,7 +455,11 @@ class AiProfileListActivity : BaseActivity() {
                     getString(R.string.ai_profile_sync_failed, e.message ?: ""), 
                     Toast.LENGTH_LONG
                 ).show()
-                e.printStackTrace()
+                my.hinoki.booxreader.data.core.AndroidLogger.e(
+                        "AiProfileListActivity",
+                        "profile sync failed",
+                        e
+                )
             } finally {
                 setLoading(false)
             }
@@ -523,7 +531,11 @@ class AiProfileListActivity : BaseActivity() {
                     getString(R.string.ai_profile_import_failed, e.message ?: ""), 
                     Toast.LENGTH_LONG
                 ).show()
-                e.printStackTrace()
+                my.hinoki.booxreader.data.core.AndroidLogger.e(
+                        "AiProfileListActivity",
+                        "profile sync failed",
+                        e
+                )
             }
         }
     }

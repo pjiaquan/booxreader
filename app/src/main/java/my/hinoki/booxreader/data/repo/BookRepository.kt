@@ -28,7 +28,9 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
                 // uploadFile = true so it backfills the remote file if it was never uploaded
                 // (e.g. first sync failed). pushBook() skips the upload when remoteHasFilePath = true.
                 syncRepo?.pushBook(existing, uploadFile = true)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                my.hinoki.booxreader.data.core.AndroidLogger.w("BookRepository", "push after pull failed (will retry on next sync)", e)
+            }
             return existing
         }
 
@@ -48,7 +50,9 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
             // uploadFile = true: upload the EPUB to PocketBase immediately so other devices
             // can see and download this book without waiting for the next full push cycle.
             syncRepo?.pushBook(book, uploadFile = true)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            my.hinoki.booxreader.data.core.AndroidLogger.w("BookRepository", "push of newly imported book failed", e)
+        }
         return book
     }
 
@@ -67,6 +71,7 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
                         bookTitle = entity.title
                 )
             } catch (e: Exception) {
+                my.hinoki.booxreader.data.core.AndroidLogger.w("BookRepository", "sync call failed while importing book", e)
             }
         }
 
@@ -173,7 +178,9 @@ class BookRepository(private val context: Context, private val syncRepo: UserSyn
         val entity = bookDao.getById(bookId) ?: return
         try {
             syncRepo?.pushBook(entity)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            my.hinoki.booxreader.data.core.AndroidLogger.w("BookRepository", "background book push failed", e)
+        }
     }
 
     /** Generate safe bookId using SHA-256 of file content */

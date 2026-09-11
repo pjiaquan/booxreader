@@ -1128,7 +1128,11 @@ class AiNoteDetailActivity : BaseActivity() {
                             }
                         }
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        my.hinoki.booxreader.data.core.AndroidLogger.w(
+                                "AiNoteDetailActivity",
+                                "scroll-to-bottom handling failed",
+                                e
+                        )
                     }
                 }
     }

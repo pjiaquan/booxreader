@@ -41,7 +41,9 @@ abstract class AppDatabase : RoomDatabase() {
         fun resetInstanceForTesting() {
             try {
                 INSTANCE?.close()
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                // 關閉失敗不影響測試重置：instance 無論如何都會被清掉
+            }
             INSTANCE = null
         }
     }

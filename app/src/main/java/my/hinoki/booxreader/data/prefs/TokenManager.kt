@@ -21,19 +21,16 @@ open class TokenManager(private val context: Context) :
             createEncryptedSharedPreferences()
         } catch (e: Exception) {
             android.util.Log.e("TokenManager", "Failed to initialize encrypted shared prefs, clearing and retrying", e)
-            e.printStackTrace()
             // If initialization fails (e.g. data corruption, R8 issues, or device change), delete and retry
             try {
                 context.deleteSharedPreferences("auth_prefs")
             } catch (deleteEx: Exception) {
                 android.util.Log.e("TokenManager", "Failed to clear shared prefs", deleteEx)
-                deleteEx.printStackTrace()
             }
             try {
                 createEncryptedSharedPreferences()
             } catch (retryEx: Exception) {
                 android.util.Log.e("TokenManager", "Failed to create encrypted shared prefs on retry", retryEx)
-                retryEx.printStackTrace()
                 // ponytail: in JVM / Robolectric unit test environments where AndroidKeyStore provider is absent,
                 // fallback to plain shared prefs for tests rather than breaking all Robolectric suites.
                 val isKeystoreUnavailable = retryEx is java.security.KeyStoreException ||

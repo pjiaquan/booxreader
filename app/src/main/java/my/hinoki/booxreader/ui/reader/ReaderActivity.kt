@@ -16,9 +16,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,7 +50,6 @@ import my.hinoki.booxreader.data.repo.createAiNoteRepository
 import my.hinoki.booxreader.data.repo.BookRepository
 import my.hinoki.booxreader.data.repo.BookmarkRepository
 import my.hinoki.booxreader.data.repo.AnnotationRepository
-import my.hinoki.booxreader.data.repo.UserSyncRepository
 import my.hinoki.booxreader.data.repo.createUserSyncRepository
 import my.hinoki.booxreader.data.settings.ContrastMode
 import my.hinoki.booxreader.data.settings.ReaderSettings
@@ -96,7 +92,8 @@ class ReaderActivity : BaseActivity() {
                                             )
                                     prefs.getString("server_base_url", HttpConfig.DEFAULT_BASE_URL)
                                             ?: HttpConfig.DEFAULT_BASE_URL
-                                }
+                                },
+                                logger = my.hinoki.booxreader.data.core.AndroidLogger
                         )
                 ) as
                         T
@@ -709,7 +706,9 @@ class ReaderActivity : BaseActivity() {
 
             try {
                 nativeNavigatorFragment?.clearSelection()
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                my.hinoki.booxreader.data.core.AndroidLogger.w("ReaderActivity", "clearSelection failed (UI boundary)", e)
+            }
 
             val sanitized =
                     withContext(Dispatchers.Default) {
