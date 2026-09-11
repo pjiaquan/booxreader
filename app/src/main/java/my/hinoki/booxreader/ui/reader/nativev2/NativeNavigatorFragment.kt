@@ -57,15 +57,6 @@ private const val TAG = "NativeNavigator"
 
 class NativeNavigatorFragment : Fragment() {
 
-    private data class TextRange(val start: Int, val end: Int)
-    private data class SelectionFocusTarget(
-            val highlight: String,
-            val before: String?,
-            val after: String?,
-            val startOffset: Int?,
-            val endOffset: Int?
-    )
-
     private var _binding: FragmentNativeReaderBinding? = null
     private val binding
         get() = _binding!!
@@ -608,7 +599,7 @@ class NativeNavigatorFragment : Fragment() {
                 val pageCount = newPager.pageCount
                 if (pageCount > 0) {
                     currentPageInResource =
-                            (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                            ReaderSelectionFocus.progressionToPage(progression, pageCount)
                 }
                 displayCurrentPage()
             }
@@ -679,7 +670,7 @@ class NativeNavigatorFragment : Fragment() {
             } else {
                 val progression = pendingProgression ?: 0.0
                 currentPageInResource =
-                        (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                        ReaderSelectionFocus.progressionToPage(progression, pageCount)
             }
             initialLocator = null
         } else if (pendingProgression != null && pageCount > 0) {
@@ -690,13 +681,13 @@ class NativeNavigatorFragment : Fragment() {
             val progression = loc.locations.progression ?: 0.0
             currentPageInResource =
                     if (pageCount > 0) {
-                        (progression * pageCount).toInt().coerceIn(0, pageCount - 1)
+                        ReaderSelectionFocus.progressionToPage(progression, pageCount)
                     } else {
                         0
                     }
             initialLocator = null // Clear after use
         } else if (jumpToLastPage) {
-            currentPageInResource = (pageCount - 1).coerceAtLeast(0)
+            currentPageInResource = ReaderSelectionFocus.progressionToPage(1.0, pageCount)
         }
     }
 
@@ -1272,80 +1263,9 @@ class NativeNavigatorFragment : Fragment() {
         return SelectionFocusTarget(highlight, before, after, startOffset, endOffset)
     }
 
-    private fun resolveSelectionFocusRange(target: SelectionFocusTarget): TextRange? {
-        val length = resourceText.length
-        if (length <= 0) return null
+    private fun resolveSelectionFocusRange(target: SelectionFocusTarget): TextRange? =
+            ReaderSelectionFocus.resolve(resourceText, target)
 
-        val start = target.startOffset
-        val end = target.endOffset
-        if (start != null && end != null && start >= 0 && end > start && end <= length) {
-            val candidate = resourceText.subSequence(start, end).toString()
-            if (candidate == target.highlight) {
-                return TextRange(start = start, end = end)
-            }
-        }
-
-        val highlight = target.highlight
-        if (highlight.isBlank() || highlight.length > length) return null
-
-        val matches = mutableListOf<TextRange>()
-        var cursor = 0
-        while (cursor <= length - highlight.length) {
-            val index = resourceText.toString().indexOf(highlight, startIndex = cursor)
-            if (index < 0) break
-            matches += TextRange(index, index + highlight.length)
-            cursor = index + 1
-        }
-        if (matches.isEmpty()) return null
-        if (matches.size == 1) return matches.first()
-
-        val preferredStart = target.startOffset
-        val before = target.before
-        val after = target.after
-
-        return matches
-                .maxWithOrNull(
-                        compareBy<TextRange> {
-                                    var score = 0
-                                    if (!before.isNullOrBlank()) {
-                                        val beforeSlice =
-                                                resourceText
-                                                        .subSequence(
-                                                                max(0, it.start - before.length),
-                                                                it.start
-                                                        )
-                                                        .toString()
-                                        if (beforeSlice == before) {
-                                            score += 2
-                                        } else if (beforeSlice.endsWith(before.takeLast(12))) {
-                                            score += 1
-                                        }
-                                    }
-                                    if (!after.isNullOrBlank()) {
-                                        val afterSlice =
-                                                resourceText
-                                                        .subSequence(
-                                                                it.end,
-                                                                min(length, it.end + after.length)
-                                                        )
-                                                        .toString()
-                                        if (afterSlice == after) {
-                                            score += 2
-                                        } else if (afterSlice.startsWith(after.take(12))) {
-                                            score += 1
-                                        }
-                                    }
-                                    score
-                                }
-                                .thenBy {
-                                    if (preferredStart == null) {
-                                        Int.MAX_VALUE
-                                    } else {
-                                        abs(it.start - preferredStart)
-                                    }
-                                }
-                )
-    }
 
     private fun applyActiveSelectionFocus() {
         val range = activeSelectionFocusRange
