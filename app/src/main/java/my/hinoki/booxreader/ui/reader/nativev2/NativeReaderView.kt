@@ -892,36 +892,16 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
             anchorOffset: Int? = null
     ): Int {
         val l = layout ?: return -1
-        val relativeY = (y - paddingTop).coerceIn(0f, l.height.toFloat())
-        val line = l.getLineForVertical(relativeY.toInt())
-
-        val relativeX = x - paddingLeft
-
-        // Fast drags keep generous edge snapping; slow drags shrink it for finer control.
-        val snapThreshold =
-                if (preciseMode) {
-                    preciseEdgeSnapThresholdPx.coerceAtMost(l.width * 0.04f)
-                } else {
-                    (l.width * 0.1f).coerceAtMost(normalEdgeSnapThresholdPx)
-                }
-        if (relativeX > l.width - snapThreshold) {
-            return l.getLineEnd(line)
-        }
-        if (relativeX < snapThreshold) {
-            return l.getLineStart(line)
-        }
-
-        val clampedX = relativeX.coerceIn(0f, l.width.toFloat())
-        val candidate = l.getOffsetForHorizontal(line, clampedX)
-        if (!preciseMode || anchorOffset == null) {
-            return candidate
-        }
-        return refinePreciseOffsetForSlowDrag(
-                layout = l,
-                line = line,
-                relativeX = clampedX,
-                anchorOffset = anchorOffset,
-                candidateOffset = candidate
+        return ReaderOffsetResolver.resolve(
+                x = x,
+                y = y,
+                paddingLeft = paddingLeft,
+                paddingTop = paddingTop,
+                content = content,
+                metrics = l.asOffsetLayoutMetrics(),
+                preciseEdgeSnapThresholdPx = preciseEdgeSnapThresholdPx,
+                preciseMode = preciseMode,
+                anchorOffset = anchorOffset
         )
     }
 
@@ -1055,79 +1035,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         lastSelectionDragTime = eventTime
 
         return smoothedSelectionDragSpeed <= preciseSelectionSpeedThresholdPxPerSecond
-    }
-
-    private fun refinePreciseOffsetForSlowDrag(
-            layout: Layout,
-            line: Int,
-            relativeX: Float,
-            anchorOffset: Int,
-            candidateOffset: Int
-    ): Int {
-        val safeAnchor = anchorOffset.coerceIn(0, content.length)
-        if (candidateOffset == safeAnchor) {
-            return candidateOffset
-        }
-
-        if (getLineForOffsetSafe(layout, safeAnchor) != line) {
-            return candidateOffset
-        }
-
-        val movingRight = candidateOffset > safeAnchor
-        var resolved = safeAnchor
-        var steps = 0
-        while (steps++ < content.length + 1) {
-            val nextOffset =
-                    if (movingRight) layout.getOffsetToRightOf(resolved)
-                    else layout.getOffsetToLeftOf(resolved)
-            if (nextOffset == resolved) {
-                break
-            }
-            if (getLineForOffsetSafe(layout, nextOffset) != line) {
-                break
-            }
-            if (movingRight && nextOffset > candidateOffset) {
-                break
-            }
-            if (!movingRight && nextOffset < candidateOffset) {
-                break
-            }
-
-            val currentX = layout.getPrimaryHorizontal(resolved)
-            val nextX = layout.getPrimaryHorizontal(nextOffset)
-            val threshold =
-                    currentX +
-                            ((nextX - currentX) *
-                                    getSlowDragAdvanceFraction(resolved, nextOffset))
-            val crossed = if (movingRight) relativeX >= threshold else relativeX <= threshold
-            if (!crossed) {
-                break
-            }
-
-            resolved = nextOffset
-            if (resolved == candidateOffset) {
-                break
-            }
-        }
-
-        return resolved
-    }
-
-    private fun getLineForOffsetSafe(layout: Layout, offset: Int): Int {
-        if (content.isEmpty()) return 0
-        return layout.getLineForOffset(offset.coerceIn(0, content.length))
-    }
-
-    private fun getSlowDragAdvanceFraction(fromOffset: Int, toOffset: Int): Float {
-        val boundary = max(fromOffset, toOffset).coerceIn(0, content.length)
-        val leftChar = content.getOrNull(boundary - 1)
-        val rightChar = content.getOrNull(boundary)
-        return when {
-            leftChar != null && rightChar != null && (ReaderTextSelection.isCjk(leftChar) || ReaderTextSelection.isCjk(rightChar)) -> 0.82f
-            leftChar != null && rightChar != null &&
-                    (!ReaderTextSelection.isWordChar(leftChar) || !ReaderTextSelection.isWordChar(rightChar)) -> 0.78f
-            else -> 0.7f
-        }
     }
 
     private fun maybeArmEdgeHold() {
