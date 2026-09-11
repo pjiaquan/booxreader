@@ -1,6 +1,6 @@
 package my.hinoki.booxreader.ui.reader.nativev2
 
-import android.net.Uri
+import androidx.core.net.toUri
 
 /**
  * 連結點擊的分類結果：呼叫端只負責「執行」，判斷都在 [ReaderLinkRouter] 裡。
@@ -64,7 +64,7 @@ internal object ReaderLinkRouter {
             return ReaderLinkTarget.Internal(href = href, resourceHref = resourceHref, fragmentId = fragmentId)
         }
 
-        val scheme = runCatching { Uri.parse(url).scheme?.lowercase() }.getOrNull()
+        val scheme = runCatching { url.toUri().scheme?.lowercase() }.getOrNull()
         return ReaderLinkTarget.External(url = url, scheme = scheme)
     }
 
