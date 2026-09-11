@@ -300,7 +300,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                                     onSelectionListener?.invoke(false, 0f, 0f)
 
                                     // Expert Selection: Select full word/phrase
-                                    val boundaries = getWordBoundaries(localOffset)
+                                    val boundaries = ReaderTextSelection.wordBoundariesAt(content, localOffset)
                                     if (boundaries.first >= 0 &&
                                                     boundaries.second <= content.length &&
                                                     boundaries.first < boundaries.second
@@ -328,46 +328,6 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
                         }
                     }
             )
-
-    private fun getWordBoundaries(offset: Int): Pair<Int, Int> {
-        try {
-            if (content.isEmpty()) return offset.coerceAtLeast(0) to offset.coerceAtLeast(0)
-            val text = content.toString()
-            if (text.isEmpty()) return 0 to 0
-
-            val safeOffset = offset.coerceIn(0, text.length - 1)
-            val ch = text[safeOffset]
-
-            // CJK characters - select single character
-            if (isCjk(ch)) {
-                return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
-            }
-
-            // For non-word characters (punctuation, whitespace), select single character
-            if (!isWordChar(ch)) {
-                return safeOffset to (safeOffset + 1).coerceAtMost(text.length)
-            }
-
-            // For word characters (letters, digits), find word boundaries
-            var start = safeOffset
-            while (start > 0 && isWordChar(text[start - 1])) {
-                start--
-            }
-            var end = safeOffset + 1
-            while (end < text.length && isWordChar(text[end])) {
-                end++
-            }
-
-            // Safety check: ensure valid range
-            start = start.coerceIn(0, text.length)
-            end = end.coerceIn(start, text.length)
-
-            return start to end
-        } catch (ex: Exception) {
-            // Fallback: return single character selection
-            return offset.coerceAtLeast(0) to (offset + 1).coerceAtLeast(1)
-        }
-    }
 
     override fun performClick(): Boolean {
         return super.performClick()
@@ -1186,9 +1146,9 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         val leftChar = content.getOrNull(boundary - 1)
         val rightChar = content.getOrNull(boundary)
         return when {
-            leftChar != null && rightChar != null && (isCjk(leftChar) || isCjk(rightChar)) -> 0.82f
+            leftChar != null && rightChar != null && (ReaderTextSelection.isCjk(leftChar) || ReaderTextSelection.isCjk(rightChar)) -> 0.82f
             leftChar != null && rightChar != null &&
-                    (!isWordChar(leftChar) || !isWordChar(rightChar)) -> 0.78f
+                    (!ReaderTextSelection.isWordChar(leftChar) || !ReaderTextSelection.isWordChar(rightChar)) -> 0.78f
             else -> 0.7f
         }
     }
@@ -1287,38 +1247,4 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         return length - 1
     }
 
-    private fun isWordChar(ch: Char): Boolean {
-        return ch.isLetterOrDigit() || ch == '\'' || ch == '’' || ch == '_'
-    }
-
-    private fun isCjk(ch: Char): Boolean {
-        // Use code point ranges for compatibility with older Android versions
-        // (UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E/F don't exist before API 26)
-        val codePoint = ch.code
-        return when {
-            // CJK Unified Ideographs (U+4E00 - U+9FFF)
-            codePoint in 0x4E00..0x9FFF -> true
-            // CJK Unified Ideographs Extension A (U+3400 - U+4DBF)
-            codePoint in 0x3400..0x4DBF -> true
-            // CJK Unified Ideographs Extension B (U+20000 - U+2A6DF) - surrogate pair needed
-            codePoint in 0x20000..0x2A6DF -> true
-            // CJK Unified Ideographs Extension C (U+2A700 - U+2B73F)
-            codePoint in 0x2A700..0x2B73F -> true
-            // CJK Unified Ideographs Extension D (U+2B740 - U+2B81F)
-            codePoint in 0x2B740..0x2B81F -> true
-            // CJK Compatibility Ideographs (U+F900 - U+FAFF)
-            codePoint in 0xF900..0xFAFF -> true
-            // CJK Symbols and Punctuation (U+3000 - U+303F)
-            codePoint in 0x3000..0x303F -> true
-            // Hiragana (U+3040 - U+309F)
-            codePoint in 0x3040..0x309F -> true
-            // Katakana (U+30A0 - U+30FF)
-            codePoint in 0x30A0..0x30FF -> true
-            // Hangul Syllables (U+AC00 - U+D7AF)
-            codePoint in 0xAC00..0xD7AF -> true
-            // Bopomofo (U+3100 - U+312F)
-            codePoint in 0x3100..0x312F -> true
-            else -> false
-        }
-    }
 }
