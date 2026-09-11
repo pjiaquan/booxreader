@@ -11,7 +11,11 @@ junitVersion = "1.1.5"
 espressoCore = "3.5.1"
 lifecycle = "2.6.2"
 activityCompose = "1.8.0"
-composeBom = "2024.04.01"
+# 上限：Compose BOM 2025.07.00 = Compose 1.8.3，是 compileSdk 35 + AGP 8.13.1 能用的最新版。
+#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36
+#   - BOM 2026.09.00（foundation 1.12.x）需要 compileSdk 37 且 AGP >= 9.1.0
+# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。
+composeBom = "2025.07.00"
 readium = "3.1.2"
 room = "2.8.4"
 okhttp = "4.12.0"

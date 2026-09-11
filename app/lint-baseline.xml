@@ -201,8 +201,8 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2024.04.01 is available: 2026.09.00"
-        errorLine1="composeBom = &quot;2024.04.01&quot;"
+        message="A newer version of androidx.compose:compose-bom than 2025.07.00 is available: 2026.09.00"
+        errorLine1="# 上限：Compose BOM 2025.07.00 = Compose 1.8.3，是 compileSdk 35 + AGP 8.13.1 能用的最新版。"
         errorLine2="             ~~~~~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -213,7 +213,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.room:room-compiler than 2.8.4 is available: 2.8.5"
-        errorLine1="room = &quot;2.8.4&quot;"
+        errorLine1="#   - BOM 2026.09.00（foundation 1.12.x）需要 compileSdk 37 且 AGP >= 9.1.0"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -224,7 +224,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.room:room-runtime than 2.8.4 is available: 2.8.5"
-        errorLine1="room = &quot;2.8.4&quot;"
+        errorLine1="#   - BOM 2026.09.00（foundation 1.12.x）需要 compileSdk 37 且 AGP >= 9.1.0"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -235,7 +235,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.fragment:fragment-ktx than 1.8.5 is available: 1.9.0"
-        errorLine1="fragment = &quot;1.8.5&quot;"
+        errorLine1="composeBom = &quot;2025.07.00&quot;"
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -246,7 +246,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of com.google.android.material:material than 1.12.0 is available: 1.14.0"
-        errorLine1="material = &quot;1.12.0&quot;"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
         errorLine2="           ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -257,7 +257,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of com.android.tools:desugar_jdk_libs than 2.0.4 is available: 2.1.5"
-        errorLine1="desugar = &quot;2.0.4&quot;"
+        errorLine1="fragment = &quot;1.8.5&quot;"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -268,7 +268,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.recyclerview:recyclerview than 1.3.2 is available: 1.4.0"
-        errorLine1="recyclerview = &quot;1.3.2&quot;"
+        errorLine1="kotlinxDatetime = &quot;0.7.1&quot;"
         errorLine2="               ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -279,7 +279,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of com.google.android.gms:play-services-auth than 21.0.0 is available: 22.0.0"
-        errorLine1="playServicesAuth = &quot;21.0.0&quot;"
+        errorLine1="recyclerview = &quot;1.3.2&quot;"
         errorLine2="                   ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -290,7 +290,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.security:security-crypto than 1.0.0 is available: 1.1.0"
-        errorLine1="securityCrypto = &quot;1.0.0&quot;"
+        errorLine1="mockito = &quot;5.11.0&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -301,7 +301,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.swiperefreshlayout:swiperefreshlayout than 1.1.0 is available: 1.2.0"
-        errorLine1="swiperefreshlayout = &quot;1.1.0&quot;"
+        errorLine1="playServicesAuth = &quot;21.0.0&quot;"
         errorLine2="                     ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -312,7 +312,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.2"
-        errorLine1="work = &quot;2.10.0&quot;"
+        errorLine1="securityCrypto = &quot;1.0.0&quot;"
         errorLine2="       ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -323,7 +323,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.test.uiautomator:uiautomator than 2.3.0 is available: 2.4.0"
-        errorLine1="uiautomator = &quot;2.3.0&quot;"
+        errorLine1="robolectric = &quot;4.12.2&quot;"
         errorLine2="              ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -334,7 +334,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.sqlite:sqlite-bundled than 2.6.2 is available: 2.7.1"
-        errorLine1="sqlite = &quot;2.6.2&quot;"
+        errorLine1="uiautomator = &quot;2.3.0&quot;"
         errorLine2="         ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -345,7 +345,7 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.sqlite:sqlite-framework than 2.6.2 is available: 2.7.1"
-        errorLine1="sqlite = &quot;2.6.2&quot;"
+        errorLine1="uiautomator = &quot;2.3.0&quot;"
         errorLine2="         ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -400,7 +400,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.readium.kotlin-toolkit:readium-navigator than 3.1.2 is available: 3.3.0"
-        errorLine1="readium = &quot;3.1.2&quot;"
+        errorLine1="#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -411,7 +411,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.readium.kotlin-toolkit:readium-shared than 3.1.2 is available: 3.3.0"
-        errorLine1="readium = &quot;3.1.2&quot;"
+        errorLine1="#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -422,7 +422,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.readium.kotlin-toolkit:readium-streamer than 3.1.2 is available: 3.3.0"
-        errorLine1="readium = &quot;3.1.2&quot;"
+        errorLine1="#   - BOM >= 2025.08.00（foundation 1.9.x）需要 compileSdk 36"
         errorLine2="          ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -433,7 +433,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:mockwebserver than 4.12.0 is available: 5.5.0"
-        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine1="# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。"
         errorLine2="         ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -444,7 +444,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.0"
-        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine1="# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。"
         errorLine2="         ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -455,7 +455,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.squareup.okhttp3:okhttp-sse than 4.12.0 is available: 5.5.0"
-        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine1="# 升級工具鏈（compileSdk/AGP）之後才可以把這個值往上調，否則 checkDebugAarMetadata 會失敗。"
         errorLine2="         ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -466,7 +466,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of com.github.houbb:opencc4j than 1.8.1 is available: 1.14.0"
-        errorLine1="opencc4j = &quot;1.8.1&quot;"
+        errorLine1="readium = &quot;3.1.2&quot;"
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -477,7 +477,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-datetime than 0.7.1 is available: 0.8.0"
-        errorLine1="kotlinxDatetime = &quot;0.7.1&quot;"
+        errorLine1="room = &quot;2.8.4&quot;"
         errorLine2="                  ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -488,7 +488,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.mockito:mockito-core than 5.11.0 is available: 5.23.0"
-        errorLine1="mockito = &quot;5.11.0&quot;"
+        errorLine1="material = &quot;1.12.0&quot;"
         errorLine2="          ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -499,7 +499,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.mockito.kotlin:mockito-kotlin than 5.2.1 is available: 6.3.0"
-        errorLine1="mockitoKotlin = &quot;5.2.1&quot;"
+        errorLine1="desugar = &quot;2.0.4&quot;"
         errorLine2="                ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -510,7 +510,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-test than 1.7.3 is available: 1.11.0"
-        errorLine1="coroutinesTest = &quot;1.7.3&quot;"
+        errorLine1="markwon = &quot;4.6.2&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -521,7 +521,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.robolectric:robolectric than 4.12.2 is available: 4.16.1"
-        errorLine1="robolectric = &quot;4.12.2&quot;"
+        errorLine1="mockitoKotlin = &quot;5.2.1&quot;"
         errorLine2="              ~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -532,7 +532,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of aws.sdk.kotlin:s3 than 1.5.109 is available: 1.8.49"
-        errorLine1="awsSdkKotlin = &quot;1.5.109&quot;"
+        errorLine1="coroutinesTest = &quot;1.7.3&quot;"
         errorLine2="               ~~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -543,7 +543,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-serialization-json than 1.7.3 is available: 1.11.0"
-        errorLine1="kotlinxSerialization = &quot;1.7.3&quot;"
+        errorLine1="awsSdkKotlin = &quot;1.5.109&quot;"
         errorLine2="                       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -554,7 +554,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-core than 1.8.1 is available: 1.11.0"
-        errorLine1="coroutines = &quot;1.8.1&quot;"
+        errorLine1="swiperefreshlayout = &quot;1.1.0&quot;"
         errorLine2="             ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -565,7 +565,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of io.ktor:ktor-client-core than 3.0.3 is available: 3.5.2"
-        errorLine1="ktor = &quot;3.0.3&quot;"
+        errorLine1="work = &quot;2.10.0&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -576,7 +576,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of io.ktor:ktor-client-darwin than 3.0.3 is available: 3.5.2"
-        errorLine1="ktor = &quot;3.0.3&quot;"
+        errorLine1="work = &quot;2.10.0&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -587,7 +587,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of io.ktor:ktor-client-okhttp than 3.0.3 is available: 3.5.2"
-        errorLine1="ktor = &quot;3.0.3&quot;"
+        errorLine1="work = &quot;2.10.0&quot;"
         errorLine2="       ~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -598,7 +598,7 @@
     <issue
         id="NewerVersionAvailable"
         message="A newer version of org.json:json than 20231013 is available: 20260814"
-        errorLine1="json = { group = &quot;org.json&quot;, name = &quot;json&quot;, version = &quot;20231013&quot; }"
+        errorLine1="markwon-ext-tables = { group = &quot;io.noties.markwon&quot;, name = &quot;ext-tables&quot;, version.ref = &quot;markwon&quot; }"
         errorLine2="                                                      ~~~~~~~~~~">
         <location
             file="$HOME/workspace/projects/booxreader/gradle/libs.versions.toml"
@@ -1031,7 +1031,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="93"
+            line="92"
             column="9"/>
     </issue>
 
@@ -1042,7 +1042,7 @@
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="100"
+            line="99"
             column="21"/>
     </issue>
 
@@ -1053,7 +1053,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="103"
+            line="102"
             column="9"/>
     </issue>
 
@@ -1064,7 +1064,7 @@
         errorLine2="        ^">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="122"
+            line="121"
             column="9"/>
     </issue>
 
@@ -1075,7 +1075,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="231"
+            line="230"
             column="9"/>
     </issue>
 
@@ -1086,30 +1086,30 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="399"
+            line="398"
             column="9"/>
     </issue>
 
     <issue
         id="LogNotTimber"
         message="Using &apos;Log&apos; instead of &apos;Timber&apos;"
-        errorLine1="                    Log.e(TAG, &quot;Error handling internal link: $url&quot;, e)"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                Log.e(TAG, &quot;Error handling internal link: ${target.href}&quot;, e)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="472"
-            column="21"/>
+            line="457"
+            column="17"/>
     </issue>
 
     <issue
         id="LogNotTimber"
         message="Using &apos;Log&apos; instead of &apos;Timber&apos;"
-        errorLine1="                    Log.w(TAG, &quot;Blocked unsafe link scheme: $scheme&quot;)"
-        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="                Log.w(TAG, &quot;Blocked unsafe link scheme: ${target.scheme}&quot;)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="484"
-            column="21"/>
+            line="468"
+            column="17"/>
     </issue>
 
     <issue
@@ -1119,7 +1119,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="532"
+            line="515"
             column="9"/>
     </issue>
 
@@ -1130,7 +1130,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="541"
+            line="524"
             column="9"/>
     </issue>
 
@@ -1141,7 +1141,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="645"
+            line="628"
             column="13"/>
     </issue>
 
@@ -1152,7 +1152,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="724"
+            line="707"
             column="29"/>
     </issue>
 
@@ -1163,7 +1163,7 @@
         errorLine2="                            ^">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="730"
+            line="713"
             column="29"/>
     </issue>
 
@@ -1174,7 +1174,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="737"
+            line="720"
             column="9"/>
     </issue>
 
@@ -1185,7 +1185,7 @@
         errorLine2="            ^">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="1095"
+            line="999"
             column="13"/>
     </issue>
 
@@ -1196,7 +1196,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="1113"
+            line="1017"
             column="13"/>
     </issue>
 
@@ -4921,7 +4921,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="144"
+            line="143"
             column="37"/>
     </issue>
 
@@ -4932,7 +4932,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="146"
+            line="145"
             column="37"/>
     </issue>
 
@@ -4943,19 +4943,19 @@
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="393"
+            line="392"
             column="25"/>
     </issue>
 
     <issue
         id="UseKtx"
         message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                val uri = Uri.parse(url)"
-        errorLine2="                          ~~~~~~~~~~~~~~">
+        errorLine1="                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target.url)))"
+        errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="478"
-            column="27"/>
+            line="466"
+            column="58"/>
     </issue>
 
     <issue
@@ -4965,7 +4965,7 @@
         errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="499"
+            line="482"
             column="40"/>
     </issue>
 
@@ -4976,7 +4976,7 @@
         errorLine2="                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="499"
+            line="482"
             column="73"/>
     </issue>
 
@@ -4987,7 +4987,7 @@
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="523"
+            line="506"
             column="37"/>
     </issue>
 
@@ -4998,7 +4998,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="870"
+            line="853"
             column="16"/>
     </issue>
 
@@ -5009,7 +5009,7 @@
         errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="1058"
+            line="962"
             column="22"/>
     </issue>
 
@@ -5020,7 +5020,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="1076"
+            line="980"
             column="16"/>
     </issue>
 
@@ -6032,7 +6032,7 @@
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="264"
+            line="263"
             column="9"/>
     </issue>
 
@@ -6043,7 +6043,7 @@
         errorLine2="                                                 ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="264"
+            line="263"
             column="50"/>
     </issue>
 
@@ -6054,7 +6054,7 @@
         errorLine2="                 ~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeReaderView.kt"
-            line="730"
+            line="690"
             column="18"/>
     </issue>
 
@@ -6230,7 +6230,7 @@
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/my/hinoki/booxreader/ui/reader/nativev2/NativeNavigatorFragment.kt"
-            line="1123"
+            line="1027"
             column="38"/>
     </issue>
 
