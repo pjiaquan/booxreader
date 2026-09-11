@@ -35,25 +35,14 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 
-# Gson - Comprehensive rules to prevent serialization issues
+# Serialization attributes. Gson is NOT a dependency any more (verified against
+# the release runtime classpath), so its -keep rules were removed; these
+# attribute rules are still needed for the reflected/annotated fields that
+# kotlinx.serialization and Room rely on.
 -keepattributes Signature
 -keepattributes *Annotation*
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
-
-# Keep generic signature of TypeToken and its subclasses
--keep class com.google.gson.reflect.TypeToken { *; }
--keep class * extends com.google.gson.reflect.TypeToken
-
-# Keep all fields with @SerializedName annotation
--keepclassmembers,allowobfuscation class * {
-  @com.google.gson.annotations.SerializedName <fields>;
-}
-
-# Keep all Gson-serializable classes and their fields
-# This prevents field names from being obfuscated, which breaks JSON serialization
--keep class * implements com.google.gson.JsonSerializer { *; }
--keep class * implements com.google.gson.JsonDeserializer { *; }
 
 # Prevent R8 from removing or obfuscating fields in data classes
 # Without this, even with LOWER_CASE_WITH_UNDERSCORES policy, fields get renamed
