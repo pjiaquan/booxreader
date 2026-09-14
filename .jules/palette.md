@@ -37,3 +37,7 @@
 ## 2024-11-20 - Missing tooltipText on Icon-Only Buttons
 **Learning:** Found that multiple icon-only buttons (`ImageButton`, `FloatingActionButton`) lacked `app:tooltipText`. While they had `android:contentDescription` for screen readers, sighted users (especially those using a mouse or long-pressing on touch screens) received no visual hint about the button's action.
 **Action:** When adding or modifying icon-only interactive elements, ensure `app:tooltipText` is set, typically mirroring the `android:contentDescription` string resource.
+
+## 2026-09-14 - Prevent Redundant Announcements on Decorative Icons
+**Learning:** Decorative icons (like `ImageView`s) placed next to descriptive text should use `android:importantForAccessibility="no"` instead of `android:contentDescription`. Using a `contentDescription` identical or similar to the adjacent text causes screen readers to redundantly announce the same information twice, degrading the user experience.
+**Action:** When adding icons that merely reinforce adjacent text labels or titles, always set `android:importantForAccessibility="no"` to hide them from accessibility services.

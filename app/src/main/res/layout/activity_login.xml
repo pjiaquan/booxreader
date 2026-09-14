@@ -31,7 +31,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:layout_gravity="center"
-                    android:contentDescription="@string/app_name"
+                    android:importantForAccessibility="no"
                     android:src="@drawable/ic_menu_book"
                     app:tint="#FFFFFF" />
             </FrameLayout>

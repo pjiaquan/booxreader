@@ -19,7 +19,7 @@
             android:layout_width="64dp"
             android:layout_height="64dp"
             android:layout_gravity="center"
-            android:contentDescription="@string/app_name"
+            android:importantForAccessibility="no"
             android:src="@drawable/ic_menu_book"
             app:tint="@color/text_tertiary" />
     </FrameLayout>
