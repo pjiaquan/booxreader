@@ -27,7 +27,7 @@
             android:layout_width="40dp"
             android:layout_height="56dp"
             android:background="#2E2B29"
-            android:contentDescription="@string/recent_book_cover_placeholder"
+            android:importantForAccessibility="no"
             android:padding="8dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_menu_book"
