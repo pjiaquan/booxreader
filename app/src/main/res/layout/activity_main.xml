@@ -264,7 +264,7 @@
                             android:layout_height="16dp"
                             android:src="@drawable/ic_cloud"
                             app:tint="@color/text_secondary"
-                            android:contentDescription="@string/main_sync_status" />
+                            android:importantForAccessibility="no" />
 
                         <TextView
                             android:id="@+id/tvSyncTitle"
@@ -383,7 +383,7 @@
                     <ImageView
                         android:layout_width="56dp"
                         android:layout_height="56dp"
-                        android:contentDescription="@string/main_empty_title"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_menu_book"
                         app:tint="@color/text_tertiary" />
 
