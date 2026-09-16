@@ -41,3 +41,7 @@
 ## 2026-09-14 - Prevent Redundant Announcements on Decorative Icons
 **Learning:** Decorative icons (like `ImageView`s) placed next to descriptive text should use `android:importantForAccessibility="no"` instead of `android:contentDescription`. Using a `contentDescription` identical or similar to the adjacent text causes screen readers to redundantly announce the same information twice, degrading the user experience.
 **Action:** When adding icons that merely reinforce adjacent text labels or titles, always set `android:importantForAccessibility="no"` to hide them from accessibility services.
+
+## 2026-09-16 - Decorative Placeholder Icons vs State Indicators
+**Learning:** Purely decorative placeholder icons (such as the placeholder book cover in `item_recent_book.xml`) placed next to descriptive text should use `android:importantForAccessibility="no"` instead of `android:contentDescription` to prevent screen readers from reading redundant placeholder names. However, icons that represent dynamic state or selection (such as checkmarks in `dialog_reader_settings.xml`) must keep their `contentDescription` (e.g. `@string/reader_settings_lang_selected`) so screen reader users are informed of the current selection.
+**Action:** Set `android:importantForAccessibility="no"` on purely decorative visual placeholders, but maintain descriptive `android:contentDescription` on icons indicating selection or toggle state.
