@@ -730,8 +730,14 @@ class MainActivity : BaseActivity() {
         val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
         if (apkAsset == null) {
             // Fallback to browser if no APK asset found
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl))
-            startActivity(intent)
+            val uri = Uri.parse(release.htmlUrl)
+            val scheme = uri.scheme?.lowercase()
+            if (scheme == "http" || scheme == "https") {
+                val intent = Intent(Intent.ACTION_VIEW, uri)
+                startActivity(intent)
+            } else {
+                android.util.Log.w("MainActivity", "Blocked unsafe update link scheme: $scheme")
+            }
             return
         }
 
