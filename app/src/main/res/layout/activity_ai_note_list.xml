@@ -45,6 +45,7 @@
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:textSize="14sp"
+                android:maxLines="1"
                 android:imeOptions="actionSearch"
                 android:inputType="text" />
 
