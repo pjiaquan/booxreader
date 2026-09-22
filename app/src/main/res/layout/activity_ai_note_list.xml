@@ -46,7 +46,9 @@
                 android:paddingEnd="4dp"
                 android:textSize="14sp"
                 android:imeOptions="actionSearch"
-                android:inputType="text" />
+                android:inputType="text"
+                android:maxLines="1"
+                android:singleLine="true" />
 
             <Button
                 android:id="@+id/btnSemanticSearch"

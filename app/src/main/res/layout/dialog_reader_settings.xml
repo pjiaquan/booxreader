@@ -568,7 +568,10 @@
                 android:paddingBottom="8dp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_tertiary"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:imeOptions="actionNext" />
         </LinearLayout>
 
         <View
@@ -781,7 +784,10 @@
                 android:paddingBottom="8dp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_tertiary"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:imeOptions="actionNext" />
         </LinearLayout>
 
         <!-- ======================= 5. BOOKMARKS & EXPORT ======================= -->
@@ -910,7 +916,10 @@
                 android:paddingBottom="8dp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_tertiary"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:imeOptions="actionDone" />
         </LinearLayout>
 
         <View
