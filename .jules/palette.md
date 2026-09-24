@@ -49,3 +49,7 @@
 
 **Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard.
 **Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on such inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
+
+## 2024-05-18 - Single-line Settings Inputs Keyboard Dismissal
+**Learning:** Found that single-line text inputs for settings (like `etCustomExportUrl` in `dialog_reader_settings.xml`) lack proper keyboard action definitions and `maxLines` limits. This allows unwanted multiline inputs via the soft keyboard.
+**Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` are explicitly set on single-line settings inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
