@@ -18,6 +18,7 @@
                 android:id="@+id/etName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:maxLines="1"
                 android:imeOptions="actionNext"
                 android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -64,6 +65,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:autofillHints="password"
+                android:maxLines="1"
                 android:imeOptions="actionNext"
                 android:inputType="textPassword" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -77,6 +79,7 @@
                 android:id="@+id/etBaseUrl"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:maxLines="1"
                 android:imeOptions="actionNext"
                 android:inputType="textUri" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -120,6 +123,7 @@
                 android:id="@+id/etAssistantRole"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:maxLines="1"
                 android:imeOptions="actionNext"
                 android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -142,6 +146,7 @@
                     android:id="@+id/etTemperature"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:imeOptions="actionNext"
                     android:inputType="numberDecimal" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -156,6 +161,7 @@
                     android:id="@+id/etMaxTokens"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:imeOptions="actionNext"
                     android:inputType="number" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -178,6 +184,7 @@
                     android:id="@+id/etTopP"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:imeOptions="actionNext"
                     android:inputType="numberDecimal" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -192,6 +199,7 @@
                     android:id="@+id/etFrequencyPenalty"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:imeOptions="actionNext"
                     android:inputType="numberDecimal" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -206,6 +214,7 @@
                     android:id="@+id/etPresencePenalty"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:imeOptions="actionNext"
                     android:inputType="numberDecimal" />
             </com.google.android.material.textfield.TextInputLayout>

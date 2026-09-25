@@ -903,6 +903,8 @@
                 android:enabled="false"
                 android:hint="@string/reader_settings_custom_export_hint"
                 android:inputType="textUri"
+                android:maxLines="1"
+                android:imeOptions="actionDone"
                 android:minHeight="40dp"
                 android:paddingStart="0dp"
                 android:paddingTop="8dp"
