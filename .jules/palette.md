@@ -49,3 +49,7 @@
 
 **Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard.
 **Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on such inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
+## 2024-05-18 - Single-line text input multiline prevention
+
+**Learning:** When using `android:imeOptions="actionNext"` or `actionSearch` on an Android `EditText` or `TextInputEditText`, the soft keyboard correctly displays the Next/Search action key. However, without `android:maxLines="1"`, some keyboards (or user pasting) may still permit newline characters, causing unintended visual and layout behavior on single-line inputs like API keys, search queries, or parameter fields.
+**Action:** When adding single-line input fields (like search bars, configurations, or numeric settings) using `EditText`, `TextInputEditText`, or `AutoCompleteTextView`, always combine the appropriate `android:imeOptions` (e.g. `actionNext`, `actionDone`, `actionSearch`) with `android:maxLines="1"` to strictly enforce a single line and prevent unwanted carriage returns.

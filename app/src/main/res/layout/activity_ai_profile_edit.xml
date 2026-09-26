@@ -19,7 +19,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:imeOptions="actionNext"
-                android:inputType="text" />
+                android:inputType="text"
+                    android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <LinearLayout
@@ -39,7 +40,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:imeOptions="actionNext"
-                    android:inputType="text" />
+                    android:inputType="text"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <Button
@@ -65,7 +67,8 @@
                 android:layout_height="wrap_content"
                 android:autofillHints="password"
                 android:imeOptions="actionNext"
-                android:inputType="textPassword" />
+                android:inputType="textPassword"
+                    android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -78,7 +81,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:imeOptions="actionNext"
-                android:inputType="textUri" />
+                android:inputType="textUri"
+                    android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -121,7 +125,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:imeOptions="actionNext"
-                android:inputType="text" />
+                android:inputType="text"
+                    android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Generation Parameters -->
@@ -143,7 +148,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:imeOptions="actionNext"
-                    android:inputType="numberDecimal" />
+                    android:inputType="numberDecimal"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -157,7 +163,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:imeOptions="actionNext"
-                    android:inputType="number" />
+                    android:inputType="number"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
@@ -179,7 +186,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:imeOptions="actionNext"
-                    android:inputType="numberDecimal" />
+                    android:inputType="numberDecimal"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -193,7 +201,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:imeOptions="actionNext"
-                    android:inputType="numberDecimal" />
+                    android:inputType="numberDecimal"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
              
              <com.google.android.material.textfield.TextInputLayout
@@ -207,7 +216,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:imeOptions="actionNext"
-                    android:inputType="numberDecimal" />
+                    android:inputType="numberDecimal"
+                    android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
