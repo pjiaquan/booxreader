@@ -231,6 +231,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/streaming_toggle_label"
+            android:contentDescription="@string/streaming_toggle_description"
             android:layout_marginTop="8dp" />
 
         <CheckBox
@@ -238,6 +239,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/enable_google_search"
+            android:contentDescription="@string/enable_google_search_description"
             android:layout_marginTop="4dp" />
 
         <Button

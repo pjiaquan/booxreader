@@ -49,3 +49,7 @@
 
 **Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard.
 **Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on such inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
+
+## 2024-11-20 - Enhanced Context for CheckBox Labels
+**Learning:** For Android `CheckBox` or toggle elements that already have concise `android:text` labels, providing a more verbose `android:contentDescription` can improve screen reader accessibility by offering expanded context (e.g., expanding "Remember me" to "Remember me for future logins").
+**Action:** When adding or auditing checkboxes and toggles, evaluate if the `android:text` is sufficiently descriptive out of context. If not, provide an `android:contentDescription` that explicitly states the impact of the toggle.

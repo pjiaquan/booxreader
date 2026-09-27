@@ -27,6 +27,7 @@
             android:layout_weight="1"
             android:buttonTint="@color/primary"
             android:text="@string/ai_profile_select_all"
+            android:contentDescription="@string/ai_profile_select_all_description"
             android:textColor="@color/text_primary"
             android:textSize="13sp" />
 
