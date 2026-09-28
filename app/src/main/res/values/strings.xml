@@ -362,4 +362,7 @@
     <string name="annotation_deleted">Annotation deleted</string>
     <string name="annotation_list_title">Annotations &amp; Notes</string>
     <string name="annotation_list_empty">No highlights or notes yet</string>
+
+    <string name="magic_tag_explainer_title">WHAT ARE MAGIC TAGS?</string>
+    <string name="magic_tag_explainer_desc">Magic Tags automatically classify your reading notes and highlights based on AI analysis.</string>
 </resources>

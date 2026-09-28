@@ -25,7 +25,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="WHAT ARE MAGIC TAGS?"
+                android:text="@string/magic_tag_explainer_title"
                 android:textAllCaps="true"
                 android:letterSpacing="0.12"
                 android:textSize="10sp"
@@ -36,7 +36,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Magic Tags automatically classify your reading notes and highlights based on AI analysis."
+                android:text="@string/magic_tag_explainer_desc"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
         </LinearLayout>

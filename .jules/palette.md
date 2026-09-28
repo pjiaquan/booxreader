@@ -49,3 +49,7 @@
 
 **Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard.
 **Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on such inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
+
+## 2024-11-20 - Missing Translations Cause Lint Failures
+**Learning:** Found that extracting hardcoded strings to `strings.xml` without providing translations for all supported locales (e.g., `values-zh/strings.xml`) causes `lintDebug` to fail with a `MissingTranslation` error.
+**Action:** When extracting or adding new string resources, always check for localized `strings.xml` files and provide corresponding translations, or add `tools:ignore="MissingTranslation"` if it's intentionally English-only, to ensure CI and lint checks pass.
