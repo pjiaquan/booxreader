@@ -30,3 +30,6 @@
 ## 2026-09-07 - Optimize SQLite insert bottleneck inside loops
 **Learning:** Sequential database insertions inside synchronization loops using `@Insert(onConflict = OnConflictStrategy.REPLACE)` cause an O(N) transaction overhead and severely degrade sync performance in SQLite/Room.
 **Action:** Pre-batch entities in memory lists (e.g., `profilesToUpdate`, `remoteProfilesToProcess`) and execute them outside the loop using Room batch DAOs (e.g., `@Insert fun insertBatch`, `@Update fun updateBatch`) wrapped inside a single `db.withTransactionCompat` block to minimize disk I/O.
+## 2024-05-18 - Optimize Room Batch Deletions
+**Learning:** Replaced O(N) transaction overhead of individual Room deletions inside loops with a batched `deleteByIds` IN-clause query.
+**Action:** When deleting multiple entities from Room, chunk IDs to 900 to avoid SQLite limits and use a batched query.

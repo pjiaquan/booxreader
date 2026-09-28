@@ -102,12 +102,19 @@ internal class ProfileSync(private val host: UserSyncRepository) {
                         if (shouldPreferProfile(next, best)) next else best
                 }
                 group.filter { it.id != keep.id }.forEach { duplicate ->
-                        host.db.aiProfileDao().deleteById(duplicate.id)
                         deletedIds.add(duplicate.id)
                         changedCount++
                         if (activeProfileId == duplicate.id) {
                                 activeProfileId = keep.id
                         }
+                }
+        }
+
+        if (deletedIds.isNotEmpty()) {
+                // ⚡ Bolt Performance: Room individual deletions inside loops create O(N) transaction overhead.
+                // Replaced with a single query using IN clause, chunked to 900 to avoid SQLite limits.
+                deletedIds.toList().chunked(900).forEach { chunk ->
+                        host.db.aiProfileDao().deleteByIds(chunk)
                 }
         }
 
