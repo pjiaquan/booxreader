@@ -79,15 +79,11 @@ internal class DailySummaryEmailSender(
                                         contentType(ContentType.Application.Json)
                                         setBody(payload)
                                     }
-                            val responseBody = response.bodyAsText().trim()
                             directStatusCode = response.status.value
                             if (response.status.isSuccess()) {
                                 return@withContext CheckResult(true, "sent via /api/mails/send")
                             }
                             lastError = "direct mail failed (${response.status.value})"
-                            if (responseBody.isNotEmpty()) {
-                                lastError += ": $responseBody"
-                            }
                         }
                         .onFailure {
                             lastError =
@@ -115,7 +111,6 @@ internal class DailySummaryEmailSender(
                                             contentType(ContentType.Application.Json)
                                             setBody(payload)
                                         }
-                                val responseBody = response.bodyAsText().trim()
                                 customRouteStatusCodes += response.status.value
                                 if (response.status.isSuccess()) {
                                     return@withContext CheckResult(
@@ -125,9 +120,6 @@ internal class DailySummaryEmailSender(
                                 }
                                 lastError =
                                         "custom route $routePath failed (${response.status.value})"
-                                if (responseBody.isNotEmpty()) {
-                                    lastError += ": $responseBody"
-                                }
                             }
                             .onFailure {
                                 val errorMessage =
@@ -162,17 +154,11 @@ internal class DailySummaryEmailSender(
                                     contentType(ContentType.Application.Json)
                                     setBody(queuePayload)
                                 }
-                        val responseBody = response.bodyAsText().trim()
                         queueStatusCodes += response.status.value
                         if (response.status.isSuccess()) {
                             return@withContext CheckResult(true, "queued via $collection")
                         }
-                        val queueError = "queue $collection failed (${response.status.value})"
-                        if (responseBody.isNotEmpty()) {
-                            lastError = "$queueError: $responseBody"
-                        } else {
-                            lastError = queueError
-                        }
+                        lastError = "queue $collection failed (${response.status.value})"
                         if (response.status.value != 404 && firstNon404QueueError == null) {
                             firstNon404QueueError = lastError
                         }
