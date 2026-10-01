@@ -107,6 +107,7 @@
     <string name="login_resend_prompt">請輸入帳號密碼以重寄驗證信</string>
     <string name="login_success">登入成功</string>
     <string name="login_remember_me">記住我</string>
+    <string name="login_remember_me_desc">記住我以便下次登入</string>
     <string name="login_forgot_email">忘記 Email？</string>
     <string name="forgot_email_dialog_title">忘記 Email</string>
     <string name="forgot_email_dialog_message">如果您忘記了註冊的 Email 地址，請輸入您的顯示名稱或 Email 以發送帳號找回說明。</string>
