@@ -179,6 +179,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:buttonTint="@color/primary"
+                    android:contentDescription="@string/login_remember_me_desc"
                     android:text="@string/login_remember_me"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
