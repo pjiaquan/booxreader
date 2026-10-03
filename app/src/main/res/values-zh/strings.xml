@@ -107,6 +107,7 @@
     <string name="login_resend_prompt">请输入账号密码以重寄验证信</string>
     <string name="login_success">登录成功</string>
     <string name="login_remember_me">记住我</string>
+    <string name="login_remember_me_desc">在未来的登录中记住我</string>
     <string name="login_forgot_email">忘记 Email？</string>
     <string name="forgot_email_dialog_title">忘记 Email</string>
     <string name="forgot_email_dialog_message">如果您忘记了注册的 Email 地址，请输入您的显示名称或 Email 以发送账号找回说明。</string>
