@@ -49,3 +49,9 @@
 
 **Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard.
 **Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on such inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
+
+## 2024-11-20 - Redundant checkmark accessibility
+
+**Learning:** Purely decorative icons used for state indicators, like a checkmark to indicate "Selected", may be read twice by screen readers if their parent layout does not have a `contentDescription` that combines both the label text and the checkmark state (like "System Default, Selected"). However, the project guidelines state that these checkmarks MUST keep their `contentDescription` because removing it altogether causes the screen reader to skip the "Selected" state completely.
+
+**Action:** Ensure icons indicating dynamic state or selection keep their descriptive `android:contentDescription` to inform screen reader users. Do not set them to `android:importantForAccessibility="no"`.
