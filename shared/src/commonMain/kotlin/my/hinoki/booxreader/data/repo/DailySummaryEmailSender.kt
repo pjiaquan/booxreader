@@ -85,9 +85,6 @@ internal class DailySummaryEmailSender(
                                 return@withContext CheckResult(true, "sent via /api/mails/send")
                             }
                             lastError = "direct mail failed (${response.status.value})"
-                            if (responseBody.isNotEmpty()) {
-                                lastError += ": $responseBody"
-                            }
                         }
                         .onFailure {
                             lastError =
@@ -125,9 +122,6 @@ internal class DailySummaryEmailSender(
                                 }
                                 lastError =
                                         "custom route $routePath failed (${response.status.value})"
-                                if (responseBody.isNotEmpty()) {
-                                    lastError += ": $responseBody"
-                                }
                             }
                             .onFailure {
                                 val errorMessage =
@@ -168,11 +162,7 @@ internal class DailySummaryEmailSender(
                             return@withContext CheckResult(true, "queued via $collection")
                         }
                         val queueError = "queue $collection failed (${response.status.value})"
-                        if (responseBody.isNotEmpty()) {
-                            lastError = "$queueError: $responseBody"
-                        } else {
-                            lastError = queueError
-                        }
+                        lastError = queueError
                         if (response.status.value != 404 && firstNon404QueueError == null) {
                             firstNon404QueueError = lastError
                         }
