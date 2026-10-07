@@ -30,3 +30,6 @@
 ## 2026-09-07 - Optimize SQLite insert bottleneck inside loops
 **Learning:** Sequential database insertions inside synchronization loops using `@Insert(onConflict = OnConflictStrategy.REPLACE)` cause an O(N) transaction overhead and severely degrade sync performance in SQLite/Room.
 **Action:** Pre-batch entities in memory lists (e.g., `profilesToUpdate`, `remoteProfilesToProcess`) and execute them outside the loop using Room batch DAOs (e.g., `@Insert fun insertBatch`, `@Update fun updateBatch`) wrapped inside a single `db.withTransactionCompat` block to minimize disk I/O.
+## 2025-03-08 - Skip redundant progress sync requests
+**Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
+**Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
