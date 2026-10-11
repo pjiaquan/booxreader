@@ -101,12 +101,18 @@ internal class ProfileSync(private val host: UserSyncRepository) {
                 val keep = group.reduce { best, next ->
                         if (shouldPreferProfile(next, best)) next else best
                 }
-                group.filter { it.id != keep.id }.forEach { duplicate ->
-                        host.db.aiProfileDao().deleteById(duplicate.id)
-                        deletedIds.add(duplicate.id)
-                        changedCount++
-                        if (activeProfileId == duplicate.id) {
-                                activeProfileId = keep.id
+                val duplicates = group.filter { it.id != keep.id }
+                if (duplicates.isNotEmpty()) {
+                        val dupIds = duplicates.map { it.id }
+                        dupIds.chunked(900).forEach { chunk ->
+                                host.db.aiProfileDao().deleteByIds(chunk)
+                        }
+                        duplicates.forEach { duplicate ->
+                                deletedIds.add(duplicate.id)
+                                changedCount++
+                                if (activeProfileId == duplicate.id) {
+                                        activeProfileId = keep.id
+                                }
                         }
                 }
         }
