@@ -37,3 +37,8 @@
 **Vulnerability:** Found multiple instances where untrusted URLs (from EPUB content or AI Note links) were parsed and passed directly to `Intent.ACTION_VIEW`. If an attacker crafts a link with an arbitrary scheme (e.g., `file://`, `content://`, or an internal app scheme), it could be executed leading to arbitrary intent invocation, sensitive file access, or internal component exposure.
 **Learning:** Implicit intents like `Intent.ACTION_VIEW` are dangerous when handling raw user/external input. An attacker can hijack the scheme to bypass security controls or execute unintended app components.
 **Prevention:** Always validate and allowlist URI schemes (e.g., ensuring `scheme == "http" || scheme == "https"`) before launching external intents from untrusted inputs.
+
+## 2026-10-07 - Stop leaking responseBody in DailySummaryEmailSender
+**Vulnerability:** The application was appending raw `responseBody` strings to `lastError` which is exposed in UI/logs, potentially leaking sensitive backend details.
+**Learning:** Always use generic error messages and status codes instead of dumping external API responses into local states.
+**Prevention:** Avoid appending `response.bodyAsText()` to strings that are bubbled up as user-facing errors or logged messages.
