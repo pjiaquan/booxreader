@@ -96,18 +96,25 @@ internal class ProfileSync(private val host: UserSyncRepository) {
         var changedCount = 0
         var activeProfileId = ReaderSettings.fromStorage(host.prefs).activeProfileId
         val deletedIds = mutableSetOf<Long>()
+        val idsToDelete = mutableListOf<Long>()
 
         for ((_, group) in grouped) {
                 val keep = group.reduce { best, next ->
                         if (shouldPreferProfile(next, best)) next else best
                 }
                 group.filter { it.id != keep.id }.forEach { duplicate ->
-                        host.db.aiProfileDao().deleteById(duplicate.id)
+                        idsToDelete.add(duplicate.id)
                         deletedIds.add(duplicate.id)
                         changedCount++
                         if (activeProfileId == duplicate.id) {
                                 activeProfileId = keep.id
                         }
+                }
+        }
+
+        if (idsToDelete.isNotEmpty()) {
+                idsToDelete.chunked(900).forEach { chunk ->
+                        host.db.aiProfileDao().deleteByIds(chunk)
                 }
         }
 
