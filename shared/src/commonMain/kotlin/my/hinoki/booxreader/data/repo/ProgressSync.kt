@@ -134,6 +134,10 @@ internal class ProgressSync(private val host: UserSyncRepository) {
                                         "pushProgress - Progress created for $bookId"
                                 )
                         }
+
+                        // ⚡ Bolt Performance: Cache the progress locally after a successful push
+                        // so we can skip redundant pushes later in pushAllLocalProgress
+                        cacheProgress(bookId, locatorJson)
                 } catch (e: Exception) {
                         host.logger.e("UserSyncRepository", "pushProgress failed for $bookId", e)
                 }
@@ -214,6 +218,14 @@ internal class ProgressSync(private val host: UserSyncRepository) {
                         val pushedCount = coroutineScope {
                                 val results = books.mapNotNull { book ->
                                         val locatorJson = book.lastLocatorJson ?: return@mapNotNull null
+
+                                        // ⚡ Bolt Performance: Skip pushing if the exact same progress is already cached
+                                        // (which means it was recently pulled or successfully pushed, and hasn't changed locally)
+                                        val cachedLocator = getCachedProgress(book.bookId)
+                                        if (cachedLocator == locatorJson) {
+                                            return@mapNotNull null
+                                        }
+
                                         async {
                                                 try {
                                                         pushProgress(

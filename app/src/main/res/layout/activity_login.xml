@@ -180,6 +180,7 @@
                     android:layout_weight="1"
                     android:buttonTint="@color/primary"
                     android:text="@string/login_remember_me"
+                    android:contentDescription="@string/login_remember_me_desc"
                     android:textColor="@color/text_secondary"
                     android:textSize="13sp" />
 
