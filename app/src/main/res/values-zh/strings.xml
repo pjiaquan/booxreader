@@ -391,4 +391,7 @@
     <string name="sync_storage_test_failed">存储空间自我测试失败</string>
     <string name="sync_storage_test_passed">存储空间自我测试通过</string>
     <string name="sync_storage_test_start">正在执行存储空间自我测试…</string>
+
+    <string name="magic_tag_explainer_title">什么是魔法标签？</string>
+    <string name="magic_tag_explainer_desc">魔法标签会根据 AI 分析自动为您的阅读笔记和划线重点进行分类。</string>
 </resources>

@@ -391,4 +391,7 @@
     <string name="sync_storage_test_failed">儲存空間自我測試失敗</string>
     <string name="sync_storage_test_passed">儲存空間自我測試通過</string>
     <string name="sync_storage_test_start">正在執行儲存空間自我測試…</string>
+
+    <string name="magic_tag_explainer_title">什麼是魔法標籤？</string>
+    <string name="magic_tag_explainer_desc">魔法標籤會根據 AI 分析自動為您的閱讀筆記和劃線重點進行分類。</string>
 </resources>

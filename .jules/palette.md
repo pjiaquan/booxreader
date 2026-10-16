@@ -53,3 +53,7 @@
 **Learning:** Providing a verbose `contentDescription` for `CheckBox` elements with concise labels improves screen reader accessibility by providing expanded context.
 **Action:** Add descriptive `contentDescription` to `CheckBox` elements that have short text labels.
 
+## 2024-11-20 - Missing Translations Cause Lint Failures
+**Learning:** Found that extracting hardcoded strings to `strings.xml` without providing translations for all supported locales (e.g., `values-zh/strings.xml`) causes `lintDebug` to fail with a `MissingTranslation` error.
+**Action:** When extracting or adding new string resources, always check for localized `strings.xml` files and provide corresponding translations, or add `tools:ignore="MissingTranslation"` if it's intentionally English-only, to ensure CI and lint checks pass.
+
