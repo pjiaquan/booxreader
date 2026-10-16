@@ -136,6 +136,7 @@
     <string name="login_resend_prompt">Please enter email and password to resend verification</string>
     <string name="login_success">Login Successful</string>
     <string name="login_remember_me">Remember Me</string>
+    <string name="login_remember_me_desc">Remember me for future logins</string>
     <string name="login_forgot_email">Forgot Email?</string>
     <string name="forgot_email_dialog_title">Forgot Email</string>
     <string name="forgot_email_dialog_message">If you forgot your registered email address, please enter your display name or email to receive account recovery instructions.</string>
