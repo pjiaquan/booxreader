@@ -768,6 +768,8 @@
 
             <EditText
                 android:id="@+id/etDailySummaryEmailTo"
+                android:imeOptions="actionDone"
+                android:maxLines="1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:autofillHints="emailAddress"
@@ -897,6 +899,8 @@
 
             <EditText
                 android:id="@+id/etCustomExportUrl"
+                android:imeOptions="actionDone"
+                android:maxLines="1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_input_underline"
