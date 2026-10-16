@@ -33,3 +33,8 @@
 ## 2023-10-15 - Batch Deletions in Room to avoid O(N) transactions
 **Learning:** Sequential single-entity deletions in Room (`deleteById`) inside loops cause significant O(N) transaction overhead and I/O churn during sync processes.
 **Action:** Always accumulate IDs and execute batch deletes using `@Query("DELETE FROM table WHERE id IN (:ids)")` and chunk the list using `.chunked(900)` to bypass SQLite variable limits.
+
+## 2025-03-08 - Skip redundant progress sync requests
+**Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
+**Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
+
