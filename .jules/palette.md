@@ -46,10 +46,14 @@
 **Learning:** Purely decorative placeholder icons (such as the placeholder book cover in `item_recent_book.xml`) placed next to descriptive text should use `android:importantForAccessibility="no"` instead of `android:contentDescription` to prevent screen readers from reading redundant placeholder names. However, icons that represent dynamic state or selection (such as checkmarks in `dialog_reader_settings.xml`) must keep their `contentDescription` (e.g. `@string/reader_settings_lang_selected`) so screen reader users are informed of the current selection.
 **Action:** Set `android:importantForAccessibility="no"` on purely decorative visual placeholders, but maintain descriptive `android:contentDescription` on icons indicating selection or toggle state.
 ## 2024-05-18 - Single-line API Key input UX
+**Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard. However, some fields like `etAssistantRole` inherently require multi-line input despite having `imeOptions="actionNext"`. Applying `maxLines="1"` strictly to everything with `actionNext` might degrade UX for multi-line fields.
+**Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on inputs that are strictly single-line to provide a correct soft-keyboard dismissal button and prevent multiline behavior. However, evaluate the semantic meaning of the field (like a system prompt) before blindly restricting lines, and consider adding `inputType="textMultiLine"` and `minLines` if appropriate instead.
 
-**Learning:** Single-line Android text inputs (such as API keys or search bars) within dialogs or forms often lack proper keyboard action definitions, allowing unwanted multiline inputs (carriage returns) via the soft keyboard.
-**Action:** Always verify `android:maxLines="1"` and `android:imeOptions="actionDone"` (or another appropriate action like `actionNext`) are explicitly set on such inputs to provide a correct soft-keyboard dismissal button and prevent multiline behavior.
+## 2026-10-04 - CheckBox contentDescription
+**Learning:** Providing a verbose `contentDescription` for `CheckBox` elements with concise labels improves screen reader accessibility by providing expanded context.
+**Action:** Add descriptive `contentDescription` to `CheckBox` elements that have short text labels.
 
 ## 2024-11-20 - Missing Translations Cause Lint Failures
 **Learning:** Found that extracting hardcoded strings to `strings.xml` without providing translations for all supported locales (e.g., `values-zh/strings.xml`) causes `lintDebug` to fail with a `MissingTranslation` error.
 **Action:** When extracting or adding new string resources, always check for localized `strings.xml` files and provide corresponding translations, or add `tools:ignore="MissingTranslation"` if it's intentionally English-only, to ensure CI and lint checks pass.
+

@@ -107,6 +107,7 @@
     <string name="login_resend_prompt">请输入账号密码以重寄验证信</string>
     <string name="login_success">登录成功</string>
     <string name="login_remember_me">记住我</string>
+    <string name="login_remember_me_desc">下次自动登录</string>
     <string name="login_forgot_email">忘记 Email？</string>
     <string name="forgot_email_dialog_title">忘记 Email</string>
     <string name="forgot_email_dialog_message">如果您忘记了注册的 Email 地址，请输入您的显示名称或 Email 以发送账号找回说明。</string>
@@ -391,6 +392,6 @@
     <string name="sync_storage_test_passed">存储空间自我测试通过</string>
     <string name="sync_storage_test_start">正在执行存储空间自我测试…</string>
 
-    <string name="magic_tag_explainer_title">什麼是魔法標籤？</string>
-    <string name="magic_tag_explainer_desc">魔法標籤會根據 AI 分析自動為您的閱讀筆記和劃線重點進行分類。</string>
+    <string name="magic_tag_explainer_title">什么是魔法标签？</string>
+    <string name="magic_tag_explainer_desc">魔法标签会根据 AI 分析自动为您的阅读笔记和划线重点进行分类。</string>
 </resources>
