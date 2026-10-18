@@ -57,3 +57,6 @@
 **Learning:** Found that extracting hardcoded strings to `strings.xml` without providing translations for all supported locales (e.g., `values-zh/strings.xml`) causes `lintDebug` to fail with a `MissingTranslation` error.
 **Action:** When extracting or adding new string resources, always check for localized `strings.xml` files and provide corresponding translations, or add `tools:ignore="MissingTranslation"` if it's intentionally English-only, to ensure CI and lint checks pass.
 
+## 2024-10-18 - Checkbox contentDescription Anti-pattern
+**Learning:** Adding `android:contentDescription` to a CheckBox that already has `android:text` is an accessibility anti-pattern. TalkBack reads the text attribute automatically, and contentDescription overrides it.
+**Action:** Ensure the text label itself is descriptive enough and do not use contentDescription for text-bearing CheckBoxes.
