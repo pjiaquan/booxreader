@@ -37,10 +37,10 @@ internal object ReaderLinkRouter {
     /**
      * 允許交給系統開啟的 scheme。
      *
-     * `http`/`https` 開瀏覽器，`mailto`/`tel` 開郵件或電話 App —— 這四種都不會執行內容。
-     * 其餘（`javascript`、`data`、`file`、`content`、`intent` …）一律封鎖。
+     * 根據安全性要求，為了避免 Intent Scheme Hijacking，只允許 `http`/`https`。
+     * 其餘（`mailto`、`tel`、`javascript`、`data`、`file`、`content`、`intent` …）一律封鎖。
      */
-    val ALLOWED_EXTERNAL_SCHEMES = setOf("http", "https", "mailto", "tel")
+    val ALLOWED_EXTERNAL_SCHEMES = setOf("http", "https")
 
     /**
      * 形如 `scheme:` 的開頭（沒有 `//`）。用來把 `mailto:`、`tel:`、`javascript:` 這類

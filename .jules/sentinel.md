@@ -37,3 +37,7 @@
 **Vulnerability:** Found multiple instances where untrusted URLs (from EPUB content or AI Note links) were parsed and passed directly to `Intent.ACTION_VIEW`. If an attacker crafts a link with an arbitrary scheme (e.g., `file://`, `content://`, or an internal app scheme), it could be executed leading to arbitrary intent invocation, sensitive file access, or internal component exposure.
 **Learning:** Implicit intents like `Intent.ACTION_VIEW` are dangerous when handling raw user/external input. An attacker can hijack the scheme to bypass security controls or execute unintended app components.
 **Prevention:** Always validate and allowlist URI schemes (e.g., ensuring `scheme == "http" || scheme == "https"`) before launching external intents from untrusted inputs.
+## 2024-06-25 - [Intent Scheme Hijacking Prevention]
+**Vulnerability:** Allowed 'mailto' and 'tel' schemes could be used in Intent.ACTION_VIEW in ReaderLinkRouter.kt.
+**Learning:** Implicit intents like Intent.ACTION_VIEW are dangerous when handling raw user/external input. An attacker can hijack the scheme to bypass security controls or execute unintended app components. Only allowlisting 'http' and 'https' is safe.
+**Prevention:** Always restrict implicit intent scheme lists to 'http' and 'https' when opening external links from untrusted sources.

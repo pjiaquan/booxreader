@@ -33,8 +33,7 @@ class ReaderLinkRouterTest {
 
     @Test
     fun dangerousSchemesAreBlocked() {
-        // mailto / tel 已改為允許（見 mailAndPhoneSchemesAreAllowedButScriptSchemesAreNot）
-        listOf("javascript", "intent", "file", "content", "data", null)
+        listOf("mailto", "tel", "javascript", "intent", "file", "content", "data", null)
                 .forEach { scheme ->
                     assertFalse("scheme=$scheme should be blocked", ReaderLinkRouter.isAllowedExternalScheme(scheme))
                 }
@@ -53,9 +52,9 @@ class ReaderLinkRouterTest {
     }
 
     @Test
-    fun mailAndPhoneSchemesAreAllowedButScriptSchemesAreNot() {
-        assertTrue(ReaderLinkRouter.isAllowedExternalScheme("mailto"))
-        assertTrue(ReaderLinkRouter.isAllowedExternalScheme("tel"))
+    fun mailAndPhoneSchemesAreBlockedAlongWithScriptSchemes() {
+        assertFalse(ReaderLinkRouter.isAllowedExternalScheme("mailto"))
+        assertFalse(ReaderLinkRouter.isAllowedExternalScheme("tel"))
         assertFalse(ReaderLinkRouter.isAllowedExternalScheme("javascript"))
         assertFalse(ReaderLinkRouter.isAllowedExternalScheme("data"))
     }
