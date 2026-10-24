@@ -38,3 +38,7 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+
+## 2026-10-24 - Room REPLACE Overhead
+**Learning:** Using @Insert(onConflict = OnConflictStrategy.REPLACE) for updates causes unnecessary DELETE+INSERT overhead and index churn.
+**Action:** Separate entities into toInsert and toUpdate lists and use @Update updateBatch() for existing entities.
