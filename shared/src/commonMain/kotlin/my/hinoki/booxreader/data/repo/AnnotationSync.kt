@@ -59,6 +59,7 @@ internal class AnnotationSync(private val host: UserSyncRepository) {
                     }
 
                     val toInsert = mutableListOf<AnnotationEntity>()
+                    val toUpdate = mutableListOf<AnnotationEntity>()
                     for (item in items) {
                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                         val remoteBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -96,22 +97,32 @@ internal class AnnotationSync(private val host: UserSyncRepository) {
                                         isSynced = true
                                 )
 
-                        if (existing == null || entity.updatedAt > existing.updatedAt) {
+                        if (existing == null) {
                             toInsert.add(entity)
+                        } else if (entity.updatedAt > existing.updatedAt) {
+                            toUpdate.add(entity)
                         }
                     }
 
-                    if (toInsert.isNotEmpty()) {
+                    if (toInsert.isNotEmpty() || toUpdate.isNotEmpty()) {
                         host.db.withTransactionCompat {
-                            host.db.annotationDao().insertBatch(toInsert)
+                            // ⚡ Bolt Performance: Room automatically iterates list parameters for @Insert/@Update batch operations.
+                            // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
+                            // ⚡ Bolt Performance: Separate @Insert and @Update batches avoid SQLite DELETE+INSERT churn from OnConflictStrategy.REPLACE
+                            if (toInsert.isNotEmpty()) {
+                                host.db.annotationDao().insertBatch(toInsert)
+                            }
+                            if (toUpdate.isNotEmpty()) {
+                                host.db.annotationDao().updateBatch(toUpdate)
+                            }
                         }
                     }
 
                     host.logger.d(
                             "UserSyncRepository",
-                            "pullAnnotations - merged ${toInsert.size} of ${items.size} records"
+                            "pullAnnotations - merged ${toInsert.size + toUpdate.size} of ${items.size} records"
                     )
-                    toInsert.size
+                    toInsert.size + toUpdate.size
                 } catch (e: Exception) {
                     host.logger.e("UserSyncRepository", "pullAnnotations failed", e)
                     0
