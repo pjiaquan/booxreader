@@ -22,6 +22,9 @@ interface BookDao {
     @Update
     suspend fun update(book: BookEntity)
 
+    @Update
+    suspend fun updateBatch(books: List<BookEntity>)
+
     @Query("UPDATE books SET lastLocatorJson = :locatorJson, lastOpenedAt = :time WHERE bookId = :bookId")
     suspend fun updateProgress(bookId: String, locatorJson: String, time: Long)
 
