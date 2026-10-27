@@ -59,6 +59,7 @@ internal class AnnotationSync(private val host: UserSyncRepository) {
                     }
 
                     val toInsert = mutableListOf<AnnotationEntity>()
+                    val toUpdate = mutableListOf<AnnotationEntity>()
                     for (item in items) {
                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                         val remoteBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -96,22 +97,32 @@ internal class AnnotationSync(private val host: UserSyncRepository) {
                                         isSynced = true
                                 )
 
-                        if (existing == null || entity.updatedAt > existing.updatedAt) {
+                        if (existing == null) {
+                            // ⚡ Bolt: Use dedicated batch INSERT to prevent SQLite REPLACE index churn
                             toInsert.add(entity)
+                        } else if (entity.updatedAt > existing.updatedAt) {
+                            // ⚡ Bolt: Use dedicated batch UPDATE for existing entities
+                            toUpdate.add(entity)
                         }
                     }
 
-                    if (toInsert.isNotEmpty()) {
+                    if (toInsert.isNotEmpty() || toUpdate.isNotEmpty()) {
                         host.db.withTransactionCompat {
-                            host.db.annotationDao().insertBatch(toInsert)
+                            if (toInsert.isNotEmpty()) {
+                                host.db.annotationDao().insertBatch(toInsert)
+                            }
+                            if (toUpdate.isNotEmpty()) {
+                                host.db.annotationDao().updateBatch(toUpdate)
+                            }
                         }
                     }
 
+                    val totalMerged = toInsert.size + toUpdate.size
                     host.logger.d(
                             "UserSyncRepository",
-                            "pullAnnotations - merged ${toInsert.size} of ${items.size} records"
+                            "pullAnnotations - merged $totalMerged of ${items.size} records"
                     )
-                    toInsert.size
+                    totalMerged
                 } catch (e: Exception) {
                     host.logger.e("UserSyncRepository", "pullAnnotations failed", e)
                     0
