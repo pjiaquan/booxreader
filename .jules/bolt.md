@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-10-28 - Avoid Blind REPLACE in Sync
+**Learning:** Relying purely on OnConflictStrategy.REPLACE for syncing entities generates unnecessary DELETE+INSERT O(N) operations and SQLite index churn.
+**Action:** Use separate toInsert/toUpdate lists, assign existing IDs for toUpdate, and invoke distinct batch @Insert and @Update operations to improve performance.
