@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-10-30 - [Optimize sync loops using explicit updateBatch]
+**Learning:** Blindly inserting entities in sync loops utilizing Room's 'OnConflictStrategy.REPLACE' triggers DELETE followed by INSERT ops causing heavy SQLite indexing churn.
+**Action:** When refactoring sync loops, always categorize modified entities into dedicated 'toInsert' and 'toUpdate' lists and use '@Insert' and '@Update' respectively.

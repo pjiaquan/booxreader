@@ -53,6 +53,7 @@ internal class BookmarkSync(private val host: UserSyncRepository) {
                         }
 
                         val bookmarksToInsert = mutableListOf<BookmarkEntity>()
+                        val bookmarksToUpdate = mutableListOf<BookmarkEntity>()
 
                         for (item in items) {
                                 val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -82,17 +83,21 @@ internal class BookmarkSync(private val host: UserSyncRepository) {
                                         )
 
 
-                                if (existing == null || bookmark.updatedAt > existing.updatedAt) {
+                                if (existing == null) {
                                         bookmarksToInsert.add(bookmark)
+                                        syncedCount++
+                                } else if (bookmark.updatedAt > existing.updatedAt) {
+                                        bookmarksToUpdate.add(bookmark.copy(id = existing.id))
                                         syncedCount++
                                 }
                         }
 
-                        if (bookmarksToInsert.isNotEmpty()) {
+                        if (bookmarksToInsert.isNotEmpty() || bookmarksToUpdate.isNotEmpty()) {
                                 host.db.withTransactionCompat {
                                         // ⚡ Bolt Performance: Room automatically iterates list parameters for @Insert batch operations.
                                         // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
-                                        host.db.bookmarkDao().insertBatch(bookmarksToInsert)
+                                        if (bookmarksToInsert.isNotEmpty()) host.db.bookmarkDao().insertBatch(bookmarksToInsert)
+                                        if (bookmarksToUpdate.isNotEmpty()) host.db.bookmarkDao().updateBatch(bookmarksToUpdate)
                                 }
                         }
 
