@@ -399,6 +399,7 @@ internal class BookSync(private val host: UserSyncRepository) {
                         }
 
                         val booksToInsert = mutableListOf<BookEntity>()
+                        val booksToUpdate = mutableListOf<BookEntity>()
 
                         for (item in items) {
                                 val bookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -478,18 +479,23 @@ internal class BookSync(private val host: UserSyncRepository) {
                                                                                         .fileUri
                                                                         }
                                                         )
-                                                booksToInsert.add(updatedBook)
+                                                booksToUpdate.add(updatedBook)
                                                 cachedBooks[bookId] = updatedBook
                                                 syncedCount++
                                         }
                                 }
                         }
 
-                        if (booksToInsert.isNotEmpty()) {
+                        if (booksToInsert.isNotEmpty() || booksToUpdate.isNotEmpty()) {
                                 host.db.withTransactionCompat {
-                                        // ⚡ Bolt Performance: Room automatically iterates list parameters for @Insert batch operations.
-                                        // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
-                                        host.db.bookDao().insertBatch(booksToInsert)
+                                        if (booksToInsert.isNotEmpty()) {
+                                                // ⚡ Bolt Performance: Room automatically iterates list parameters for @Insert batch operations.
+                                                // Skipping .chunked() avoids unnecessary collection allocations and keeps it in a single statement.
+                                                host.db.bookDao().insertBatch(booksToInsert)
+                                        }
+                                        if (booksToUpdate.isNotEmpty()) {
+                                                host.db.bookDao().updateBatch(booksToUpdate)
+                                        }
                                 }
                         }
 

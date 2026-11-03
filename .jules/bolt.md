@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2024-05-18 - Avoid SQLite Index Churn during Data Sync
+**Learning:** Relying on `OnConflictStrategy.REPLACE` in batch insert operations causes unnecessary index churn and disk I/O when processing updates, because Room handles REPLACE as a DELETE followed by an INSERT under the hood.
+**Action:** Always pre-fetch existing entities, compare timestamps, and explicitly split changes into separate `insertBatch` and `updateBatch` operations.
