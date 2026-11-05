@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-09-08 - Use explicit updateBatch for sync updates
+**Learning:** Relying on `insertBatch` with `OnConflictStrategy.REPLACE` for both new and updated records causes unnecessary index churn in SQLite (as it executes DELETE then INSERT under the hood).
+**Action:** Always separate new items from updated items into two distinct lists (e.g. `toInsert`, `toUpdate`) and use dedicated `@Insert` and `@Update` DAO methods within a transaction to maintain performance.
