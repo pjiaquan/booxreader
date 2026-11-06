@@ -60,3 +60,6 @@
 ## 2024-10-18 - Checkbox contentDescription Anti-pattern
 **Learning:** Adding `android:contentDescription` to a CheckBox that already has `android:text` is an accessibility anti-pattern. TalkBack reads the text attribute automatically, and contentDescription overrides it.
 **Action:** Ensure the text label itself is descriptive enough and do not use contentDescription for text-bearing CheckBoxes.
+## 2024-05-18 - Improve accessibility of custom labels for inputs
+**Learning:** When using a separate `TextView` as a visual label above a `TextInputLayout` (especially when the `TextInputLayout`'s hint is disabled), screen readers do not automatically associate the label with the input field.
+**Action:** Always add the `android:labelFor="@+id/target_input_id"` attribute to the `TextView` acting as a label to ensure proper screen reader association.
