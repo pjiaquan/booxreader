@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-11-06 - Batch Updating Without Blind REPLACE
+**Learning:** Using OnConflictStrategy.REPLACE to perform updates causes a hidden DELETE and INSERT operation in SQLite, introducing significant index rebuild overhead. Switching to @Update prevents this churn.
+**Action:** Split modified records into a separate update list (when the existing primary key is known) and use @Update batch methods instead of blindly relying on @Insert(onConflict = REPLACE) for both inserts and updates.
