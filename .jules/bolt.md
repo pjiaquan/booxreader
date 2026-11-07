@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-09-12 - Explicit UPDATE avoids REPLACE overhead in Room syncs
+**Learning:** Even when avoiding blind replace by checking entity timestamps, using `@Insert(onConflict = OnConflictStrategy.REPLACE)` for existing entities still deletes the row and inserts a new one, causing index churn and firing DELETE/INSERT triggers.
+**Action:** Always split modified entities into a `toUpdate` list and use a dedicated `@Update suspend fun updateBatch(entities: List<Entity>)` method instead of passing them to `insertBatch`.
