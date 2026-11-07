@@ -15,6 +15,9 @@ interface BookmarkDao {
     suspend fun insertBatch(entities: List<BookmarkEntity>)
 
     @androidx.room.Update
+    suspend fun updateBatch(entities: List<BookmarkEntity>)
+
+    @androidx.room.Update
     suspend fun update(entity: BookmarkEntity)
 
     @Delete
