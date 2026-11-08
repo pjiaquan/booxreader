@@ -59,6 +59,7 @@ internal class AnnotationSync(private val host: UserSyncRepository) {
                     }
 
                     val toInsert = mutableListOf<AnnotationEntity>()
+                    val toUpdate = mutableListOf<AnnotationEntity>()
                     for (item in items) {
                         val remoteId = item["id"]?.jsonPrimitive?.contentOrNull ?: continue
                         val remoteBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
