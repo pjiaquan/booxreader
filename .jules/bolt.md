@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-11-20 - Separate Inserts and Updates to Avoid SQLite REPLACE Churn
+**Learning:** Using `OnConflictStrategy.REPLACE` for updates in Room actually executes a `DELETE` followed by an `INSERT` under the hood. When syncing data (like Annotations), relying on a single `insertBatch` for both new and updated records causes unnecessary SQLite index rebuilding and churn.
+**Action:** When writing sync logic, explicitly separate incoming entities into `toInsert` and `toUpdate` lists. Add an `@Update fun updateBatch()` to the DAO and execute standard `UPDATE` statements for existing records to improve performance and avoid foreign-key cascade side-effects.
