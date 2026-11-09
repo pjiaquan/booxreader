@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-11-09 - Optimize Room sync with batch updates to reduce index churn
+**Learning:** Blindly inserting entities during sync loops using OnConflictStrategy.REPLACE causes unnecessary index churn when the record already exists, even if we chunk the list.
+**Action:** Add updateBatch DAO methods and split lists into toInsert and toUpdate during sync pre-processing before invoking the Room batch transaction.
