@@ -37,8 +37,10 @@
 ## 2025-03-08 - Skip redundant progress sync requests
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
-
-
 ## 2024-05-19 - Separate Insert and Update for Room Batch Operations
 **Learning:** Using `OnConflictStrategy.REPLACE` inside batch `insert()` for both new and existing items causes SQLite to perform a DELETE followed by an INSERT for existing items, leading to excessive disk I/O and index churn.
 **Action:** Separate modified entities into `toInsert` and `toUpdate` lists, and use dedicated `@Insert` and `@Update` batch DAO methods to optimize sync performance.
+
+## 2026-11-10 - Fix Delta-Sync Timestamp Parsing
+**Learning:** Timestamp parsing stubs returning current time will break delta-sync validations (like `updatedAt > existing.updatedAt`) as the new item's timestamp is always evaluated as newer, causing unnecessary DB rewrites.
+**Action:** Always parse proper remote timestamps for sync delta evaluations.
