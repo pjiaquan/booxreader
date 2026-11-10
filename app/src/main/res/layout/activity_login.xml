@@ -92,6 +92,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:labelFor="@+id/etEmail"
                 android:text="@string/email_label"
                 android:textAllCaps="true"
                 android:letterSpacing="0.12"
@@ -130,6 +131,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:labelFor="@+id/etPassword"
                 android:text="@string/password_label"
                 android:textAllCaps="true"
                 android:letterSpacing="0.12"
