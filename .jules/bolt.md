@@ -38,3 +38,6 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+## 2026-11-10 - Fix Delta-Sync Timestamp Parsing
+**Learning:** Timestamp parsing stubs returning current time will break delta-sync validations (like `updatedAt > existing.updatedAt`) as the new item's timestamp is always evaluated as newer, causing unnecessary DB rewrites.
+**Action:** Always parse proper remote timestamps for sync delta evaluations.
