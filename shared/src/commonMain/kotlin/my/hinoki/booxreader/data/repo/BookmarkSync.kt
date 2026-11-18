@@ -60,10 +60,10 @@ internal class BookmarkSync(private val host: UserSyncRepository) {
                                 val bookmarkBookId = item["bookId"]?.jsonPrimitive?.contentOrNull ?: continue
                                 val locatorJson = item["locatorJson"]?.jsonPrimitive?.contentOrNull ?: continue
                                 val createdAt =
-                                        (item["createdAt"]?.jsonPrimitive?.contentOrNull)?.let {
-                                                // Parse PocketBase timestamp if needed
-                                                currentEpochMillis()
-                                        }
+                                        longValue(item["createdAt"]).takeIf { it > 0L }
+                                                ?: currentEpochMillis()
+                                val updatedAt =
+                                        longValue(item["updatedAt"]).takeIf { it > 0L }
                                                 ?: currentEpochMillis()
 
                                 val existing = cachedBookmarks[remoteId]
@@ -79,6 +79,7 @@ internal class BookmarkSync(private val host: UserSyncRepository) {
                                                 bookId = bookmarkBookId,
                                                 locatorJson = locatorJson,
                                                 createdAt = createdAt,
+                                                updatedAt = updatedAt,
                                                 isSynced = true
                                         )
 
