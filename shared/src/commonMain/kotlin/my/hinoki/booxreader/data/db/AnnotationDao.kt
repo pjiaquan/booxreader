@@ -18,6 +18,9 @@ interface AnnotationDao {
     suspend fun insertBatch(entities: List<AnnotationEntity>)
 
     @Update
+    suspend fun updateBatch(entities: List<AnnotationEntity>)
+
+    @Update
     suspend fun update(entity: AnnotationEntity)
 
     @Delete

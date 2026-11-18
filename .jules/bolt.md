@@ -38,3 +38,7 @@
 **Learning:** `pushAllLocalProgress()` blindly fired API calls for every local book with a saved position, even if the position hadn't changed since the last push/pull, causing massive network/backend overhead on app startup.
 **Action:** Always cache the successfully pushed state (`locatorJson`) locally and perform an early-exit check (`if (cachedLocator == locatorJson) return`) before initiating sync API requests for identical data.
 
+
+## 2024-05-19 - Separate Insert and Update for Room Batch Operations
+**Learning:** Using `OnConflictStrategy.REPLACE` inside batch `insert()` for both new and existing items causes SQLite to perform a DELETE followed by an INSERT for existing items, leading to excessive disk I/O and index churn.
+**Action:** Separate modified entities into `toInsert` and `toUpdate` lists, and use dedicated `@Insert` and `@Update` batch DAO methods to optimize sync performance.
